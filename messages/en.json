@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "Küa",
+    "tagline": "Management platform for salons and barbershops"
+  },
+  "home": {
+    "title": "Welcome",
+    "subtitle": "Phase 0 — initial bootstrap.",
+    "phaseStatus": "Phase 0 — Bootstrap"
+  },
+  "nav": {
+    "appointments": "Appointments",
+    "clients": "Clients",
+    "services": "Services",
+    "barbers": "Barbers",
+    "products": "Products",
+    "support": "Support",
+    "settings": "Settings",
+    "marketing": "Marketing",
+    "finances": "Finances",
+    "logout": "Logout"
+  }
+}

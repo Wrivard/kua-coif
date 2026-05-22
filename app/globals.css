@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+ * DESIGN TOKENS (single source of truth — rebrand by editing this block)
+ * Dark theme only in V1. To rebrand for another salon, change --accent vars.
+ * ========================================================================= */
+:root {
+  /* Surfaces */
+  --bg-base: #1b1b1b; /* global background */
+  --bg-surface: #222222; /* cards, table rows */
+  --bg-surface-2: #2a2a2a; /* hover state, inputs */
+  --bg-elevated: #2f2f2f; /* dropdowns, modals */
+  --border: #383838; /* dividers, outlines */
+
+  /* Text */
+  --text-primary: #f5f5f5;
+  --text-secondary: #a0a0a0;
+  --text-muted: #6b6b6b;
+
+  /* Accent (Küa purple) — ONE place to change for rebrand */
+  --accent: #8b5cf6;
+  --accent-hover: #7c4ddb;
+  --accent-fg: #ffffff; /* text/icon color on accent fill */
+  --accent-subtle: rgba(139, 92, 246, 0.15);
+
+  /* Status */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+
+  /* Calendar (appointment blocks) */
+  --appt-green: #1e3a32;
+  --appt-purple: #2e2348;
+  --appt-blue: #1e2a3a;
+
+  /* Layout */
+  --sidebar-w: 64px;
+  --sidebar-w-open: 220px;
+  --header-h: 72px;
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  /* Force dark color-scheme so native UI (scrollbars, form controls) matches */
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family:
+    'Geist',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbars — discrete, themed */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
