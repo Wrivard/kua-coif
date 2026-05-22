@@ -3,11 +3,6 @@
     "name": "Küa",
     "tagline": "Management platform for salons and barbershops"
   },
-  "home": {
-    "title": "Welcome",
-    "subtitle": "Phase 0 — initial bootstrap.",
-    "phaseStatus": "Phase 0 — Bootstrap"
-  },
   "nav": {
     "appointments": "Appointments",
     "clients": "Clients",
@@ -19,5 +14,56 @@
     "marketing": "Marketing",
     "finances": "Finances",
     "logout": "Logout"
+  },
+  "pages": {
+    "appointments": { "title": "Appointments", "soon": "Calendar view — Phase 5." },
+    "clients": { "title": "Clients", "soon": "A–Z list, dedup, export — Phase 4." },
+    "services": { "title": "Services", "soon": "Services and pricing grid — Phase 4." },
+    "barbers": { "title": "Barbers", "soon": "Team, invites, statuses — Phase 4." },
+    "products": { "title": "Products", "soon": "Inventory, brands, categories — Phase 4." },
+    "support": { "title": "Support", "soon": "Help center — Phase 9." },
+    "marketing": { "title": "Marketing", "soon": "Campaigns, promos — Phase 8." },
+    "finances": { "title": "Finances", "soon": "Reports, revenue, payouts — Phase 7." },
+    "settings": {
+      "title": "Settings",
+      "shop": { "title": "Shop details", "soon": "Identity, hours, options — Phase 6." },
+      "users": { "title": "User Settings", "soon": "Accounts, roles, invites — Phase 6." },
+      "barbers": { "title": "Barber settings", "soon": "Delays, reminders, intervals — Phase 6." },
+      "taxes": { "title": "Taxes", "soon": "GST / QST — Phase 6." },
+      "payments": { "title": "Payment Processing", "soon": "Payment profile and destination account — Phase 7." },
+      "commissions": { "title": "Commission / Tip Splits", "soon": "Per-barber tiers — Phase 7." },
+      "password": { "title": "Change Password", "soon": "Password change — Phase 6." },
+      "discounts": { "title": "Discounts", "soon": "Percent and fixed discounts — Phase 6." },
+      "loyalty": { "title": "Loyalty Program", "soon": "Transaction / Value based — Phase 6." },
+      "waitingList": { "title": "Waiting List", "soon": "Threshold and activation — Phase 6." },
+      "promoCodes": { "title": "Promo Codes", "soon": "Codes, expiry, value — Phase 6." }
+    },
+    "kitchenSink": {
+      "title": "Kitchen Sink",
+      "intro": "Gallery of every component in the design system. Visual reference.",
+      "sections": {
+        "buttons": "Buttons",
+        "badges": "Badges",
+        "inputs": "Inputs",
+        "controls": "Controls",
+        "overlays": "Overlays",
+        "navigation": "Navigation",
+        "data": "Data",
+        "feedback": "Feedback"
+      }
+    }
+  },
+  "common": {
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "add": "Add",
+      "edit": "Edit",
+      "confirm": "Confirm",
+      "search": "Search",
+      "export": "Export",
+      "download": "Download"
+    }
   }
 }

@@ -3,11 +3,6 @@
     "name": "Küa",
     "tagline": "Plateforme de gestion pour salons et barbershops"
   },
-  "home": {
-    "title": "Bienvenue",
-    "subtitle": "Phase 0 — bootstrap initial.",
-    "phaseStatus": "Phase 0 — Bootstrap"
-  },
   "nav": {
     "appointments": "Rendez-vous",
     "clients": "Clients",
@@ -19,5 +14,56 @@
     "marketing": "Marketing",
     "finances": "Finances",
     "logout": "Déconnexion"
+  },
+  "pages": {
+    "appointments": { "title": "Rendez-vous", "soon": "Vue calendrier — Phase 5." },
+    "clients": { "title": "Clients", "soon": "Liste A–Z, dédoublonnage, export — Phase 4." },
+    "services": { "title": "Services", "soon": "Grille des services et tarifs — Phase 4." },
+    "barbers": { "title": "Barbiers", "soon": "Équipe, invitations, statuts — Phase 4." },
+    "products": { "title": "Produits", "soon": "Inventaire, marques, catégories — Phase 4." },
+    "support": { "title": "Support", "soon": "Centre d'aide — Phase 9." },
+    "marketing": { "title": "Marketing", "soon": "Campagnes, promos — Phase 8." },
+    "finances": { "title": "Finances", "soon": "Rapports, revenus, payouts — Phase 7." },
+    "settings": {
+      "title": "Réglages",
+      "shop": { "title": "Détails du salon", "soon": "Identité, horaires, options — Phase 6." },
+      "users": { "title": "Utilisateurs", "soon": "Comptes, rôles, invitations — Phase 6." },
+      "barbers": { "title": "Réglages barbier", "soon": "Délais, rappels, intervalles — Phase 6." },
+      "taxes": { "title": "Taxes", "soon": "TPS / TVQ — Phase 6." },
+      "payments": { "title": "Paiements", "soon": "Profil de paiement et compte destinataire — Phase 7." },
+      "commissions": { "title": "Commissions / Pourboires", "soon": "Paliers par barbier — Phase 7." },
+      "password": { "title": "Mot de passe", "soon": "Changement de mot de passe — Phase 6." },
+      "discounts": { "title": "Rabais", "soon": "Rabais % et fixes — Phase 6." },
+      "loyalty": { "title": "Programme de fidélité", "soon": "Transactions / Valeur — Phase 6." },
+      "waitingList": { "title": "Liste d'attente", "soon": "Seuil et activation — Phase 6." },
+      "promoCodes": { "title": "Codes promo", "soon": "Codes, expiration, valeur — Phase 6." }
+    },
+    "kitchenSink": {
+      "title": "Kitchen Sink",
+      "intro": "Galerie de tous les composants du design system. Sert de référence visuelle.",
+      "sections": {
+        "buttons": "Boutons",
+        "badges": "Pastilles",
+        "inputs": "Champs de saisie",
+        "controls": "Contrôles",
+        "overlays": "Overlays",
+        "navigation": "Navigation",
+        "data": "Données",
+        "feedback": "Feedback"
+      }
+    }
+  },
+  "common": {
+    "actions": {
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "add": "Ajouter",
+      "edit": "Modifier",
+      "confirm": "Confirmer",
+      "search": "Rechercher",
+      "export": "Exporter",
+      "download": "Télécharger"
+    }
   }
 }

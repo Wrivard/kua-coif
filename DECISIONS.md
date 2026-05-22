@@ -19,3 +19,14 @@
 - **Seed `default_language` du shop Axum** : reste `English` par fidélité à la maquette (Image 15) — n'affecte pas la locale par défaut de l'app, qui reste `fr`.
 - **`globals.css`** : tokens couleur dans `:root` exactement comme §2, **aucune valeur d'accent en dur** dans le code (toujours `var(--accent)` ou via une classe utilitaire Tailwind qui résout vers `--accent`).
 - **Tailwind config** : on étend `theme.extend.colors` pour mapper `bg-base`, `bg-surface`, `accent`, etc. → CSS vars, pour que Tailwind ne génère pas de palettes inutiles et que toutes les classes ramènent vers les tokens.
+
+## Phase 1 — Design system
+
+- **Route group `(app)`** : tous les écrans back-office vivent sous `app/[locale]/(app)/...`. Le route group n'apparaît pas dans l'URL (`/fr/clients` = `app/[locale]/(app)/clients/page.tsx`). Permet d'avoir un layout shell unique (sidebar + FAB + ToastProvider) sans polluer la racine.
+- **`/_kitchen-sink` → `/kitchen-sink`** : le spec demandait `/_kitchen-sink` mais en App Router, les dossiers préfixés `_` sont des dossiers privés non routables. Renommé en `/kitchen-sink` (accessible à `/fr/kitchen-sink` et `/en/kitchen-sink`). Vit aussi sous le shell `(app)` pour tester la sidebar en contexte réel.
+- **Composants UI dans `components/ui/`** : un fichier par composant, kebab-case, exports re-exposés via `components/ui/index.ts`. PagePlaceholder est un wrapper helper sous `components/features/shell/` (pas un primitive, donc pas dans `ui/`).
+- **Sidebar** : icon-rail collapsible avec état React local (pas persisté en V1). Toggle via bouton chevron. Item actif marqué par une **barre verticale accent** à gauche + fond `--accent-subtle` + texte `--accent`. Notif badge (dot rouge) sur Finances par défaut, conformément à §4.
+- **Settings index** : `/settings` redirige vers `/settings/shop` (premier item du dropdown Admin, conformément à Image 1 où Shop details est sélectionné par défaut).
+- **Modal** : utilise l'élément HTML natif `<dialog>` avec `showModal()` (focus trap + ESC gratuit). Drawer fait à la main (translate-x). ConfirmDialog est un wrap de Modal.
+- **DataTable V1** : table HTML + tri client-side simple. Migration vers `@tanstack/react-table` en Phase 4 quand les vraies grilles arrivent.
+- **`lucide-react`** : la version `latest` est `1.16.0` — légitimement publiée par `lucide-icons/lucide` (Eric Fennis). C'est un récent major bump, pas un squatter, malgré la rupture avec le schéma `0.x` habituel.
