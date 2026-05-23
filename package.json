@@ -9,7 +9,16 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:start": "npx --yes supabase start",
+    "db:stop": "npx --yes supabase stop --no-backup",
+    "db:reset": "npx --yes supabase db reset",
+    "db:diff": "npx --yes supabase db diff",
+    "db:push": "npx --yes supabase db push",
+    "db:link": "npx --yes supabase link",
+    "db:types:local": "npx --yes supabase gen types typescript --local > db/types.ts",
+    "db:types:remote": "npx --yes supabase gen types typescript --linked > db/types.ts",
+    "db:test": "npx --yes supabase test db"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

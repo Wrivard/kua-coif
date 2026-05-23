@@ -4,8 +4,8 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 1.
-**Statut global** : Phases 0–1 ✅ · Phases 2–9 à faire.
+**Dernière mise à jour** : fin de Phase 2.
+**Statut global** : Phases 0–2 ✅ · Phases 3–9 à faire.
 
 ---
 
