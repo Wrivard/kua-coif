@@ -439,12 +439,57 @@
         }
       },
       "payments": {
-        "title": "Paiements",
-        "soon": "Profil de paiement et compte destinataire — Phase 7."
+        "title": "Traitement des paiements",
+        "profile": {
+          "title": "Profil propriétaire",
+          "verified": "Vérifié",
+          "sin": "Numéro d’assurance sociale",
+          "dob": "Date de naissance",
+          "createdAt": "Date de création",
+          "provided": "Fourni",
+          "notProvided": "Non fourni"
+        },
+        "business": {
+          "title": "Détails de l’entreprise",
+          "editTitle": "Modifier les détails de l’entreprise",
+          "legalName": "Nom légal",
+          "type": "Type d’entreprise",
+          "taxId": "Numéro fiscal (NEQ / Business Number)",
+          "sensitiveHint": "Les valeurs sensibles (NAS, numéro fiscal) sont jamais affichées en clair, seulement leur statut.",
+          "types": {
+            "individual": "Particulier",
+            "company": "Société"
+          }
+        },
+        "destination": {
+          "title": "Compte de destination",
+          "empty": "Aucun compte de destination configuré. L’intégration paiement réel arrivera après le MVP."
+        },
+        "rapidTransfer": {
+          "title": "Tu veux recevoir ton argent plus vite ?",
+          "body": "Activate Rapid Transfer (3 transferts/jour, 2 % de frais). Intégration disponible après le MVP.",
+          "cta": "Activer Rapid Transfer"
+        },
+        "toasts": {
+          "saved": "Détails enregistrés"
+        }
       },
       "commissions": {
         "title": "Commissions / Pourboires",
-        "soon": "Paliers par barbier — Phase 7."
+        "tabs": {
+          "services": "Services",
+          "products": "Produits"
+        },
+        "cumulative": "Commission cumulative",
+        "tier": "Palier {n}",
+        "thresholdPct": "Seuil · %",
+        "columns": {
+          "barber": "Barbier"
+        },
+        "emptyHint": "Ajoute des barbiers depuis l’écran « Barbiers » avant de configurer les paliers.",
+        "toasts": {
+          "saved": "Paliers de commission enregistrés"
+        }
       },
       "password": {
         "title": "Changer le mot de passe",

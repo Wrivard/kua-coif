@@ -142,3 +142,19 @@
 - **Cast `as any` du Supabase builder partout** : on assume cette dette en attendant le codegen `db:types:remote`. Refactor automatique quand la DB live sera branchée.
 - **Patch i18n via script Node temporaire** (`.tmp-patch-i18n.mjs` créé + supprimé dans le même commit) : ajouter ~200 clés via Edit ciblé aurait pris trop de tours. Pattern à réutiliser pour les futures grosses pages.
 - **Build après Phase 6** : 38 routes (les sub-routes settings/* existaient déjà en placeholder, on les a remplacées par les vraies pages). Middleware 104 kB. Tests Vitest : 24 passing. Lint / typecheck / format / build / test : tous verts.
+
+## Phase 7 — Finances
+
+- **`lib/business/commissions.ts`** : moteur pur, 11 tests Vitest. Deux modes :
+  - Non cumulatif : pct du plus haut tier `threshold ≤ revenue`, appliqué au revenue entier.
+  - Cumulatif : chaque tier s'applique sur la portion entre son seuil et le tier suivant.
+  - `normalizeTiers()` filtre les rows tout-à-zéro (= "pas de commission" comme Arsh dans le seed).
+- **`lib/business/tips.ts`** : suggestion 4 options. Flat tiers en dessous de `pct_use_above_amount`, percent tiers au-dessus. `round_up` arrondit au dollar entier (sinon arrondi au centime). 4 tests Vitest.
+- **Toggle "Cumulative" global par scope** : la spec montre un seul toggle au-dessus de la grille (pas par barbier) → on prend la valeur majoritaire actuelle comme init, et au save on l'applique à toutes les rows du scope.
+- **Save batch** : `saveCommissions` upsert toutes les rows en une fois via `onConflict: 'shop_id,barber_id,scope'`. Pas de N requêtes séparées.
+- **Commissions = owner-only** : `minRole: 'owner'` côté `withAction` + RLS policy déjà restrictive en Phase 2. Les barbiers peuvent voir leurs propres tiers via la policy `commission_tiers_select_self`.
+- **Payment Processing UI-only** : V1 affiche profil utilisateur + business details + destination account + Rapid Transfer promo (button désactivé). `updatePaymentProfile` permet d'éditer `legal_name`, `business_type`, `dob`. **Aucune donnée sensible affichée en clair** : SIN/Tax ID montrés comme badge "Provided / Not Provided" (annexe Image 10 + §8).
+- **Audit log sans payload** pour `payment_profiles` : on enregistre l'action mais pas le diff, car le diff pourrait contenir des données sensibles. Le trigger SQL Phase 2 capture le vrai diff côté DB pour les managers.
+- **Stripe Connect différé post-MVP** : la page actuelle prépare l'UI ; l'intégration réelle nécessite un compte Stripe Connect, des webhooks, et le flux KYC. Phase 9+ ou post-launch.
+- **Tips config UI = Phase 6b** : la spec dit "vit dans Shop details" (Image 15). On a déjà acté ça dans DECISIONS Phase 0. Implémentation différée Phase 6b (avec barber settings et user settings) — les valeurs sont dans la table `tips_config`, le moteur `lib/business/tips.ts` est prêt à les consommer.
+- **Build après Phase 7** : 38 routes. Middleware 105 kB. Tests Vitest : **44 passing** (8 taxes + 16 availability + 11 commissions + 4 tips, ×5 vs Phase 5).

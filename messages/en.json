@@ -440,11 +440,56 @@
       },
       "payments": {
         "title": "Payment Processing",
-        "soon": "Payment profile and destination account — Phase 7."
+        "profile": {
+          "title": "Owner profile",
+          "verified": "Verified",
+          "sin": "Social Insurance Number",
+          "dob": "Date of birth",
+          "createdAt": "Created",
+          "provided": "Provided",
+          "notProvided": "Not provided"
+        },
+        "business": {
+          "title": "Business details",
+          "editTitle": "Edit business details",
+          "legalName": "Legal name",
+          "type": "Business type",
+          "taxId": "Tax ID (Business Number)",
+          "sensitiveHint": "Sensitive values (SIN, Tax ID) are never displayed in cleartext — only their status.",
+          "types": {
+            "individual": "Individual",
+            "company": "Company"
+          }
+        },
+        "destination": {
+          "title": "Destination account",
+          "empty": "No destination account configured. Real payment integration will land after MVP."
+        },
+        "rapidTransfer": {
+          "title": "Want your money faster?",
+          "body": "Activate Rapid Transfer (3 transfers/day, 2% fee). Integration available after MVP.",
+          "cta": "Activate Rapid Transfer"
+        },
+        "toasts": {
+          "saved": "Business details saved"
+        }
       },
       "commissions": {
         "title": "Commission / Tip Splits",
-        "soon": "Per-barber tiers — Phase 7."
+        "tabs": {
+          "services": "Services",
+          "products": "Products"
+        },
+        "cumulative": "Cumulative commission",
+        "tier": "Tier {n}",
+        "thresholdPct": "Threshold · %",
+        "columns": {
+          "barber": "Barber"
+        },
+        "emptyHint": "Add barbers from the Barbers screen before configuring tiers.",
+        "toasts": {
+          "saved": "Commission tiers saved"
+        }
       },
       "password": {
         "title": "Change Password",
