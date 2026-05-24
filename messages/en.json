@@ -59,6 +59,21 @@
   "a11y": {
     "close": "Close"
   },
+  "actionErrors": {
+    "UNAUTHENTICATED": "You must be signed in.",
+    "NO_SHOP": "You're not a member of any shop yet.",
+    "FORBIDDEN": "You don't have permission for this action.",
+    "INVALID_INPUT": "The submitted information is invalid.",
+    "NOT_FOUND": "Item not found.",
+    "CONFLICT": "Conflict detected. Reload the page and try again.",
+    "RATE_LIMITED": "Too many attempts. Try again in a few minutes.",
+    "UNEXPECTED": "An unexpected error occurred.",
+    "field": {
+      "NAME_REQUIRED": "Name is required.",
+      "DURATION_MIN": "Duration must be at least 5 minutes.",
+      "DURATION_MAX": "Duration cannot exceed 8 hours."
+    }
+  },
   "errors": {
     "boundary": {
       "title": "Something went wrong",
@@ -74,7 +89,49 @@
   "pages": {
     "appointments": { "title": "Appointments", "soon": "Calendar view — Phase 5." },
     "clients": { "title": "Clients", "soon": "A–Z list, dedup, export — Phase 4." },
-    "services": { "title": "Services", "soon": "Services and pricing grid — Phase 4." },
+    "services": {
+      "title": "Services",
+      "soon": "Services and pricing grid — Phase 4.",
+      "addService": "Add a service",
+      "emptyTitle": "No services yet",
+      "emptyHint": "Create categories first, then add your services.",
+      "columns": {
+        "name": "Service",
+        "duration": "Duration",
+        "price": "Price",
+        "tax": "Taxes",
+        "category": "Category",
+        "status": "Status"
+      },
+      "actions": {
+        "toggleStatus": "Toggle status"
+      },
+      "status": {
+        "enabled": "Active",
+        "disabled": "Inactive"
+      },
+      "confirmDelete": {
+        "title": "Delete this service?",
+        "description": "\"{name}\" will be permanently deleted. This action cannot be undone."
+      },
+      "form": {
+        "addTitle": "New service",
+        "editTitle": "Edit service",
+        "name": "Service name",
+        "category": "Category",
+        "duration": "Duration (minutes)",
+        "price": "Price",
+        "status": "Status",
+        "taxes": "Applicable taxes",
+        "noTaxes": "No taxes configured. Add some in Settings → Taxes first."
+      },
+      "toasts": {
+        "created": "Service created",
+        "updated": "Service updated",
+        "deleted": "\"{name}\" deleted",
+        "statusFlipped": "\"{name}\" status updated"
+      }
+    },
     "barbers": { "title": "Barbers", "soon": "Team, invites, statuses — Phase 4." },
     "products": { "title": "Products", "soon": "Inventory, brands, categories — Phase 4." },
     "support": { "title": "Support", "soon": "Help center — Phase 9." },

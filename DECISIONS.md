@@ -66,3 +66,35 @@
 - **Skip-to-content** dans le layout localisé : visible seulement au focus clavier, ancre `#main` dans `(app)` et `(auth)` layouts.
 - **Sidebar live** : reçoit le `user` du Server Component shell. Affiche profile chip (avatar initiales OU image) + nom + email. Bouton logout = `<form action={signOutAction}>` (Server Action). Pas de JS client pour le logout.
 - **Sentry différé** : installation et configuration en Phase 9 (post-MVP). L'`useEffect` dans `error.tsx` log `console.error` en dev pour l'instant, et hostera `Sentry.captureException(error)` plus tard.
+
+## Phase 3.5 — Production hardening
+
+- **`/api/health`** : route handler `nodejs` dynamic. Ping `supabase.auth.getSession()` (cheap, pas de DB hit). Skippe si pas d'env vars. Retourne 200 ou 503. Pas de PII.
+- **Rate limit in-memory** (`lib/auth/rate-limit.ts`) : signin 5/10min/IP, signup 3/10min/IP. Map fixed-window avec cleanup lazy. **Limitation documentée** : pas multi-instance-safe en serverless cold start. Drop-in vers Upstash/Vercel KV en Phase 9.
+- **`lib/observability.ts`** : façade `captureException`/`captureMessage`/`setUser`. No-op en prod, `console` en dev. Migration vers `@sentry/nextjs` en 4 lignes (4 étapes documentées dans le fichier).
+- **`lib/auth/errors.ts` + `mapSupabaseAuthError()`** : enum stable `AuthErrorCode` ∈ {INVALID_CREDENTIALS, EMAIL_NOT_CONFIRMED, EMAIL_ALREADY_EXISTS, WEAK_PASSWORD, RATE_LIMITED, TOO_MANY_REQUESTS, INVALID_INPUT, UNEXPECTED}. Server Actions retournent désormais `{ errorCode }`, plus jamais `error.message` brut. UI traduit via `auth.errors.{code}` dans next-intl.
+- **GitHub Actions** (`.github/workflows/ci.yml`) : run `typecheck` + `lint` + `format:check` + `next build` sur push/PR vers main. Concurrency cancel-in-progress. Placeholder Supabase env vars pour ne pas casser le build sans secrets.
+- **a11y aria-labels** : passés en i18n (`a11y.close`, `nav.expandSidebar`, `nav.collapseSidebar`). Plus de chaînes EN en dur dans les composants.
+- **`global-error.tsx`** : fallback bilingue auto-détecté via `navigator.language` (fr par défaut). Pas de dépendance à next-intl puisque c'est l'ultime boundary.
+
+## Phase 4a — CRUD foundations + Services
+
+- **Server Action pattern** unique via `withAction()` (`lib/server-actions/with-action.ts`) :
+  1. Auth gate (`getCurrentUser` → `UNAUTHENTICATED`)
+  2. Shop gate (`getShopMemberships` → `NO_SHOP`)
+  3. Role gate (vs `minRole` → `FORBIDDEN`)
+  4. Zod parse input (→ `INVALID_INPUT` + `fieldErrors`)
+  5. Try/catch sur la fonction `run`, `captureException` → `UNEXPECTED`
+- **`Result<T, ActionErrorCode>`** : type uniforme `{ ok: true, data } | { ok: false, errorCode, fieldErrors? }`. Codes traduits côté UI via `actionErrors.{code}`.
+- **`react-hook-form` + `zod`** : pattern `useForm<T>({ resolver: zodResolver(schema), defaultValues })`. Pour les inputs numériques, on déclare le schema avec `z.number()` (pas `z.coerce.number()` qui casse les generics RHF) et on `register('field', { valueAsNumber: true })`.
+- **React Query Provider** dans `(app)/layout.tsx` avec defaults : `staleTime 60s`, `refetchOnWindowFocus: false`, `retry: 1` (queries) / `0` (mutations). Cohérent avec un back-office (pas de polling agressif).
+- **`db/rows.ts`** : types row manuels pour les tables qu'on utilise. **Source de vérité = migrations SQL** ; ce fichier sera remplacé par les types codegen quand `npm run db:types:remote` aura tourné contre une DB live.
+- **`lib/business/taxes.ts`** : module pur (aucune dépendance Supabase/React), testé Vitest (8 tests). Inclut la logique inclusive vs exclusive et l'arrondi cents. Patron pour `lib/business/{commissions,tips,availability,cancellation,loyalty}.ts` à venir.
+- **Vitest** : config minimaliste (jsdom, alias `@/`, scan `*.test.{ts,tsx}`). `npm test` court (1.4s sur le module taxes seul).
+- **Services screen** :
+  - `page.tsx` Server Component : fetch 4 tables en parallèle (services, service_categories, taxes, service_taxes) → passe en prop à `ServicesClient`.
+  - `services-client.tsx` Client Component : `DataTable` réutilisé (PAS encore `@tanstack/react-table` — Phase 4b), actions edit/toggle/delete par ligne, `ConfirmDialog` sur delete.
+  - `service-form-modal.tsx` Client Component : `react-hook-form` + Zod + `Modal`. Taxes en multi-checkbox. `useTransition` pour pending state.
+  - `actions.ts` Server Actions : `createService`, `updateService`, `deleteService`, `toggleServiceStatus`. Tous wrappés `withAction` + `logAuditAction()` + `revalidatePath('/services')`.
+- **Audit log** : `logAuditAction()` failure-safe (catch + observability hook). Toutes les Server Actions mutate appellent ce helper avec `entityId` + `diff`.
+- **Drag-reorder et CSV export** : différés en Phase 4b (pas critique pour l'écran fonctionnel, et chaque feature mérite son commit dédié).

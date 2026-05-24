@@ -59,6 +59,21 @@
   "a11y": {
     "close": "Fermer"
   },
+  "actionErrors": {
+    "UNAUTHENTICATED": "Tu dois être connecté.",
+    "NO_SHOP": "Tu n'es membre d'aucun salon.",
+    "FORBIDDEN": "Tu n'as pas les permissions pour cette action.",
+    "INVALID_INPUT": "Les informations soumises sont invalides.",
+    "NOT_FOUND": "Élément introuvable.",
+    "CONFLICT": "Conflit détecté. Recharge la page et réessaye.",
+    "RATE_LIMITED": "Trop de tentatives. Réessaye dans quelques minutes.",
+    "UNEXPECTED": "Une erreur inattendue est survenue.",
+    "field": {
+      "NAME_REQUIRED": "Le nom est requis.",
+      "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
+      "DURATION_MAX": "La durée ne peut pas dépasser 8 heures."
+    }
+  },
   "errors": {
     "boundary": {
       "title": "Une erreur est survenue",
@@ -74,7 +89,49 @@
   "pages": {
     "appointments": { "title": "Rendez-vous", "soon": "Vue calendrier — Phase 5." },
     "clients": { "title": "Clients", "soon": "Liste A–Z, dédoublonnage, export — Phase 4." },
-    "services": { "title": "Services", "soon": "Grille des services et tarifs — Phase 4." },
+    "services": {
+      "title": "Services",
+      "soon": "Grille des services et tarifs — Phase 4.",
+      "addService": "Ajouter un service",
+      "emptyTitle": "Aucun service",
+      "emptyHint": "Crée d'abord des catégories puis ajoute tes services.",
+      "columns": {
+        "name": "Service",
+        "duration": "Durée",
+        "price": "Prix",
+        "tax": "Taxes",
+        "category": "Catégorie",
+        "status": "Statut"
+      },
+      "actions": {
+        "toggleStatus": "Activer / désactiver"
+      },
+      "status": {
+        "enabled": "Actif",
+        "disabled": "Inactif"
+      },
+      "confirmDelete": {
+        "title": "Supprimer ce service ?",
+        "description": "« {name} » sera supprimé définitivement. Cette action est irréversible."
+      },
+      "form": {
+        "addTitle": "Nouveau service",
+        "editTitle": "Modifier le service",
+        "name": "Nom du service",
+        "category": "Catégorie",
+        "duration": "Durée (minutes)",
+        "price": "Prix",
+        "status": "Statut",
+        "taxes": "Taxes applicables",
+        "noTaxes": "Aucune taxe configurée. Crée-en d'abord dans Réglages → Taxes."
+      },
+      "toasts": {
+        "created": "Service créé",
+        "updated": "Service mis à jour",
+        "deleted": "« {name} » supprimé",
+        "statusFlipped": "Statut de « {name} » mis à jour"
+      }
+    },
     "barbers": { "title": "Barbiers", "soon": "Équipe, invitations, statuts — Phase 4." },
     "products": { "title": "Produits", "soon": "Inventaire, marques, catégories — Phase 4." },
     "support": { "title": "Support", "soon": "Centre d'aide — Phase 9." },
