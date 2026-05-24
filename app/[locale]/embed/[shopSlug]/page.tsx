@@ -11,7 +11,10 @@ import {
 } from '../../book/[shopSlug]/booking-wizard';
 import { WidgetResizeEmitter } from './widget-resize-emitter';
 
-export const dynamic = 'force-dynamic';
+// Embed widget — same caching strategy as `/book/[shopSlug]` (60s ISR). The
+// widget is loaded inside an iframe on third-party sites, so we want it to
+// respond fast and not hammer Supabase on every page load.
+export const revalidate = 60;
 
 type Props = { params: { locale: string; shopSlug: string } };
 

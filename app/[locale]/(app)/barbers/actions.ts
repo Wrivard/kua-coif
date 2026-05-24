@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
+import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import {
   barberSchema,
@@ -54,6 +55,9 @@ export const createBarber = withAction({
       diff: { after: input },
     });
     revalidatePath(BARBERS_PATH);
+    // Confirmed-barber list drives the public booking + embed widget — bust
+    // their caches too so admins see staff changes propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: data.id });
   },
 });
@@ -75,6 +79,9 @@ export const updateBarber = withAction({
       diff: { after: rest },
     });
     revalidatePath(BARBERS_PATH);
+    // Confirmed-barber list drives the public booking + embed widget — bust
+    // their caches too so admins see staff changes propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id });
   },
 });
@@ -97,6 +104,9 @@ export const deleteBarber = withAction({
       diff: { after: { status: 'deleted' } },
     });
     revalidatePath(BARBERS_PATH);
+    // Confirmed-barber list drives the public booking + embed widget — bust
+    // their caches too so admins see staff changes propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: input.id });
   },
 });
@@ -120,6 +130,9 @@ export const setBarberStatus = withAction({
       diff: { status: input.status },
     });
     revalidatePath(BARBERS_PATH);
+    // Confirmed-barber list drives the public booking + embed widget — bust
+    // their caches too so admins see staff changes propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: input.status });
   },
 });

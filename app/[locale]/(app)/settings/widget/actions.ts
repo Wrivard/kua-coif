@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
+import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import { widgetConfigSchema, type WidgetConfig } from '@/lib/business/widget-config';
 
@@ -32,6 +33,8 @@ export const upsertWidgetConfig = withAction({
       diff: { after: { widget_config: input } },
     });
     revalidatePath(PATH);
+    // Widget config drives the rendered embed page — bust its cache too.
+    revalidatePublicShopSurfaces();
     return ok({ ok: true });
   },
 });

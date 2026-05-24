@@ -5,7 +5,12 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { BookingWizard, type BookingShop, type BookingHours } from './booking-wizard';
 
-export const dynamic = 'force-dynamic';
+// Public booking page — cache the rendered output for 60s. The data we
+// surface (hours, services, barbers, days off) changes rarely; a one-minute
+// staleness window cuts Supabase reads to ~1/min/shop without noticeable UX
+// impact. Mutations on `/settings/shop` etc. won't propagate instantly here;
+// V1.1 will add `revalidateTag('shop:<alias>')` for surgical invalidation.
+export const revalidate = 60;
 
 type Props = { params: { locale: string; shopSlug: string } };
 

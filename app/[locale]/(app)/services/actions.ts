@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
+import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import {
   deleteServiceSchema,
@@ -98,6 +99,9 @@ export const createService = withAction({
     });
 
     revalidatePath(SERVICES_PATH);
+    // Services are surfaced in the public booking + embed widget — bust their
+    // caches too so admins see edits propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: data.id });
   },
 });
@@ -144,6 +148,9 @@ export const updateService = withAction({
     });
 
     revalidatePath(SERVICES_PATH);
+    // Services are surfaced in the public booking + embed widget — bust their
+    // caches too so admins see edits propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id });
   },
 });
@@ -168,6 +175,9 @@ export const deleteService = withAction({
     });
 
     revalidatePath(SERVICES_PATH);
+    // Services are surfaced in the public booking + embed widget — bust their
+    // caches too so admins see edits propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: input.id });
   },
 });
@@ -233,6 +243,9 @@ export const toggleServiceStatus = withAction({
     });
 
     revalidatePath(SERVICES_PATH);
+    // Services are surfaced in the public booking + embed widget — bust their
+    // caches too so admins see edits propagate immediately.
+    revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: next });
   },
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -174,8 +175,18 @@ function Avatar({
   avatarUrl: string | null;
 }) {
   if (avatarUrl) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />;
+    // `next/image` lazy-loads, serves AVIF/WebP, and emits a srcset — wins over
+    // a plain <img> tag for the user avatar that appears on every page.
+    return (
+      <Image
+        src={avatarUrl}
+        alt=""
+        width={28}
+        height={28}
+        className="h-7 w-7 shrink-0 rounded-full object-cover"
+        unoptimized={false}
+      />
+    );
   }
   const initials =
     (fullName ?? email)

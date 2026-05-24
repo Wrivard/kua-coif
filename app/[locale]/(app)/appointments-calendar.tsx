@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -151,26 +151,75 @@ export function AppointmentsCalendar({
   const [drawer, setDrawer] = useState<CalendarAppointment | null>(null);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
 
-  const visibleBarbers = barbers.filter((b) => selectedBarbers.has(b.id));
+  // ── Memoized derivations ──────────────────────────────────────────────
+  // The calendar re-renders on every parent state change (modal/drawer
+  // toggles, filter chips, react-query refetches). Without memoization, the
+  // following derivations recompute O(barbers × appointments) per render —
+  // measurable lag once the shop reaches ~20 barbers / hundreds of appts.
+  const visibleBarbers = useMemo(
+    () => barbers.filter((b) => selectedBarbers.has(b.id)),
+    [barbers, selectedBarbers],
+  );
 
-  function shiftDate(deltaDays: number) {
-    const next = shopIsoDate(addDays(dayRef, deltaDays), timezone);
-    const url = new URL(window.location.href);
-    url.searchParams.set('date', next);
-    router.push(url.pathname + '?' + url.searchParams.toString());
-  }
-  function jumpToday() {
+  // Pre-bucket appointments by barber so each column render is an O(1) lookup
+  // instead of an O(appointments) scan.
+  const apptsByBarber = useMemo(() => {
+    const m = new Map<string, CalendarAppointment[]>();
+    for (const a of appointments) {
+      const arr = m.get(a.barber_id);
+      if (arr) arr.push(a);
+      else m.set(a.barber_id, [a]);
+    }
+    return m;
+  }, [appointments]);
+
+  // Same bucketing for blocked-time, with shop-wide blocks (barber_id = null)
+  // denormalized into every barber's bucket so the render path is uniform.
+  const blocksByBarber = useMemo(() => {
+    const m = new Map<string, Blocked[]>();
+    const shopWide: Blocked[] = [];
+    for (const b of blocked) {
+      if (b.barber_id === null) shopWide.push(b);
+    }
+    for (const barber of barbers) {
+      // Seed each barber's bucket with the shop-wide blocks so the loop in
+      // render doesn't have to merge two arrays.
+      m.set(barber.id, shopWide.length > 0 ? [...shopWide] : []);
+    }
+    for (const b of blocked) {
+      if (b.barber_id !== null) {
+        const arr = m.get(b.barber_id);
+        if (arr) arr.push(b);
+        else m.set(b.barber_id, [b]);
+      }
+    }
+    return m;
+  }, [barbers, blocked]);
+
+  const shiftDate = useCallback(
+    (deltaDays: number) => {
+      const next = shopIsoDate(addDays(dayRef, deltaDays), timezone);
+      const url = new URL(window.location.href);
+      url.searchParams.set('date', next);
+      router.push(url.pathname + '?' + url.searchParams.toString());
+    },
+    [dayRef, timezone, router],
+  );
+  const jumpToday = useCallback(() => {
     const url = new URL(window.location.href);
     url.searchParams.set('date', today);
     router.push(url.pathname + '?' + url.searchParams.toString());
-  }
+  }, [router, today]);
 
-  function onSlotClick(barberId: string, e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const offsetPx = e.clientY - rect.top;
-    const minuteOffset = Math.floor(offsetPx / PX_PER_MIN / 5) * 5; // snap to 5min
-    setModal({ kind: 'create', barberId, minutes: startMin + minuteOffset });
-  }
+  const onSlotClick = useCallback(
+    (barberId: string, e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const offsetPx = e.clientY - rect.top;
+      const minuteOffset = Math.floor(offsetPx / PX_PER_MIN / 5) * 5; // snap to 5min
+      setModal({ kind: 'create', barberId, minutes: startMin + minuteOffset });
+    },
+    [startMin],
+  );
 
   return (
     <>
@@ -276,10 +325,9 @@ export function AppointmentsCalendar({
 
             {/* Barber columns */}
             {visibleBarbers.map((barber) => {
-              const barberAppts = appointments.filter((a) => a.barber_id === barber.id);
-              const barberBlocks = blocked.filter(
-                (b) => b.barber_id === null || b.barber_id === barber.id,
-              );
+              // O(1) lookups against the pre-bucketed Maps above.
+              const barberAppts = apptsByBarber.get(barber.id) ?? [];
+              const barberBlocks = blocksByBarber.get(barber.id) ?? [];
               return (
                 <div
                   key={barber.id}
