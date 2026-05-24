@@ -610,6 +610,47 @@
         "data": "Données",
         "feedback": "Feedback"
       }
+    },
+    "booking": {
+      "back": "Retour",
+      "continue": "Continuer",
+      "confirm": "Confirmer le rendez-vous",
+      "steps": {
+        "service": {
+          "title": "Choisis tes services",
+          "help": "Sélectionne un ou plusieurs services. La durée totale s’ajustera automatiquement.",
+          "uncategorized": "Autres"
+        },
+        "barber": {
+          "title": "Avec quel barbier ?",
+          "any": "Peu importe (premier disponible)",
+          "anyHint": "On choisit le premier barbier disponible pour le créneau."
+        },
+        "slot": {
+          "title": "Date et heure",
+          "times": "Créneaux disponibles",
+          "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour."
+        },
+        "contact": {
+          "title": "Tes coordonnées",
+          "help": "On utilise ces infos pour confirmer le rendez-vous et t’envoyer un rappel.",
+          "firstName": "Prénom",
+          "lastName": "Nom",
+          "phone": "Téléphone",
+          "email": "Courriel",
+          "notes": "Notes (optionnel)",
+          "notesHint": "Précise une demande spéciale, allergie, etc."
+        }
+      },
+      "summary": {
+        "title": "Résumé",
+        "servicesLabel": "service(s) sélectionné(s)",
+        "minutes": "minutes"
+      },
+      "done": {
+        "title": "Rendez-vous confirmé !",
+        "description": "Tu recevras un rappel par courriel ou texto avant ta visite."
+      }
     }
   },
   "common": {

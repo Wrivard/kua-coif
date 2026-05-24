@@ -610,6 +610,47 @@
         "data": "Data",
         "feedback": "Feedback"
       }
+    },
+    "booking": {
+      "back": "Back",
+      "continue": "Continue",
+      "confirm": "Confirm appointment",
+      "steps": {
+        "service": {
+          "title": "Pick your services",
+          "help": "Select one or more services. The total duration will update automatically.",
+          "uncategorized": "Other"
+        },
+        "barber": {
+          "title": "Which barber?",
+          "any": "Any (first available)",
+          "anyHint": "We pick the first available barber for the slot."
+        },
+        "slot": {
+          "title": "Date & time",
+          "times": "Available slots",
+          "empty": "No slot available on this day. Try another date."
+        },
+        "contact": {
+          "title": "Your contact info",
+          "help": "We use this to confirm the appointment and send a reminder.",
+          "firstName": "First name",
+          "lastName": "Last name",
+          "phone": "Phone",
+          "email": "Email",
+          "notes": "Notes (optional)",
+          "notesHint": "Mention a special request, allergy, etc."
+        }
+      },
+      "summary": {
+        "title": "Summary",
+        "servicesLabel": "service(s) selected",
+        "minutes": "minutes"
+      },
+      "done": {
+        "title": "Appointment confirmed!",
+        "description": "You'll receive a reminder via email or SMS before your visit."
+      }
     }
   },
   "common": {

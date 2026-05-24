@@ -158,3 +158,19 @@
 - **Stripe Connect différé post-MVP** : la page actuelle prépare l'UI ; l'intégration réelle nécessite un compte Stripe Connect, des webhooks, et le flux KYC. Phase 9+ ou post-launch.
 - **Tips config UI = Phase 6b** : la spec dit "vit dans Shop details" (Image 15). On a déjà acté ça dans DECISIONS Phase 0. Implémentation différée Phase 6b (avec barber settings et user settings) — les valeurs sont dans la table `tips_config`, le moteur `lib/business/tips.ts` est prêt à les consommer.
 - **Build après Phase 7** : 38 routes. Middleware 105 kB. Tests Vitest : **44 passing** (8 taxes + 16 availability + 11 commissions + 4 tips, ×5 vs Phase 5).
+
+## Phase 8 — Booking public
+
+- **Pas d'auth pour les visiteurs** : un visiteur anonyme doit pouvoir lire shop / services / barbers / hours. RLS bloque l'anon par défaut. Deux choix : (a) policies SELECT publiques côté DB, (b) `service_role` côté serveur uniquement. **On a pris (b)** : `lib/supabase/service-role.ts` crée un client server-only avec `SUPABASE_SERVICE_ROLE_KEY`. Bypass RLS, utilisé seulement par `/book/[slug]` (Server Component) + `/api/book/[slug]/slots` + le Server Action. Documenté en tête de fichier avec « never expose ».
+- **Route group `book` hors auth** : `app/[locale]/book/[shopSlug]/` — pas dans `(app)/`. Le middleware whitelistait déjà `/book` depuis Phase 3.
+- **Wizard 5 steps en state local** (pas de routes par step) : services → barber → date+slot → contact → confirmation. Moins de bookmarks malheureux + meilleure protection contre les replays.
+- **Slots API `/api/book/[slug]/slots`** : Route Handler qui calcule les créneaux dispos via `checkAvailability` pour (date, barber, duration). Rate limit 30/min/IP. Le wizard l'appelle à chaque changement de date/barber/services.
+- **Honeypot field** : `name="hp"` `hidden` `aria-hidden`. Si rempli, Server Action renvoie `ok` mais ne crée rien (pour ne pas dire au bot qu'il a été détecté).
+- **Rate limit booking** : 10/10min/IP (looser que auth — un client réel peut hésiter). Réutilise `lib/auth/rate-limit.ts`.
+- **Find-or-create client par phone** normalisé (digits-only via `ilike '%digits%'`). Pas de dédup email pour V1.
+- **`appointment.source = 'online'` + status `'booked'`** (acté Phase 0 DECISIONS) — l'admin peut passer à `confirmed` depuis le calendrier.
+- **Booking-flow constraints** appliquées : `barber_settings` (override par barber, fallback shop) → `mins_book_before_appt`, `days_book_in_advance` passés à `checkAvailability`.
+- **SEO** : `generateMetadata` retourne `<title>{shop.name} — Réserver en ligne</title>` + Open Graph. Schema.org `LocalBusiness`/`Hairdresser` différé Phase 9.
+- **Mobile-first** : layout `max-w-2xl mx-auto`, grid responsive pour slots, date-strip horizontal scrollable.
+- **Différé V1.1** : tip pendant le booking, promo code application, Cloudflare Turnstile (V1 OK avec rate limit + honeypot), Resend confirmation email, SMS reminders.
+- **Build après Phase 8** : 38 + 2 routes (`/book/[shopSlug]` × 2 locales + `/api/book/[shopSlug]/slots`). Middleware 105 kB. Tests Vitest : 44 passing inchangés.

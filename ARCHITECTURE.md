@@ -4,8 +4,8 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 7 (Finances — commissions + paiements UI).
-**Statut global** : Phases 0–7 ✅ · Settings/Barbers + Settings/Users + Tips UI différés Phase 6b · Phases 8–9 à faire.
+**Dernière mise à jour** : fin de Phase 8 (Booking public — wizard + slots API + Server Action).
+**Statut global** : Phases 0–8 ✅ · Settings/Barbers + Settings/Users + Tips UI différés Phase 6b · Phase 9 à faire.
 
 > Sentry est **différé en Phase 9** (pas Phase 3 comme prévu initialement) — son installation demande un compte Sentry + un DSN, et installer le wrapper sans DSN ajoute du noise pour rien. La façade `lib/observability.ts` est en place : migration en 4 lignes quand un compte existera.
 
