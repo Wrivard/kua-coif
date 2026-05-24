@@ -47,3 +47,22 @@
 - **Test RLS cross-shop dans `supabase/tests/`** : pgtap-free, pure SQL, exécutable via `supabase test db` ou `psql`. Crée 2 shops/2 users en transaction, assert que A ne voit pas B, puis rollback.
 - **Locale shop seed à `'en'`** (au lieu de `English` du spec, qui n'est pas une valeur d'enum) : on stocke le code ISO. L'affichage continue d'utiliser le libellé localisé.
 - **Default `confirmation_tip` = false** dans le schéma : matche le comportement attendu par défaut. La ligne "Shop" du seed le passe explicitement à `true` (cohérent avec Image 7 de l'annexe).
+
+## Phase 3 — Auth, shell, boundaries
+
+- **Auth = email/password Supabase, pas de magic link en V1** (déjà acté Phase 0, confirmé : Server Actions `signInAction`/`signUpAction`/`signOutAction` avec validation Zod).
+- **Route group `(auth)`** : `/[locale]/(auth)/login` et `/[locale]/(auth)/signup` vivent **hors** du shell `(app)`. Le layout `(auth)` est centré, sans sidebar, avec son propre `ToastProvider`.
+- **Middleware combiné next-intl + Supabase** : next-intl tourne **avant** ; si elle redirige, on rafraîchit quand même la session sur la response et on laisse passer. Sinon on lit `auth.getUser()` (qui rotate le refresh token) et on applique les redirects auth-gating.
+- **Skip Supabase si env vars absentes** : permet de tourner le design system / kitchen-sink en local sans projet Supabase configuré. Quand `NEXT_PUBLIC_SUPABASE_URL` est défini, l'auth s'active.
+- **Chemins publics** : `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/book/*`, `/kitchen-sink`. Tout le reste exige une session. Si pas authentifié → redirect `/login?redirect=<original>`.
+- **Auth user déjà loggué visitant `/login`** → renvoyé sur `/` (évite la confusion).
+- **Helpers `lib/auth/server.ts`** : `getCurrentUser`, `getShopMemberships`, `requireUser`, `requireShopMember`, `getCurrentShopId`, `requireRoleInCurrentShop`. Tous cachés via `react.cache()` pour dédupliquer dans la même requête.
+- **Role hierarchy code-side** : `owner > manager > barber` (numérique 3/2/1). `requireRoleInCurrentShop('manager')` accepte manager OU owner. Doublé par la RLS pour les tables sensibles.
+- **`useFormState` (pattern Next 14 / React 18)** : actions retournent `{ ok: true } | { ok: false, error, fieldErrors? }`. `useFormStatus` pour le bouton submit. Migration vers `useActionState` (React 19) sera triviale.
+- **`safeRedirectTarget()`** : valide qu'un `redirect=` venant de l'URL est bien une path relative — sinon retour à `/{locale}/` pour éviter un open redirect.
+- **Security headers** : `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy` (camera/mic/geo/cohort off), `Strict-Transport-Security`, `X-DNS-Prefetch-Control on`. **CSP différée en Phase 9** (besoin de connaître toutes les origines : Supabase, Vercel preview, fonts, images).
+- **`poweredByHeader: false`** : pas de `X-Powered-By: Next.js` exposé.
+- **Quatre boundaries** : `app/global-error.tsx` (ultime, sans i18n), `app/[locale]/error.tsx` (page globale), `app/[locale]/not-found.tsx` (404 i18n), `app/[locale]/loading.tsx` (skeleton suspense), `app/[locale]/(app)/error.tsx` (local au shell — garde sidebar + page header).
+- **Skip-to-content** dans le layout localisé : visible seulement au focus clavier, ancre `#main` dans `(app)` et `(auth)` layouts.
+- **Sidebar live** : reçoit le `user` du Server Component shell. Affiche profile chip (avatar initiales OU image) + nom + email. Bouton logout = `<form action={signOutAction}>` (Server Action). Pas de JS client pour le logout.
+- **Sentry différé** : installation et configuration en Phase 9 (post-MVP). L'`useEffect` dans `error.tsx` log `console.error` en dev pour l'instant, et hostera `Sentry.captureException(error)` plus tard.

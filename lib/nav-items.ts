@@ -2,7 +2,6 @@ import {
   Calendar,
   DollarSign,
   LifeBuoy,
-  LogOut,
   Megaphone,
   Package,
   Scissors,
@@ -58,7 +57,6 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/finances', icon: DollarSign, labelKey: 'finances', matchPrefix: true, notif: true },
 ];
 
-export const LOGOUT_ITEM = { href: '/logout', icon: LogOut, labelKey: 'logout' as const };
 
 /**
  * Strip the locale segment (`/fr/...` → `/...`) for comparison against `href` / `matchPath`.

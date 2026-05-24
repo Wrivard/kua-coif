@@ -15,6 +15,42 @@
     "finances": "Finances",
     "logout": "Déconnexion"
   },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "subtitle": "Accède à ton tableau de bord.",
+      "email": "Courriel",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion…",
+      "noAccount": "Pas encore de compte ?",
+      "signupLink": "Créer un compte",
+      "signedUpHint": "Compte créé. Vérifie ta boîte courriel si la confirmation est activée, puis connecte-toi."
+    },
+    "signup": {
+      "title": "Créer un compte",
+      "subtitle": "Un compte = un profil. Tu pourras ensuite créer ou rejoindre un salon.",
+      "fullName": "Nom complet",
+      "email": "Courriel",
+      "password": "Mot de passe (8 caractères minimum)",
+      "submit": "Créer mon compte",
+      "submitting": "Création…",
+      "hasAccount": "Déjà inscrit ?",
+      "loginLink": "Se connecter"
+    }
+  },
+  "errors": {
+    "boundary": {
+      "title": "Une erreur est survenue",
+      "description": "Quelque chose s'est mal passé. Tu peux réessayer ; si ça persiste, contacte le support.",
+      "retry": "Réessayer"
+    },
+    "notFound": {
+      "title": "Page introuvable",
+      "description": "Cette page n'existe pas (ou plus). Vérifie l'URL.",
+      "home": "Retour à l'accueil"
+    }
+  },
   "pages": {
     "appointments": { "title": "Rendez-vous", "soon": "Vue calendrier — Phase 5." },
     "clients": { "title": "Clients", "soon": "Liste A–Z, dédoublonnage, export — Phase 4." },

@@ -4,8 +4,10 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 2.
-**Statut global** : Phases 0–2 ✅ · Phases 3–9 à faire.
+**Dernière mise à jour** : fin de Phase 3.
+**Statut global** : Phases 0–3 ✅ · Phases 4–9 à faire.
+
+> Sentry est **différé en Phase 9** (pas Phase 3 comme prévu initialement) — son installation demande un compte Sentry + un DSN, et installer le wrapper sans DSN ajoute du noise pour rien. À activer quand on a un compte.
 
 ---
 

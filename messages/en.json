@@ -15,6 +15,42 @@
     "finances": "Finances",
     "logout": "Logout"
   },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Access your dashboard.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "noAccount": "No account yet?",
+      "signupLink": "Create one",
+      "signedUpHint": "Account created. If email confirmation is enabled, check your inbox, then sign in."
+    },
+    "signup": {
+      "title": "Create an account",
+      "subtitle": "One account = one profile. You can then create or join a shop.",
+      "fullName": "Full name",
+      "email": "Email",
+      "password": "Password (min 8 characters)",
+      "submit": "Create my account",
+      "submitting": "Creating…",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Sign in"
+    }
+  },
+  "errors": {
+    "boundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. You can retry; if the issue persists, contact support.",
+      "retry": "Try again"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "description": "This page doesn't exist (or doesn't anymore). Double-check the URL.",
+      "home": "Back to home"
+    }
+  },
   "pages": {
     "appointments": { "title": "Appointments", "soon": "Calendar view — Phase 5." },
     "clients": { "title": "Clients", "soon": "A–Z list, dedup, export — Phase 4." },
