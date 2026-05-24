@@ -29,7 +29,7 @@ function LoginPageContent({
       {searchParams.signedUp ? (
         <p
           role="status"
-          className="mt-4 rounded border border-success/40 bg-success/10 px-3 py-2 text-xs text-success"
+          className="border-success/40 bg-success/10 mt-4 rounded border px-3 py-2 text-xs text-success"
         >
           {t('signedUpHint')}
         </p>

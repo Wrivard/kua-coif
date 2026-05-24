@@ -27,9 +27,7 @@ export async function requireUser(opts?: { locale?: string; redirectTo?: string 
   const user = await getCurrentUser();
   if (user) return user;
   const locale = opts?.locale ?? defaultLocale;
-  const redirectTo = opts?.redirectTo
-    ? `?redirect=${encodeURIComponent(opts.redirectTo)}`
-    : '';
+  const redirectTo = opts?.redirectTo ? `?redirect=${encodeURIComponent(opts.redirectTo)}` : '';
   redirect(`/${locale}/login${redirectTo}`);
 }
 
@@ -48,15 +46,23 @@ export const getShopMemberships = cache(async () => {
   const supabase = createSupabaseServerClient();
   // Cast through unknown since the placeholder Database type doesn't know our
   // tables yet. Phase 2 codegen will make this strict.
-  const { data, error } = await (supabase as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (k: string, v: string) => {
-          eq: (k: string, v: string) => Promise<{ data: ShopMembership[] | null; error: unknown }>;
+  const { data, error } = await (
+    supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => Promise<{ data: ShopMembership[] | null; error: unknown }>;
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from('shop_members')
     .select('shop_id, role, status')
     .eq('user_id', user.id)

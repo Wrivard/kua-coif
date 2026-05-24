@@ -22,7 +22,7 @@ export const SearchBar = forwardRef<HTMLInputElement, Props>(function SearchBar(
         placeholder={placeholder}
         className={cn(
           'h-10 w-full rounded border border-border bg-bg-surface-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted',
-          'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent',
+          'focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
         )}
         {...rest}
       />

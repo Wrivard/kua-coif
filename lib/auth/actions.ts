@@ -1,14 +1,17 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
+import { mapSupabaseAuthError, type AuthErrorCode } from './errors';
+import { checkRateLimit } from './rate-limit';
 
 // Action result shape — what `useFormState` receives.
 type FieldErrors = Partial<Record<'email' | 'password' | 'fullName', string>>;
 export type AuthActionState =
-  | { ok: false; error: string; fieldErrors?: FieldErrors }
+  | { ok: false; errorCode: AuthErrorCode; fieldErrors?: FieldErrors }
   | { ok: true };
 
 const localeSchema = z
@@ -18,10 +21,7 @@ const localeSchema = z
   });
 
 const emailSchema = z.string().trim().toLowerCase().email();
-const passwordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(72, 'Password too long');
+const passwordSchema = z.string().min(8, 'PASSWORD_TOO_SHORT').max(72, 'PASSWORD_TOO_LONG');
 
 function safeRedirectTarget(input: string | null | undefined, locale: Locale): string {
   // Only allow same-origin relative paths under the locale.
@@ -31,6 +31,12 @@ function safeRedirectTarget(input: string | null | undefined, locale: Locale): s
   return input;
 }
 
+/** Best-effort client IP for rate limiting (Vercel sets x-forwarded-for). */
+function clientIp(): string {
+  const h = headers();
+  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
+}
+
 // ---------------------------------------------------------------------------
 // Sign in
 // ---------------------------------------------------------------------------
@@ -38,6 +44,13 @@ export async function signInAction(
   _prev: AuthActionState | undefined,
   formData: FormData,
 ): Promise<AuthActionState> {
+  // 1. Rate-limit BEFORE touching Supabase to blunt brute-force attempts.
+  const ip = clientIp();
+  const rl = checkRateLimit(`signin:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
+  if (!rl.allowed) {
+    return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };
+  }
+
   const parsed = z
     .object({
       email: emailSchema,
@@ -59,7 +72,7 @@ export async function signInAction(
       if (path === 'email') fieldErrors.email = issue.message;
       if (path === 'password') fieldErrors.password = issue.message;
     }
-    return { ok: false, error: 'Invalid input', fieldErrors };
+    return { ok: false, errorCode: 'INVALID_INPUT', fieldErrors };
   }
 
   const supabase = createSupabaseServerClient();
@@ -69,7 +82,7 @@ export async function signInAction(
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, errorCode: mapSupabaseAuthError(error) };
   }
 
   const target = safeRedirectTarget(parsed.data.redirectTo ?? null, parsed.data.locale as Locale);
@@ -83,11 +96,18 @@ export async function signUpAction(
   _prev: AuthActionState | undefined,
   formData: FormData,
 ): Promise<AuthActionState> {
+  // Signup is also rate-limited (lower threshold — even cheaper attack surface).
+  const ip = clientIp();
+  const rl = checkRateLimit(`signup:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
+  if (!rl.allowed) {
+    return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };
+  }
+
   const parsed = z
     .object({
       email: emailSchema,
       password: passwordSchema,
-      fullName: z.string().trim().min(1, 'Full name required').max(120),
+      fullName: z.string().trim().min(1, 'NAME_REQUIRED').max(120),
       locale: localeSchema.default(defaultLocale),
     })
     .safeParse({
@@ -105,7 +125,7 @@ export async function signUpAction(
       if (path === 'password') fieldErrors.password = issue.message;
       if (path === 'fullName') fieldErrors.fullName = issue.message;
     }
-    return { ok: false, error: 'Invalid input', fieldErrors };
+    return { ok: false, errorCode: 'INVALID_INPUT', fieldErrors };
   }
 
   const supabase = createSupabaseServerClient();
@@ -115,7 +135,7 @@ export async function signUpAction(
     options: { data: { full_name: parsed.data.fullName } },
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, errorCode: mapSupabaseAuthError(error) };
 
   // If email confirmations are enabled in Supabase, the user lands here with
   // an unconfirmed session. We send them to a confirmation-pending page.

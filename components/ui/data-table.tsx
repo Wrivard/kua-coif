@@ -130,7 +130,10 @@ export function DataTable<Row>({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + (reorderable ? 1 : 0)} className="px-4 py-12 text-center text-sm text-text-muted">
+                <td
+                  colSpan={columns.length + (reorderable ? 1 : 0)}
+                  className="px-4 py-12 text-center text-sm text-text-muted"
+                >
                   Loading…
                 </td>
               </tr>
@@ -151,7 +154,7 @@ export function DataTable<Row>({
                   key={getRowKey(row, idx)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
-                    'border-b border-border last:border-b-0 transition-colors',
+                    'border-b border-border transition-colors last:border-b-0',
                     onRowClick && 'cursor-pointer hover:bg-bg-surface-2',
                   )}
                 >
@@ -183,8 +186,9 @@ export function DataTable<Row>({
       {pagination ? (
         <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-text-muted">
           <span>
-            Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} ·{' '}
-            {pagination.total} rows
+            Page {pagination.page} of{' '}
+            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} · {pagination.total}{' '}
+            rows
           </span>
           <div className="flex items-center gap-2">
             <button

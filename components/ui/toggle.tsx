@@ -26,7 +26,7 @@ export function Toggle({ checked, onChange, label, disabled, className, id, ...r
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-accent' : 'bg-bg-surface-2 border border-border',
+        checked ? 'bg-accent' : 'border border-border bg-bg-surface-2',
       )}
       {...rest}
     >

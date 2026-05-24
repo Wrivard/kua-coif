@@ -32,7 +32,13 @@ export const Checkbox = forwardRef<HTMLInputElement, Props>(function Checkbox(
 
   if (!label) return <span className={className}>{control}</span>;
   return (
-    <label className={cn('inline-flex cursor-pointer items-center gap-2', disabled && 'cursor-not-allowed opacity-50', className)}>
+    <label
+      className={cn(
+        'inline-flex cursor-pointer items-center gap-2',
+        disabled && 'cursor-not-allowed opacity-50',
+        className,
+      )}
+    >
       {control}
       <span className="text-sm text-text-primary">{label}</span>
     </label>

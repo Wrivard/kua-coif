@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 export type ToastVariant = 'success' | 'info' | 'warning' | 'danger';
@@ -53,6 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const tA11y = useTranslations('a11y');
   useEffect(() => {
     if (toast.duration <= 0) return;
     const id = window.setTimeout(onDismiss, toast.duration);
@@ -65,19 +67,21 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     <div
       role="status"
       className={cn(
-        'pointer-events-auto flex items-start gap-3 rounded border border-border border-l-4 bg-bg-elevated px-4 py-3 shadow-lg',
+        'pointer-events-auto flex items-start gap-3 rounded border border-l-4 border-border bg-bg-elevated px-4 py-3 shadow-lg',
         border,
       )}
     >
       <span className="mt-0.5">{icon}</span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-text-primary">{toast.title}</p>
-        {toast.description ? <p className="mt-0.5 text-xs text-text-secondary">{toast.description}</p> : null}
+        {toast.description ? (
+          <p className="mt-0.5 text-xs text-text-secondary">{toast.description}</p>
+        ) : null}
       </div>
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss"
+        aria-label={tA11y('close')}
         className="rounded p-0.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary"
       >
         <X className="h-3.5 w-3.5" />

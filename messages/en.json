@@ -13,7 +13,9 @@
     "settings": "Settings",
     "marketing": "Marketing",
     "finances": "Finances",
-    "logout": "Logout"
+    "logout": "Logout",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar"
   },
   "auth": {
     "login": {
@@ -37,7 +39,25 @@
       "submitting": "Creating…",
       "hasAccount": "Already have an account?",
       "loginLink": "Sign in"
+    },
+    "errors": {
+      "INVALID_CREDENTIALS": "Invalid credentials. Double-check your email and password.",
+      "EMAIL_NOT_CONFIRMED": "Your email isn't confirmed yet. Please check your inbox.",
+      "EMAIL_ALREADY_EXISTS": "An account already exists with this email address.",
+      "WEAK_PASSWORD": "Your password is too weak.",
+      "RATE_LIMITED": "Too many attempts. Please try again in a few minutes.",
+      "TOO_MANY_REQUESTS": "Too many attempts from your IP. Please retry in 10 minutes.",
+      "INVALID_INPUT": "The submitted information is invalid.",
+      "UNEXPECTED": "An unexpected error occurred. Please try again.",
+      "field": {
+        "email": "Invalid email address.",
+        "password": "Password must be at least 8 characters long.",
+        "fullName": "Full name is required."
+      }
     }
+  },
+  "a11y": {
+    "close": "Close"
   },
   "errors": {
     "boundary": {
@@ -66,7 +86,10 @@
       "users": { "title": "User Settings", "soon": "Accounts, roles, invites — Phase 6." },
       "barbers": { "title": "Barber settings", "soon": "Delays, reminders, intervals — Phase 6." },
       "taxes": { "title": "Taxes", "soon": "GST / QST — Phase 6." },
-      "payments": { "title": "Payment Processing", "soon": "Payment profile and destination account — Phase 7." },
+      "payments": {
+        "title": "Payment Processing",
+        "soon": "Payment profile and destination account — Phase 7."
+      },
       "commissions": { "title": "Commission / Tip Splits", "soon": "Per-barber tiers — Phase 7." },
       "password": { "title": "Change Password", "soon": "Password change — Phase 6." },
       "discounts": { "title": "Discounts", "soon": "Percent and fixed discounts — Phase 6." },

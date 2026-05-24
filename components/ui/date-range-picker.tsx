@@ -26,7 +26,9 @@ export function DateRangePicker({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">{labels.start}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          {labels.start}
+        </span>
         <Input
           type="date"
           value={value.start}
@@ -37,7 +39,9 @@ export function DateRangePicker({
       </div>
       <span className="text-text-muted">—</span>
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">{labels.end}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          {labels.end}
+        </span>
         <Input
           type="date"
           value={value.end}

@@ -20,7 +20,13 @@ type Props<V extends string> = {
   trigger?: ReactNode;
 };
 
-export function SectionSwitcher<V extends string>({ value, onChange, options, className, trigger }: Props<V>) {
+export function SectionSwitcher<V extends string>({
+  value,
+  onChange,
+  options,
+  className,
+  trigger,
+}: Props<V>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const current = options.find((o) => o.value === value);
@@ -77,7 +83,9 @@ export function SectionSwitcher<V extends string>({ value, onChange, options, cl
                   }}
                   className={cn(
                     'flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2.5 text-left text-sm last:border-b-0',
-                    active ? 'bg-bg-surface-2 text-text-primary' : 'text-text-secondary hover:bg-bg-surface-2',
+                    active
+                      ? 'bg-bg-surface-2 text-text-primary'
+                      : 'text-text-secondary hover:bg-bg-surface-2',
                   )}
                 >
                   <span className="flex items-center gap-2">

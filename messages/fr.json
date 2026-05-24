@@ -13,7 +13,9 @@
     "settings": "Réglages",
     "marketing": "Marketing",
     "finances": "Finances",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "expandSidebar": "Agrandir la barre latérale",
+    "collapseSidebar": "Réduire la barre latérale"
   },
   "auth": {
     "login": {
@@ -37,7 +39,25 @@
       "submitting": "Création…",
       "hasAccount": "Déjà inscrit ?",
       "loginLink": "Se connecter"
+    },
+    "errors": {
+      "INVALID_CREDENTIALS": "Identifiants invalides. Vérifie ton courriel et ton mot de passe.",
+      "EMAIL_NOT_CONFIRMED": "Ton courriel n'est pas encore confirmé. Vérifie ta boîte de réception.",
+      "EMAIL_ALREADY_EXISTS": "Un compte existe déjà avec cette adresse courriel.",
+      "WEAK_PASSWORD": "Ton mot de passe est trop faible.",
+      "RATE_LIMITED": "Trop de tentatives. Réessaye dans quelques minutes.",
+      "TOO_MANY_REQUESTS": "Trop de tentatives depuis ton IP. Réessaye dans 10 minutes.",
+      "INVALID_INPUT": "Les informations soumises sont invalides.",
+      "UNEXPECTED": "Une erreur inattendue est survenue. Réessaye.",
+      "field": {
+        "email": "Adresse courriel invalide.",
+        "password": "Le mot de passe doit faire au moins 8 caractères.",
+        "fullName": "Nom complet requis."
+      }
     }
+  },
+  "a11y": {
+    "close": "Fermer"
   },
   "errors": {
     "boundary": {
@@ -66,8 +86,14 @@
       "users": { "title": "Utilisateurs", "soon": "Comptes, rôles, invitations — Phase 6." },
       "barbers": { "title": "Réglages barbier", "soon": "Délais, rappels, intervalles — Phase 6." },
       "taxes": { "title": "Taxes", "soon": "TPS / TVQ — Phase 6." },
-      "payments": { "title": "Paiements", "soon": "Profil de paiement et compte destinataire — Phase 7." },
-      "commissions": { "title": "Commissions / Pourboires", "soon": "Paliers par barbier — Phase 7." },
+      "payments": {
+        "title": "Paiements",
+        "soon": "Profil de paiement et compte destinataire — Phase 7."
+      },
+      "commissions": {
+        "title": "Commissions / Pourboires",
+        "soon": "Paliers par barbier — Phase 7."
+      },
       "password": { "title": "Mot de passe", "soon": "Changement de mot de passe — Phase 6." },
       "discounts": { "title": "Rabais", "soon": "Rabais % et fixes — Phase 6." },
       "loyalty": { "title": "Programme de fidélité", "soon": "Transactions / Valeur — Phase 6." },

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { captureException } from '@/lib/observability';
 
 export default function LocaleError({
   error,
@@ -15,11 +16,7 @@ export default function LocaleError({
   const t = useTranslations('errors.boundary');
 
   useEffect(() => {
-    // TODO Phase 9 — pipe to Sentry / structured logger.
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.error('App error boundary caught:', error);
-    }
+    captureException(error, { tags: { boundary: 'locale' } });
   }, [error]);
 
   return (

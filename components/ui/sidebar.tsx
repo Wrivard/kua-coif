@@ -52,7 +52,7 @@ export function Sidebar({ locale, user }: Props) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={expanded ? t('collapseSidebar') : t('expandSidebar')}
           className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary"
         >
           {expanded ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
@@ -82,7 +82,7 @@ export function Sidebar({ locale, user }: Props) {
               'flex items-center gap-2 rounded px-2 py-1.5',
               expanded ? 'bg-bg-surface-2' : '',
             )}
-            title={expanded ? undefined : user.fullName ?? user.email}
+            title={expanded ? undefined : (user.fullName ?? user.email)}
           >
             <Avatar fullName={user.fullName} email={user.email} avatarUrl={user.avatarUrl} />
             {expanded ? (

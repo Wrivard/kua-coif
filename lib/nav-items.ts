@@ -57,7 +57,6 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/finances', icon: DollarSign, labelKey: 'finances', matchPrefix: true, notif: true },
 ];
 
-
 /**
  * Strip the locale segment (`/fr/...` → `/...`) for comparison against `href` / `matchPath`.
  */

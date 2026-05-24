@@ -32,9 +32,7 @@ function stripLocale(pathname: string): string {
 
 function isPublicPath(pathname: string): boolean {
   const withoutLocale = stripLocale(pathname);
-  return PUBLIC_PATH_PREFIXES.some(
-    (p) => withoutLocale === p || withoutLocale.startsWith(`${p}/`),
-  );
+  return PUBLIC_PATH_PREFIXES.some((p) => withoutLocale === p || withoutLocale.startsWith(`${p}/`));
 }
 
 export async function middleware(request: NextRequest) {
@@ -64,9 +62,7 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     const segs = pathname.split('/').filter(Boolean);
-    const locale = (locales as readonly string[]).includes(segs[0] ?? '')
-      ? segs[0]
-      : defaultLocale;
+    const locale = (locales as readonly string[]).includes(segs[0] ?? '') ? segs[0] : defaultLocale;
     url.pathname = `/${locale}/login`;
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
@@ -76,9 +72,7 @@ export async function middleware(request: NextRequest) {
   if (user && (pathname.endsWith('/login') || pathname.endsWith('/signup'))) {
     const url = request.nextUrl.clone();
     const segs = pathname.split('/').filter(Boolean);
-    const locale = (locales as readonly string[]).includes(segs[0] ?? '')
-      ? segs[0]
-      : defaultLocale;
+    const locale = (locales as readonly string[]).includes(segs[0] ?? '') ? segs[0] : defaultLocale;
     url.pathname = `/${locale}/`;
     url.search = '';
     return NextResponse.redirect(url);

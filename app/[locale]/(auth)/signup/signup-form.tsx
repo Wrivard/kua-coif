@@ -1,9 +1,11 @@
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { signUpAction, type AuthActionState } from '@/lib/auth/actions';
+import type { AuthErrorCode } from '@/lib/auth/errors';
 
 type Props = {
   locale: string;
@@ -20,6 +22,7 @@ const initialState: AuthActionState = { ok: true };
 
 export function SignupForm({ locale, labels }: Props) {
   const [state, formAction] = useFormState(signUpAction, initialState);
+  const tErr = useTranslations('auth.errors');
 
   return (
     <form action={formAction} className="mt-6 space-y-4" noValidate>
@@ -40,7 +43,7 @@ export function SignupForm({ locale, labels }: Props) {
           invalid={Boolean(state && 'fieldErrors' in state && state.fieldErrors?.fullName)}
         />
         {state && 'fieldErrors' in state && state.fieldErrors?.fullName ? (
-          <FieldHint error>{state.fieldErrors.fullName}</FieldHint>
+          <FieldHint error>{tErr('field.fullName')}</FieldHint>
         ) : null}
       </div>
 
@@ -57,7 +60,7 @@ export function SignupForm({ locale, labels }: Props) {
           invalid={Boolean(state && 'fieldErrors' in state && state.fieldErrors?.email)}
         />
         {state && 'fieldErrors' in state && state.fieldErrors?.email ? (
-          <FieldHint error>{state.fieldErrors.email}</FieldHint>
+          <FieldHint error>{tErr('field.email')}</FieldHint>
         ) : null}
       </div>
 
@@ -75,16 +78,16 @@ export function SignupForm({ locale, labels }: Props) {
           invalid={Boolean(state && 'fieldErrors' in state && state.fieldErrors?.password)}
         />
         {state && 'fieldErrors' in state && state.fieldErrors?.password ? (
-          <FieldHint error>{state.fieldErrors.password}</FieldHint>
+          <FieldHint error>{tErr('field.password')}</FieldHint>
         ) : null}
       </div>
 
       {state && !state.ok && !state.fieldErrors ? (
         <p
           role="alert"
-          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
         >
-          {state.error}
+          {tErr(state.errorCode satisfies AuthErrorCode)}
         </p>
       ) : null}
 

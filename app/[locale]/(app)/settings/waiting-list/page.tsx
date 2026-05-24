@@ -2,7 +2,11 @@ import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
 
-export default function SettingsWaitingListPage({ params: { locale } }: { params: { locale: string } }) {
+export default function SettingsWaitingListPage({
+  params: { locale },
+}: {
+  params: { locale: string };
+}) {
   setRequestLocale(locale);
   return <Content />;
 }

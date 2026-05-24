@@ -178,17 +178,27 @@ export default function KitchenSinkPage() {
         <Section title={sections('controls')}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Toggle</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Toggle
+              </p>
               <Toggle checked={toggleOn} onChange={setToggleOn} label="Booking tip" />
               <Toggle checked={false} onChange={() => undefined} label="Disabled" disabled />
             </div>
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Checkbox</p>
-              <Checkbox checked={checked} onChange={(e) => setChecked(e.target.checked)} label="Add to price" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Checkbox
+              </p>
+              <Checkbox
+                checked={checked}
+                onChange={(e) => setChecked(e.target.checked)}
+                label="Add to price"
+              />
               <Checkbox checked={false} disabled label="Disabled" readOnly />
             </div>
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Radio group</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Radio group
+              </p>
               <RadioGroup
                 name="loyalty-type"
                 value={radio}
@@ -242,12 +252,14 @@ export default function KitchenSinkPage() {
               </>
             }
           >
-            <p className="text-sm text-text-secondary">
-              Modal body — real form lives in Phase 5.
-            </p>
+            <p className="text-sm text-text-secondary">Modal body — real form lives in Phase 5.</p>
           </Modal>
 
-          <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Appointment details">
+          <Drawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            title="Appointment details"
+          >
             <p className="text-sm text-text-secondary">
               Drawer is used by the calendar to show appointment details on row click.
             </p>
@@ -276,12 +288,13 @@ export default function KitchenSinkPage() {
             </CardHeader>
             <CardBody className="space-y-3 text-sm text-text-secondary">
               <p>
-                The sidebar on the left is the real component — collapse it with the chevron in the top-left corner.
-                Active item gets an accent bar and accent text.
+                The sidebar on the left is the real component — collapse it with the chevron in the
+                top-left corner. Active item gets an accent bar and accent text.
               </p>
               <p>
-                The page header at the top of every shell page exposes slots for a title, a centered search bar, action
-                buttons, and a SectionSwitcher (the &quot;VIEW&quot; dropdown above).
+                The page header at the top of every shell page exposes slots for a title, a centered
+                search bar, action buttons, and a SectionSwitcher (the &quot;VIEW&quot; dropdown
+                above).
               </p>
             </CardBody>
           </Card>
@@ -322,16 +335,28 @@ export default function KitchenSinkPage() {
         {/* Feedback */}
         <Section title={sections('feedback')}>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={() => show({ variant: 'success', title: 'Saved' })}>
+            <Button
+              variant="secondary"
+              onClick={() => show({ variant: 'success', title: 'Saved' })}
+            >
               <Award className="h-4 w-4" /> Success toast
             </Button>
-            <Button variant="secondary" onClick={() => show({ variant: 'info', title: 'Heads up', description: 'Just FYI.' })}>
+            <Button
+              variant="secondary"
+              onClick={() => show({ variant: 'info', title: 'Heads up', description: 'Just FYI.' })}
+            >
               Info toast
             </Button>
-            <Button variant="secondary" onClick={() => show({ variant: 'warning', title: 'Careful' })}>
+            <Button
+              variant="secondary"
+              onClick={() => show({ variant: 'warning', title: 'Careful' })}
+            >
               Warning toast
             </Button>
-            <Button variant="secondary" onClick={() => show({ variant: 'danger', title: 'Something failed' })}>
+            <Button
+              variant="secondary"
+              onClick={() => show({ variant: 'danger', title: 'Something failed' })}
+            >
               Danger toast
             </Button>
           </div>

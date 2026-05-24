@@ -18,7 +18,7 @@ export function PageHeader({ title, subtitle, center, actions, switcher, classNa
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border bg-bg-base/95 px-6 backdrop-blur',
+        'bg-bg-base/95 sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border px-6 backdrop-blur',
         className,
       )}
     >

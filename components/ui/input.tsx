@@ -1,4 +1,9 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
@@ -21,7 +26,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     return (
       <input
         ref={ref}
-        className={cn(baseField, invalid && 'border-danger focus:border-danger focus:ring-danger', className)}
+        className={cn(
+          baseField,
+          invalid && 'border-danger focus:border-danger focus:ring-danger',
+          className,
+        )}
         {...rest}
       />
     );
@@ -67,8 +76,8 @@ export const Textarea = forwardRef<
       rows={rows}
       className={cn(
         'w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted',
-        'border border-border rounded px-3 py-2',
-        'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent',
+        'rounded border border-border px-3 py-2',
+        'focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
         'disabled:cursor-not-allowed disabled:opacity-50',
         invalid && 'border-danger focus:border-danger focus:ring-danger',
         className,
@@ -92,7 +101,10 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={cn('mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted', className)}
+      className={cn(
+        'mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted',
+        className,
+      )}
     >
       {children}
       {required ? <span className="ml-1 text-danger">*</span> : null}
@@ -101,5 +113,7 @@ export function Label({
 }
 
 export function FieldHint({ children, error }: { children: ReactNode; error?: boolean }) {
-  return <p className={cn('mt-1 text-xs', error ? 'text-danger' : 'text-text-muted')}>{children}</p>;
+  return (
+    <p className={cn('mt-1 text-xs', error ? 'text-danger' : 'text-text-muted')}>{children}</p>
+  );
 }

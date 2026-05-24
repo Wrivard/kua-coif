@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -25,6 +26,7 @@ export function Drawer({
   width = 'w-96',
   className,
 }: Props) {
+  const tA11y = useTranslations('a11y');
   useEffect(() => {
     if (!open) return;
     const handleEsc = (e: KeyboardEvent) => {
@@ -39,10 +41,7 @@ export function Drawer({
       role="dialog"
       aria-modal="true"
       aria-hidden={!open}
-      className={cn(
-        'pointer-events-none fixed inset-0 z-50',
-        open ? 'pointer-events-auto' : '',
-      )}
+      className={cn('pointer-events-none fixed inset-0 z-50', open ? 'pointer-events-auto' : '')}
     >
       <div
         onClick={onClose}
@@ -65,7 +64,7 @@ export function Drawer({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tA11y('close')}
             className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary"
           >
             <X className="h-4 w-4" />
@@ -73,7 +72,9 @@ export function Drawer({
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>
+          <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+            {footer}
+          </div>
         ) : null}
       </aside>
     </div>
