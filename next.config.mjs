@@ -1,4 +1,5 @@
 import createNextIntlPlugin from 'next-intl/plugin';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
@@ -106,4 +107,23 @@ const nextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Wrap with `withSentryConfig` so the Sentry webpack plugin handles
+// source-map upload + tunneling. It's a no-op at runtime when no DSN is set
+// (the Sentry SDK skips `init()`), and source-map upload only fires when
+// `SENTRY_AUTH_TOKEN` is present. Keeping the wrapper unconditionally lets us
+// flip the feature on by adding env vars — no code change needed.
+const sentryOpts = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Tunneling routes Sentry traffic through our own origin to dodge
+  // ad-blockers. Only enabled when explicitly configured.
+  tunnelRoute: process.env.NEXT_PUBLIC_SENTRY_TUNNEL_ROUTE,
+  // Silence the "no auth token" warning during local builds.
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  // Tree-shake Sentry's debug logger out of the production bundle (replaces
+  // the deprecated `disableLogger: true` option).
+  webpack: { treeshake: { removeDebugLogging: true } },
+  widenClientFileUpload: true,
+};
+
+export default withSentryConfig(withNextIntl(nextConfig), sentryOpts);
