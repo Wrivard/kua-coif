@@ -3,6 +3,12 @@
 -- Performance indexes, updated_at triggers, audit_log triggers.
 -- =============================================================================
 
+-- Required to mix btree-indexable types (uuid) with gist-indexable types
+-- (tstzrange) in the same multi-column gist index. Without this extension
+-- Postgres raises 42704: "data type uuid has no default operator class for
+-- access method gist".
+create extension if not exists "btree_gist";
+
 -- -----------------------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------------------
