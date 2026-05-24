@@ -86,16 +86,60 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
   );
   const categories = (categoriesRes.data as ServiceCategoryRow[] | null) ?? [];
 
+  // Schema.org structured data — Hairdresser (subtype of LocalBusiness)
+  // helps Google show rich results for the shop's name, address, hours.
+  const dayMap: Record<number, string> = {
+    0: 'Sunday',
+    1: 'Monday',
+    2: 'Tuesday',
+    3: 'Wednesday',
+    4: 'Thursday',
+    5: 'Friday',
+    6: 'Saturday',
+  };
+  const openingHoursSpec = hours
+    .filter((h) => h.enabled && h.open_time && h.close_time)
+    .map((h) => ({
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: dayMap[h.weekday] ?? 'Monday',
+      opens: h.open_time,
+      closes: h.close_time,
+    }));
+  const ldJson = {
+    '@context': 'https://schema.org',
+    '@type': 'HairSalon',
+    name: shop.name,
+    description: shop.description ?? undefined,
+    address: shop.street
+      ? {
+          '@type': 'PostalAddress',
+          streetAddress: shop.street,
+          addressLocality: shop.municipality ?? undefined,
+          addressRegion: shop.province ?? undefined,
+          postalCode: shop.postal_code ?? undefined,
+          addressCountry: shop.country ?? undefined,
+        }
+      : undefined,
+    openingHoursSpecification: openingHoursSpec,
+  };
+
   return (
-    <BookingWizard
-      locale={locale}
-      shopSlug={shopSlug}
-      shop={shop}
-      hours={hours}
-      daysOff={daysOff}
-      barbers={barbers}
-      services={services}
-      categories={categories}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }}
+      />
+      <BookingWizard
+        locale={locale}
+        shopSlug={shopSlug}
+        shop={shop}
+        hours={hours}
+        daysOff={daysOff}
+        barbers={barbers}
+        services={services}
+        categories={categories}
+      />
+    </>
   );
 }

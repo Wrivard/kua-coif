@@ -665,5 +665,53 @@
       "export": "Exporter",
       "download": "Télécharger"
     }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "lastUpdated": "Dernière mise à jour : mai 2026",
+      "introTitle": "Introduction",
+      "introBody": "Cette politique décrit comment Küa collecte, utilise et protège tes renseignements personnels. Nous opérons sous la Loi 25 (Québec) et appliquons les principes RGPD lorsque applicable.",
+      "dataCollectedTitle": "Renseignements collectés",
+      "dataCollectedBody": "Selon ton usage de la plateforme, nous pouvons collecter :",
+      "dataItems": {
+        "identity": "Identité : nom, courriel, numéro de téléphone.",
+        "appointments": "Historique des rendez-vous et services réservés.",
+        "payments": "Informations de paiement (jetonisées via notre processeur ; nous ne stockons pas les numéros de carte).",
+        "technical": "Données techniques : adresse IP, type de navigateur, cookies essentiels pour la session."
+      },
+      "purposeTitle": "Finalités",
+      "purposeBody": "Tes données servent uniquement à : gérer ton rendez-vous, te contacter en cas de changement, calculer les commissions et taxes, respecter nos obligations légales (conservation fiscale). Aucune revente, aucun usage publicitaire externe.",
+      "retentionTitle": "Conservation",
+      "retentionBody": "Données fiscales conservées 6 ans (Revenu Québec). Données clients inactifs supprimées après 7 ans sans visite, ou sur demande explicite.",
+      "rightsTitle": "Tes droits",
+      "rightsBody": "Sous la Loi 25 et le RGPD, tu peux exiger :",
+      "rightsItems": {
+        "access": "Accès aux renseignements détenus à ton sujet.",
+        "correction": "Correction des données inexactes.",
+        "deletion": "Suppression des données personnelles (sous réserve des obligations fiscales).",
+        "portability": "Portabilité : export de tes données dans un format réutilisable."
+      },
+      "contactTitle": "Contact",
+      "contactBody": "Pour toute demande relative à tes données, écris à wrivard@kua.quebec. Tu peux également déposer une plainte auprès de la Commission d'accès à l'information du Québec.",
+      "seeTerms": "Consulter aussi les conditions d'utilisation →"
+    },
+    "terms": {
+      "title": "Conditions d'utilisation",
+      "lastUpdated": "Dernière mise à jour : mai 2026",
+      "acceptanceTitle": "Acceptation",
+      "acceptanceBody": "En utilisant la plateforme Küa, tu acceptes les présentes conditions. Si tu ne les acceptes pas, n'utilise pas le service.",
+      "serviceTitle": "Description du service",
+      "serviceBody": "Küa est une plateforme de gestion pour salons de coiffure et barbershops. Elle inclut la prise de rendez-vous en ligne, la gestion d'inventaire, le suivi des commissions et le traitement des paiements (via un processeur tiers).",
+      "accountTitle": "Compte utilisateur",
+      "accountBody": "Tu es responsable de la confidentialité de ton mot de passe et de toute activité depuis ton compte. Préviens-nous immédiatement en cas d'accès non autorisé.",
+      "cancellationTitle": "Annulations",
+      "cancellationBody": "Les règles d'annulation sont définies par chaque salon. Une annulation hors délai peut entraîner des frais. Consulte les conditions du salon avant la réservation.",
+      "liabilityTitle": "Limitation de responsabilité",
+      "liabilityBody": "Küa fournit la plateforme « telle quelle ». Nous ne sommes pas responsables des prestations rendues par les salons ; le contrat de service est entre toi et le salon.",
+      "lawTitle": "Loi applicable",
+      "lawBody": "Ces conditions sont régies par les lois du Québec et du Canada. Tout litige sera soumis aux tribunaux du district de Montréal.",
+      "seePrivacy": "Consulter aussi la politique de confidentialité →"
+    }
   }
 }

@@ -174,3 +174,16 @@
 - **Mobile-first** : layout `max-w-2xl mx-auto`, grid responsive pour slots, date-strip horizontal scrollable.
 - **Différé V1.1** : tip pendant le booking, promo code application, Cloudflare Turnstile (V1 OK avec rate limit + honeypot), Resend confirmation email, SMS reminders.
 - **Build après Phase 8** : 38 + 2 routes (`/book/[shopSlug]` × 2 locales + `/api/book/[shopSlug]/slots`). Middleware 105 kB. Tests Vitest : 44 passing inchangés.
+
+## Phase 9 — Polish & launch readiness
+
+- **CSP strict-ish dans `next.config.mjs`** : `default-src 'self'`, `script-src 'self' 'unsafe-inline' 'unsafe-eval'` (Next 14 streaming + RSC payloads). `connect-src 'self' https://${supabaseHost} wss://…`. `frame-ancestors 'none'`. Switch vers nonces quand Next 15+ stabilisera l'API.
+- **`upgrade-insecure-requests` en prod uniquement** : ne casse pas le dev local en HTTP.
+- **`app/robots.ts` + `app/sitemap.ts`** : MetadataRoute Next.js. Robots autorise `/`, `/fr`, `/en`, `/fr/book/`, `/en/book/` et bloque tout `/{locale}/(app)/*` + `/api/`. Sitemap inclut les locales roots, /privacy, /terms, et un entry par `shops.alias` non null (fetché via service-role). `NEXT_PUBLIC_SITE_URL` env var.
+- **Schema.org `HairSalon` sur `/book/[slug]`** : injecté via `<script type="application/ld+json">`. Contient nom, description, `PostalAddress`, `OpeningHoursSpecification`. Permet à Google d'afficher l'horaire dans les rich results.
+- **`/privacy` + `/terms`** : pages statiques (force-static) bilingues, scaffold conforme Loi 25 Québec + principes RGPD. Sections : intro, données collectées, finalités, rétention (6 ans fiscal Québec, 7 ans clients inactifs), droits (accès/correction/suppression/portabilité), contact `wrivard@kua.quebec`.
+- **CGU mentionnent juridiction Québec/Montréal** + responsabilité limitée (Küa = plateforme, salons = prestataires).
+- **Middleware whitelist updated** : `/privacy` + `/terms` ajoutés à `PUBLIC_PATH_PREFIXES`.
+- **README enrichi** : statut par phase, stack à jour, deploy walkthrough Vercel + Supabase (env vars, redirect URLs Supabase, custom domain), section "Différé V1.1".
+- **Différé Phase 9b** (besoin d'une URL live pour tester) : Playwright e2e (login → home, booking, add product), Lighthouse CI (perf + a11y > 90 sur booking), axe-core dev, Sentry actif (DSN), Upstash KV pour rate limit multi-instance, Cloudflare Turnstile sur booking, Resend email confirmations, SMS reminders, Stripe Connect réel, Realtime calendrier, drag calendrier.
+- **Build après Phase 9** : 42+ routes (+`/robots.txt`, `/sitemap.xml`, `/privacy` × 2, `/terms` × 2). Middleware 107 kB (CSP). Tests Vitest : 44 passing.

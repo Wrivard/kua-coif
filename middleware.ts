@@ -18,6 +18,8 @@ const PUBLIC_PATH_PREFIXES = [
   '/reset-password',
   '/book', // public booking flow (Phase 8)
   '/kitchen-sink', // design system gallery — always accessible for review
+  '/privacy', // legal — Loi 25 Quebec (Phase 9)
+  '/terms',
 ];
 
 function stripLocale(pathname: string): string {

@@ -665,5 +665,53 @@
       "export": "Export",
       "download": "Download"
     }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy",
+      "lastUpdated": "Last updated: May 2026",
+      "introTitle": "Introduction",
+      "introBody": "This policy explains how Küa collects, uses and protects your personal information. We operate under Quebec's Law 25 and apply GDPR principles where applicable.",
+      "dataCollectedTitle": "Data collected",
+      "dataCollectedBody": "Depending on your use of the platform, we may collect:",
+      "dataItems": {
+        "identity": "Identity: name, email, phone number.",
+        "appointments": "Booked appointments and service history.",
+        "payments": "Payment data (tokenized through our processor; we never store card numbers).",
+        "technical": "Technical data: IP address, browser type, essential session cookies."
+      },
+      "purposeTitle": "Purposes",
+      "purposeBody": "Your data is used solely to: manage your appointment, contact you in case of change, compute commissions and taxes, comply with our legal obligations (fiscal retention). No resale, no external advertising use.",
+      "retentionTitle": "Retention",
+      "retentionBody": "Fiscal data retained for 6 years (Revenu Québec). Inactive client data deleted after 7 years without visit, or upon explicit request.",
+      "rightsTitle": "Your rights",
+      "rightsBody": "Under Law 25 and GDPR, you can request:",
+      "rightsItems": {
+        "access": "Access to data held about you.",
+        "correction": "Correction of inaccurate data.",
+        "deletion": "Deletion of personal data (subject to fiscal obligations).",
+        "portability": "Portability: export your data in a reusable format."
+      },
+      "contactTitle": "Contact",
+      "contactBody": "For any data-related request, email wrivard@kua.quebec. You may also file a complaint with the Commission d'accès à l'information du Québec.",
+      "seeTerms": "See also the Terms of Service →"
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated: May 2026",
+      "acceptanceTitle": "Acceptance",
+      "acceptanceBody": "By using the Küa platform, you accept these terms. If you don't accept them, don't use the service.",
+      "serviceTitle": "Service description",
+      "serviceBody": "Küa is a management platform for hair salons and barbershops. It includes online booking, inventory management, commission tracking, and payment processing (via a third-party processor).",
+      "accountTitle": "User account",
+      "accountBody": "You are responsible for keeping your password confidential and for any activity from your account. Notify us immediately in case of unauthorized access.",
+      "cancellationTitle": "Cancellations",
+      "cancellationBody": "Cancellation rules are set by each shop. A late cancellation may trigger fees. Check the shop policy before booking.",
+      "liabilityTitle": "Limitation of liability",
+      "liabilityBody": "Küa provides the platform 'as is'. We are not responsible for the services rendered by the shops; the service contract is between you and the shop.",
+      "lawTitle": "Governing law",
+      "lawBody": "These terms are governed by the laws of Quebec and Canada. Any dispute will be submitted to the courts of the Montreal district.",
+      "seePrivacy": "See also the Privacy Policy →"
+    }
   }
 }
