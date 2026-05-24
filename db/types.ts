@@ -1151,6 +1151,7 @@ export type Database = {
           use_prod_price_in_tips: boolean;
           use_taxes_in_tips: boolean;
           website: string | null;
+          widget_config: Json;
           yelp_id: string | null;
         };
         Insert: {
@@ -1185,6 +1186,7 @@ export type Database = {
           use_prod_price_in_tips?: boolean;
           use_taxes_in_tips?: boolean;
           website?: string | null;
+          widget_config?: Json;
           yelp_id?: string | null;
         };
         Update: {
@@ -1219,6 +1221,7 @@ export type Database = {
           use_prod_price_in_tips?: boolean;
           use_taxes_in_tips?: boolean;
           website?: string | null;
+          widget_config?: Json;
           yelp_id?: string | null;
         };
         Relationships: [];

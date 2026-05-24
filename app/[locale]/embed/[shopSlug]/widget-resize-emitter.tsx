@@ -1,0 +1,54 @@
+'use client';
+
+import { useEffect } from 'react';
+
+/**
+ * Posts the document height to the parent window whenever it changes.
+ *
+ * Snippet in `public/widget.js` listens for `{ type: 'kua-widget', height }`
+ * and resizes the iframe accordingly. We rate-limit via `requestAnimationFrame`
+ * so a flurry of layout changes (typing, slot loading, etc.) collapses into a
+ * single message per frame.
+ *
+ * Targeting `*` here is safe because we only emit a number (no PII); CSP
+ * `frame-ancestors` is what actually locks down who can embed us.
+ */
+export function WidgetResizeEmitter() {
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.parent === window) return;
+
+    let rafId = 0;
+    let lastHeight = 0;
+
+    const emit = () => {
+      rafId = 0;
+      const height = Math.ceil(document.documentElement.scrollHeight);
+      if (height === lastHeight) return;
+      lastHeight = height;
+      window.parent.postMessage({ type: 'kua-widget', kind: 'resize', height }, '*');
+    };
+
+    const schedule = () => {
+      if (rafId !== 0) return;
+      rafId = window.requestAnimationFrame(emit);
+    };
+
+    schedule(); // initial size
+
+    const ro = new ResizeObserver(schedule);
+    ro.observe(document.documentElement);
+
+    // Also catch route-internal navigation (wizard step changes don't always
+    // trigger ResizeObserver since the same element gets new children).
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  return null;
+}

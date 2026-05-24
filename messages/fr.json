@@ -662,6 +662,65 @@
           "saved": "Réglages enregistrés",
           "overrideApplied": "Défauts du salon appliqués (non enregistré)"
         }
+      },
+      "widget": {
+        "title": "Widget de réservation",
+        "subtitle": "Code d'intégration : /embed/{alias}",
+        "subtitleNoAlias": "Définis d'abord un alias dans « Shop details » pour activer le widget.",
+        "openInTab": "Ouvrir dans un onglet",
+        "sections": {
+          "identity": "Identité",
+          "theme": "Thème",
+          "steps": "Étapes du parcours",
+          "behavior": "Comportement",
+          "snippet": "Code d'intégration",
+          "preview": "Aperçu en direct"
+        },
+        "fields": {
+          "displayName": "Nom affiché (surcharge)",
+          "displayNameHint": "Laisse vide pour utiliser le nom du salon.",
+          "showAddress": "Afficher l'adresse du salon dans l'entête du widget",
+          "showPhone": "Afficher le téléphone du salon dans l'entête du widget",
+          "mode": "Mode couleur",
+          "modeHint": "Modes clair & auto arrivent en V1.1.",
+          "accentColor": "Couleur d'accent (hex)",
+          "accentColorHint": "Surcharge le mauve par défaut. Format : #RRGGBB.",
+          "font": "Police",
+          "borderRadius": "Style des coins",
+          "proFirst": "Choisir le professionnel avant le service",
+          "multiService": "Permettre plusieurs services par réservation",
+          "tipStep": "Afficher l'étape pourboire (bientôt)",
+          "promoCode": "Afficher le code promo (bientôt)",
+          "stepsHint": "Pourboire & promo demandent le paiement en ligne — V1.1.",
+          "defaultLocale": "Langue par défaut",
+          "allowedOrigins": "Origines d'intégration autorisées",
+          "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com."
+        },
+        "options": {
+          "modeDark": "Sombre",
+          "modeLight": "Clair (bientôt)",
+          "modeAuto": "Auto (bientôt)",
+          "radiusSharp": "Angles vifs",
+          "radiusRounded": "Arrondi",
+          "radiusPill": "Pilule"
+        },
+        "errors": {
+          "accentColor": "Utilise une couleur hex comme #8b5cf6."
+        },
+        "snippet": {
+          "instructions": "Colle ce snippet sur le site du salon, à l'endroit où afficher le widget.",
+          "noAlias": "Définis d'abord un alias.",
+          "copy": "Copier le code",
+          "copied": "Copié !"
+        },
+        "preview": {
+          "noAlias": "Définis d'abord un alias pour voir l'aperçu.",
+          "note": "L'aperçu reflète la configuration enregistrée — clique Enregistrer pour le rafraîchir."
+        },
+        "toasts": {
+          "saved": "Widget enregistré",
+          "copyFailed": "Impossible de copier. Sélectionne le code manuellement."
+        }
       }
     },
     "kitchenSink": {

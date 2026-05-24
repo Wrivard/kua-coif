@@ -662,6 +662,65 @@
           "saved": "Settings saved",
           "overrideApplied": "Shop defaults applied (not saved yet)"
         }
+      },
+      "widget": {
+        "title": "Booking widget",
+        "subtitle": "Embed code: /embed/{alias}",
+        "subtitleNoAlias": "Set a shop alias under Shop details first to enable the widget.",
+        "openInTab": "Open in new tab",
+        "sections": {
+          "identity": "Identity",
+          "theme": "Theme",
+          "steps": "Wizard steps",
+          "behavior": "Behavior",
+          "snippet": "Embed snippet",
+          "preview": "Live preview"
+        },
+        "fields": {
+          "displayName": "Display name (override)",
+          "displayNameHint": "Leave empty to use the shop name.",
+          "showAddress": "Show shop address in widget header",
+          "showPhone": "Show shop phone in widget header",
+          "mode": "Color mode",
+          "modeHint": "Light & auto modes are coming in V1.1.",
+          "accentColor": "Accent color (hex)",
+          "accentColorHint": "Override the default purple. Format: #RRGGBB.",
+          "font": "Font family",
+          "borderRadius": "Corner style",
+          "proFirst": "Pick the professional first (instead of the service)",
+          "multiService": "Allow multiple services per booking",
+          "tipStep": "Show tip step (coming soon)",
+          "promoCode": "Show promo code field (coming soon)",
+          "stepsHint": "Tip & promo will require online payments — coming in V1.1.",
+          "defaultLocale": "Default language",
+          "allowedOrigins": "Allowed embedding origins",
+          "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com."
+        },
+        "options": {
+          "modeDark": "Dark",
+          "modeLight": "Light (coming soon)",
+          "modeAuto": "Auto (coming soon)",
+          "radiusSharp": "Sharp",
+          "radiusRounded": "Rounded",
+          "radiusPill": "Pill"
+        },
+        "errors": {
+          "accentColor": "Use a hex color like #8b5cf6."
+        },
+        "snippet": {
+          "instructions": "Paste this snippet into the salon's website where you want the booking widget to appear.",
+          "noAlias": "Set a shop alias first.",
+          "copy": "Copy code",
+          "copied": "Copied!"
+        },
+        "preview": {
+          "noAlias": "Set a shop alias first to see the preview.",
+          "note": "Preview reflects the saved configuration — click Save to refresh."
+        },
+        "toasts": {
+          "saved": "Widget settings saved",
+          "copyFailed": "Could not copy. Try selecting the code manually."
+        }
       }
     },
     "kitchenSink": {
