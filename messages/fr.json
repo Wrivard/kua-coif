@@ -72,7 +72,10 @@
       "NAME_REQUIRED": "Le nom est requis.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
       "DURATION_MAX": "La durée ne peut pas dépasser 8 heures.",
-      "PHONE_INVALID": "Numéro de téléphone invalide."
+      "PHONE_INVALID": "Numéro de téléphone invalide.",
+      "INVALID_DATE": "Date invalide.",
+      "INVALID_TIME": "Heure invalide.",
+      "SERVICE_REQUIRED": "Au moins un service est requis."
     }
   },
   "errors": {
@@ -88,7 +91,51 @@
     }
   },
   "pages": {
-    "appointments": { "title": "Rendez-vous", "soon": "Vue calendrier — Phase 5." },
+    "appointments": {
+      "title": "Rendez-vous",
+      "soon": "Vue calendrier — Phase 5.",
+      "addAppointment": "Ajouter un rendez-vous",
+      "today": "Aujourd'hui",
+      "prevDay": "Jour précédent",
+      "nextDay": "Jour suivant",
+      "filterBarbers": "Barbiers :",
+      "noBarbersSelected": "Aucun barbier sélectionné.",
+      "shopClosedDay": "Le salon est fermé ce jour-là (jour off ou hors horaires).",
+      "blocked": "Bloqué",
+      "online": "En ligne",
+      "admin": "Admin",
+      "detailTitle": "Détails du rendez-vous",
+      "client": "Client",
+      "time": "Heure",
+      "status": "Statut",
+      "services": "Services",
+      "notes": "Notes",
+      "cancelAppointment": "Annuler le rendez-vous",
+      "statuses": {
+        "booked": "Réservé",
+        "confirmed": "Confirmé",
+        "arrived": "Arrivé",
+        "completed": "Terminé",
+        "cancelled": "Annulé",
+        "no_show": "Absent"
+      },
+      "form": {
+        "createTitle": "Nouveau rendez-vous",
+        "book": "Réserver",
+        "client": "Client",
+        "searchClient": "Rechercher un client…",
+        "barber": "Barbier",
+        "date": "Date",
+        "startTime": "Heure de début",
+        "services": "Services",
+        "notes": "Notes",
+        "uncategorized": "Sans catégorie"
+      },
+      "toasts": {
+        "created": "Rendez-vous créé",
+        "cancelled": "Rendez-vous annulé"
+      }
+    },
     "clients": {
       "title": "Clients",
       "soon": "Liste A–Z, dédoublonnage, export — Phase 4.",

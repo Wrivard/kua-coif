@@ -112,3 +112,22 @@
 - **Pas encore migré sur `@tanstack/react-table`** : DataTable maison suffit pour <2000 lignes en mémoire. Migration prévue Phase 5+ quand la virtualisation devient nécessaire (calendrier surtout).
 - **Drag reorder différé Phase 5** : `@dnd-kit` installé mais pas encore branché. La spec Services + Barbers Image (poignée ⇅) reste un placeholder visuel via `reorderable: true` sur DataTable, sans vraie action sortable.
 - **Build après Phase 4b** : 37 routes (16 admin × 2 + auth + kitchen-sink + 2 API), middleware 101 kB. Tests Vitest : 8 passing (taxes module). Lint / typecheck / format / build / test : tous verts.
+
+## Phase 5 — Calendrier (Side by Side)
+
+- **Timezone partout via `date-fns-tz`** : DB stocke en UTC, on convertit en wall-clock pour positionner les blocs, on reconvertit en UTC pour l'insert. Helpers centralisés dans `lib/business/timezone.ts` (`toShopWallClock`, `shopWallClockToUtc`, `formatShopTime`, `combineShopDateTime`, `shopDayStart/End`, `minutesFromShopMidnight`, `formatHeaderDate`, `shopIsoDate`, `parseShopIsoDate`).
+- **Moteur de dispo `lib/business/availability.ts`** pur (zéro Supabase / zéro React). 8 raisons de refus (`SHOP_CLOSED`, `DAY_OFF`, `OUTSIDE_HOURS`, `CONFLICT_APPOINTMENT`, `CONFLICT_BLOCK`, `TOO_LATE`, `TOO_FAR_IN_ADVANCE`, `NEGATIVE_DURATION`). **16 tests Vitest** couvrant chaque branche. La même fonction sert sur le serveur (Server Action) et le client (futur booking public Phase 8).
+- **`canClientCancel()`** : règle de cancellation isolée, testée séparément.
+- **Server Actions calendrier** : `createAppointment` (fait son propre `checkAvailability` avant insert, lie les services M:N, calcule `total_amount` depuis le prix snapshot des services), `updateAppointment` (V1 : status + notes only — time-shift en V1.1), `cancelAppointment` (flip status à `cancelled`), `blockTime`. Tous wrappés `withAction` + `logAuditAction`.
+- **Vue Side by Side** uniquement en Phase 5 (Week + List différés Phase 5b). Colonnes par barbier × time-axis vertical. **1.4 px/min** pour que 30 min restent confortables au clic.
+- **Plage de jour adaptative** : utilise `shop_hours` du jour (e.g. 10:00-19:00 mar/mer). Fallback 8h-20h quand le shop est fermé pour qu'on voit quand même la grille. Banner `warning` quand fermé.
+- **Filtre barbers** : chips toggle au-dessus du calendrier. Tous sélectionnés par défaut. État local React (pas dans l'URL).
+- **Navigation date via URL** : `?date=YYYY-MM-DD`. Today/prev/next mettent à jour le query param et `router.push` re-render le Server Component. Pas de cache trouble.
+- **Blocs RDV** : couleur selon statut (`bg-appt-green` pour confirmed/arrived/completed, `bg-appt-blue` pour booked, gris+opacity pour cancelled). Barre latérale gauche colorée (`border-l-4`). Icône carte de paiement coin bas-droit (cosmétique, conforme annexe Image 13).
+- **Block time** rendu en overlay rouge avec icône XOctagon dans la colonne du barbier (ou toutes si `barber_id` null).
+- **Modal création** : `react-hook-form` + Zod. Search client texte simple (filtre dans la liste pré-fetched, top 50). Multi-checkbox services groupés par catégorie. Durée totale auto-calculée. Toast succès/erreur.
+- **Drawer détail** : ouvre au clic d'un bloc. Affiche client, plage horaire (formatée TZ shop), statut, services + durées, notes, source admin/online, total amount. Bouton "Annuler" si pas déjà cancelled. Édition du time-shift = V1.1.
+- **Drag pour déplacer/redimensionner** : différé V1.1 (spec §5.A "V1.1 si trop lourd, sinon édition par modal"). Édition par modal en V1.
+- **Realtime Supabase** : différé V1.1 — le calendrier se rafraîchit après une mutation via `revalidatePath('/')`. Realtime ferait juste mieux pour le multi-barber simultané.
+- **Cast `as any` du Supabase builder** dans `page.tsx` : volontaire — la chaîne `select().order().gte().lt()` est trop compliquée à typer sans codegen. Le bon typage viendra avec `db:types:remote`.
+- **24 tests passing** (8 taxes + 16 availability), build verts (38 routes incl. /api/health + /api/export).

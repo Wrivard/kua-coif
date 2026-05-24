@@ -4,8 +4,8 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 4b (Services + Barbers + Clients + Products + CSV export).
-**Statut global** : Phases 0–4 ✅ · Phases 5–9 à faire.
+**Dernière mise à jour** : fin de Phase 5 (Calendrier Side by Side + moteur de dispo testé).
+**Statut global** : Phases 0–5 ✅ · Vues Week + List et Realtime différés V1.1 · Phases 6–9 à faire.
 
 > Sentry est **différé en Phase 9** (pas Phase 3 comme prévu initialement) — son installation demande un compte Sentry + un DSN, et installer le wrapper sans DSN ajoute du noise pour rien. La façade `lib/observability.ts` est en place : migration en 4 lignes quand un compte existera.
 

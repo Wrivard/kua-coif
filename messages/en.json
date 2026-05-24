@@ -72,7 +72,10 @@
       "NAME_REQUIRED": "Name is required.",
       "DURATION_MIN": "Duration must be at least 5 minutes.",
       "DURATION_MAX": "Duration cannot exceed 8 hours.",
-      "PHONE_INVALID": "Invalid phone number."
+      "PHONE_INVALID": "Invalid phone number.",
+      "INVALID_DATE": "Invalid date.",
+      "INVALID_TIME": "Invalid time.",
+      "SERVICE_REQUIRED": "At least one service is required."
     }
   },
   "errors": {
@@ -88,7 +91,51 @@
     }
   },
   "pages": {
-    "appointments": { "title": "Appointments", "soon": "Calendar view — Phase 5." },
+    "appointments": {
+      "title": "Appointments",
+      "soon": "Calendar view — Phase 5.",
+      "addAppointment": "Add appointment",
+      "today": "Today",
+      "prevDay": "Previous day",
+      "nextDay": "Next day",
+      "filterBarbers": "Barbers:",
+      "noBarbersSelected": "No barber selected.",
+      "shopClosedDay": "The shop is closed on this day (day off or outside hours).",
+      "blocked": "Blocked",
+      "online": "Online",
+      "admin": "Admin",
+      "detailTitle": "Appointment details",
+      "client": "Client",
+      "time": "Time",
+      "status": "Status",
+      "services": "Services",
+      "notes": "Notes",
+      "cancelAppointment": "Cancel appointment",
+      "statuses": {
+        "booked": "Booked",
+        "confirmed": "Confirmed",
+        "arrived": "Arrived",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_show": "No-show"
+      },
+      "form": {
+        "createTitle": "New appointment",
+        "book": "Book",
+        "client": "Client",
+        "searchClient": "Search a client…",
+        "barber": "Barber",
+        "date": "Date",
+        "startTime": "Start time",
+        "services": "Services",
+        "notes": "Notes",
+        "uncategorized": "Uncategorized"
+      },
+      "toasts": {
+        "created": "Appointment created",
+        "cancelled": "Appointment cancelled"
+      }
+    },
     "clients": {
       "title": "Clients",
       "soon": "A–Z list, dedup, export — Phase 4.",
