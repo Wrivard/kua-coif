@@ -75,7 +75,10 @@
       "PHONE_INVALID": "Invalid phone number.",
       "INVALID_DATE": "Invalid date.",
       "INVALID_TIME": "Invalid time.",
-      "SERVICE_REQUIRED": "At least one service is required."
+      "SERVICE_REQUIRED": "At least one service is required.",
+      "CURRENT_PASSWORD_REQUIRED": "Current password is required.",
+      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters.",
+      "PASSWORDS_DONT_MATCH": "Passwords don't match."
     }
   },
   "errors": {
@@ -148,7 +151,11 @@
       "all": "All",
       "emptyTitle": "No clients yet",
       "emptyHint": "Add your first client.",
-      "columns": { "client": "Client", "email": "Email", "phone": "Phone" },
+      "columns": {
+        "client": "Client",
+        "email": "Email",
+        "phone": "Phone"
+      },
       "confirmDelete": {
         "title": "Delete this client?",
         "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
@@ -218,14 +225,20 @@
       "searchPlaceholder": "Search a barber…",
       "emptyTitle": "No barbers yet",
       "emptyHint": "Add your first team member.",
-      "tabs": { "confirmed": "Confirmed", "staff": "Staff", "deleted": "Deleted" },
+      "tabs": {
+        "confirmed": "Confirmed",
+        "staff": "Staff",
+        "deleted": "Deleted"
+      },
       "columns": {
         "name": "Barber",
         "email": "Email",
         "phone": "Phone",
         "personnelId": "Personnel ID"
       },
-      "actions": { "restore": "Restore" },
+      "actions": {
+        "restore": "Restore"
+      },
       "confirmDelete": {
         "title": "Archive this barber?",
         "description": "\"{name}\" will be archived. You can restore them from the Deleted tab."
@@ -251,7 +264,11 @@
       "soon": "Inventory, brands, categories — Phase 4.",
       "summary": "Retail value {retail} · Supply value {wholesale} · {low} low-stock",
       "view": "VIEW",
-      "viewLabels": { "products": "Products", "brands": "Brands", "categories": "Categories" },
+      "viewLabels": {
+        "products": "Products",
+        "brands": "Brands",
+        "categories": "Categories"
+      },
       "addProduct": "Add a product",
       "addBrand": "Add a brand",
       "addCategory": "Add a category",
@@ -268,7 +285,9 @@
         "category": "Category",
         "brand": "Brand"
       },
-      "warnings": { "negativeMargin": "Negative margin: supply price exceeds retail price." },
+      "warnings": {
+        "negativeMargin": "Negative margin: supply price exceeds retail price."
+      },
       "confirmDelete": {
         "title": "Delete this item?",
         "description": "\"{name}\" will be deleted. This action cannot be undone."
@@ -309,25 +328,229 @@
         "categorySaved": "Category saved"
       }
     },
-    "support": { "title": "Support", "soon": "Help center — Phase 9." },
-    "marketing": { "title": "Marketing", "soon": "Campaigns, promos — Phase 8." },
-    "finances": { "title": "Finances", "soon": "Reports, revenue, payouts — Phase 7." },
+    "support": {
+      "title": "Support",
+      "soon": "Help center — Phase 9."
+    },
+    "marketing": {
+      "title": "Marketing",
+      "soon": "Campaigns, promos — Phase 8."
+    },
+    "finances": {
+      "title": "Finances",
+      "soon": "Reports, revenue, payouts — Phase 7."
+    },
     "settings": {
       "title": "Settings",
-      "shop": { "title": "Shop details", "soon": "Identity, hours, options — Phase 6." },
-      "users": { "title": "User Settings", "soon": "Accounts, roles, invites — Phase 6." },
-      "barbers": { "title": "Barber settings", "soon": "Delays, reminders, intervals — Phase 6." },
-      "taxes": { "title": "Taxes", "soon": "GST / QST — Phase 6." },
+      "shop": {
+        "title": "Shop details",
+        "sections": {
+          "identity": "Identity",
+          "location": "Location",
+          "options": "Options",
+          "schedule": "Schedule"
+        },
+        "form": {
+          "name": "Shop name",
+          "alias": "Alias (public URL)",
+          "website": "Website",
+          "phone": "Phone",
+          "email": "Email",
+          "instagram": "Instagram",
+          "yelpId": "Yelp ID",
+          "timezone": "Timezone",
+          "dateFormat": "Date format",
+          "defaultLanguage": "Default language",
+          "cashDrawer": "Default cash drawer balance",
+          "description": "Description",
+          "country": "Country",
+          "street": "Street",
+          "street2": "Street (cont.)",
+          "municipality": "Municipality",
+          "province": "Province",
+          "postalCode": "Postal code",
+          "open": "Open",
+          "close": "Close"
+        },
+        "weekdays": {
+          "sunday": "Sunday",
+          "monday": "Monday",
+          "tuesday": "Tuesday",
+          "wednesday": "Wednesday",
+          "thursday": "Thursday",
+          "friday": "Friday",
+          "saturday": "Saturday"
+        },
+        "options": {
+          "age21": "21+ only",
+          "allowAnyBarber": "Allow booking with any barber",
+          "grossUpFees": "Gross up fees",
+          "useProdPriceInTips": "Use product price in tip calculation",
+          "useTaxesInTips": "Use taxes in tip calculation",
+          "clientReviews": "Client reviews",
+          "payoutDiscountMode": "Payout discount mode",
+          "payoutModes": {
+            "split": "Split shop/barber",
+            "shop": "Shop only",
+            "barber": "Barber only"
+          }
+        },
+        "toasts": {
+          "saved": "Shop details saved",
+          "savedHours": "Hours saved"
+        }
+      },
+      "users": {
+        "title": "User Settings",
+        "soon": "Accounts, roles, invites — Phase 6."
+      },
+      "barbers": {
+        "title": "Barber settings",
+        "soon": "Delays, reminders, intervals — Phase 6."
+      },
+      "taxes": {
+        "title": "Taxes",
+        "addTax": "Add a tax",
+        "emptyTitle": "No taxes yet",
+        "emptyHint": "Add GST and QST, or any local applicable tax.",
+        "columns": {
+          "name": "Name",
+          "percentage": "Percentage",
+          "addToPrice": "Add to price",
+          "externalOrdersOnly": "External orders",
+          "enabled": "Enabled"
+        },
+        "confirmDelete": {
+          "title": "Delete this tax?",
+          "description": "\"{name}\" will be deleted if no service/product uses it."
+        },
+        "form": {
+          "addTitle": "New tax",
+          "editTitle": "Edit tax",
+          "name": "Name",
+          "percentage": "Percentage",
+          "addToPrice": "Included in displayed price",
+          "externalOrdersOnly": "External orders only",
+          "enabled": "Enabled"
+        },
+        "toasts": {
+          "saved": "Tax saved",
+          "deleted": "\"{name}\" deleted"
+        }
+      },
       "payments": {
         "title": "Payment Processing",
         "soon": "Payment profile and destination account — Phase 7."
       },
-      "commissions": { "title": "Commission / Tip Splits", "soon": "Per-barber tiers — Phase 7." },
-      "password": { "title": "Change Password", "soon": "Password change — Phase 6." },
-      "discounts": { "title": "Discounts", "soon": "Percent and fixed discounts — Phase 6." },
-      "loyalty": { "title": "Loyalty Program", "soon": "Transaction / Value based — Phase 6." },
-      "waitingList": { "title": "Waiting List", "soon": "Threshold and activation — Phase 6." },
-      "promoCodes": { "title": "Promo Codes", "soon": "Codes, expiry, value — Phase 6." }
+      "commissions": {
+        "title": "Commission / Tip Splits",
+        "soon": "Per-barber tiers — Phase 7."
+      },
+      "password": {
+        "title": "Change Password",
+        "form": {
+          "current": "Current password",
+          "new": "New password",
+          "confirm": "Confirm new password",
+          "dontMatch": "Passwords don't match."
+        },
+        "toasts": {
+          "changed": "Password updated"
+        }
+      },
+      "discounts": {
+        "title": "Discounts",
+        "addDiscount": "Add a discount",
+        "emptyTitle": "No discounts yet",
+        "emptyHint": "Create your first discount (% or fixed amount).",
+        "columns": {
+          "name": "Name",
+          "value": "Value",
+          "assignment": "Assignment"
+        },
+        "assignment": {
+          "services_only": "Services only",
+          "products_only": "Products only",
+          "both": "Services & products"
+        },
+        "confirmDelete": {
+          "title": "Delete this discount?",
+          "description": "\"{name}\" will be permanently deleted."
+        },
+        "form": {
+          "addTitle": "New discount",
+          "editTitle": "Edit discount",
+          "name": "Name",
+          "type": "Type",
+          "value": "Value",
+          "assignment": "Assignment"
+        },
+        "toasts": {
+          "saved": "Discount saved",
+          "deleted": "\"{name}\" deleted"
+        }
+      },
+      "loyalty": {
+        "title": "Loyalty Program",
+        "form": {
+          "enabled": "Enable the program",
+          "type": "Program type",
+          "transactionBased": "Transaction-based",
+          "valueBased": "Value-based",
+          "goalCount": "Number of transactions to reach the goal",
+          "minTransactionAmount": "Minimum amount per transaction",
+          "rewardAmount": "Reward amount",
+          "includeProductSales": "Include product sales",
+          "includeTips": "Include tips"
+        },
+        "toasts": {
+          "saved": "Program saved"
+        }
+      },
+      "waitingList": {
+        "title": "Waiting List",
+        "form": {
+          "enabled": "Enable the waiting list",
+          "threshold": "Threshold",
+          "hours": "hours"
+        },
+        "toasts": {
+          "saved": "Waiting list saved"
+        }
+      },
+      "promoCodes": {
+        "title": "Promo Codes",
+        "addPromo": "Add a code",
+        "emptyTitle": "No promo codes yet",
+        "emptyHint": "Create your first promo code.",
+        "columns": {
+          "code": "Code",
+          "value": "Value",
+          "firstAppt": "First appointment only",
+          "oneTime": "One-time",
+          "expiration": "Expiration",
+          "redemptions": "Redemptions",
+          "totalValue": "Total value"
+        },
+        "confirmDelete": {
+          "title": "Delete this code?",
+          "description": "\"{code}\" will be permanently deleted."
+        },
+        "form": {
+          "addTitle": "New promo code",
+          "editTitle": "Edit code",
+          "code": "Code",
+          "type": "Type",
+          "value": "Value",
+          "firstApptOnly": "First appointment only",
+          "oneTime": "One-time use",
+          "expiration": "Expiration date"
+        },
+        "toasts": {
+          "saved": "Code saved",
+          "deleted": "\"{code}\" deleted"
+        }
+      }
     },
     "kitchenSink": {
       "title": "Kitchen Sink",

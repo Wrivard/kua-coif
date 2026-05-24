@@ -131,3 +131,14 @@
 - **Realtime Supabase** : différé V1.1 — le calendrier se rafraîchit après une mutation via `revalidatePath('/')`. Realtime ferait juste mieux pour le multi-barber simultané.
 - **Cast `as any` du Supabase builder** dans `page.tsx` : volontaire — la chaîne `select().order().gte().lt()` est trop compliquée à typer sans codegen. Le bon typage viendra avec `db:types:remote`.
 - **24 tests passing** (8 taxes + 16 availability), build verts (38 routes incl. /api/health + /api/export).
+
+## Phase 6 — Settings (7 écrans livrés)
+
+- **Pattern singleton vs CRUD** : Taxes, Discounts, Promo Codes suivent le pattern CRUD (table + form modal). Loyalty, Waiting List, Shop details suivent le pattern singleton (row unique par shop, upsert via `onConflict: 'shop_id'`).
+- **Change Password** : double-check côté serveur via `signInWithPassword` puis `updateUser` — Supabase n'expose pas de "verify current password" direct, donc on re-loggue l'utilisateur avec son current password comme preuve. Erreur Supabase mappée via `mapSupabaseAuthError()` → `INVALID_INPUT` si le password est faux.
+- **Shop Details = 3 cards + 1 schedule** : Identity, Location, Options dans un seul form ; Schedule (7 weekdays) dans un form séparé (upsert avec `onConflict: 'shop_id,weekday'`). Permet de sauvegarder les horaires sans toucher au reste. Sections différées Phase 6b : notification matrix, Days Off list, Tips config, Language settings, Media upload.
+- **Discount value range** : la CHECK constraint Postgres limite percent ≤ 100, donc on a retiré le `.refine()` Zod (incompatible avec `.extend()`) — fallback sur la DB est OK car les Server Actions catchent les erreurs.
+- **Settings/Barbers (M) + Settings/Users (O) différés Phase 6b** : la grille dense barber settings (12 colonnes × 5 lignes avec overrides) demande son propre composant table éditable. Les invitations utilisateurs demandent un flow Supabase Auth `inviteUserByEmail` + acceptation. Les placeholders restent en place.
+- **Cast `as any` du Supabase builder partout** : on assume cette dette en attendant le codegen `db:types:remote`. Refactor automatique quand la DB live sera branchée.
+- **Patch i18n via script Node temporaire** (`.tmp-patch-i18n.mjs` créé + supprimé dans le même commit) : ajouter ~200 clés via Edit ciblé aurait pris trop de tours. Pattern à réutiliser pour les futures grosses pages.
+- **Build après Phase 6** : 38 routes (les sub-routes settings/* existaient déjà en placeholder, on les a remplacées par les vraies pages). Middleware 104 kB. Tests Vitest : 24 passing. Lint / typecheck / format / build / test : tous verts.

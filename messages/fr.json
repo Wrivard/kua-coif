@@ -75,7 +75,10 @@
       "PHONE_INVALID": "Numéro de téléphone invalide.",
       "INVALID_DATE": "Date invalide.",
       "INVALID_TIME": "Heure invalide.",
-      "SERVICE_REQUIRED": "Au moins un service est requis."
+      "SERVICE_REQUIRED": "Au moins un service est requis.",
+      "CURRENT_PASSWORD_REQUIRED": "Le mot de passe actuel est requis.",
+      "PASSWORD_TOO_SHORT": "Le mot de passe doit faire au moins 8 caractères.",
+      "PASSWORDS_DONT_MATCH": "Les mots de passe ne correspondent pas."
     }
   },
   "errors": {
@@ -148,7 +151,11 @@
       "all": "Tous",
       "emptyTitle": "Aucun client",
       "emptyHint": "Ajoute ton premier client.",
-      "columns": { "client": "Client", "email": "Courriel", "phone": "Téléphone" },
+      "columns": {
+        "client": "Client",
+        "email": "Courriel",
+        "phone": "Téléphone"
+      },
       "confirmDelete": {
         "title": "Supprimer ce client ?",
         "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
@@ -218,14 +225,20 @@
       "searchPlaceholder": "Rechercher un barbier…",
       "emptyTitle": "Aucun barbier",
       "emptyHint": "Ajoute le premier membre de ton équipe.",
-      "tabs": { "confirmed": "Confirmés", "staff": "Personnel", "deleted": "Supprimés" },
+      "tabs": {
+        "confirmed": "Confirmés",
+        "staff": "Personnel",
+        "deleted": "Supprimés"
+      },
       "columns": {
         "name": "Barbier",
         "email": "Courriel",
         "phone": "Téléphone",
         "personnelId": "ID employé"
       },
-      "actions": { "restore": "Restaurer" },
+      "actions": {
+        "restore": "Restaurer"
+      },
       "confirmDelete": {
         "title": "Désactiver ce barbier ?",
         "description": "« {name} » sera archivé. Tu peux le restaurer depuis l'onglet Supprimés."
@@ -251,7 +264,11 @@
       "soon": "Inventaire, marques, catégories — Phase 4.",
       "summary": "Valeur détail {retail} · Valeur fournisseur {wholesale} · {low} sous le seuil",
       "view": "VUE",
-      "viewLabels": { "products": "Produits", "brands": "Marques", "categories": "Catégories" },
+      "viewLabels": {
+        "products": "Produits",
+        "brands": "Marques",
+        "categories": "Catégories"
+      },
       "addProduct": "Ajouter un produit",
       "addBrand": "Ajouter une marque",
       "addCategory": "Ajouter une catégorie",
@@ -311,15 +328,116 @@
         "categorySaved": "Catégorie enregistrée"
       }
     },
-    "support": { "title": "Support", "soon": "Centre d'aide — Phase 9." },
-    "marketing": { "title": "Marketing", "soon": "Campagnes, promos — Phase 8." },
-    "finances": { "title": "Finances", "soon": "Rapports, revenus, payouts — Phase 7." },
+    "support": {
+      "title": "Support",
+      "soon": "Centre d'aide — Phase 9."
+    },
+    "marketing": {
+      "title": "Marketing",
+      "soon": "Campagnes, promos — Phase 8."
+    },
+    "finances": {
+      "title": "Finances",
+      "soon": "Rapports, revenus, payouts — Phase 7."
+    },
     "settings": {
       "title": "Réglages",
-      "shop": { "title": "Détails du salon", "soon": "Identité, horaires, options — Phase 6." },
-      "users": { "title": "Utilisateurs", "soon": "Comptes, rôles, invitations — Phase 6." },
-      "barbers": { "title": "Réglages barbier", "soon": "Délais, rappels, intervalles — Phase 6." },
-      "taxes": { "title": "Taxes", "soon": "TPS / TVQ — Phase 6." },
+      "shop": {
+        "title": "Détails du salon",
+        "sections": {
+          "identity": "Identité",
+          "location": "Emplacement",
+          "options": "Options",
+          "schedule": "Horaires"
+        },
+        "form": {
+          "name": "Nom du salon",
+          "alias": "Alias (URL publique)",
+          "website": "Site web",
+          "phone": "Téléphone",
+          "email": "Courriel",
+          "instagram": "Instagram",
+          "yelpId": "Yelp ID",
+          "timezone": "Fuseau horaire",
+          "dateFormat": "Format de date",
+          "defaultLanguage": "Langue par défaut",
+          "cashDrawer": "Solde caisse par défaut",
+          "description": "Description",
+          "country": "Pays",
+          "street": "Rue",
+          "street2": "Rue (suite)",
+          "municipality": "Municipalité",
+          "province": "Province",
+          "postalCode": "Code postal",
+          "open": "Ouverture",
+          "close": "Fermeture"
+        },
+        "weekdays": {
+          "sunday": "Dimanche",
+          "monday": "Lundi",
+          "tuesday": "Mardi",
+          "wednesday": "Mercredi",
+          "thursday": "Jeudi",
+          "friday": "Vendredi",
+          "saturday": "Samedi"
+        },
+        "options": {
+          "age21": "21+ seulement",
+          "allowAnyBarber": "Autoriser la réservation avec n’importe quel barbier",
+          "grossUpFees": "Brut majoré des frais",
+          "useProdPriceInTips": "Inclure le prix produit dans le calcul des pourboires",
+          "useTaxesInTips": "Inclure les taxes dans le calcul des pourboires",
+          "clientReviews": "Avis clients",
+          "payoutDiscountMode": "Mode de répartition des rabais",
+          "payoutModes": {
+            "split": "Partagé salon/barbier",
+            "shop": "Salon seulement",
+            "barber": "Barbier seulement"
+          }
+        },
+        "toasts": {
+          "saved": "Détails du salon enregistrés",
+          "savedHours": "Horaires enregistrés"
+        }
+      },
+      "users": {
+        "title": "Utilisateurs",
+        "soon": "Comptes, rôles, invitations — Phase 6."
+      },
+      "barbers": {
+        "title": "Réglages barbier",
+        "soon": "Délais, rappels, intervalles — Phase 6."
+      },
+      "taxes": {
+        "title": "Taxes",
+        "addTax": "Ajouter une taxe",
+        "emptyTitle": "Aucune taxe",
+        "emptyHint": "Ajoute TPS et TVQ, ou les taxes locales applicables.",
+        "columns": {
+          "name": "Nom",
+          "percentage": "Pourcentage",
+          "addToPrice": "Inclus dans le prix",
+          "externalOrdersOnly": "Commandes externes",
+          "enabled": "Activée"
+        },
+        "confirmDelete": {
+          "title": "Supprimer cette taxe ?",
+          "description": "« {name} » sera supprimée si aucun service/produit ne l’utilise."
+        },
+        "form": {
+          "addTitle": "Nouvelle taxe",
+          "editTitle": "Modifier la taxe",
+          "name": "Nom",
+          "percentage": "Pourcentage",
+          "addToPrice": "Inclus dans le prix affiché",
+          "externalOrdersOnly": "Commandes externes seulement",
+          "enabled": "Activée"
+        },
+        "toasts": {
+          "saved": "Taxe enregistrée",
+          "deleted": "« {name} » supprimée"
+        }
+      },
       "payments": {
         "title": "Paiements",
         "soon": "Profil de paiement et compte destinataire — Phase 7."
@@ -328,11 +446,111 @@
         "title": "Commissions / Pourboires",
         "soon": "Paliers par barbier — Phase 7."
       },
-      "password": { "title": "Mot de passe", "soon": "Changement de mot de passe — Phase 6." },
-      "discounts": { "title": "Rabais", "soon": "Rabais % et fixes — Phase 6." },
-      "loyalty": { "title": "Programme de fidélité", "soon": "Transactions / Valeur — Phase 6." },
-      "waitingList": { "title": "Liste d'attente", "soon": "Seuil et activation — Phase 6." },
-      "promoCodes": { "title": "Codes promo", "soon": "Codes, expiration, valeur — Phase 6." }
+      "password": {
+        "title": "Changer le mot de passe",
+        "form": {
+          "current": "Mot de passe actuel",
+          "new": "Nouveau mot de passe",
+          "confirm": "Confirmer le nouveau mot de passe",
+          "dontMatch": "Les mots de passe ne correspondent pas."
+        },
+        "toasts": {
+          "changed": "Mot de passe mis à jour"
+        }
+      },
+      "discounts": {
+        "title": "Rabais",
+        "addDiscount": "Ajouter un rabais",
+        "emptyTitle": "Aucun rabais",
+        "emptyHint": "Crée tes premiers rabais (% ou montant fixe).",
+        "columns": {
+          "name": "Nom",
+          "value": "Valeur",
+          "assignment": "Assignation"
+        },
+        "assignment": {
+          "services_only": "Services seulement",
+          "products_only": "Produits seulement",
+          "both": "Services et produits"
+        },
+        "confirmDelete": {
+          "title": "Supprimer ce rabais ?",
+          "description": "« {name} » sera supprimé définitivement."
+        },
+        "form": {
+          "addTitle": "Nouveau rabais",
+          "editTitle": "Modifier le rabais",
+          "name": "Nom",
+          "type": "Type",
+          "value": "Valeur",
+          "assignment": "Assignation"
+        },
+        "toasts": {
+          "saved": "Rabais enregistré",
+          "deleted": "« {name} » supprimé"
+        }
+      },
+      "loyalty": {
+        "title": "Programme de fidélité",
+        "form": {
+          "enabled": "Activer le programme",
+          "type": "Type de programme",
+          "transactionBased": "Basé sur transactions",
+          "valueBased": "Basé sur la valeur",
+          "goalCount": "Nombre de transactions pour atteindre l’objectif",
+          "minTransactionAmount": "Montant minimum par transaction",
+          "rewardAmount": "Montant de la récompense",
+          "includeProductSales": "Inclure les ventes de produits",
+          "includeTips": "Inclure les pourboires"
+        },
+        "toasts": {
+          "saved": "Programme enregistré"
+        }
+      },
+      "waitingList": {
+        "title": "Liste d’attente",
+        "form": {
+          "enabled": "Activer la liste d’attente",
+          "threshold": "Seuil",
+          "hours": "heures"
+        },
+        "toasts": {
+          "saved": "Liste d’attente enregistrée"
+        }
+      },
+      "promoCodes": {
+        "title": "Codes promo",
+        "addPromo": "Ajouter un code",
+        "emptyTitle": "Aucun code promo",
+        "emptyHint": "Crée ton premier code promo.",
+        "columns": {
+          "code": "Code",
+          "value": "Valeur",
+          "firstAppt": "1er RDV seulement",
+          "oneTime": "Usage unique",
+          "expiration": "Expiration",
+          "redemptions": "Utilisations",
+          "totalValue": "Valeur totale"
+        },
+        "confirmDelete": {
+          "title": "Supprimer ce code ?",
+          "description": "« {code} » sera supprimé définitivement."
+        },
+        "form": {
+          "addTitle": "Nouveau code promo",
+          "editTitle": "Modifier le code",
+          "code": "Code",
+          "type": "Type",
+          "value": "Valeur",
+          "firstApptOnly": "Premier RDV seulement",
+          "oneTime": "Usage unique",
+          "expiration": "Date d’expiration"
+        },
+        "toasts": {
+          "saved": "Code enregistré",
+          "deleted": "« {code} » supprimé"
+        }
+      }
     },
     "kitchenSink": {
       "title": "Kitchen Sink",

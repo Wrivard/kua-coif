@@ -1,17 +1,11 @@
 import { setRequestLocale } from 'next-intl/server';
-import { useTranslations } from 'next-intl';
-import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
+import { requireUser } from '@/lib/auth/server';
+import { PasswordClient } from './password-client';
 
-export default function SettingsPasswordPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export const dynamic = 'force-dynamic';
+
+export default async function PasswordPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
-  return <Content />;
-}
-
-function Content() {
-  const t = useTranslations('pages.settings.password');
-  return <PagePlaceholder title={t('title')} description={t('soon')} phase="Phase 6" />;
+  await requireUser({ locale });
+  return <PasswordClient />;
 }

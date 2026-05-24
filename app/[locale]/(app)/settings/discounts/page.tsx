@@ -1,17 +1,21 @@
 import { setRequestLocale } from 'next-intl/server';
-import { useTranslations } from 'next-intl';
-import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireShopMember } from '@/lib/auth/server';
+import type { DiscountRow } from '@/db/rows';
+import { DiscountsClient } from './discounts-client';
 
-export default function SettingsDiscountsPage({
+export const dynamic = 'force-dynamic';
+
+export default async function DiscountsPage({
   params: { locale },
 }: {
   params: { locale: string };
 }) {
   setRequestLocale(locale);
-  return <Content />;
-}
+  await requireShopMember({ locale });
 
-function Content() {
-  const t = useTranslations('pages.settings.discounts');
-  return <PagePlaceholder title={t('title')} description={t('soon')} phase="Phase 6" />;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServerClient() as any;
+  const { data } = await supabase.from('discounts').select('*').order('name', { ascending: true });
+  return <DiscountsClient locale={locale} discounts={(data as DiscountRow[] | null) ?? []} />;
 }
