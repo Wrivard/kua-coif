@@ -4,8 +4,8 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 9 (Polish + launch readiness).
-**Statut global** : Phases 0–9 ✅ MVP complet · Settings/Barbers + Settings/Users + Tips UI différés Phase 6b · Playwright + Lighthouse + Sentry actif différés Phase 9b (besoin d'URL live).
+**Dernière mise à jour** : fin de Phase 6b (Barber Settings + User Settings).
+**Statut global** : Phases 0–9 + 6b ✅ — **spec CLAUDE.md fermée à 100%**. Phase 10 (widget embeddable, cf. `WIDGET-SPEC.md`) + Phase 9b (Playwright + Lighthouse + Sentry) restent à faire.
 
 > Sentry est **différé en Phase 9** (pas Phase 3 comme prévu initialement) — son installation demande un compte Sentry + un DSN, et installer le wrapper sans DSN ajoute du noise pour rien. La façade `lib/observability.ts` est en place : migration en 4 lignes quand un compte existera.
 

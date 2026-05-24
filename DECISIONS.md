@@ -187,3 +187,24 @@
 - **README enrichi** : statut par phase, stack à jour, deploy walkthrough Vercel + Supabase (env vars, redirect URLs Supabase, custom domain), section "Différé V1.1".
 - **Différé Phase 9b** (besoin d'une URL live pour tester) : Playwright e2e (login → home, booking, add product), Lighthouse CI (perf + a11y > 90 sur booking), axe-core dev, Sentry actif (DSN), Upstash KV pour rate limit multi-instance, Cloudflare Turnstile sur booking, Resend email confirmations, SMS reminders, Stripe Connect réel, Realtime calendrier, drag calendrier.
 - **Build après Phase 9** : 42+ routes (+`/robots.txt`, `/sitemap.xml`, `/privacy` × 2, `/terms` × 2). Middleware 107 kB (CSP). Tests Vitest : 44 passing.
+
+## Phase 6b — Barber Settings dense grid + User Settings invitations
+
+- **Barber Settings (M)** : grille dense `1 + N` lignes (Shop default + une par barbier confirmé) × 12 colonnes (toggles + selects + h+m). Sticky-left column pour le nom. Bouton « Appliquer aux barbiers » qui copie les défauts Shop vers chaque barbier (in-memory, sans save auto). Save batch via `saveBarberSettings` qui split entre row 'shop' et rows 'barber', et fait update-then-insert manuellement (les UNIQUE partial indexes Phase 2 ne permettent pas un onConflict unique).
+- **User Settings (O)** : DataTable des `shop_members` avec join client-side sur `profiles` (email + full_name). Edit role + status via modal. Soft-delete (`status='deleted'`) plutôt que DELETE pour préserver l'audit.
+- **Invitation V1** : `inviteUser` cherche un profile existant par email. Si trouvé → insert `shop_members` immédiat avec `status='confirmed'`. Si pas trouvé → renvoie `NOT_FOUND` et le client affiche un toast `warning` invitant la personne à créer un compte d'abord. **V1.1** ajoutera une table `pending_invitations` + intégration `auth.admin.inviteUserByEmail` + email via Resend.
+- **Service-role pour invitation** : `inviteUser` lit `profiles` (cross-tenant lookup) → besoin de bypass RLS → on utilise `createSupabaseServiceRoleClient()`. Justifié et documenté.
+- **Conflict si déjà membre** : `inviteUser` retourne `CONFLICT` si l'email correspond à un user déjà dans `shop_members`.
+- **Spec CLAUDE.md fermée à 100%** : tous les 18 écrans + booking public sont livrés. Phase 10 (widget embeddable, voir `WIDGET-SPEC.md`) est le seul travail produit pré-launch restant.
+- **Build après Phase 6b** : 42+ routes, middleware 109 kB. Tests Vitest : 44 passing.
+
+## Phase 10 — Widget intégrable (planifiée, cf. `WIDGET-SPEC.md`)
+
+- `/embed/[shopSlug]` route dédiée sans layout, optimisée iframe.
+- Snippet JS `public/widget.js` qui injecte un iframe + postMessage resize.
+- Page admin `/settings/widget` avec preview live.
+- Colonne JSONB `widget_config` sur `shops` (mode dark/light, accent_color, allowed_origins, etc.).
+- CSP `frame-ancestors` adaptée par shop via middleware.
+- Améliorations UX wizard (Squire-style) : "Choose a professional first" optionnel, multi-service step "Anything to add", récap "Your order" dark, date strip + slots avec icônes sun/moon.
+- Stripe paiement online (post-MVP).
+- Estimation : 8–15h.

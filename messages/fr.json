@@ -78,7 +78,8 @@
       "SERVICE_REQUIRED": "Au moins un service est requis.",
       "CURRENT_PASSWORD_REQUIRED": "Le mot de passe actuel est requis.",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit faire au moins 8 caractères.",
-      "PASSWORDS_DONT_MATCH": "Les mots de passe ne correspondent pas."
+      "PASSWORDS_DONT_MATCH": "Les mots de passe ne correspondent pas.",
+      "email": "Adresse courriel invalide."
     }
   },
   "errors": {
@@ -402,7 +403,48 @@
       },
       "users": {
         "title": "Utilisateurs",
-        "soon": "Comptes, rôles, invitations — Phase 6."
+        "inviteUser": "Inviter un utilisateur",
+        "remove": "Retirer",
+        "emptyTitle": "Aucun membre",
+        "emptyHint": "Invite ton premier collègue.",
+        "columns": {
+          "user": "Membre",
+          "role": "Rôle",
+          "status": "Statut"
+        },
+        "roles": {
+          "owner": "Propriétaire",
+          "manager": "Gérant",
+          "barber": "Barbier"
+        },
+        "statuses": {
+          "confirmed": "Confirmé",
+          "staff": "En attente",
+          "deleted": "Retiré"
+        },
+        "confirmRemove": {
+          "title": "Retirer ce membre ?",
+          "description": "« {name} » sera archivé. Tu peux le réactiver en éditant son statut."
+        },
+        "inviteModal": {
+          "title": "Inviter un membre",
+          "email": "Courriel",
+          "role": "Rôle",
+          "send": "Inviter",
+          "v1Note": "V1 : si l'utilisateur a déjà un compte Küa, il est ajouté immédiatement. Sinon il devra d'abord créer son compte avec ce courriel — les invitations par courriel arrivent en V1.1."
+        },
+        "editModal": {
+          "title": "Modifier le membre",
+          "role": "Rôle",
+          "status": "Statut"
+        },
+        "toasts": {
+          "invited": "Membre ajouté au salon",
+          "invitePending": "Pas encore inscrit",
+          "invitePendingHint": "Aucun compte Küa avec ce courriel. Demande à la personne de créer un compte d'abord.",
+          "updated": "Membre mis à jour",
+          "removed": "Membre retiré"
+        }
       },
       "barbers": {
         "title": "Réglages barbier",
@@ -594,6 +636,31 @@
         "toasts": {
           "saved": "Code enregistré",
           "deleted": "« {code} » supprimé"
+        }
+      },
+      "barberSettings": {
+        "title": "Réglages barbier",
+        "intro": "Ces réglages contrôlent comment chaque barbier accepte les réservations en ligne. La première ligne « Salon » sert de défaut — la modifier ne touche pas aux barbiers déjà configurés sauf si tu cliques « Appliquer aux barbiers ».",
+        "shopDefault": "Salon (défaut)",
+        "overrideButton": "Appliquer aux barbiers",
+        "columns": {
+          "row": "Ligne",
+          "allowBookingWoPayment": "Réserver sans paiement",
+          "bookingTip": "Pourboire à la réservation",
+          "confirmationTip": "Pourboire à la confirmation",
+          "allowMultipleServices": "Services multiples",
+          "clientBookingInterval": "Intervalle client",
+          "barberBookingInterval": "Intervalle barbier",
+          "daysBookInAdvance": "Jours à l'avance",
+          "minsBookBefore": "Délai mini avant RDV",
+          "customerCancellations": "Annulation client",
+          "minsCancelBefore": "Délai mini d'annulation",
+          "reminder1": "1er rappel",
+          "reminder2": "2e rappel"
+        },
+        "toasts": {
+          "saved": "Réglages enregistrés",
+          "overrideApplied": "Défauts du salon appliqués (non enregistré)"
         }
       }
     },

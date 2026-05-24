@@ -78,7 +78,8 @@
       "SERVICE_REQUIRED": "At least one service is required.",
       "CURRENT_PASSWORD_REQUIRED": "Current password is required.",
       "PASSWORD_TOO_SHORT": "Password must be at least 8 characters.",
-      "PASSWORDS_DONT_MATCH": "Passwords don't match."
+      "PASSWORDS_DONT_MATCH": "Passwords don't match.",
+      "email": "Invalid email address."
     }
   },
   "errors": {
@@ -402,7 +403,48 @@
       },
       "users": {
         "title": "User Settings",
-        "soon": "Accounts, roles, invites — Phase 6."
+        "inviteUser": "Invite user",
+        "remove": "Remove",
+        "emptyTitle": "No members yet",
+        "emptyHint": "Invite your first teammate.",
+        "columns": {
+          "user": "Member",
+          "role": "Role",
+          "status": "Status"
+        },
+        "roles": {
+          "owner": "Owner",
+          "manager": "Manager",
+          "barber": "Barber"
+        },
+        "statuses": {
+          "confirmed": "Confirmed",
+          "staff": "Pending",
+          "deleted": "Removed"
+        },
+        "confirmRemove": {
+          "title": "Remove this member?",
+          "description": "\"{name}\" will be archived. You can re-enable them by editing their status."
+        },
+        "inviteModal": {
+          "title": "Invite a member",
+          "email": "Email",
+          "role": "Role",
+          "send": "Invite",
+          "v1Note": "V1: if the user already has a Küa account, they are added immediately. Otherwise they need to create an account with this email first — email invitations arrive in V1.1."
+        },
+        "editModal": {
+          "title": "Edit member",
+          "role": "Role",
+          "status": "Status"
+        },
+        "toasts": {
+          "invited": "Member added to shop",
+          "invitePending": "Not signed up yet",
+          "invitePendingHint": "No Küa account with this email. Ask the person to sign up with this email first.",
+          "updated": "Member updated",
+          "removed": "Member removed"
+        }
       },
       "barbers": {
         "title": "Barber settings",
@@ -594,6 +636,31 @@
         "toasts": {
           "saved": "Code saved",
           "deleted": "\"{code}\" deleted"
+        }
+      },
+      "barberSettings": {
+        "title": "Barber settings",
+        "intro": "These settings control how each barber accepts online bookings. The first \"Shop\" row is the default — editing it does not touch already-customized barbers unless you click \"Apply to barbers\".",
+        "shopDefault": "Shop (default)",
+        "overrideButton": "Apply to barbers",
+        "columns": {
+          "row": "Row",
+          "allowBookingWoPayment": "Book without payment",
+          "bookingTip": "Tip at booking",
+          "confirmationTip": "Tip at confirmation",
+          "allowMultipleServices": "Multiple services",
+          "clientBookingInterval": "Client interval",
+          "barberBookingInterval": "Barber interval",
+          "daysBookInAdvance": "Days in advance",
+          "minsBookBefore": "Min lead time",
+          "customerCancellations": "Client cancellations",
+          "minsCancelBefore": "Min cancel notice",
+          "reminder1": "1st reminder",
+          "reminder2": "2nd reminder"
+        },
+        "toasts": {
+          "saved": "Settings saved",
+          "overrideApplied": "Shop defaults applied (not saved yet)"
         }
       }
     },
