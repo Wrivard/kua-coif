@@ -4,12 +4,12 @@
 > Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
 > Mis à jour à chaque fin de phase.
 
-**Dernière mise à jour** : fin de Phase 4a (Services CRUD).
-**Statut global** : Phases 0–3.5 ✅ + Phase 4a (Services) ✅ · Phases 4b–9 à faire.
+**Dernière mise à jour** : fin de Phase 4b (Services + Barbers + Clients + Products + CSV export).
+**Statut global** : Phases 0–4 ✅ · Phases 5–9 à faire.
 
 > Sentry est **différé en Phase 9** (pas Phase 3 comme prévu initialement) — son installation demande un compte Sentry + un DSN, et installer le wrapper sans DSN ajoute du noise pour rien. La façade `lib/observability.ts` est en place : migration en 4 lignes quand un compte existera.
 
-> Phase 4 a été splittée en 4a (fondations + Services) et 4b (Barbers, Products+Brands+Categories, Clients, drag-reorder, CSV export, migration `@tanstack/react-table`).
+> Phase 4 a été splittée en 4a (fondations + Services) et 4b (Barbers, Clients, Products+Brands+Categories, CSV export). Drag-reorder et migration `@tanstack/react-table` reportés en Phase 5 (quand le calendrier impose la virtualisation).
 
 ---
 

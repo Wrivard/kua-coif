@@ -1,13 +1,50 @@
 import { setRequestLocale } from 'next-intl/server';
-import { useTranslations } from 'next-intl';
-import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireShopMember } from '@/lib/auth/server';
+import type { ProductBrandRow, ProductCategoryRow, ProductRow, TaxRow } from '@/db/rows';
+import { ProductsClient } from './products-client';
 
-export default function ProductsPage({ params: { locale } }: { params: { locale: string } }) {
+export const dynamic = 'force-dynamic';
+
+export default async function ProductsPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
-  return <Content />;
-}
+  await requireShopMember({ locale });
 
-function Content() {
-  const t = useTranslations('pages.products');
-  return <PagePlaceholder title={t('title')} description={t('soon')} phase="Phase 4" />;
+  const supabase = createSupabaseServerClient();
+  const sb = supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        order: (
+          k: string,
+          opts?: { ascending?: boolean },
+        ) => Promise<{ data: unknown; error: unknown }>;
+      };
+    };
+  };
+
+  const [productsResult, brandsResult, categoriesResult, taxesResult, linksResult] =
+    await Promise.all([
+      sb.from('products').select('*').order('name', { ascending: true }),
+      sb.from('product_brands').select('*').order('name', { ascending: true }),
+      sb.from('product_categories').select('*').order('name', { ascending: true }),
+      sb.from('taxes').select('*').order('name', { ascending: true }),
+      sb.from('product_taxes').select('*').order('product_id', { ascending: true }),
+    ]);
+
+  const products = (productsResult.data as ProductRow[] | null) ?? [];
+  const brands = (brandsResult.data as ProductBrandRow[] | null) ?? [];
+  const categories = (categoriesResult.data as ProductCategoryRow[] | null) ?? [];
+  const taxes = (taxesResult.data as TaxRow[] | null) ?? [];
+  const links = (linksResult.data as Array<{ product_id: string; tax_id: string }> | null) ?? [];
+
+  return (
+    <ProductsClient
+      locale={locale}
+      products={products}
+      brands={brands}
+      categories={categories}
+      taxes={taxes}
+      links={links}
+    />
+  );
 }

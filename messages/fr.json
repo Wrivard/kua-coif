@@ -71,7 +71,8 @@
     "field": {
       "NAME_REQUIRED": "Le nom est requis.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
-      "DURATION_MAX": "La durée ne peut pas dépasser 8 heures."
+      "DURATION_MAX": "La durée ne peut pas dépasser 8 heures.",
+      "PHONE_INVALID": "Numéro de téléphone invalide."
     }
   },
   "errors": {
@@ -88,7 +89,38 @@
   },
   "pages": {
     "appointments": { "title": "Rendez-vous", "soon": "Vue calendrier — Phase 5." },
-    "clients": { "title": "Clients", "soon": "Liste A–Z, dédoublonnage, export — Phase 4." },
+    "clients": {
+      "title": "Clients",
+      "soon": "Liste A–Z, dédoublonnage, export — Phase 4.",
+      "total": "{count} clients · {dupes} doublons",
+      "addClient": "Ajouter un client",
+      "searchPlaceholder": "Rechercher par nom, courriel ou téléphone…",
+      "locateDuplicates": "Localiser les doublons",
+      "duplicate": "Doublon",
+      "duplicateHint": "Téléphone ou courriel partagé avec un autre client.",
+      "all": "Tous",
+      "emptyTitle": "Aucun client",
+      "emptyHint": "Ajoute ton premier client.",
+      "columns": { "client": "Client", "email": "Courriel", "phone": "Téléphone" },
+      "confirmDelete": {
+        "title": "Supprimer ce client ?",
+        "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
+      },
+      "form": {
+        "addTitle": "Nouveau client",
+        "editTitle": "Modifier le client",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "email": "Courriel",
+        "phone": "Téléphone",
+        "notes": "Notes"
+      },
+      "toasts": {
+        "created": "Client créé",
+        "updated": "Client mis à jour",
+        "deleted": "« {name} » supprimé"
+      }
+    },
     "services": {
       "title": "Services",
       "soon": "Grille des services et tarifs — Phase 4.",
@@ -132,8 +164,106 @@
         "statusFlipped": "Statut de « {name} » mis à jour"
       }
     },
-    "barbers": { "title": "Barbiers", "soon": "Équipe, invitations, statuts — Phase 4." },
-    "products": { "title": "Produits", "soon": "Inventaire, marques, catégories — Phase 4." },
+    "barbers": {
+      "title": "Barbiers",
+      "soon": "Équipe, invitations, statuts — Phase 4.",
+      "addBarber": "Ajouter un barbier",
+      "searchPlaceholder": "Rechercher un barbier…",
+      "emptyTitle": "Aucun barbier",
+      "emptyHint": "Ajoute le premier membre de ton équipe.",
+      "tabs": { "confirmed": "Confirmés", "staff": "Personnel", "deleted": "Supprimés" },
+      "columns": {
+        "name": "Barbier",
+        "email": "Courriel",
+        "phone": "Téléphone",
+        "personnelId": "ID employé"
+      },
+      "actions": { "restore": "Restaurer" },
+      "confirmDelete": {
+        "title": "Désactiver ce barbier ?",
+        "description": "« {name} » sera archivé. Tu peux le restaurer depuis l'onglet Supprimés."
+      },
+      "form": {
+        "addTitle": "Nouveau barbier",
+        "editTitle": "Modifier le barbier",
+        "displayName": "Nom affiché",
+        "email": "Courriel",
+        "phone": "Téléphone",
+        "personnelId": "ID employé (optionnel)",
+        "status": "Statut"
+      },
+      "toasts": {
+        "created": "Barbier ajouté",
+        "updated": "Barbier mis à jour",
+        "deleted": "« {name} » archivé",
+        "restored": "« {name} » restauré"
+      }
+    },
+    "products": {
+      "title": "Produits",
+      "soon": "Inventaire, marques, catégories — Phase 4.",
+      "summary": "Valeur détail {retail} · Valeur fournisseur {wholesale} · {low} sous le seuil",
+      "view": "VUE",
+      "viewLabels": { "products": "Produits", "brands": "Marques", "categories": "Catégories" },
+      "addProduct": "Ajouter un produit",
+      "addBrand": "Ajouter une marque",
+      "addCategory": "Ajouter une catégorie",
+      "emptyTitle": "Aucun produit",
+      "emptyHint": "Configure tes marques et catégories puis ajoute des produits.",
+      "columns": {
+        "name": "Nom",
+        "price": "Prix",
+        "supplyPrice": "Prix fournisseur",
+        "inventory": "Inventaire",
+        "lowInventory": "Seuil bas",
+        "sku": "SKU",
+        "tax": "Taxes",
+        "category": "Catégorie",
+        "brand": "Marque"
+      },
+      "warnings": {
+        "negativeMargin": "Marge négative : prix fournisseur supérieur au prix de vente."
+      },
+      "confirmDelete": {
+        "title": "Supprimer cet élément ?",
+        "description": "« {name} » sera supprimé. Cette action est irréversible."
+      },
+      "form": {
+        "addTitle": "Nouveau produit",
+        "editTitle": "Modifier le produit",
+        "name": "Nom du produit",
+        "brand": "Marque",
+        "category": "Catégorie",
+        "price": "Prix de vente",
+        "supplyPrice": "Prix fournisseur",
+        "currentInventory": "Inventaire actuel",
+        "lowInventoryThreshold": "Seuil bas",
+        "sku": "SKU (optionnel)",
+        "taxes": "Taxes applicables",
+        "noTaxes": "Aucune taxe configurée."
+      },
+      "brands": {
+        "name": "Nom de la marque",
+        "addTitle": "Nouvelle marque",
+        "editTitle": "Modifier la marque",
+        "emptyTitle": "Aucune marque",
+        "emptyHint": "Ajoute les marques que tu revends."
+      },
+      "categories": {
+        "name": "Nom de la catégorie",
+        "addTitle": "Nouvelle catégorie",
+        "editTitle": "Modifier la catégorie",
+        "emptyTitle": "Aucune catégorie",
+        "emptyHint": "Ajoute des catégories pour classer tes produits."
+      },
+      "toasts": {
+        "created": "Produit créé",
+        "updated": "Produit mis à jour",
+        "deleted": "Élément supprimé",
+        "brandSaved": "Marque enregistrée",
+        "categorySaved": "Catégorie enregistrée"
+      }
+    },
     "support": { "title": "Support", "soon": "Centre d'aide — Phase 9." },
     "marketing": { "title": "Marketing", "soon": "Campagnes, promos — Phase 8." },
     "finances": { "title": "Finances", "soon": "Rapports, revenus, payouts — Phase 7." },

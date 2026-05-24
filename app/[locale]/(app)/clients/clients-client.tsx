@@ -1,0 +1,271 @@
+'use client';
+
+import { useMemo, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
+import { AlertTriangle, Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { PageHeader } from '@/components/ui/page-header';
+import { SearchBar } from '@/components/ui/search-bar';
+import { useToast } from '@/components/ui/toast';
+import type { ClientRow } from '@/db/rows';
+import { ClientFormModal } from './client-form-modal';
+import { deleteClient } from './actions';
+
+type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: ClientRow };
+
+const PAGE_SIZE = 25;
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+export function ClientsClient({ locale, clients }: { locale: string; clients: ClientRow[] }) {
+  void locale;
+  const t = useTranslations('pages.clients');
+  const tCommon = useTranslations('common');
+  const tErr = useTranslations('actionErrors');
+  const { show } = useToast();
+
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [showDupesOnly, setShowDupesOnly] = useState(false);
+  const [mode, setMode] = useState<Mode>({ kind: 'closed' });
+  const [confirmDelete, setConfirmDelete] = useState<ClientRow | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // Detect duplicates: rows that share the same normalised phone OR email.
+  const duplicateIds = useMemo(() => {
+    const byPhone = new Map<string, string[]>();
+    const byEmail = new Map<string, string[]>();
+    for (const c of clients) {
+      if (c.phone) {
+        const key = c.phone.replace(/\D/g, '');
+        if (key.length > 0) {
+          const list = byPhone.get(key) ?? [];
+          list.push(c.id);
+          byPhone.set(key, list);
+        }
+      }
+      if (c.email) {
+        const key = c.email.toLowerCase();
+        const list = byEmail.get(key) ?? [];
+        list.push(c.id);
+        byEmail.set(key, list);
+      }
+    }
+    const dupes = new Set<string>();
+    for (const list of [...byPhone.values(), ...byEmail.values()]) {
+      if (list.length > 1) list.forEach((id) => dupes.add(id));
+    }
+    return dupes;
+  }, [clients]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return clients.filter((c) => {
+      if (showDupesOnly && !duplicateIds.has(c.id)) return false;
+      if (letterFilter) {
+        if ((c.first_name[0] ?? '').toUpperCase() !== letterFilter) return false;
+      }
+      if (q) {
+        const hay =
+          `${c.first_name} ${c.last_name ?? ''} ${c.email ?? ''} ${c.phone ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [clients, search, letterFilter, showDupesOnly, duplicateIds]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
+  function onDelete(row: ClientRow) {
+    startTransition(async () => {
+      const result = await deleteClient({ id: row.id });
+      setConfirmDelete(null);
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.deleted', { name: clientLabel(row) }) });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  function clientLabel(c: ClientRow) {
+    return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+  }
+
+  const columns: ReadonlyArray<ColumnDef<ClientRow>> = [
+    {
+      id: 'name',
+      header: t('columns.client'),
+      cell: (r) => (
+        <span className="flex items-center gap-2 font-medium">
+          {clientLabel(r)}
+          {duplicateIds.has(r.id) ? (
+            <Badge variant="warning" title={t('duplicateHint')}>
+              <AlertTriangle className="h-3 w-3" /> {t('duplicate')}
+            </Badge>
+          ) : null}
+        </span>
+      ),
+      sortable: true,
+      sortValue: (r) => clientLabel(r).toLowerCase(),
+    },
+    {
+      id: 'email',
+      header: t('columns.email'),
+      cell: (r) => r.email ?? <span className="text-text-muted">—</span>,
+    },
+    {
+      id: 'phone',
+      header: t('columns.phone'),
+      cell: (r) => r.phone ?? <span className="text-text-muted">—</span>,
+    },
+    {
+      id: 'actions',
+      header: '',
+      width: '90px',
+      align: 'right',
+      cell: (r) => (
+        <div className="flex items-center justify-end gap-1">
+          <button
+            type="button"
+            aria-label={tCommon('actions.edit')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMode({ kind: 'edit', client: r });
+            }}
+            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label={tCommon('actions.delete')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(r);
+            }}
+            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title={t('title')}
+        subtitle={t('total', { count: clients.length, dupes: duplicateIds.size })}
+        center={
+          <SearchBar
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('searchPlaceholder')}
+          />
+        }
+        actions={
+          <>
+            <Button
+              variant={showDupesOnly ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => {
+                setShowDupesOnly((v) => !v);
+                setPage(1);
+              }}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" /> {t('locateDuplicates')}
+            </Button>
+            <a
+              href="/api/export/clients"
+              className="inline-flex h-8 items-center gap-2 rounded-sm border border-border bg-bg-surface px-3 text-xs font-medium text-text-primary hover:bg-bg-surface-2"
+            >
+              <Download className="h-3.5 w-3.5" /> {tCommon('actions.download')}
+            </a>
+            <Button onClick={() => setMode({ kind: 'add' })} size="sm">
+              <Plus className="h-4 w-4" /> {t('addClient')}
+            </Button>
+          </>
+        }
+      />
+
+      <div className="space-y-4 p-6">
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setLetterFilter(null);
+              setPage(1);
+            }}
+            className={`rounded-sm border px-2 py-1 text-xs font-medium ${
+              letterFilter === null
+                ? 'border-accent bg-accent-subtle text-accent'
+                : 'border-border text-text-secondary hover:bg-bg-surface-2'
+            }`}
+          >
+            {t('all')}
+          </button>
+          {ALPHABET.map((letter) => {
+            const active = letterFilter === letter;
+            return (
+              <button
+                key={letter}
+                type="button"
+                onClick={() => {
+                  setLetterFilter(active ? null : letter);
+                  setPage(1);
+                }}
+                className={`h-7 w-7 rounded-sm border text-xs font-medium ${
+                  active
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : 'border-border text-text-secondary hover:bg-bg-surface-2'
+                }`}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={pageRows}
+          getRowKey={(r) => r.id}
+          emptyState={{ title: t('emptyTitle'), description: t('emptyHint') }}
+          pagination={{
+            page,
+            pageSize: PAGE_SIZE,
+            total: filtered.length,
+            onPageChange: setPage,
+          }}
+        />
+      </div>
+
+      {mode.kind !== 'closed' && (
+        <ClientFormModal mode={mode} onClose={() => setMode({ kind: 'closed' })} />
+      )}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title={t('confirmDelete.title')}
+        description={
+          confirmDelete ? t('confirmDelete.description', { name: clientLabel(confirmDelete) }) : ''
+        }
+        destructive
+        loading={isPending}
+        confirmLabel={tCommon('actions.delete')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => confirmDelete && onDelete(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    </>
+  );
+}

@@ -98,3 +98,17 @@
   - `actions.ts` Server Actions : `createService`, `updateService`, `deleteService`, `toggleServiceStatus`. Tous wrappés `withAction` + `logAuditAction()` + `revalidatePath('/services')`.
 - **Audit log** : `logAuditAction()` failure-safe (catch + observability hook). Toutes les Server Actions mutate appellent ce helper avec `entityId` + `diff`.
 - **Drag-reorder et CSV export** : différés en Phase 4b (pas critique pour l'écran fonctionnel, et chaque feature mérite son commit dédié).
+
+## Phase 4b — Barbers, Clients, Products + CSV
+
+- **Réutilisation stricte du pattern Services** : chaque écran (Barbers / Clients / Products) a la même structure : `page.tsx` (RSC) + `*-client.tsx` (Client orchestrant DataTable + modals) + `*-form-modal.tsx` (`react-hook-form` + Zod + `Modal`) + `actions.ts` (`withAction` + `logAuditAction` + `revalidatePath`) + `schema.ts` (Zod).
+- **Soft-delete pour `barbers`** : `deleteBarber` flip `status` à `deleted` au lieu de DELETE row, pour garder les FK appointments intactes. Onglet "Supprimés" + bouton "Restaurer" via `setBarberStatus`.
+- **Clients dedup côté client** : la liste reçue côté Server Component est passée au Client qui calcule les doublons via Map `(phone normalisé / email lower-case)`. Affichage : badge `warning` "Doublon" + bouton toggle "Localiser les doublons" qui filtre la liste. Phase 5 pourra basculer vers un index full-text Postgres (`pg_trgm` déjà installé).
+- **Clients A–Z bar** : 26 boutons + bouton "Tous". Pas de pagination par lettre via DB (filter côté client suffit pour <2000 lignes). DataTable garde sa pagination simple (25 rows/page).
+- **Suppression Clients = hard delete** mais protégée par `ON DELETE RESTRICT` côté FK appointments → erreur `CONFLICT` retournée si le client a des RDV.
+- **Products avec SectionSwitcher** : 3 vues (Products / Brands / Categories) dans une seule page, via `useState<View>`. Le bouton "Ajouter" change de label selon la vue active. Toolbar Products montre Retail Value / Wholesale Value / low-stock count (annexe Image 11).
+- **Warnings produits** : badge `warning` avec icône AlertTriangle sur les lignes à inventaire ≤ seuil **ou** marge négative (supply_price > price). Pas bloquant, juste signalé visuellement.
+- **CSV export générique** : route handler `/api/export/[entity]/route.ts` avec whitelist d'entités + colonnes safes (jamais SIN/Tax ID). Auth + shop gate strict. `papaparse` pour la sérialisation. `Content-Disposition: attachment` + nom de fichier daté. Optionnel `?status=` pour filtrer les barbers par onglet.
+- **Pas encore migré sur `@tanstack/react-table`** : DataTable maison suffit pour <2000 lignes en mémoire. Migration prévue Phase 5+ quand la virtualisation devient nécessaire (calendrier surtout).
+- **Drag reorder différé Phase 5** : `@dnd-kit` installé mais pas encore branché. La spec Services + Barbers Image (poignée ⇅) reste un placeholder visuel via `reorderable: true` sur DataTable, sans vraie action sortable.
+- **Build après Phase 4b** : 37 routes (16 admin × 2 + auth + kitchen-sink + 2 API), middleware 101 kB. Tests Vitest : 8 passing (taxes module). Lint / typecheck / format / build / test : tous verts.

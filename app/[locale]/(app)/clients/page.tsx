@@ -1,13 +1,32 @@
 import { setRequestLocale } from 'next-intl/server';
-import { useTranslations } from 'next-intl';
-import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireShopMember } from '@/lib/auth/server';
+import type { ClientRow } from '@/db/rows';
+import { ClientsClient } from './clients-client';
 
-export default function ClientsPage({ params: { locale } }: { params: { locale: string } }) {
+export const dynamic = 'force-dynamic';
+
+export default async function ClientsPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
-  return <Content />;
-}
+  await requireShopMember({ locale });
 
-function Content() {
-  const t = useTranslations('pages.clients');
-  return <PagePlaceholder title={t('title')} description={t('soon')} phase="Phase 4" />;
+  const supabase = createSupabaseServerClient();
+  const result = await (
+    supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          order: (
+            k: string,
+            opts?: { ascending?: boolean },
+          ) => Promise<{ data: unknown; error: unknown }>;
+        };
+      };
+    }
+  )
+    .from('clients')
+    .select('*')
+    .order('first_name', { ascending: true });
+
+  const clients = (result.data as ClientRow[] | null) ?? [];
+  return <ClientsClient locale={locale} clients={clients} />;
 }

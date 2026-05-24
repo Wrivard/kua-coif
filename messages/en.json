@@ -71,7 +71,8 @@
     "field": {
       "NAME_REQUIRED": "Name is required.",
       "DURATION_MIN": "Duration must be at least 5 minutes.",
-      "DURATION_MAX": "Duration cannot exceed 8 hours."
+      "DURATION_MAX": "Duration cannot exceed 8 hours.",
+      "PHONE_INVALID": "Invalid phone number."
     }
   },
   "errors": {
@@ -88,7 +89,38 @@
   },
   "pages": {
     "appointments": { "title": "Appointments", "soon": "Calendar view — Phase 5." },
-    "clients": { "title": "Clients", "soon": "A–Z list, dedup, export — Phase 4." },
+    "clients": {
+      "title": "Clients",
+      "soon": "A–Z list, dedup, export — Phase 4.",
+      "total": "{count} clients · {dupes} duplicates",
+      "addClient": "Add client",
+      "searchPlaceholder": "Search by name, email, or phone…",
+      "locateDuplicates": "Locate duplicates",
+      "duplicate": "Duplicate",
+      "duplicateHint": "Phone or email shared with another client.",
+      "all": "All",
+      "emptyTitle": "No clients yet",
+      "emptyHint": "Add your first client.",
+      "columns": { "client": "Client", "email": "Email", "phone": "Phone" },
+      "confirmDelete": {
+        "title": "Delete this client?",
+        "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
+      },
+      "form": {
+        "addTitle": "New client",
+        "editTitle": "Edit client",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email",
+        "phone": "Phone",
+        "notes": "Notes"
+      },
+      "toasts": {
+        "created": "Client created",
+        "updated": "Client updated",
+        "deleted": "\"{name}\" deleted"
+      }
+    },
     "services": {
       "title": "Services",
       "soon": "Services and pricing grid — Phase 4.",
@@ -132,8 +164,104 @@
         "statusFlipped": "\"{name}\" status updated"
       }
     },
-    "barbers": { "title": "Barbers", "soon": "Team, invites, statuses — Phase 4." },
-    "products": { "title": "Products", "soon": "Inventory, brands, categories — Phase 4." },
+    "barbers": {
+      "title": "Barbers",
+      "soon": "Team, invites, statuses — Phase 4.",
+      "addBarber": "Add a barber",
+      "searchPlaceholder": "Search a barber…",
+      "emptyTitle": "No barbers yet",
+      "emptyHint": "Add your first team member.",
+      "tabs": { "confirmed": "Confirmed", "staff": "Staff", "deleted": "Deleted" },
+      "columns": {
+        "name": "Barber",
+        "email": "Email",
+        "phone": "Phone",
+        "personnelId": "Personnel ID"
+      },
+      "actions": { "restore": "Restore" },
+      "confirmDelete": {
+        "title": "Archive this barber?",
+        "description": "\"{name}\" will be archived. You can restore them from the Deleted tab."
+      },
+      "form": {
+        "addTitle": "New barber",
+        "editTitle": "Edit barber",
+        "displayName": "Display name",
+        "email": "Email",
+        "phone": "Phone",
+        "personnelId": "Personnel ID (optional)",
+        "status": "Status"
+      },
+      "toasts": {
+        "created": "Barber added",
+        "updated": "Barber updated",
+        "deleted": "\"{name}\" archived",
+        "restored": "\"{name}\" restored"
+      }
+    },
+    "products": {
+      "title": "Products",
+      "soon": "Inventory, brands, categories — Phase 4.",
+      "summary": "Retail value {retail} · Supply value {wholesale} · {low} low-stock",
+      "view": "VIEW",
+      "viewLabels": { "products": "Products", "brands": "Brands", "categories": "Categories" },
+      "addProduct": "Add a product",
+      "addBrand": "Add a brand",
+      "addCategory": "Add a category",
+      "emptyTitle": "No products yet",
+      "emptyHint": "Configure brands and categories first, then add your products.",
+      "columns": {
+        "name": "Name",
+        "price": "Price",
+        "supplyPrice": "Supply price",
+        "inventory": "Inventory",
+        "lowInventory": "Low threshold",
+        "sku": "SKU",
+        "tax": "Taxes",
+        "category": "Category",
+        "brand": "Brand"
+      },
+      "warnings": { "negativeMargin": "Negative margin: supply price exceeds retail price." },
+      "confirmDelete": {
+        "title": "Delete this item?",
+        "description": "\"{name}\" will be deleted. This action cannot be undone."
+      },
+      "form": {
+        "addTitle": "New product",
+        "editTitle": "Edit product",
+        "name": "Product name",
+        "brand": "Brand",
+        "category": "Category",
+        "price": "Retail price",
+        "supplyPrice": "Supply price",
+        "currentInventory": "Current inventory",
+        "lowInventoryThreshold": "Low threshold",
+        "sku": "SKU (optional)",
+        "taxes": "Applicable taxes",
+        "noTaxes": "No taxes configured."
+      },
+      "brands": {
+        "name": "Brand name",
+        "addTitle": "New brand",
+        "editTitle": "Edit brand",
+        "emptyTitle": "No brands yet",
+        "emptyHint": "Add the brands you resell."
+      },
+      "categories": {
+        "name": "Category name",
+        "addTitle": "New category",
+        "editTitle": "Edit category",
+        "emptyTitle": "No categories yet",
+        "emptyHint": "Add categories to classify your products."
+      },
+      "toasts": {
+        "created": "Product created",
+        "updated": "Product updated",
+        "deleted": "Item deleted",
+        "brandSaved": "Brand saved",
+        "categorySaved": "Category saved"
+      }
+    },
     "support": { "title": "Support", "soon": "Help center — Phase 9." },
     "marketing": { "title": "Marketing", "soon": "Campaigns, promos — Phase 8." },
     "finances": { "title": "Finances", "soon": "Reports, revenue, payouts — Phase 7." },
