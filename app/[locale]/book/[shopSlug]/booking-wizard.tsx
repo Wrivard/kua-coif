@@ -2,16 +2,27 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CalendarCheck,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Moon,
+  Plus,
+  Sun,
+  Sunset,
+  UserCircle2,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
+import type { WidgetConfig } from '@/lib/business/widget-config';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { bookPublicAppointment } from './actions';
 
@@ -60,18 +71,39 @@ type Props = {
   barbers: BarberRow[];
   services: ServiceRow[];
   categories: ServiceCategoryRow[];
+  /**
+   * Per-shop widget overrides — passed by the embed route. When omitted, the
+   * wizard uses the public-booking defaults (service-first, no add-on banner,
+   * etc.). See `lib/business/widget-config.ts`.
+   */
+  widgetConfig?: WidgetConfig;
 };
 
-const STEPS: Array<{
-  id: WizardState['step'];
-  key: 'service' | 'barber' | 'slot' | 'contact' | 'done';
-}> = [
-  { id: 1, key: 'service' },
-  { id: 2, key: 'barber' },
-  { id: 3, key: 'slot' },
-  { id: 4, key: 'contact' },
-  { id: 5, key: 'done' },
-];
+// Five progress chips, regardless of which of {service, barber} comes first.
+const PROGRESS_CHIP_COUNT = 5;
+
+/**
+ * Group a flat array of "HH:MM" time strings into morning / afternoon /
+ * evening buckets so the slot picker can show ☀ / ☼ / 🌙 sections (spec §3.4).
+ * Times are interpreted in the shop's local clock, so the cut-offs are
+ * fixed: <11:00 morning, 11:00–17:00 afternoon, ≥17:00 evening.
+ */
+function groupSlotsByTimeOfDay(slots: string[]): {
+  morning: string[];
+  afternoon: string[];
+  evening: string[];
+} {
+  const morning: string[] = [];
+  const afternoon: string[] = [];
+  const evening: string[] = [];
+  for (const time of slots) {
+    const hour = Number(time.split(':')[0] ?? '0');
+    if (hour < 11) morning.push(time);
+    else if (hour < 17) afternoon.push(time);
+    else evening.push(time);
+  }
+  return { morning, afternoon, evening };
+}
 
 export function BookingWizard({
   locale,
@@ -82,11 +114,29 @@ export function BookingWizard({
   barbers,
   services,
   categories,
+  widgetConfig,
 }: Props) {
   const t = useTranslations('pages.booking');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  // ── Step ordering ──────────────────────────────────────────────────────
+  // The widget config can flip the first two steps: when `show_professional_first`
+  // is on, step 1 = barber picker and step 2 = service picker (Squire-style).
+  // Otherwise (default), step 1 = service picker, step 2 = barber picker.
+  const isProFirst = widgetConfig?.show_professional_first ?? false;
+  const step1Kind: 'service' | 'barber' = isProFirst ? 'barber' : 'service';
+  const step2Kind: 'service' | 'barber' = isProFirst ? 'service' : 'barber';
+  function kindForStep(
+    step: WizardState['step'],
+  ): 'service' | 'barber' | 'slot' | 'contact' | 'done' {
+    if (step === 1) return step1Kind;
+    if (step === 2) return step2Kind;
+    if (step === 3) return 'slot';
+    if (step === 4) return 'contact';
+    return 'done';
+  }
 
   const today = useMemo(() => shopIsoDate(new Date(), shop.timezone), [shop.timezone]);
   const [state, setState] = useState<WizardState>({
@@ -106,6 +156,11 @@ export function BookingWizard({
   const selectedServices = services.filter((s) => state.serviceIds.includes(s.id));
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration_min, 0);
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const selectedBarber =
+    state.barberId && state.barberId !== 'any'
+      ? barbers.find((b) => b.id === state.barberId)
+      : null;
+  const allowMultiService = widgetConfig?.allow_multi_service ?? true;
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -147,18 +202,14 @@ export function BookingWizard({
   }
 
   const canAdvance = (() => {
-    switch (state.step) {
-      case 1:
-        return state.serviceIds.length > 0;
-      case 2:
-        return state.barberId !== null;
-      case 3:
-        return state.startTime !== null;
-      case 4:
-        return state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
-      default:
-        return false;
+    const kind = kindForStep(state.step);
+    if (kind === 'service') return state.serviceIds.length > 0;
+    if (kind === 'barber') return state.barberId !== null;
+    if (kind === 'slot') return state.startTime !== null;
+    if (kind === 'contact') {
+      return state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
     }
+    return false;
   })();
 
   function submit() {
@@ -197,14 +248,16 @@ export function BookingWizard({
         ) : null}
       </header>
 
-      {/* Progress chips */}
+      {/* Progress chips — five segments, one per step. The mapping of "step
+          number" → semantic kind is computed by `kindForStep` so the chip
+          count stays constant regardless of step ordering. */}
       <ol className="flex items-center justify-center gap-1.5">
-        {STEPS.map((step) => (
+        {Array.from({ length: PROGRESS_CHIP_COUNT }, (_, i) => i + 1).map((id) => (
           <li
-            key={step.id}
+            key={id}
             className={cn(
               'h-1.5 w-10 rounded-full transition-colors',
-              state.step > step.id || state.step === step.id ? 'bg-accent' : 'bg-bg-surface-2',
+              state.step >= id ? 'bg-accent' : 'bg-bg-surface-2',
             )}
             aria-hidden
           />
@@ -212,90 +265,63 @@ export function BookingWizard({
       </ol>
 
       <div className="rounded border border-border bg-bg-surface p-5 sm:p-6">
-        {/* ─── Step 1: services ──────────────────────────────────────── */}
-        {state.step === 1 && (
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">{t('steps.service.title')}</h2>
-            <p className="text-sm text-text-secondary">{t('steps.service.help')}</p>
-            <div className="space-y-4">
-              {[...servicesByCategory.entries()].map(([catId, list]) => {
-                const cat = categories.find((c) => c.id === catId);
-                return (
-                  <div key={catId || 'none'}>
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                      {cat?.name ?? t('steps.service.uncategorized')}
-                    </p>
-                    <div className="space-y-1">
-                      {list.map((s) => {
-                        const checked = state.serviceIds.includes(s.id);
-                        return (
-                          <label
-                            key={s.id}
-                            className={cn(
-                              'flex cursor-pointer items-center justify-between gap-3 rounded border border-border bg-bg-base px-3 py-2 transition-colors',
-                              checked && 'border-accent bg-accent-subtle',
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <Checkbox
-                                checked={checked}
-                                onChange={(e) => {
-                                  setState((st) => ({
-                                    ...st,
-                                    serviceIds: e.target.checked
-                                      ? [...st.serviceIds, s.id]
-                                      : st.serviceIds.filter((id) => id !== s.id),
-                                  }));
-                                }}
-                              />
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">{s.name}</p>
-                                <p className="text-[11px] text-text-muted">{s.duration_min} min</p>
-                              </div>
-                            </div>
-                            <span className="shrink-0 text-sm font-semibold">
-                              {formatCurrencyCAD(s.price, locale === 'fr' ? 'fr' : 'en')}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+        {/* ─── Step 1 & 2 — order depends on `show_professional_first` ── */}
+        {state.step <= 2 && kindForStep(state.step) === 'service' && (
+          <ServiceStep
+            t={t}
+            locale={locale}
+            services={services}
+            servicesByCategory={servicesByCategory}
+            categories={categories}
+            selectedServices={selectedServices}
+            allowMultiService={allowMultiService}
+            onToggle={(id) => {
+              setState((st) => ({
+                ...st,
+                serviceIds: st.serviceIds.includes(id)
+                  ? st.serviceIds.filter((x) => x !== id)
+                  : allowMultiService
+                    ? [...st.serviceIds, id]
+                    : [id],
+              }));
+            }}
+            onRemove={(id) =>
+              setState((st) => ({
+                ...st,
+                serviceIds: st.serviceIds.filter((x) => x !== id),
+              }))
+            }
+          />
         )}
 
-        {/* ─── Step 2: barber ────────────────────────────────────────── */}
-        {state.step === 2 && (
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">{t('steps.barber.title')}</h2>
-            <div className="space-y-2">
-              {shop.allow_booking_any_barber ? (
-                <BarberOption
-                  selected={state.barberId === 'any'}
-                  onSelect={() => setState((s) => ({ ...s, barberId: 'any' }))}
-                  title={t('steps.barber.any')}
-                  subtitle={t('steps.barber.anyHint')}
-                />
-              ) : null}
-              {barbers.map((b) => (
-                <BarberOption
-                  key={b.id}
-                  selected={state.barberId === b.id}
-                  onSelect={() => setState((s) => ({ ...s, barberId: b.id }))}
-                  title={b.display_name}
-                  subtitle=""
-                />
-              ))}
-            </div>
-          </section>
+        {state.step <= 2 && kindForStep(state.step) === 'barber' && (
+          <BarberStep
+            t={t}
+            shop={shop}
+            barbers={barbers}
+            selectedBarberId={state.barberId}
+            onSelect={(id) => setState((s) => ({ ...s, barberId: id }))}
+          />
         )}
 
         {/* ─── Step 3: date + slot ───────────────────────────────────── */}
         {state.step === 3 && (
           <section className="space-y-4">
+            {/* §3.3 — "Your order" recap card. Renders once a service is
+                picked; gives the customer something concrete to anchor on
+                while they pick a date. */}
+            {selectedServices.length > 0 ? (
+              <OrderRecap
+                t={t}
+                locale={locale}
+                barber={selectedBarber}
+                isAnyBarber={state.barberId === 'any'}
+                services={selectedServices}
+                totalPrice={totalPrice}
+                totalDuration={totalDuration}
+              />
+            ) : null}
+
             <h2 className="text-lg font-semibold">{t('steps.slot.title')}</h2>
             <DateStrip
               value={state.date}
@@ -305,43 +331,13 @@ export function BookingWizard({
               hours={hours}
               daysOff={daysOff}
             />
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {t('steps.slot.times')}
-              </p>
-              {slotLoading ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-9" />
-                  ))}
-                </div>
-              ) : !slots || slots.length === 0 ? (
-                <p className="rounded border border-border bg-bg-base p-4 text-center text-sm text-text-muted">
-                  {t('steps.slot.empty')}
-                </p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {slots.map((time) => {
-                    const active = state.startTime === time;
-                    return (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => setState((s) => ({ ...s, startTime: time }))}
-                        className={cn(
-                          'h-9 rounded border text-sm font-medium transition-colors',
-                          active
-                            ? 'border-accent bg-accent text-accent-fg'
-                            : 'border-border bg-bg-base hover:bg-bg-surface-2',
-                        )}
-                      >
-                        {time}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <SlotPicker
+              t={t}
+              loading={slotLoading}
+              slots={slots}
+              selected={state.startTime}
+              onSelect={(time) => setState((s) => ({ ...s, startTime: time }))}
+            />
           </section>
         )}
 
@@ -502,16 +498,205 @@ export function BookingWizard({
   );
 }
 
-function BarberOption({
+// ---------------------------------------------------------------------------
+// Step body sub-components
+// ---------------------------------------------------------------------------
+
+type TranslatorFn = ReturnType<typeof useTranslations<'pages.booking'>>;
+
+/**
+ * §3.2 — Service picker with a "selected" banner at the top + an "Anything to
+ * add?" section below for the remaining services. When the widget config has
+ * `allow_multi_service: false`, picking a new service replaces the previous
+ * one (the `onToggle` caller handles that semantic).
+ */
+function ServiceStep({
+  t,
+  locale,
+  services,
+  servicesByCategory,
+  categories,
+  selectedServices,
+  allowMultiService,
+  onToggle,
+  onRemove,
+}: {
+  t: TranslatorFn;
+  locale: string;
+  services: ServiceRow[];
+  servicesByCategory: Map<string, ServiceRow[]>;
+  categories: ServiceCategoryRow[];
+  selectedServices: ServiceRow[];
+  allowMultiService: boolean;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const hasSelection = selectedServices.length > 0;
+  // Filter out already-selected services from the "add-on" list to declutter.
+  const remainingByCategory = useMemo(() => {
+    const selectedIds = new Set(selectedServices.map((s) => s.id));
+    const m = new Map<string, ServiceRow[]>();
+    for (const [catId, list] of servicesByCategory) {
+      const filtered = list.filter((s) => !selectedIds.has(s.id));
+      if (filtered.length > 0) m.set(catId, filtered);
+    }
+    return m;
+  }, [servicesByCategory, selectedServices]);
+  void services; // unused but kept in the signature for future extension
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold">{t('steps.service.title')}</h2>
+      <p className="text-sm text-text-secondary">{t('steps.service.help')}</p>
+
+      {/* "Primary" banner — shows the user's current picks. Each pill has an X
+          to remove. We don't single out a "primary" item visually (the data
+          model treats services equally); the banner conveys what's locked in. */}
+      {hasSelection ? (
+        <div className="border-accent/40 rounded border bg-accent-subtle p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+            {allowMultiService ? t('steps.service.selectedPlural') : t('steps.service.selected')}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {selectedServices.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-2 rounded bg-bg-base px-3 py-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{s.name}</p>
+                  <p className="text-[11px] text-text-muted">
+                    {s.duration_min} min ·{' '}
+                    {formatCurrencyCAD(s.price, locale === 'fr' ? 'fr' : 'en')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label={t('steps.service.removeAria', { name: s.name })}
+                  onClick={() => onRemove(s.id)}
+                  className="shrink-0 rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* Add-ons / picker. Header text shifts from "pick a service" to
+          "anything to add?" once the first one is locked in. */}
+      {remainingByCategory.size > 0 && (allowMultiService || !hasSelection) ? (
+        <div className="space-y-4">
+          {hasSelection ? (
+            <p className="text-sm font-medium text-text-primary">
+              {t('steps.service.anythingToAdd')}
+            </p>
+          ) : null}
+          {[...remainingByCategory.entries()].map(([catId, list]) => {
+            const cat = categories.find((c) => c.id === catId);
+            return (
+              <div key={catId || 'none'}>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                  {cat?.name ?? t('steps.service.uncategorized')}
+                </p>
+                <div className="space-y-1">
+                  {list.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onToggle(s.id)}
+                      className="flex w-full items-center justify-between gap-3 rounded border border-border bg-bg-base px-3 py-2 text-left transition-colors hover:border-accent hover:bg-accent-subtle"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          aria-hidden
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-text-muted"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{s.name}</p>
+                          <p className="text-[11px] text-text-muted">{s.duration_min} min</p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold">
+                        {formatCurrencyCAD(s.price, locale === 'fr' ? 'fr' : 'en')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * §3.1 — Barber picker, with avatar (or initials fallback) and an availability
+ * hint. The "Any" option appears first when `allow_booking_any_barber` is on,
+ * matching the Squire layout.
+ */
+function BarberStep({
+  t,
+  shop,
+  barbers,
+  selectedBarberId,
+  onSelect,
+}: {
+  t: TranslatorFn;
+  shop: BookingShop;
+  barbers: BarberRow[];
+  selectedBarberId: string | 'any' | null;
+  onSelect: (id: string | 'any') => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold">{t('steps.barber.title')}</h2>
+      <div className="space-y-2">
+        {shop.allow_booking_any_barber ? (
+          <BarberCard
+            selected={selectedBarberId === 'any'}
+            onSelect={() => onSelect('any')}
+            title={t('steps.barber.any')}
+            subtitle={t('steps.barber.anyHint')}
+            avatarUrl={null}
+            initials="?"
+          />
+        ) : null}
+        {barbers.map((b) => (
+          <BarberCard
+            key={b.id}
+            selected={selectedBarberId === b.id}
+            onSelect={() => onSelect(b.id)}
+            title={b.display_name}
+            subtitle={t('steps.barber.availableToday')}
+            avatarUrl={b.avatar_url}
+            initials={initialsOf(b.display_name)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BarberCard({
   selected,
   onSelect,
   title,
   subtitle,
+  avatarUrl,
+  initials,
 }: {
   selected: boolean;
   onSelect: () => void;
   title: string;
   subtitle: string;
+  avatarUrl: string | null;
+  initials: string;
 }) {
   return (
     <button
@@ -524,12 +709,208 @@ function BarberOption({
           : 'border-border bg-bg-base hover:bg-bg-surface-2',
       )}
     >
-      <div>
-        <p className="font-medium">{title}</p>
-        {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Avatar — img tag if URL provided, otherwise initials in a circle.
+            Falls back to a generic icon for the "Any" option (initials = "?"). */}
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span
+            aria-hidden
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-surface-2 text-sm font-semibold text-text-secondary"
+          >
+            {initials === '?' ? <UserCircle2 className="h-6 w-6" /> : initials}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-medium">{title}</p>
+          {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
+        </div>
       </div>
       {selected ? <Badge variant="accent">●</Badge> : null}
     </button>
+  );
+}
+
+function initialsOf(name: string): string {
+  // Match the first letter of up to two words. Strips diacritics first so that
+  // "Élodie Côté" → "EC" not "ÉC" (visually clearer in a small circle).
+  const stripped = name.normalize('NFD').replace(/[̀-ͯ]/gu, '');
+  const parts = stripped.split(/\s+/u).filter(Boolean).slice(0, 2);
+  return parts.map((p) => p.charAt(0).toUpperCase()).join('') || '?';
+}
+
+/**
+ * §3.3 — "Your order" recap card. Shown above the slot picker so the customer
+ * sees who they'll be with and what they're paying for before locking a time.
+ */
+function OrderRecap({
+  t,
+  locale,
+  barber,
+  isAnyBarber,
+  services,
+  totalPrice,
+  totalDuration,
+}: {
+  t: TranslatorFn;
+  locale: string;
+  barber: BarberRow | null | undefined;
+  isAnyBarber: boolean;
+  services: ServiceRow[];
+  totalPrice: number;
+  totalDuration: number;
+}) {
+  const proLabel = isAnyBarber
+    ? t('steps.barber.any')
+    : (barber?.display_name ?? t('order.unassigned'));
+  const avatarUrl = !isAnyBarber ? barber?.avatar_url : null;
+  const initials = !isAnyBarber && barber ? initialsOf(barber.display_name) : '?';
+
+  return (
+    <div className="rounded border border-border bg-bg-base p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+        {t('order.title')}
+      </p>
+      <div className="mt-2 flex items-center gap-3">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span
+            aria-hidden
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-surface-2 text-sm font-semibold text-text-secondary"
+          >
+            {initials === '?' ? <UserCircle2 className="h-6 w-6" /> : initials}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{proLabel}</p>
+          <p className="text-xs text-text-secondary">{services.map((s) => s.name).join(' + ')}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
+        <span className="text-text-secondary">{t('order.subtotal')}</span>
+        <span className="font-semibold">
+          {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] text-text-muted">
+        {totalDuration} {t('summary.minutes')}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * §3.4 — Slot picker, grouped by morning / afternoon / evening so the
+ * customer can scan quickly. Each group has a contextual icon (sun, sunset,
+ * moon) matching the Squire pattern.
+ */
+function SlotPicker({
+  t,
+  loading,
+  slots,
+  selected,
+  onSelect,
+}: {
+  t: TranslatorFn;
+  loading: boolean;
+  slots: string[] | null;
+  selected: string | null;
+  onSelect: (time: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          {t('steps.slot.times')}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-9" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!slots || slots.length === 0) {
+    return (
+      <p className="rounded border border-border bg-bg-base p-4 text-center text-sm text-text-muted">
+        {t('steps.slot.empty')}
+      </p>
+    );
+  }
+  const grouped = groupSlotsByTimeOfDay(slots);
+  return (
+    <div className="space-y-4">
+      <SlotGroup
+        icon={<Sun className="h-4 w-4" />}
+        label={t('steps.slot.morning')}
+        times={grouped.morning}
+        selected={selected}
+        onSelect={onSelect}
+      />
+      <SlotGroup
+        icon={<Sunset className="h-4 w-4" />}
+        label={t('steps.slot.afternoon')}
+        times={grouped.afternoon}
+        selected={selected}
+        onSelect={onSelect}
+      />
+      <SlotGroup
+        icon={<Moon className="h-4 w-4" />}
+        label={t('steps.slot.evening')}
+        times={grouped.evening}
+        selected={selected}
+        onSelect={onSelect}
+      />
+    </div>
+  );
+}
+
+function SlotGroup({
+  icon,
+  label,
+  times,
+  selected,
+  onSelect,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  times: string[];
+  selected: string | null;
+  onSelect: (time: string) => void;
+}) {
+  if (times.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        <span aria-hidden>{icon}</span>
+        {label}
+      </p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {times.map((time) => {
+          const active = selected === time;
+          return (
+            <button
+              key={time}
+              type="button"
+              onClick={() => onSelect(time)}
+              className={cn(
+                'h-9 rounded border text-sm font-medium transition-colors',
+                active
+                  ? 'border-accent bg-accent text-accent-fg'
+                  : 'border-border bg-bg-base hover:bg-bg-surface-2',
+              )}
+            >
+              {time}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

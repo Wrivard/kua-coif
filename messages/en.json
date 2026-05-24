@@ -745,17 +745,25 @@
         "service": {
           "title": "Pick your services",
           "help": "Select one or more services. The total duration will update automatically.",
-          "uncategorized": "Other"
+          "uncategorized": "Other",
+          "selected": "Selected",
+          "selectedPlural": "Selected services",
+          "anythingToAdd": "Anything you wish to add?",
+          "removeAria": "Remove {name}"
         },
         "barber": {
           "title": "Which barber?",
           "any": "Any (first available)",
-          "anyHint": "We pick the first available barber for the slot."
+          "anyHint": "We pick the first available barber for the slot.",
+          "availableToday": "Available today"
         },
         "slot": {
           "title": "Date & time",
           "times": "Available slots",
-          "empty": "No slot available on this day. Try another date."
+          "empty": "No slot available on this day. Try another date.",
+          "morning": "Morning",
+          "afternoon": "Afternoon",
+          "evening": "Evening"
         },
         "contact": {
           "title": "Your contact info",
@@ -772,6 +780,11 @@
         "title": "Summary",
         "servicesLabel": "service(s) selected",
         "minutes": "minutes"
+      },
+      "order": {
+        "title": "Your order",
+        "subtotal": "Subtotal",
+        "unassigned": "Unassigned"
       },
       "done": {
         "title": "Appointment confirmed!",

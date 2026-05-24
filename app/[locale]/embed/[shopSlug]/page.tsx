@@ -114,6 +114,7 @@ export default async function EmbedBookingPage({ params: { locale, shopSlug } }:
         barbers={barbers}
         services={services}
         categories={categories}
+        widgetConfig={widgetConfig}
       />
     </>
   );

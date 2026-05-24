@@ -745,17 +745,25 @@
         "service": {
           "title": "Choisis tes services",
           "help": "Sélectionne un ou plusieurs services. La durée totale s’ajustera automatiquement.",
-          "uncategorized": "Autres"
+          "uncategorized": "Autres",
+          "selected": "Sélectionné",
+          "selectedPlural": "Services sélectionnés",
+          "anythingToAdd": "Souhaites-tu ajouter autre chose ?",
+          "removeAria": "Retirer {name}"
         },
         "barber": {
           "title": "Avec quel barbier ?",
           "any": "Peu importe (premier disponible)",
-          "anyHint": "On choisit le premier barbier disponible pour le créneau."
+          "anyHint": "On choisit le premier barbier disponible pour le créneau.",
+          "availableToday": "Disponible aujourd’hui"
         },
         "slot": {
           "title": "Date et heure",
           "times": "Créneaux disponibles",
-          "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour."
+          "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour.",
+          "morning": "Matin",
+          "afternoon": "Après-midi",
+          "evening": "Soir"
         },
         "contact": {
           "title": "Tes coordonnées",
@@ -772,6 +780,11 @@
         "title": "Résumé",
         "servicesLabel": "service(s) sélectionné(s)",
         "minutes": "minutes"
+      },
+      "order": {
+        "title": "Ta commande",
+        "subtotal": "Sous-total",
+        "unassigned": "Non assigné"
       },
       "done": {
         "title": "Rendez-vous confirmé !",
