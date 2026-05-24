@@ -1,22 +1,90 @@
 # DEPLOY — Vercel + Supabase
 
 > Checklist concrète pour passer de "code en local" à "URL Chrome live".
-> Le repo est déjà déployé sur Vercel (étape 4 ✅) ; ce doc traque où on en est.
+> Mise à jour : MCP Supabase configuré, attente du redémarrage Claude Code
+> pour appliquer les migrations.
 
-## État
+## État global
 
-- [x] **0. Code prêt** — toutes les phases livrées (38+ routes, 44 tests verts).
+- [x] **0. Code prêt** — toutes les phases livrées (42+ routes, 44 tests verts).
 - [x] **1. Repo GitHub** — `Wrivard/kua-coif` à jour.
-- [x] **2. Projet Supabase créé** — `jzpfvefrjtwqfyynhczp`
-- [ ] **3. Migrations + seed appliqués à Supabase**
+- [x] **2. Projet Supabase créé** — `jzpfvefrjtwqfyynhczp`.
+- [x] **2.5 MCP Supabase configuré** — `.mcp.json` ajouté, OAuth authentifié par le user.
+- [ ] **3. Migrations + seed appliqués à Supabase** ← **PROCHAINE ÉTAPE**
 - [x] **4. Projet Vercel créé** — déployé une première fois.
-- [ ] **5. Env vars renseignées dans Vercel**
-- [ ] **6. Supabase Auth Site URL + Redirect URLs**
-- [ ] **7. Premier vrai signup + signin testés sur l'URL live**
+- [ ] **5. Env vars renseignées dans Vercel** (URL ✓, anon ✓, **service_role ✗**, site_url ✗).
+- [ ] **6. Supabase Auth Site URL + Redirect URLs**.
+- [ ] **7. Premier vrai signup + signin testés sur l'URL live**.
+- [ ] **8. Rattacher l'utilisateur au shop Axum (SQL one-liner)**.
+
+## Resume après redémarrage Claude Code
+
+> À copier-coller dans la nouvelle session pour reprendre exactement où on
+> s'est arrêté. La todo + chapter du harness ne survivent pas au restart,
+> mais le code + la config MCP si.
+
+**Action 1 — Charger les outils MCP Supabase via ToolSearch :**
+
+```
+ToolSearch query: "select:mcp__supabase__execute_sql,mcp__supabase__apply_migration,mcp__supabase__list_tables,mcp__supabase__generate_typescript_types"
+```
+
+**Action 2 — Appliquer les 3 migrations + le seed Axum :**
+
+Lire chaque fichier dans cet ordre et passer le contenu à `mcp__supabase__apply_migration` (pour les migrations) ou `mcp__supabase__execute_sql` (pour le seed) :
+
+1. `supabase/migrations/20260523000001_init_schema.sql` → apply_migration name="init_schema"
+2. `supabase/migrations/20260523000002_rls.sql` → apply_migration name="rls"
+3. `supabase/migrations/20260523000003_indexes_triggers.sql` → apply_migration name="indexes_triggers"
+4. `supabase/seed.sql` → execute_sql
+
+**Action 3 — Vérifier les données seed :**
+
+```sql
+select
+  (select count(*) from public.shops)      as shops,           -- attendu: 1
+  (select count(*) from public.services)   as services,        -- attendu: 14
+  (select count(*) from public.barbers)    as barbers,         -- attendu: 4
+  (select count(*) from public.clients)    as clients,         -- attendu: 32
+  (select count(*) from public.products)   as products,        -- attendu: 14
+  (select count(*) from public.appointments) as appointments;  -- attendu: 7
+```
+
+**Action 4 — Codegen `db/types.ts` :**
+
+```
+mcp__supabase__generate_typescript_types
+```
+
+Puis écrire le résultat dans `db/types.ts` (remplace le placeholder).
+
+**Action 5 — Commit + push** :
+
+```bash
+git add db/types.ts
+git commit -m "chore(db): regen db/types.ts from live Supabase schema"
+git push
+```
+
+**Action 6 — Guider l'user pour :**
+- Mettre `SUPABASE_SERVICE_ROLE_KEY` dans Vercel (sb_secret_…)
+- Mettre `NEXT_PUBLIC_SITE_URL` dans Vercel (URL Vercel)
+- Mettre Site URL + Redirect URLs dans Supabase Auth
+- Redéployer Vercel
+- Tester signup + se rattacher au shop Axum
 
 ---
 
-## 3. Migrations Supabase — flow CLI
+## Travail restant après le launch (V1.1 / Phase 10)
+
+Capturé dans :
+- **`WIDGET-SPEC.md`** : widget intégrable iframe + admin customizer + UX Squire-style (8-15 h).
+- **`ARCHITECTURE.md` §4** : Playwright e2e, Lighthouse CI, Sentry actif, Upstash KV, Cloudflare Turnstile, Resend email confirmations, SMS reminders, Stripe Connect réel, Realtime calendrier, drag calendrier.
+- **`AUDIT.md` §4` : optimisations P0/P1/P2 priorisées.
+
+---
+
+## 3. Migrations Supabase — flow CLI (fallback si MCP indispo)
 
 ### 3.1 Access token
 
