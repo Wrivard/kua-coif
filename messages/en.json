@@ -699,6 +699,19 @@
           "overrideApplied": "Shop defaults applied (not saved yet)"
         }
       },
+      "auditLog": {
+        "title": "Audit log",
+        "subtitle": "Last {count} actions across this shop.",
+        "empty": "No audit entries yet.",
+        "limitHint": "Showing the 100 most recent entries. Older history stays in the database — filters and pagination land in V1.1.",
+        "columns": {
+          "when": "When",
+          "who": "Who",
+          "action": "Action",
+          "entity": "Entity",
+          "entityId": "ID"
+        }
+      },
       "widget": {
         "title": "Booking widget",
         "subtitle": "Embed code: /embed/{alias}",

@@ -699,6 +699,19 @@
           "overrideApplied": "Défauts du salon appliqués (non enregistré)"
         }
       },
+      "auditLog": {
+        "title": "Journal d'audit",
+        "subtitle": "Les {count} dernières actions sur ce salon.",
+        "empty": "Aucune entrée pour le moment.",
+        "limitHint": "Affichage des 100 entrées les plus récentes. L'historique plus ancien reste en base — filtres et pagination en V1.1.",
+        "columns": {
+          "when": "Quand",
+          "who": "Qui",
+          "action": "Action",
+          "entity": "Entité",
+          "entityId": "ID"
+        }
+      },
       "widget": {
         "title": "Widget de réservation",
         "subtitle": "Code d'intégration : /embed/{alias}",
