@@ -27,6 +27,7 @@ import { AppointmentCancellation } from '@/lib/email/templates/appointment-cance
 import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { createDepositPaymentIntent, refundPaymentIntent } from '@/lib/stripe/payments';
+import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
 import { captureException } from '@/lib/observability';
 
 const APPOINTMENTS_PATH = '/';
@@ -293,18 +294,23 @@ export const updateAppointment = withAction({
   minRole: 'barber',
   run: async (input, ctx) => {
     const { id, status, notes } = input;
-    const { error } = await (
-      rawDb() as unknown as {
-        from: (t: string) => {
-          update: (row: Record<string, unknown>) => {
-            eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-          };
-        };
-      }
-    )
+
+    // Read the prior state so we can detect the unpaid→completed
+    // transition (Phase 43 loyalty award only fires once per visit).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+    const priorRes = await sb
       .from('appointments')
-      .update({ status, notes })
-      .eq('id', id);
+      .select('status, client_id, total_amount')
+      .eq('id', id)
+      .single();
+    const prior = priorRes.data as {
+      status: string;
+      client_id: string;
+      total_amount: number;
+    } | null;
+
+    const { error } = await sb.from('appointments').update({ status, notes }).eq('id', id);
     if (error) return err('UNEXPECTED');
 
     await logAuditAction({
@@ -315,6 +321,18 @@ export const updateAppointment = withAction({
       entityId: id,
       diff: { status, notes },
     });
+
+    // Phase 43 — loyalty award on the not-completed → completed
+    // transition. Best-effort; failure doesn't roll back the status.
+    if (status === 'completed' && prior && prior.status !== 'completed') {
+      void awardLoyaltyOnCompletion({
+        shopId: ctx.shopId,
+        appointmentId: id,
+        clientId: prior.client_id,
+        totalAmount: prior.total_amount,
+      });
+    }
+
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id });
   },
