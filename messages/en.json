@@ -27,6 +27,7 @@
       "submitting": "Signing in…",
       "noAccount": "No account yet?",
       "signupLink": "Create one",
+      "forgotLink": "Forgot your password?",
       "signedUpHint": "Account created. If email confirmation is enabled, check your inbox, then sign in."
     },
     "signup": {
@@ -39,6 +40,34 @@
       "submitting": "Creating…",
       "hasAccount": "Already have an account?",
       "loginLink": "Sign in"
+    },
+    "forgot": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "successTitle": "Check your inbox",
+      "successHint": "If an account exists for that email, you'll receive a reset link within a few minutes.",
+      "errorInvalid": "Please enter a valid email address.",
+      "errorRateLimited": "Too many attempts. Try again in 10 minutes.",
+      "errorGeneric": "Something went wrong. Please try again.",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Pick something strong — minimum 8 characters.",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "submit": "Update password",
+      "submitting": "Updating…",
+      "exchanging": "Validating your link…",
+      "errorNoCode": "This page expects a link from a password-reset email. Request a new one from the sign-in page.",
+      "errorFailed": "This reset link is expired or has already been used. Request a fresh one.",
+      "errorMismatch": "Passwords don't match.",
+      "errorWeak": "Password must be at least 8 characters.",
+      "errorRateLimited": "Too many attempts. Try again in 10 minutes.",
+      "errorGeneric": "Could not update your password. Please try again."
     },
     "errors": {
       "INVALID_CREDENTIALS": "Invalid credentials. Double-check your email and password.",
@@ -95,6 +124,13 @@
     }
   },
   "pages": {
+    "noShop": {
+      "title": "You're not in a shop yet",
+      "description": "Your account is created, but you're not a member of any salon. Ask the salon owner to add you using the email below.",
+      "emailLabel": "Your email",
+      "helpHint": "Once they add you, refresh this page or sign back in.",
+      "signOut": "Sign out"
+    },
     "appointments": {
       "title": "Appointments",
       "soon": "Calendar view — Phase 5.",

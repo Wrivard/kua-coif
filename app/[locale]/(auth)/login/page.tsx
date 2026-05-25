@@ -46,6 +46,12 @@ function LoginPageContent({
         }}
       />
 
+      <p className="mt-4 text-center text-xs">
+        <Link href={`/${locale}/forgot-password`} className="text-text-muted hover:text-accent">
+          {t('forgotLink')}
+        </Link>
+      </p>
+
       <p className="mt-6 text-center text-sm text-text-secondary">
         {t('noAccount')}{' '}
         <Link href={`/${locale}/signup`} className="text-accent hover:underline">

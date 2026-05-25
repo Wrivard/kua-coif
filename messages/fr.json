@@ -27,6 +27,7 @@
       "submitting": "Connexion…",
       "noAccount": "Pas encore de compte ?",
       "signupLink": "Créer un compte",
+      "forgotLink": "Mot de passe oublié ?",
       "signedUpHint": "Compte créé. Vérifie ta boîte courriel si la confirmation est activée, puis connecte-toi."
     },
     "signup": {
@@ -39,6 +40,34 @@
       "submitting": "Création…",
       "hasAccount": "Déjà inscrit ?",
       "loginLink": "Se connecter"
+    },
+    "forgot": {
+      "title": "Mot de passe oublié ?",
+      "subtitle": "Entre ton courriel et on t'envoie un lien de réinitialisation.",
+      "email": "Courriel",
+      "submit": "Envoyer le lien",
+      "submitting": "Envoi…",
+      "successTitle": "Vérifie ta boîte de réception",
+      "successHint": "Si un compte existe pour ce courriel, tu recevras un lien dans quelques minutes.",
+      "errorInvalid": "Entre un courriel valide.",
+      "errorRateLimited": "Trop de tentatives. Réessaye dans 10 minutes.",
+      "errorGeneric": "Quelque chose s'est mal passé. Réessaye.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "reset": {
+      "title": "Choisis un nouveau mot de passe",
+      "subtitle": "Choisis quelque chose de solide — 8 caractères minimum.",
+      "password": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "submit": "Mettre à jour",
+      "submitting": "Mise à jour…",
+      "exchanging": "Validation de ton lien…",
+      "errorNoCode": "Cette page attend un lien provenant d'un courriel de réinitialisation. Refais une demande depuis la page de connexion.",
+      "errorFailed": "Ce lien est expiré ou a déjà été utilisé. Demande-en un nouveau.",
+      "errorMismatch": "Les mots de passe ne correspondent pas.",
+      "errorWeak": "Le mot de passe doit faire au moins 8 caractères.",
+      "errorRateLimited": "Trop de tentatives. Réessaye dans 10 minutes.",
+      "errorGeneric": "Impossible de mettre à jour ton mot de passe. Réessaye."
     },
     "errors": {
       "INVALID_CREDENTIALS": "Identifiants invalides. Vérifie ton courriel et ton mot de passe.",
@@ -95,6 +124,13 @@
     }
   },
   "pages": {
+    "noShop": {
+      "title": "Tu n'es pas encore dans un salon",
+      "description": "Ton compte est créé mais tu n'es membre d'aucun salon. Demande au propriétaire de t'ajouter en utilisant le courriel ci-dessous.",
+      "emailLabel": "Ton courriel",
+      "helpHint": "Une fois ajouté, recharge cette page ou reconnecte-toi.",
+      "signOut": "Se déconnecter"
+    },
     "appointments": {
       "title": "Rendez-vous",
       "soon": "Vue calendrier — Phase 5.",
