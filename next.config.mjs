@@ -21,18 +21,27 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
  * to enforce here. We'll switch to nonces once Next 15+ exposes them as
  * first-class metadata.
  */
-// Build a CSP string, parameterized on the `frame-ancestors` directive so we
-// can apply a strict policy globally and a relaxed one for the embed widget.
-function buildCsp(frameAncestors) {
+/**
+ * Strict CSP for everything **except** the embed widget.
+ *
+ * Why split: `frame-ancestors` is per-shop on `/embed/[shopSlug]` (driven by
+ * `shops.widget_config.allowed_origins`), which only the middleware can
+ * resolve at request-time. We keep `frame-ancestors 'none'` here for the
+ * rest of the app so any third-party iframe attempt is rejected.
+ *
+ * `'unsafe-inline'` on `script-src` is intentional: Next.js streaming + RSC
+ * payloads use inline scripts and the runtime still needs `eval()` until
+ * Next 15+ exposes a stable nonce API.
+ */
+function buildStrictCsp() {
   return [
     "default-src 'self'",
-    // Next.js streaming + HMR need eval and inline.
     `script-src 'self' 'unsafe-inline' 'unsafe-eval'${isProd ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHost}`,
     "font-src 'self' data:",
     `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
-    `frame-ancestors ${frameAncestors}`,
+    "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
@@ -43,7 +52,7 @@ function buildCsp(frameAncestors) {
 }
 
 const securityHeaders = [
-  { key: 'Content-Security-Policy', value: buildCsp("'none'") },
+  { key: 'Content-Security-Policy', value: buildStrictCsp() },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -53,17 +62,6 @@ const securityHeaders = [
   },
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
-];
-
-// Embed-friendly overrides for `/:locale/embed/*`. We swap the CSP for one
-// that allows `frame-ancestors *` (V1 — V1.1 will read a per-shop whitelist
-// via middleware) and clear `X-Frame-Options` since it conflicts with CSP
-// when the latter wants to permit cross-origin embedding.
-const embedHeaders = [
-  { key: 'Content-Security-Policy', value: buildCsp('*') },
-  // The empty-string trick removes the header that the global rule set.
-  // Next.js's `headers()` merges by key with the LAST match winning.
-  { key: 'X-Frame-Options', value: '' },
 ];
 
 // Allow third-party sites to fetch `/widget.js`. Classic `<script src>` tags
@@ -87,17 +85,15 @@ const nextConfig = {
     ],
   },
   async headers() {
-    // Order matters: rules are applied top-to-bottom, and for duplicate keys
-    // the LAST matching rule wins. Strict headers go first, then embed and
-    // widget.js override the bits they need to relax.
+    // Embed routes are excluded from the global rule via negative lookahead
+    // because the middleware sets their security headers per-request (the
+    // CSP `frame-ancestors` is sourced from the shop's `widget_config`).
+    // If we let the static rule below match `/embed/*` too, the strict
+    // header would clobber whatever the middleware computed.
     return [
       {
-        source: '/(.*)',
+        source: '/((?!.+/embed/.*).*)',
         headers: securityHeaders,
-      },
-      {
-        source: '/:locale(fr|en)/embed/:path*',
-        headers: embedHeaders,
       },
       {
         source: '/widget.js',
