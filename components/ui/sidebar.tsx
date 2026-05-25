@@ -257,17 +257,21 @@ function SidebarLink({
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={cn(
-        'relative flex h-10 items-center gap-3 rounded px-2 transition-colors',
+        'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         active
-          ? 'bg-accent-subtle text-accent'
+          ? // Phase 36 — refined active state: subtle bg + accent text +
+            // a soft glow ring (4px) instead of the V1 left bar marker.
+            // The glow ring is `accent-subtle-strong` faded, picked up by
+            // `shadow-accent-glow` via tailwind config.
+            'bg-accent-subtle text-accent shadow-accent-glow'
           : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent transition-opacity',
+          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />

@@ -70,9 +70,10 @@ export function Modal({
         // `animate-modal-content` is scoped via `dialog[open] >` in
         // globals.css — it fires every time the dialog opens (not just
         // on initial mount). Pairs with the backdrop fade defined on
-        // `dialog[open]::backdrop`.
+        // `dialog[open]::backdrop`. Phase 36: rounded-lg + shadow-xl
+        // (drop + inset highlight) for the elevated-surface look.
         className={cn(
-          'flex w-full flex-col rounded border border-border bg-bg-elevated text-text-primary shadow-2xl',
+          'flex w-full flex-col rounded-lg border border-border bg-bg-elevated text-text-primary shadow-xl',
           'animate-modal-content',
           className,
         )}

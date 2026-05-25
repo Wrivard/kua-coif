@@ -3,45 +3,92 @@
 @tailwind utilities;
 
 /* =========================================================================
- * DESIGN TOKENS (single source of truth — rebrand by editing this block)
- * Dark theme only in V1. To rebrand for another salon, change --accent vars.
+ * DESIGN TOKENS — Küa V2 visual system (Phase 36).
+ *
+ * Inspired by the Linear / Vercel / Stripe dark-theme playbook:
+ *   - Background near-black (not gray)
+ *   - Borders barely visible (alpha-based, not solid)
+ *   - Multi-layer elevation via inset highlights + drop shadows
+ *   - Accent used surgically, not decoratively
+ *
+ * Single source of truth — rebrand by editing the `--accent` block.
+ * Dark theme only in V1.
  * ========================================================================= */
 :root {
-  /* Surfaces */
-  --bg-base: #1b1b1b; /* global background */
-  --bg-surface: #222222; /* cards, table rows */
-  --bg-surface-2: #2a2a2a; /* hover state, inputs */
-  --bg-elevated: #2f2f2f; /* dropdowns, modals */
-  --border: #383838; /* dividers, outlines */
+  /* ─── Surfaces (deepest → most elevated) ─────────────────────────────
+   * Each layer is ~4-5% brighter than the one beneath. The lift is
+   * subtle enough to feel "natural light from above" without screaming
+   * "skeuomorphic gradient." */
+  --bg-base: #0b0b0d; /* page background — near-black, slight warm tint */
+  --bg-surface: #131316; /* cards, sticky headers, sidebar */
+  --bg-surface-2: #1c1c20; /* hover states, table-row alt, inputs */
+  --bg-elevated: #25252b; /* dropdowns, popovers, modals */
+  --bg-overlay: rgba(0, 0, 0, 0.65); /* modal backdrop */
 
-  /* Text */
-  --text-primary: #f5f5f5;
-  --text-secondary: #a0a0a0;
-  --text-muted: #6b6b6b;
+  /* ─── Borders (alpha-based — same visual weight on any bg) ──────────
+   * Default is barely there; -strong is for when a divider needs to
+   * carry visual weight (e.g., a section separator that ANCHORS the
+   * eye rather than just suggesting structure). */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Accent (Küa purple) — ONE place to change for rebrand */
+  /* ─── Text (4-step scale + disabled) ────────────────────────────────── */
+  --text-primary: #fafafa; /* almost-white */
+  --text-secondary: #a1a1aa; /* zinc-400 — body subtitles */
+  --text-muted: #71717a; /* zinc-500 — captions, labels */
+  --text-disabled: #52525b; /* zinc-600 — placeholders, disabled state */
+
+  /* ─── Accent (Küa purple — ONE place to change for rebrand) ─────────
+   * Keep #8b5cf6 as the brand color but refine its supporting tones.
+   * --accent-glow is for hover/active states where we want the button
+   * to "wake up" with a soft purple aura. */
   --accent: #8b5cf6;
   --accent-hover: #7c4ddb;
-  --accent-fg: #ffffff; /* text/icon color on accent fill */
-  --accent-subtle: rgba(139, 92, 246, 0.15);
+  --accent-active: #6d3fc8;
+  --accent-fg: #ffffff;
+  --accent-subtle: rgba(139, 92, 246, 0.12);
+  --accent-subtle-strong: rgba(139, 92, 246, 0.2);
+  --accent-glow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+  --accent-ring: rgba(139, 92, 246, 0.45);
 
-  /* Status */
+  /* ─── Status colors ─────────────────────────────────────────────────── */
   --success: #22c55e;
+  --success-subtle: rgba(34, 197, 94, 0.12);
   --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
   --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.12);
   --info: #3b82f6;
+  --info-subtle: rgba(59, 130, 246, 0.12);
 
-  /* Calendar (appointment blocks) */
-  --appt-green: #1e3a32;
-  --appt-purple: #2e2348;
-  --appt-blue: #1e2a3a;
+  /* ─── Calendar appointment block backgrounds ─────────────────────────
+   * Refined for the new darker base — the previous values are too light
+   * against the near-black bg. */
+  --appt-green: #14352a;
+  --appt-purple: #2a1f44;
+  --appt-blue: #182437;
 
-  /* Layout */
+  /* ─── Elevation (drop shadows + inset highlights) ───────────────────
+   * On dark UI, shadows alone don't pop — we pair them with a 1px inset
+   * highlight at the top edge so elevated elements look like they catch
+   * light from above. */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.55), 0 4px 8px -4px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.65), 0 8px 16px -8px rgba(0, 0, 0, 0.45);
+
+  /* Inset highlight applied via box-shadow on elevated surfaces.
+   * Picks up the "natural light" effect of high-end dark UI. */
+  --inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+
+  /* ─── Layout / Radius ───────────────────────────────────────────────── */
   --sidebar-w: 64px;
   --sidebar-w-open: 220px;
   --header-h: 72px;
   --radius: 8px;
   --radius-sm: 6px;
+  --radius-lg: 12px; /* cards, modals — slightly more refined corner */
+  --radius-xl: 16px; /* major surfaces (e.g., calendar container) */
 
   /* Force dark color-scheme so native UI (scrollbars, form controls) matches */
   color-scheme: dark;
@@ -62,9 +109,20 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* OpenType: enable contextual alternates + ligatures + tabular numerals
+     where applicable. Subtle but high-end fonts shine with these. */
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-variant-numeric: tabular-nums;
 }
 
-/* Scrollbars — discrete, themed */
+/* Headings get a tighter tracking — typical "display" treatment that
+   makes h1/h2 look less plain. */
+h1,
+h2 {
+  letter-spacing: -0.01em;
+}
+
+/* ─── Scrollbars — discrete, themed ──────────────────────────────────── */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -73,18 +131,19 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: var(--border);
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* =========================================================================
- * MOTION (Phase 29) — Shared keyframes for transient UI animations.
- * Components opt in via utility classes (`.animate-toast-in`,
- * `.animate-modal-in`). All animations honor `prefers-reduced-motion`
- * via the override block at the bottom.
+ * MOTION — Shared keyframes + utility classes for transient UI animations.
+ * All animations honor `prefers-reduced-motion` via the override at the
+ * bottom of this file.
  * ========================================================================= */
 
 @keyframes kua-slide-in-from-right {
@@ -109,36 +168,57 @@ body {
 
 @keyframes kua-modal-content-in {
   from {
-    transform: scale(0.96);
+    transform: scale(0.97) translateY(4px);
     opacity: 0;
   }
   to {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
 
-/* Toast list items slide in from the right edge. Single-shot — duration
-   tuned to feel responsive (220ms) without being instant. */
-.animate-toast-in {
-  animation: kua-slide-in-from-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Skeleton shimmer (Phase 36) — replaces the old animate-pulse on
+   loading placeholders. The gradient moves left-to-right, mimicking a
+   reflection sweeping across a polished surface. */
+@keyframes kua-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
 }
 
-/* Modal inner content: scale + fade. Scoped via the `dialog[open]`
-   selector so the animation fires on every `showModal()` call rather
-   than only on initial mount. */
+/* Toast list items slide in from the right edge. */
+.animate-toast-in {
+  animation: kua-slide-in-from-right 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Modal inner content: scale + lift + fade. Scoped via `dialog[open] >`
+   so the animation fires on every `showModal()` call. */
 dialog[open] > .animate-modal-content {
-  animation: kua-modal-content-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: kua-modal-content-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 dialog[open]::backdrop {
-  animation: kua-fade-in 180ms ease-out;
+  animation: kua-fade-in 160ms ease-out;
 }
 
-/* Respect the user's reduced-motion preference. Disable our animations
-   wholesale rather than slowing them down — the WCAG 2.1 guidance is to
-   stop motion, not just throttle it. The :where(...) wrapper keeps
-   specificity at 0 so component-level transitions still win where they
-   should. */
+/* Premium skeleton: shimmer gradient instead of pulse opacity. The
+   inline `.skeleton-shimmer` utility (registered in Tailwind config)
+   applies this via `bg-skeleton-shimmer`. We define the keyframe here
+   so it's available app-wide. */
+.kua-shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: kua-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Respect prefers-reduced-motion (WCAG 2.1 SC 2.3.3). */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

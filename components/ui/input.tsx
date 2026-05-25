@@ -12,10 +12,17 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
   invalid?: boolean;
 };
 
+// Phase 36 — refined input recipe:
+//   - rounded-lg (12px) softer than the V1 default rounded (8px) so
+//     inputs match the new Card radius
+//   - shadow-sm provides subtle depth (drop + inset highlight)
+//   - focus: 2px accent ring with offset (matches Button focus)
+//   - placeholder text-muted (was text-muted, kept)
 const baseField =
   'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted ' +
-  'border border-border rounded px-3 ' +
-  'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent ' +
+  'border border-border rounded-lg px-3 shadow-sm ' +
+  'transition-colors duration-150 ease-out-quint ' +
+  'focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(

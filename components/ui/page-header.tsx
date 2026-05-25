@@ -18,16 +18,20 @@ export function PageHeader({ title, subtitle, center, actions, switcher, classNa
   return (
     <header
       className={cn(
-        // pl-16 on mobile leaves room for the fixed hamburger trigger
-        // (left-3 + w-10 = up to 52px) so the title doesn't sit underneath
-        // it. md:px-6 restores the desktop padding once the hamburger
-        // disappears.
-        'bg-bg-base/95 sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border pl-16 pr-4 backdrop-blur md:px-6',
+        // Phase 36 — refined sticky treatment:
+        //   - `bg-bg-base/80` + heavier backdrop-blur (12px instead of
+        //     default 8px) for a more "frosted" feel as content scrolls
+        //     underneath.
+        //   - `pl-16 md:px-6` reserves space for the mobile hamburger.
+        //   - Border bottom kept at `border-border` (alpha-based).
+        'bg-bg-base/80 sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border pl-16 pr-4 backdrop-blur-xl md:px-6',
         className,
       )}
     >
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-base font-semibold text-text-primary sm:text-xl">{title}</h1>
+        <h1 className="truncate text-base font-semibold tracking-tight text-text-primary sm:text-xl">
+          {title}
+        </h1>
         {subtitle ? (
           <p className="mt-0.5 truncate text-[11px] text-text-muted sm:text-xs">{subtitle}</p>
         ) : null}
