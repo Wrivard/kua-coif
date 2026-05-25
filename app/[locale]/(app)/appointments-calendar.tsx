@@ -97,8 +97,10 @@ type Props = {
   blocked: Blocked[];
 };
 
-// Pixels per minute on the vertical axis. Tuned so a 30-min slot is comfortably clickable.
-const PX_PER_MIN = 1.4;
+// Pixels per minute on the vertical axis. 1.6 gives a 30-min slot ~48px of
+// vertical space — comfortable touch target on mobile and breathing room on
+// desktop without making the day require excessive scrolling.
+const PX_PER_MIN = 1.6;
 // Default visible range when the shop is closed that day (so the grid still
 // renders something useful).
 const FALLBACK_START_MIN = 8 * 60;
@@ -180,6 +182,25 @@ export function AppointmentsCalendar({
   // Brief "Updated" pill shown for ~1.5s whenever a Realtime event triggers a
   // refresh. Tells the user the view is fresh without being intrusive.
   const [justRefreshed, setJustRefreshed] = useState(false);
+
+  // ── "Now" indicator — only renders if the calendar is displaying today's
+  // date. The state holds minutes-from-shop-midnight; we re-derive on a 60s
+  // interval so the line ticks down the screen during a long-running session.
+  const isToday = isoDate === today;
+  const [nowMin, setNowMin] = useState<number | null>(() =>
+    isToday ? minutesFromShopMidnight(new Date(), timezone) : null,
+  );
+  useEffect(() => {
+    if (!isToday) {
+      setNowMin(null);
+      return;
+    }
+    setNowMin(minutesFromShopMidnight(new Date(), timezone));
+    const id = window.setInterval(() => {
+      setNowMin(minutesFromShopMidnight(new Date(), timezone));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [isToday, timezone]);
 
   // ── Phase 27 — drag-to-reschedule optimistic state ────────────────────
   // While a reschedule Server Action is in flight (and until realtime
@@ -535,14 +556,18 @@ export function AppointmentsCalendar({
 
         {/* Calendar grid — Phase 27 wraps in DndContext so each appointment
             block (useDraggable) can be dropped on any barber column
-            (useDroppable). DragEnd handler computes the new (barber, time)
-            and fires the rescheduleAppointment Server Action. */}
+            (useDroppable). Phase 33 softened the grid contrast — borders
+            are now 30% opacity, alternating hour bands replace the harsh
+            half-hour lines, and a current-time indicator runs across all
+            columns when viewing today. */}
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="overflow-x-auto rounded border border-border bg-bg-surface">
+          <div className="border-border/70 overflow-x-auto rounded-lg border bg-bg-surface shadow-sm">
             <div className="flex min-w-[600px]">
-              {/* Time axis */}
-              <div className="w-14 shrink-0 border-r border-border">
-                <div className="h-10 border-b border-border" />
+              {/* Time axis — wider (w-16) so "12 PM" fits cleanly, lighter
+                  border. Labels sit at the START of each hour band, not
+                  centered on the line, so the eye lands on them naturally. */}
+              <div className="border-border/40 w-16 shrink-0 border-r bg-bg-surface">
+                <div className="border-border/40 h-12 border-b" />
                 <div className="relative" style={{ height: `${gridHeightPx}px` }}>
                   {hourLabels.map((min) => {
                     if (min < startMin || min > endMin) return null;
@@ -550,7 +575,7 @@ export function AppointmentsCalendar({
                     return (
                       <div
                         key={min}
-                        className="absolute right-2 -translate-y-2 text-[11px] text-text-muted"
+                        className="absolute right-2 pt-1 text-[11px] font-medium uppercase tracking-wide text-text-muted"
                         style={{ top: `${top}px` }}
                       >
                         {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
@@ -572,6 +597,7 @@ export function AppointmentsCalendar({
                   endMin={endMin}
                   gridHeightPx={gridHeightPx}
                   hourLabels={hourLabels}
+                  nowMin={nowMin}
                   onSlotClick={onSlotClick}
                   onApptClick={(a) => setDrawer(a)}
                   t={t}
@@ -612,10 +638,14 @@ export function AppointmentsCalendar({
 
 function formatHourLabel(minute: number, locale: 'fr' | 'en'): string {
   const h = Math.floor(minute / 60);
-  if (locale === 'fr') return `${h}h`;
-  const period = h < 12 ? 'a' : 'p';
+  // French is 24-hour: "10 h" / "14 h" (with a hair space before "h").
+  // English is 12-hour with explicit period: "10 AM" / "2 PM" — more
+  // legible than the compact "10a" / "2p" we used before, especially at
+  // the 11px font size in the time axis.
+  if (locale === 'fr') return `${h} h`;
+  const period = h < 12 ? 'AM' : 'PM';
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}${period}`;
+  return `${h12} ${period}`;
 }
 
 // ── Phase 27 — DnD sub-components ─────────────────────────────────────────
@@ -642,6 +672,8 @@ type BarberColumnProps = {
   endMin: number;
   gridHeightPx: number;
   hourLabels: number[];
+  /** Current time in minutes-from-shop-midnight when viewing today, else null. */
+  nowMin: number | null;
   onSlotClick: (barberId: string, e: React.MouseEvent<HTMLDivElement>) => void;
   onApptClick: (a: CalendarAppointment) => void;
   t: TFn;
@@ -656,6 +688,7 @@ function BarberColumn({
   endMin,
   gridHeightPx,
   hourLabels,
+  nowMin,
   onSlotClick,
   onApptClick,
   t,
@@ -666,11 +699,18 @@ function BarberColumn({
     id: `column-${barber.id}`,
     data: { barberId: barber.id },
   });
+  // Show the "now" line only when it's actually inside the visible window
+  // — otherwise it'd dangle off-screen and confuse depth perception.
+  const showNow = nowMin !== null && nowMin >= startMin && nowMin <= endMin;
   return (
-    <div className="min-w-[180px] flex-1 border-r border-border last:border-r-0">
-      <div className="flex h-10 items-center gap-2 border-b border-border bg-bg-surface px-3">
+    <div className="border-border/40 min-w-[180px] flex-1 border-r last:border-r-0">
+      {/* Header — slightly elevated bg + larger padding + uppercase letterform
+          for a cleaner visual rhythm vs the previous flat row. */}
+      <div className="border-border/40 bg-bg-surface-2/60 flex h-12 items-center gap-2 border-b px-3">
         <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
-        <span className="truncate text-sm font-semibold">{barber.display_name}</span>
+        <span className="truncate text-sm font-semibold text-text-primary">
+          {barber.display_name}
+        </span>
       </div>
       <div
         ref={setNodeRef}
@@ -683,19 +723,54 @@ function BarberColumn({
         style={{ height: `${gridHeightPx}px` }}
         onClick={(e) => onSlotClick(barber.id, e)}
       >
-        {/* Hour rules (every hour) */}
+        {/* Alternating hour bands — zebra-stripes the grid every other hour
+            so the eye can scan vertically without counting tick marks. The
+            stripe is bg-bg-surface/30 over the bg-bg-base column background,
+            ~5% lift in luminance: visible but never noisy. */}
+        {hourLabels.map((min, idx) => {
+          if (min < startMin || min >= endMin) return null;
+          if (idx % 2 !== 0) return null;
+          const top = (min - startMin) * PX_PER_MIN;
+          const next = hourLabels[idx + 1] ?? endMin;
+          const height = (Math.min(next, endMin) - min) * PX_PER_MIN;
+          return (
+            <div
+              key={`band-${min}`}
+              className="bg-bg-surface/30 absolute left-0 right-0"
+              style={{ top: `${top}px`, height: `${height}px` }}
+              aria-hidden
+            />
+          );
+        })}
+
+        {/* Hour rules — much softer than before (30% opacity vs 60%) so the
+            grid recedes and the appointment blocks pop. Still solid enough
+            to anchor the eye on hour boundaries. */}
         {hourLabels.map((min) => {
           if (min < startMin || min > endMin) return null;
           const top = (min - startMin) * PX_PER_MIN;
           return (
             <div
               key={min}
-              className="border-border/60 absolute left-0 right-0 border-t"
+              className="border-border/30 absolute left-0 right-0 border-t"
               style={{ top: `${top}px` }}
               aria-hidden
             />
           );
         })}
+
+        {/* "Now" indicator — accent-colored line + dot on the left edge.
+            Sits above the hour rules (z-10) so it's clearly the time. */}
+        {showNow ? (
+          <div
+            className="pointer-events-none absolute left-0 right-0 z-10"
+            style={{ top: `${(nowMin! - startMin) * PX_PER_MIN}px` }}
+            aria-hidden
+          >
+            <div className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_3px_rgba(139,92,246,0.25)]" />
+            <div className="border-t border-accent" />
+          </div>
+        ) : null}
 
         {/* Blocked time overlays */}
         {barberBlocks.map((b) => {
@@ -707,7 +782,7 @@ function BarberColumn({
           return (
             <div
               key={b.id}
-              className="bg-danger/10 absolute left-1 right-1 flex items-center justify-center rounded-sm text-[11px] font-medium text-danger"
+              className="border-danger/20 bg-danger/10 absolute left-1 right-1 flex items-center justify-center rounded-sm border text-[11px] font-medium text-danger"
               style={{ top: `${top}px`, height: `${height}px` }}
               onClick={(e) => e.stopPropagation()}
             >
