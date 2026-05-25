@@ -409,7 +409,22 @@
     },
     "finances": {
       "title": "Finances",
-      "soon": "Rapports, revenus, payouts — Phase 7."
+      "soon": "Rapports, revenus, payouts — Phase 7.",
+      "kpis": {
+        "grossRevenue": "Revenu brut",
+        "completedAppointments": "RDV complétés",
+        "avgTicket": "Panier moyen",
+        "loyaltyOutstanding": "Fidélité à payer"
+      },
+      "byBarber": {
+        "title": "Ventes par barbier",
+        "empty": "Aucun RDV complété ce mois-ci.",
+        "columns": {
+          "barber": "Barbier",
+          "appointments": "RDV",
+          "revenue": "Revenu"
+        }
+      }
     },
     "settings": {
       "title": "Réglages",

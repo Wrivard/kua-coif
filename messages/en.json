@@ -407,7 +407,22 @@
     },
     "finances": {
       "title": "Finances",
-      "soon": "Reports, revenue, payouts — Phase 7."
+      "soon": "Reports, revenue, payouts — Phase 7.",
+      "kpis": {
+        "grossRevenue": "Gross revenue",
+        "completedAppointments": "Completed appointments",
+        "avgTicket": "Avg ticket",
+        "loyaltyOutstanding": "Loyalty outstanding"
+      },
+      "byBarber": {
+        "title": "Sales by barber",
+        "empty": "No completed appointments this month.",
+        "columns": {
+          "barber": "Barber",
+          "appointments": "Visits",
+          "revenue": "Revenue"
+        }
+      }
     },
     "settings": {
       "title": "Settings",
