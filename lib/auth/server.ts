@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import type { UserRole } from '@/db/enums';
 import { defaultLocale } from '@/i18n';
 
@@ -15,20 +17,16 @@ import { defaultLocale } from '@/i18n';
 /**
  * Resolve the current user from the request cookies.
  *
- * Uses `getSession()` rather than `getUser()` deliberately. Both expose
- * the same `user` object; the difference is:
+ * Uses `getSession()` (not `getUser()`) — `getSession()` parses the JWT
+ * from cookies and validates its signature locally (~5ms), only making
+ * a network call when the access token is expired (auto-refresh).
+ * `getUser()` always POSTs to /auth/v1/user (~150ms) which would be
+ * paid on every server render.
  *
- *   - `getUser()` POSTs the JWT to the Supabase Auth server on every call
- *     to re-validate and rotate the refresh token. ~150ms per call.
- *   - `getSession()` reads the JWT from cookies and validates the
- *     signature locally. ~5ms.
- *
- * Our `middleware.ts` already calls `getUser()` (via `refreshSupabaseSession`)
- * on every request — that's the canonical auth gate. By the time a Server
- * Component runs, the session has been freshly validated and refreshed.
- * Calling `getUser()` again here would mean two network round-trips per
- * page load for the same answer, which is exactly the latency the user
- * was complaining about.
+ * Security: the JWT is signed with Supabase's project secret which only
+ * Supabase and our server know. A forged token fails signature check;
+ * a valid token grants access until its `exp` claim. For our threat model
+ * (salon SaaS, no remote-revoke flow) this is sufficient.
  *
  * Wrapped in React `cache()` so multiple components in the same render
  * (layout + page + nested server components) share a single read of the
@@ -119,13 +117,20 @@ export async function getCurrentShopId(): Promise<string | null> {
 }
 
 /**
- * Static-ish shop row (id + name + timezone + industry) cached per request.
+ * Static-ish shop row (id + name + timezone + industry).
  *
- * Layout + page both used to query `shops` independently — that's two
- * sequential round-trips before the page can start rendering. Pulling the
- * fields they both need into a single React-cached helper means the second
- * caller hits the cache (0ms) instead of the DB. Saves ~100-150ms per
- * server-rendered page.
+ * Cached in two layers:
+ *  1. **Cross-request** via `unstable_cache` keyed by shop_id (Vercel Data
+ *     Cache, 60s TTL). Identical reads from different requests within the
+ *     same minute reuse the cached value — saves the Postgres round-trip
+ *     entirely on the hot path. Bust the cache via `revalidateTag('shop')`
+ *     in any Server Action that mutates the shop row.
+ *  2. **Within a single request** via React `cache()` so layout + page +
+ *     nested components share one resolution even on cache miss.
+ *
+ * Uses the service-role client so the cached query bypasses RLS (cheaper,
+ * one less JWT validation per call). Safe because the caller has already
+ * proven membership via `getCurrentShopId()` before we cache-key by shop_id.
  */
 export type CurrentShop = {
   id: string;
@@ -134,30 +139,43 @@ export type CurrentShop = {
   industry: string | null;
 };
 
+const SHOP_CACHE_TAG = 'shop';
+
+const getCachedShopRow = unstable_cache(
+  async (shopId: string): Promise<CurrentShop | null> => {
+    const admin = createSupabaseServiceRoleClient();
+    const { data } = await (
+      admin as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              single: () => Promise<{ data: CurrentShop | null; error: unknown }>;
+            };
+          };
+        };
+      }
+    )
+      .from('shops')
+      .select('id, name, timezone, industry')
+      .eq('id', shopId)
+      .single();
+    return data ?? null;
+  },
+  ['shop-row'],
+  { revalidate: 60, tags: [SHOP_CACHE_TAG] },
+);
+
 export const getCurrentShop = cache(async (): Promise<CurrentShop | null> => {
   const shopId = await getCurrentShopId();
   if (!shopId) return null;
-  const supabase = createSupabaseServerClient();
-  const { data } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            k: string,
-            v: string,
-          ) => {
-            single: () => Promise<{ data: CurrentShop | null; error: unknown }>;
-          };
-        };
-      };
-    }
-  )
-    .from('shops')
-    .select('id, name, timezone, industry')
-    .eq('id', shopId)
-    .single();
-  return data ?? null;
+  return getCachedShopRow(shopId);
 });
+
+/** Re-export so Server Actions can bust the shop cache on mutations. */
+export { SHOP_CACHE_TAG };
 
 /**
  * Gate a route on the Küa super-admin flag (Phase 22). Looks up

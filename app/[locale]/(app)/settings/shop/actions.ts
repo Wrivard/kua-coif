@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
+import { revalidatePublicShopSurfaces, revalidateShopRow } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import { shopDetailsSchema, shopHoursSchema } from './schema';
 
@@ -27,6 +27,9 @@ export const updateShopDetails = withAction({
       diff: { after: input },
     });
     revalidatePath(PATH);
+    // Shop row is cached for 60s in `getCurrentShop` — bust it so the new
+    // name/timezone/industry surfaces on the next render, not in a minute.
+    revalidateShopRow();
     // Shop name / hours / address surface on /book + /embed — invalidate them.
     revalidatePublicShopSurfaces();
     return ok({ ok: true });

@@ -36,6 +36,21 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const dayEnd = shopDayEnd(dayStart, timezone);
 
   // 3. Fetch barbers, services, categories, clients, hours, days off, appts, blocked.
+  //
+  // Perf notes (Phase 29 deep-dive):
+  //  - `clients` is capped at 500. Mega-shops (1000+ clients) would otherwise
+  //    transfer ~100KB of JSON just to populate the form modal's client picker.
+  //    The cap covers every shop currently on the platform; long-tail clients
+  //    surface via search-as-you-type (V1.2 — Server Action lookup).
+  //  - `appointment_services` was UNFILTERED — grew linearly with total
+  //    appointments in the shop forever. Now scoped to today's appointment IDs
+  //    via a sub-query (`.in('appointment_id', ...)`), keeping the payload to
+  //    O(today's appointments × 1-2 services each) ≈ <100 rows even on a
+  //    busy day.
+  //
+  // The appointment_services query depends on appointments, so we resolve
+  // appointments first then run the linked-services query in parallel with
+  // everything else. Two phases of parallelism.
   const [
     barbersRes,
     servicesRes,
@@ -45,7 +60,6 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     daysOffRes,
     apptsRes,
     blockedRes,
-    apptServicesRes,
   ] = await Promise.all([
     sb.from('barbers').select('*').order('sort_order', { ascending: true }),
     sb.from('services').select('*').order('sort_order', { ascending: true }),
@@ -53,7 +67,8 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     sb
       .from('clients')
       .select('id, first_name, last_name, email, phone')
-      .order('first_name', { ascending: true }),
+      .order('first_name', { ascending: true })
+      .limit(500),
     sb
       .from('shop_hours')
       .select('weekday, enabled, open_time, close_time')
@@ -74,11 +89,18 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .gte('start_at' as any, dayStart.toISOString())
       .lt('start_at', dayEnd.toISOString()),
-    sb
-      .from('appointment_services')
-      .select('appointment_id, service_id, price_snapshot')
-      .order('appointment_id', { ascending: true }),
   ]);
+
+  // Phase 2 of parallelism: now that we know which appointments exist today,
+  // fetch ONLY their service links. Empty IDs short-circuits to no query at all.
+  const todayApptIds = ((apptsRes.data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
+  const apptServicesRes =
+    todayApptIds.length > 0
+      ? await sb
+          .from('appointment_services')
+          .select('appointment_id, service_id, price_snapshot')
+          .in('appointment_id', todayApptIds)
+      : { data: [] as Array<unknown> };
 
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
     (b) => b.status === 'confirmed',

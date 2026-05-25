@@ -1,4 +1,5 @@
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SHOP_CACHE_TAG } from '@/lib/auth/server';
 
 /**
  * Bust the cache on every public surface that may be reading a shop's
@@ -20,4 +21,14 @@ import { revalidatePath } from 'next/cache';
 export function revalidatePublicShopSurfaces() {
   revalidatePath('/[locale]/book/[shopSlug]', 'page');
   revalidatePath('/[locale]/embed/[shopSlug]', 'page');
+}
+
+/**
+ * Bust the `unstable_cache` entry for the shop row (id/name/timezone/industry).
+ * Call from any Server Action that mutates `shops` so the next page render
+ * picks up the change immediately instead of waiting up to 60s for the
+ * TTL-based revalidation.
+ */
+export function revalidateShopRow() {
+  revalidateTag(SHOP_CACHE_TAG);
 }

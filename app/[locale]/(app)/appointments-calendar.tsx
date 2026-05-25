@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import dynamic from 'next/dynamic';
 import {
   DndContext,
   PointerSensor,
@@ -37,9 +38,21 @@ import {
 } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
-import { AppointmentDetailDrawer } from './appointment-detail-drawer';
-import { AppointmentFormModal } from './appointment-form-modal';
 import { rescheduleAppointment } from './actions';
+
+// Heavy children — code-split out of the initial calendar bundle. They only
+// mount when the user opens a drawer (clicks a block) or a modal (clicks
+// "Add appointment" / empty slot). Until then the JS doesn't ship.
+// ssr:false avoids the initial server-render of an empty modal/drawer
+// (they're behind state gates anyway).
+const AppointmentDetailDrawer = dynamic(
+  () => import('./appointment-detail-drawer').then((m) => ({ default: m.AppointmentDetailDrawer })),
+  { ssr: false },
+);
+const AppointmentFormModal = dynamic(
+  () => import('./appointment-form-modal').then((m) => ({ default: m.AppointmentFormModal })),
+  { ssr: false },
+);
 
 export type CalendarAppointment = {
   id: string;

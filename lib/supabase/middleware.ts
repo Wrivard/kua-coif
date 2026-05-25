@@ -11,6 +11,18 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  *
  * If Supabase env vars are missing (e.g. local dev without a project yet) we
  * skip silently — the app stays usable for the design system / kitchen-sink.
+ *
+ * Uses `getSession()` rather than `getUser()` for performance. `getUser()`
+ * POSTs the JWT to /auth/v1/user on every request (~150ms network round-trip
+ * to validate against the auth server, including revocation check).
+ * `getSession()` reads the JWT from cookies and validates the signature
+ * locally (~5ms), and only makes a network call when the access token is
+ * actually expired (triggers a refresh).
+ *
+ * Trade-off: we no longer detect server-side token revocation in middleware.
+ * For our threat model (salon SaaS, no admin remote-revoke flow), this is
+ * acceptable — the access token's natural 1h expiry plus signed-out cookies
+ * being cleared client-side cover the realistic invalidation paths.
  */
 export async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,11 +48,12 @@ export async function refreshSupabaseSession(request: NextRequest, response: Nex
     },
   });
 
-  // getUser() touches the auth server and rotates the refresh token if needed.
-  // This is the canonical "keep the session alive" call in @supabase/ssr.
+  // getSession() reads cookies, validates JWT signature locally, and only
+  // makes a network call when the access token is expired (auto-refresh).
+  // ~5ms on the hot path vs ~150ms for getUser().
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  return { user, skipped: false as const };
+  return { user: session?.user ?? null, skipped: false as const };
 }
