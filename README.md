@@ -308,6 +308,15 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 33 — Calendar UI refinement** : softer grid (-50% opacité), alternating hour bands, "now" indicator, format heures clean ("8 AM" / "10 h"), +15% breathing room (PX_PER_MIN 1.4→1.6).
 - ✅ **Phase 34 — Google Calendar two-way sync** (env-gated). Voir section dédiée plus haut.
 - ✅ **Phase 35 — QuickBooks Online Payments** (env-gated, alternative à Stripe). Onboarding OAuth + scope Accounting + Payments. Charges sur invoice viendront en V1.5 (comme Stripe).
+- ✅ **Phase 36 — Premium dark-theme overhaul** : palette refondue (near-black bg, alpha-based borders), système d'élévation (shadow + inset highlight), composants polishés (Card, Button, Modal, Drawer, Sidebar, Skeleton shimmer, etc.), display fontSizes + tracking-tight.
+- ✅ **Phase 38 — Stripe PaymentIntents backend** : `chargeAppointment` + `refundAppointment` + webhook `payment_intent.*` / `charge.refunded`. UI Stripe Elements dans booking flow = V1.1.
+- ✅ **Phase 39 — db/types.ts codegen** : 53KB de types live depuis Supabase. `as any` peuvent être nettoyés incrémentalement.
+- ✅ **Phase 40 — Loi 25 export + anonymize** : Server Actions admin-only `exportClient` (JSON download) et `anonymizeClient` (préserve l'intégrité fiscale Revenu Québec). UI dans `/clients`.
+- ✅ **Phase 41 — Promo codes activation** : validation server-side dans bookPublicAppointment (invalid/expired/used/first_only), discount appliqué au total, redemptions bumpé, UI dans booking wizard step 4 (gaté par `widget_config.show_promo_code`).
+- ✅ **Phase 42 — Service deposit_amount admin field** : input dans `/services` form modal, persisté via `services.deposit_amount_cents`.
+- ✅ **Phase 43 — Loyalty program activation** : `awardLoyaltyOnCompletion` hooké dans `updateAppointment` → bump `clients.loyalty_counter` + grant reward au goal. UI consommation = V1.1.
+- ✅ **Phase 44 — Finances dashboard** : KPIs du mois courant (gross revenue, RDV complétés, panier moyen, loyalty outstanding) + table ventes par barbier. Manager+ only.
+- ✅ **Phase 45 — Onboarding hint** : carte contextuelle sur le calendar quand le setup est < 100% (shop address, hours, services, barbers). Auto-cache une fois complet.
 
 ### Phase 29 — UI review / polish global (détail)
 
