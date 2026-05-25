@@ -2,8 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { EmptyState } from './empty-state';
+import { Skeleton } from './skeleton';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -52,6 +54,7 @@ export function DataTable<Row>({
   className,
   loading,
 }: Props<Row>) {
+  const t = useTranslations('common.table');
   const [sort, setSort] = useState<{ id: string; dir: SortDirection } | null>(null);
 
   const sortedData = useMemo(() => {
@@ -127,22 +130,41 @@ export function DataTable<Row>({
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody aria-busy={loading ? 'true' : undefined}>
             {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length + (reorderable ? 1 : 0)}
-                  className="px-4 py-12 text-center text-sm text-text-muted"
-                >
-                  Loading…
-                </td>
-              </tr>
+              // Skeleton rows match the live row layout (one Skeleton per
+              // column) so the page doesn't reflow when data arrives.
+              // 5 rows × column count gives the right visual weight on
+              // most tables without being noisy.
+              Array.from({ length: 5 }).map((_, rowIdx) => (
+                <tr key={`skeleton-${rowIdx}`} className="border-b border-border last:border-b-0">
+                  {reorderable && <td className="w-8 px-2" />}
+                  {columns.map((col, colIdx) => (
+                    <td
+                      key={col.id}
+                      className={cn(
+                        'px-4 py-3',
+                        col.align === 'right' && 'text-right',
+                        col.align === 'center' && 'text-center',
+                      )}
+                    >
+                      {/* Vary widths so it doesn't look like a mechanical grid. */}
+                      <Skeleton
+                        className={cn(
+                          'h-4',
+                          colIdx === 0 ? 'w-32' : colIdx % 3 === 0 ? 'w-20' : 'w-16',
+                        )}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : isEmpty ? (
               <tr>
                 <td colSpan={columns.length + (reorderable ? 1 : 0)} className="p-0">
                   <EmptyState
                     className="rounded-none border-0"
-                    title={emptyState?.title ?? 'No data'}
+                    title={emptyState?.title ?? t('empty')}
                     description={emptyState?.description}
                     action={emptyState?.action}
                   />
@@ -186,26 +208,28 @@ export function DataTable<Row>({
       {pagination ? (
         <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-text-muted">
           <span>
-            Page {pagination.page} of{' '}
-            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} · {pagination.total}{' '}
-            rows
+            {t('pageOf', {
+              page: pagination.page,
+              total: Math.max(1, Math.ceil(pagination.total / pagination.pageSize)),
+              rows: pagination.total,
+            })}
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => pagination.onPageChange(pagination.page - 1)}
-              className="rounded border border-border px-3 py-1 hover:bg-bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded border border-border px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Prev
+              {t('prev')}
             </button>
             <button
               type="button"
               disabled={pagination.page * pagination.pageSize >= pagination.total}
               onClick={() => pagination.onPageChange(pagination.page + 1)}
-              className="rounded border border-border px-3 py-1 hover:bg-bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded border border-border px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Next
+              {t('next')}
             </button>
           </div>
         </div>

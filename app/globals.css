@@ -79,3 +79,73 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-muted);
 }
+
+/* =========================================================================
+ * MOTION (Phase 29) — Shared keyframes for transient UI animations.
+ * Components opt in via utility classes (`.animate-toast-in`,
+ * `.animate-modal-in`). All animations honor `prefers-reduced-motion`
+ * via the override block at the bottom.
+ * ========================================================================= */
+
+@keyframes kua-slide-in-from-right {
+  from {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes kua-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kua-modal-content-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Toast list items slide in from the right edge. Single-shot — duration
+   tuned to feel responsive (220ms) without being instant. */
+.animate-toast-in {
+  animation: kua-slide-in-from-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Modal inner content: scale + fade. Scoped via the `dialog[open]`
+   selector so the animation fires on every `showModal()` call rather
+   than only on initial mount. */
+dialog[open] > .animate-modal-content {
+  animation: kua-modal-content-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+dialog[open]::backdrop {
+  animation: kua-fade-in 180ms ease-out;
+}
+
+/* Respect the user's reduced-motion preference. Disable our animations
+   wholesale rather than slowing them down — the WCAG 2.1 guidance is to
+   stop motion, not just throttle it. The :where(...) wrapper keeps
+   specificity at 0 so component-level transitions still win where they
+   should. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

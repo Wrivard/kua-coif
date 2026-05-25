@@ -45,14 +45,17 @@ export function Drawer({
     >
       <div
         onClick={onClose}
+        // Tailwind's default `transition-opacity` duration is 150ms; bump
+        // to 220ms so the backdrop fade matches the drawer slide and
+        // doesn't feel snappy. Same easing as toast/modal for consistency.
         className={cn(
-          'absolute inset-0 bg-black/60 transition-opacity',
+          'absolute inset-0 bg-black/60 transition-opacity duration-200 ease-out',
           open ? 'opacity-100' : 'opacity-0',
         )}
       />
       <aside
         className={cn(
-          'absolute top-0 flex h-full flex-col border-border bg-bg-elevated text-text-primary shadow-2xl transition-transform',
+          'absolute top-0 flex h-full flex-col border-border bg-bg-elevated text-text-primary shadow-2xl transition-transform duration-200 ease-out',
           width,
           side === 'right' ? 'right-0 border-l' : 'left-0 border-r',
           open ? 'translate-x-0' : side === 'right' ? 'translate-x-full' : '-translate-x-full',

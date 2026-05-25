@@ -67,7 +67,12 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     <div
       role="status"
       className={cn(
+        // `animate-toast-in` slides + fades in from the right edge of the
+        // viewport (220ms). Toasts dismiss by unmounting — V1 keeps that
+        // instant since users rarely watch a toast disappear; the focus is
+        // on noticing it appear.
         'pointer-events-auto flex items-start gap-3 rounded border border-l-4 border-border bg-bg-elevated px-4 py-3 shadow-lg',
+        'animate-toast-in',
         border,
       )}
     >

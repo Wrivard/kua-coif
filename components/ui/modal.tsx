@@ -67,8 +67,13 @@ export function Modal({
       )}
     >
       <div
+        // `animate-modal-content` is scoped via `dialog[open] >` in
+        // globals.css — it fires every time the dialog opens (not just
+        // on initial mount). Pairs with the backdrop fade defined on
+        // `dialog[open]::backdrop`.
         className={cn(
           'flex w-full flex-col rounded border border-border bg-bg-elevated text-text-primary shadow-2xl',
+          'animate-modal-content',
           className,
         )}
         onClick={(e) => e.stopPropagation()}

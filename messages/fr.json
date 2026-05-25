@@ -929,6 +929,12 @@
       "search": "Rechercher",
       "export": "Exporter",
       "download": "Télécharger"
+    },
+    "table": {
+      "empty": "Aucune donnée",
+      "prev": "Précédent",
+      "next": "Suivant",
+      "pageOf": "Page {page} sur {total} · {rows} entrées"
     }
   },
   "legal": {

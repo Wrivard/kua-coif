@@ -437,7 +437,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(-1)}
               aria-label={t('prevDay')}
-              className="rounded p-1.5 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -448,7 +448,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(1)}
               aria-label={t('nextDay')}
-              className="rounded p-1.5 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -501,9 +501,10 @@ export function AppointmentsCalendar({
                 }}
                 className={cn(
                   'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
                   isActive
                     ? 'bg-accent text-accent-fg'
-                    : 'border border-border text-text-secondary hover:bg-bg-surface-2',
+                    : 'border border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
                 )}
               >
                 {b.display_name}
