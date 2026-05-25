@@ -1,8 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   Calendar as CalendarIcon,
@@ -15,9 +25,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
+import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD, cn } from '@/lib/utils';
 import {
   addDays,
+  combineShopDateTime,
   formatHeaderDate,
   formatShopTime,
   minutesFromShopMidnight,
@@ -27,6 +39,7 @@ import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/
 import type { AppointmentStatus } from '@/db/enums';
 import { AppointmentDetailDrawer } from './appointment-detail-drawer';
 import { AppointmentFormModal } from './appointment-form-modal';
+import { rescheduleAppointment } from './actions';
 
 export type CalendarAppointment = {
   id: string;
@@ -155,6 +168,40 @@ export function AppointmentsCalendar({
   // refresh. Tells the user the view is fresh without being intrusive.
   const [justRefreshed, setJustRefreshed] = useState(false);
 
+  // ── Phase 27 — drag-to-reschedule optimistic state ────────────────────
+  // While a reschedule Server Action is in flight (and until realtime
+  // delivers the new truth), keep the moved appointment at its dropped
+  // position locally. Keyed by appointment id.
+  type ApptOverride = { barber_id: string; start_at: string; end_at: string };
+  const [overrides, setOverrides] = useState<Map<string, ApptOverride>>(new Map());
+  const [, startTransition] = useTransition();
+  const toast = useToast();
+  const tReschedule = useTranslations('pages.appointments.reschedule');
+
+  // Drop overrides whose truth has arrived (via realtime → router.refresh →
+  // new `appointments` prop). Keeps the optimistic Map from growing without
+  // bound. Read overrides via setter so this effect only depends on `appointments`.
+  useEffect(() => {
+    setOverrides((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, o] of next) {
+        const truth = appointments.find((a) => a.id === id);
+        if (
+          truth &&
+          truth.barber_id === o.barber_id &&
+          truth.start_at === o.start_at &&
+          truth.end_at === o.end_at
+        ) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [appointments]);
+
   // ── Memoized derivations ──────────────────────────────────────────────
   // The calendar re-renders on every parent state change (modal/drawer
   // toggles, filter chips, react-query refetches). Without memoization, the
@@ -165,17 +212,28 @@ export function AppointmentsCalendar({
     [barbers, selectedBarbers],
   );
 
+  // Apply optimistic overrides on top of the server-provided list, then
+  // bucket by barber. `effectiveAppointments` is the source of truth the
+  // grid renders against.
+  const effectiveAppointments = useMemo(() => {
+    if (overrides.size === 0) return appointments;
+    return appointments.map((a) => {
+      const o = overrides.get(a.id);
+      return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
+    });
+  }, [appointments, overrides]);
+
   // Pre-bucket appointments by barber so each column render is an O(1) lookup
   // instead of an O(appointments) scan.
   const apptsByBarber = useMemo(() => {
     const m = new Map<string, CalendarAppointment[]>();
-    for (const a of appointments) {
+    for (const a of effectiveAppointments) {
       const arr = m.get(a.barber_id);
       if (arr) arr.push(a);
       else m.set(a.barber_id, [a]);
     }
     return m;
-  }, [appointments]);
+  }, [effectiveAppointments]);
 
   // Same bucketing for blocked-time, with shop-wide blocks (barber_id = null)
   // denormalized into every barber's bucket so the render path is uniform.
@@ -248,6 +306,100 @@ export function AppointmentsCalendar({
       void supabase.removeChannel(channel);
     };
   }, [barbers, router]);
+
+  // ── Phase 27 — DnD plumbing ───────────────────────────────────────────
+  // PointerSensor with a small activation distance: clicks (open detail
+  // drawer) keep working as long as the user doesn't drag more than 6px.
+  // 6px is below dnd-kit's default 8 but tuned for the dense grid where
+  // 8px = 5+ minutes of vertical movement and felt sticky.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over, delta } = event;
+      // active.id is the appointment's UUID (matches `useDraggable({ id: appointment.id })`).
+      const appt = effectiveAppointments.find((a) => a.id === String(active.id));
+      if (!appt) return;
+      // Don't allow moving terminal-status appointments.
+      if (appt.status === 'cancelled' || appt.status === 'no_show') return;
+
+      // Target barber: if dropped over a column, use that column's data;
+      // otherwise stay in the original column (vertical-only drag).
+      const overData = over?.data?.current as { barberId?: string } | undefined;
+      const newBarberId = overData?.barberId ?? appt.barber_id;
+
+      // Compute the new shop-local minute: old minute + Δy converted to
+      // minutes, snapped to 5-min increments (matches `onSlotClick` snap).
+      const oldMinute = minutesFromShopMidnight(appt.start_at, timezone);
+      const deltaMin = Math.round(delta.y / PX_PER_MIN / 5) * 5;
+      const newMinute = oldMinute + deltaMin;
+
+      // No-op drag (click without actual movement) — bail out without
+      // hitting the server.
+      if (deltaMin === 0 && newBarberId === appt.barber_id) return;
+
+      // Clamp to [0, 23:59] so we never compose an invalid time string.
+      const safeMinute = Math.max(0, Math.min(24 * 60 - 1, newMinute));
+      const hh = String(Math.floor(safeMinute / 60)).padStart(2, '0');
+      const mm = String(safeMinute % 60).padStart(2, '0');
+
+      // Reuse the appointment's shop-date — we never cross days from the
+      // side-by-side view. Drag spans day boundaries only when a future
+      // Week-view drag is added.
+      const shopDate = shopIsoDate(new Date(appt.start_at), timezone);
+      let newStartUtc: Date;
+      try {
+        newStartUtc = combineShopDateTime(shopDate, `${hh}:${mm}`, timezone);
+      } catch {
+        return;
+      }
+      const durationMs = new Date(appt.end_at).getTime() - new Date(appt.start_at).getTime();
+      const newEndUtc = new Date(newStartUtc.getTime() + durationMs);
+
+      const override: ApptOverride = {
+        barber_id: newBarberId,
+        start_at: newStartUtc.toISOString(),
+        end_at: newEndUtc.toISOString(),
+      };
+      // Set optimistic state immediately so the block jumps to its new
+      // position without waiting for the round-trip.
+      setOverrides((prev) => new Map(prev).set(appt.id, override));
+
+      startTransition(async () => {
+        const result = await rescheduleAppointment({
+          id: appt.id,
+          barber_id: newBarberId,
+          start_at: newStartUtc.toISOString(),
+        });
+        if (!result.ok) {
+          // Revert optimistic override so the block snaps back to its
+          // original position.
+          setOverrides((prev) => {
+            const next = new Map(prev);
+            next.delete(appt.id);
+            return next;
+          });
+          const code = result.errorCode;
+          // CONFLICT → narrow message ("collision avec un autre RDV"),
+          // everything else → generic failure.
+          toast.show({
+            variant: code === 'CONFLICT' ? 'warning' : 'danger',
+            title: tReschedule('failedTitle'),
+            description:
+              code === 'CONFLICT'
+                ? tReschedule('conflict')
+                : code === 'INVALID_INPUT'
+                  ? tReschedule('invalid')
+                  : tReschedule('unexpected'),
+          });
+        }
+        // Success path: leave the override in place. The realtime refresh
+        // (Phase 26) will deliver the new truth via props and the
+        // useEffect above prunes the now-redundant override.
+      });
+    },
+    [effectiveAppointments, timezone, toast, tReschedule],
+  );
 
   const shiftDate = useCallback(
     (deltaDays: number) => {
@@ -366,141 +518,59 @@ export function AppointmentsCalendar({
           </div>
         )}
 
-        {/* Calendar grid */}
-        <div className="overflow-x-auto rounded border border-border bg-bg-surface">
-          <div className="flex min-w-[600px]">
-            {/* Time axis */}
-            <div className="w-14 shrink-0 border-r border-border">
-              <div className="h-10 border-b border-border" />
-              <div className="relative" style={{ height: `${gridHeightPx}px` }}>
-                {hourLabels.map((min) => {
-                  if (min < startMin || min > endMin) return null;
-                  const top = (min - startMin) * PX_PER_MIN;
-                  return (
-                    <div
-                      key={min}
-                      className="absolute right-2 -translate-y-2 text-[11px] text-text-muted"
-                      style={{ top: `${top}px` }}
-                    >
-                      {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Barber columns */}
-            {visibleBarbers.map((barber) => {
-              // O(1) lookups against the pre-bucketed Maps above.
-              const barberAppts = apptsByBarber.get(barber.id) ?? [];
-              const barberBlocks = blocksByBarber.get(barber.id) ?? [];
-              return (
-                <div
-                  key={barber.id}
-                  className="min-w-[180px] flex-1 border-r border-border last:border-r-0"
-                >
-                  <div className="flex h-10 items-center gap-2 border-b border-border bg-bg-surface px-3">
-                    <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
-                    <span className="truncate text-sm font-semibold">{barber.display_name}</span>
-                  </div>
-                  <div
-                    className="relative cursor-cell bg-bg-base"
-                    style={{ height: `${gridHeightPx}px` }}
-                    onClick={(e) => onSlotClick(barber.id, e)}
-                  >
-                    {/* Hour rules (every hour) */}
-                    {hourLabels.map((min) => {
-                      if (min < startMin || min > endMin) return null;
-                      const top = (min - startMin) * PX_PER_MIN;
-                      return (
-                        <div
-                          key={min}
-                          className="border-border/60 absolute left-0 right-0 border-t"
-                          style={{ top: `${top}px` }}
-                          aria-hidden
-                        />
-                      );
-                    })}
-
-                    {/* Blocked time overlays */}
-                    {barberBlocks.map((b) => {
-                      const top =
-                        (minutesFromShopMidnight(b.start_at, timezone) - startMin) * PX_PER_MIN;
-                      const height =
-                        (minutesFromShopMidnight(b.end_at, timezone) -
-                          minutesFromShopMidnight(b.start_at, timezone)) *
-                        PX_PER_MIN;
-                      return (
-                        <div
-                          key={b.id}
-                          className="bg-danger/10 absolute left-1 right-1 flex items-center justify-center rounded-sm text-[11px] font-medium text-danger"
-                          style={{ top: `${top}px`, height: `${height}px` }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <XOctagon className="mr-1 h-3 w-3" /> {b.reason ?? t('blocked')}
-                        </div>
-                      );
-                    })}
-
-                    {/* Appointment blocks */}
-                    {barberAppts.map((a) => {
-                      const top =
-                        (minutesFromShopMidnight(a.start_at, timezone) - startMin) * PX_PER_MIN;
-                      const height =
-                        (minutesFromShopMidnight(a.end_at, timezone) -
-                          minutesFromShopMidnight(a.start_at, timezone)) *
-                        PX_PER_MIN;
-                      const cls = statusToColor(a.status);
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDrawer(a);
-                          }}
-                          className={cn(
-                            'absolute left-1 right-1 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left text-[11px] transition-colors hover:opacity-90',
-                            cls,
-                          )}
-                          style={{ top: `${top}px`, height: `${height}px` }}
-                          title={`${a.client_name} — ${formatShopTime(a.start_at, timezone, 'HH:mm')}–${formatShopTime(a.end_at, timezone, 'HH:mm')}`}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="truncate font-semibold text-text-primary">
-                              {a.client_name}
-                            </span>
-                            <span className="shrink-0 text-[10px] text-text-secondary">
-                              {formatShopTime(a.start_at, timezone, 'HH:mm')}
-                            </span>
-                          </div>
-                          <div className="truncate text-[10px] text-text-secondary">
-                            {a.services.map((s) => s.name).join(' + ')}
-                          </div>
-                          {a.source === 'online' ? (
-                            <Badge variant="accent" className="mt-0.5">
-                              {t('online')}
-                            </Badge>
-                          ) : null}
-                          <CreditCard
-                            aria-hidden
-                            className="absolute bottom-1 right-1 h-3 w-3 text-success"
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
+        {/* Calendar grid — Phase 27 wraps in DndContext so each appointment
+            block (useDraggable) can be dropped on any barber column
+            (useDroppable). DragEnd handler computes the new (barber, time)
+            and fires the rescheduleAppointment Server Action. */}
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="overflow-x-auto rounded border border-border bg-bg-surface">
+            <div className="flex min-w-[600px]">
+              {/* Time axis */}
+              <div className="w-14 shrink-0 border-r border-border">
+                <div className="h-10 border-b border-border" />
+                <div className="relative" style={{ height: `${gridHeightPx}px` }}>
+                  {hourLabels.map((min) => {
+                    if (min < startMin || min > endMin) return null;
+                    const top = (min - startMin) * PX_PER_MIN;
+                    return (
+                      <div
+                        key={min}
+                        className="absolute right-2 -translate-y-2 text-[11px] text-text-muted"
+                        style={{ top: `${top}px` }}
+                      >
+                        {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-
-            {visibleBarbers.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center p-12 text-sm text-text-muted">
-                {t('noBarbersSelected')}
               </div>
-            ) : null}
+
+              {/* Barber columns */}
+              {visibleBarbers.map((barber) => (
+                <BarberColumn
+                  key={barber.id}
+                  barber={barber}
+                  barberAppts={apptsByBarber.get(barber.id) ?? []}
+                  barberBlocks={blocksByBarber.get(barber.id) ?? []}
+                  timezone={timezone}
+                  startMin={startMin}
+                  endMin={endMin}
+                  gridHeightPx={gridHeightPx}
+                  hourLabels={hourLabels}
+                  onSlotClick={onSlotClick}
+                  onApptClick={(a) => setDrawer(a)}
+                  t={t}
+                />
+              ))}
+
+              {visibleBarbers.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center p-12 text-sm text-text-muted">
+                  {t('noBarbersSelected')}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </DndContext>
       </div>
 
       <AppointmentDetailDrawer
@@ -531,4 +601,203 @@ function formatHourLabel(minute: number, locale: 'fr' | 'en'): string {
   const period = h < 12 ? 'a' : 'p';
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}${period}`;
+}
+
+// ── Phase 27 — DnD sub-components ─────────────────────────────────────────
+// Each barber column is a drop target; each appointment block is a drag
+// source. Extracted so we can call useDroppable / useDraggable per item
+// (hooks can't be called inside a map). Receives all rendering inputs as
+// props — these are stateless except for the local DnD state from the
+// hook itself.
+
+type TFn = (key: string) => string;
+
+type BarberColumnProps = {
+  barber: BarberRow;
+  barberAppts: CalendarAppointment[];
+  barberBlocks: Array<{
+    id: string;
+    barber_id: string | null;
+    start_at: string;
+    end_at: string;
+    reason: string | null;
+  }>;
+  timezone: string;
+  startMin: number;
+  endMin: number;
+  gridHeightPx: number;
+  hourLabels: number[];
+  onSlotClick: (barberId: string, e: React.MouseEvent<HTMLDivElement>) => void;
+  onApptClick: (a: CalendarAppointment) => void;
+  t: TFn;
+};
+
+function BarberColumn({
+  barber,
+  barberAppts,
+  barberBlocks,
+  timezone,
+  startMin,
+  endMin,
+  gridHeightPx,
+  hourLabels,
+  onSlotClick,
+  onApptClick,
+  t,
+}: BarberColumnProps) {
+  // The droppable id namespacing keeps barber-column drops from colliding
+  // with future droppables (e.g. a trash zone for delete-on-drag).
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${barber.id}`,
+    data: { barberId: barber.id },
+  });
+  return (
+    <div className="min-w-[180px] flex-1 border-r border-border last:border-r-0">
+      <div className="flex h-10 items-center gap-2 border-b border-border bg-bg-surface px-3">
+        <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
+        <span className="truncate text-sm font-semibold">{barber.display_name}</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'relative cursor-cell bg-bg-base transition-colors',
+          // Subtle accent tint when a draggable is hovering this column —
+          // tells the user "drop here goes to {barber}".
+          isOver && 'bg-accent-subtle',
+        )}
+        style={{ height: `${gridHeightPx}px` }}
+        onClick={(e) => onSlotClick(barber.id, e)}
+      >
+        {/* Hour rules (every hour) */}
+        {hourLabels.map((min) => {
+          if (min < startMin || min > endMin) return null;
+          const top = (min - startMin) * PX_PER_MIN;
+          return (
+            <div
+              key={min}
+              className="border-border/60 absolute left-0 right-0 border-t"
+              style={{ top: `${top}px` }}
+              aria-hidden
+            />
+          );
+        })}
+
+        {/* Blocked time overlays */}
+        {barberBlocks.map((b) => {
+          const top = (minutesFromShopMidnight(b.start_at, timezone) - startMin) * PX_PER_MIN;
+          const height =
+            (minutesFromShopMidnight(b.end_at, timezone) -
+              minutesFromShopMidnight(b.start_at, timezone)) *
+            PX_PER_MIN;
+          return (
+            <div
+              key={b.id}
+              className="bg-danger/10 absolute left-1 right-1 flex items-center justify-center rounded-sm text-[11px] font-medium text-danger"
+              style={{ top: `${top}px`, height: `${height}px` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <XOctagon className="mr-1 h-3 w-3" /> {b.reason ?? t('blocked')}
+            </div>
+          );
+        })}
+
+        {/* Appointment blocks */}
+        {barberAppts.map((a) => {
+          const top = (minutesFromShopMidnight(a.start_at, timezone) - startMin) * PX_PER_MIN;
+          const height =
+            (minutesFromShopMidnight(a.end_at, timezone) -
+              minutesFromShopMidnight(a.start_at, timezone)) *
+            PX_PER_MIN;
+          return (
+            <DraggableAppointmentBlock
+              key={a.id}
+              appointment={a}
+              top={top}
+              height={height}
+              timezone={timezone}
+              onClick={onApptClick}
+              t={t}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+type DraggableAppointmentBlockProps = {
+  appointment: CalendarAppointment;
+  top: number;
+  height: number;
+  timezone: string;
+  onClick: (a: CalendarAppointment) => void;
+  t: TFn;
+};
+
+function DraggableAppointmentBlock({
+  appointment,
+  top,
+  height,
+  timezone,
+  onClick,
+  t,
+}: DraggableAppointmentBlockProps) {
+  const isTerminal = appointment.status === 'cancelled' || appointment.status === 'no_show';
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: appointment.id,
+    data: { appointment },
+    // Terminal-status appointments are historical — disable drag (the
+    // server would reject it anyway, but disabling locally avoids the
+    // visual feedback of dragging something that can't move).
+    disabled: isTerminal,
+  });
+  const cls = statusToColor(appointment.status);
+  const style: React.CSSProperties = {
+    top: `${top}px`,
+    height: `${height}px`,
+    transform: CSS.Translate.toString(transform),
+    zIndex: isDragging ? 30 : undefined,
+    opacity: isDragging ? 0.9 : undefined,
+    cursor: isTerminal ? 'default' : isDragging ? 'grabbing' : 'grab',
+  };
+  return (
+    <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        // Suppress the click that fires at the end of a drag sequence —
+        // dnd-kit already cancels click for actual drags via
+        // activationConstraint.distance, but a defensive no-op keeps the
+        // drawer from popping if React quirks slip a click through.
+        if (isDragging) return;
+        onClick(appointment);
+      }}
+      className={cn(
+        'absolute left-1 right-1 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left text-[11px] transition-shadow hover:opacity-90',
+        isDragging && 'shadow-lg ring-2 ring-accent',
+        cls,
+      )}
+      style={style}
+      title={`${appointment.client_name} — ${formatShopTime(appointment.start_at, timezone, 'HH:mm')}–${formatShopTime(appointment.end_at, timezone, 'HH:mm')}`}
+    >
+      <div className="flex items-start justify-between gap-1">
+        <span className="truncate font-semibold text-text-primary">{appointment.client_name}</span>
+        <span className="shrink-0 text-[10px] text-text-secondary">
+          {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
+        </span>
+      </div>
+      <div className="truncate text-[10px] text-text-secondary">
+        {appointment.services.map((s) => s.name).join(' + ')}
+      </div>
+      {appointment.source === 'online' ? (
+        <Badge variant="accent" className="mt-0.5">
+          {t('online')}
+        </Badge>
+      ) : null}
+      <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+    </button>
+  );
 }

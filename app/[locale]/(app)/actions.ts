@@ -8,6 +8,7 @@ import { logAuditAction } from '@/lib/audit-log';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
 import {
   combineShopDateTime,
+  formatShopTime,
   shopDayEnd,
   shopDayStart,
   shopIsoDate,
@@ -16,6 +17,7 @@ import {
   appointmentSchema,
   blockTimeSchema,
   cancelAppointmentSchema,
+  rescheduleAppointmentSchema,
   updateAppointmentSchema,
 } from './schema';
 import { sendEmail } from '@/lib/email/send';
@@ -293,6 +295,136 @@ export const updateAppointment = withAction({
     });
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// rescheduleAppointment — Phase 27 drag-to-reschedule.
+//
+// The client passes (id, barber_id, start_at). We re-derive `end_at` from
+// the row's existing duration so a drag never silently changes the length
+// of the appointment. The availability check excludes the appointment
+// being moved (otherwise it would conflict with itself).
+//
+// Why not let the client send end_at too: the calendar UI works in
+// minute-granularity, but duration is canonical on the row. Trusting the
+// client's end_at would let a buggy drag handler corrupt the row's length.
+// Reading the old row is one extra round-trip and keeps the invariant.
+// ---------------------------------------------------------------------------
+export const rescheduleAppointment = withAction({
+  schema: rescheduleAppointmentSchema,
+  minRole: 'barber',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+
+    // 1. Load the appointment to compute duration + verify ownership.
+    const apptRes = await sb
+      .from('appointments')
+      .select('id, shop_id, barber_id, start_at, end_at, status')
+      .eq('id', input.id)
+      .single();
+    const appt = apptRes.data as {
+      id: string;
+      shop_id: string;
+      barber_id: string;
+      start_at: string;
+      end_at: string;
+      status: ExistingAppointment['status'];
+    } | null;
+    if (!appt) return err('NOT_FOUND');
+    if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND'); // RLS would have hidden it, but belt-and-braces.
+    // Don't allow moving a cancelled/no-show appointment — they're
+    // historical. The drag UI should disable dragging those, but the
+    // server rejects them defensively too.
+    if (appt.status === 'cancelled' || appt.status === 'no_show') {
+      return err('INVALID_INPUT');
+    }
+
+    // 2. Preserve duration.
+    const oldStart = new Date(appt.start_at);
+    const oldEnd = new Date(appt.end_at);
+    const durationMs = oldEnd.getTime() - oldStart.getTime();
+    const newStart = new Date(input.start_at);
+    if (Number.isNaN(newStart.getTime())) return err('INVALID_INPUT');
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    // 3. Pull shop timezone, then fetch the day's schedule (we hit the same
+    //    function as createAppointment for parity — same conflict rules).
+    const shopRes = await sb.from('shops').select('timezone').eq('id', ctx.shopId);
+    const timezone =
+      (shopRes.data as Array<{ timezone: string }> | null)?.[0]?.timezone ?? 'America/Toronto';
+
+    const dayStart = shopDayStart(newStart, timezone);
+    const dayEnd = shopDayEnd(newStart, timezone);
+    const schedule = await fetchScheduleData(ctx.shopId, dayStart, dayEnd);
+
+    // 4. Exclude the moving appointment from the conflict set; otherwise
+    //    a no-op drag (or any drag inside the original time window) would
+    //    self-collide.
+    const filteredExisting = schedule.appts.filter((a) => a.id !== input.id);
+
+    // 5. Build the wall-clock inputs the engine needs.
+    const shopDate = shopIsoDate(newStart, timezone);
+    const startTime = formatShopTime(newStart, timezone, 'HH:mm');
+    const endTime = formatShopTime(newEnd, timezone, 'HH:mm');
+    // Shop-local weekday (Sun=0..Sat=6). Re-derive from the formatter so
+    // it matches the calendar's `weekday` calculation.
+    const isoWeekday = Number(formatShopTime(newStart, timezone, 'i'));
+    const shopWeekday = isoWeekday % 7;
+
+    const verdict = checkAvailability({
+      start_at: newStart,
+      end_at: newEnd,
+      barber_id: input.barber_id,
+      shop_date: shopDate,
+      shop_weekday: shopWeekday,
+      shop_start_time: startTime,
+      shop_end_time: endTime,
+      hours: schedule.hours,
+      daysOff: schedule.daysOff,
+      existing: filteredExisting,
+      blocked: schedule.blocked,
+      settings: null, // admin path — no booking-flow bounds.
+    });
+
+    if (!verdict.ok) {
+      return err(
+        verdict.reason === 'CONFLICT_APPOINTMENT' || verdict.reason === 'CONFLICT_BLOCK'
+          ? 'CONFLICT'
+          : 'INVALID_INPUT',
+      );
+    }
+
+    // 6. Persist the move.
+    const updateRes = await sb
+      .from('appointments')
+      .update({
+        barber_id: input.barber_id,
+        start_at: newStart.toISOString(),
+        end_at: newEnd.toISOString(),
+      })
+      .eq('id', input.id);
+    if (updateRes.error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'appointments',
+      entityId: input.id,
+      diff: {
+        before: { barber_id: appt.barber_id, start_at: appt.start_at, end_at: appt.end_at },
+        after: {
+          barber_id: input.barber_id,
+          start_at: newStart.toISOString(),
+          end_at: newEnd.toISOString(),
+        },
+      },
+    });
+
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ id: input.id });
   },
 });
 

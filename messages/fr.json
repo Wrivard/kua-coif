@@ -147,6 +147,12 @@
       "filterBarbers": "Barbiers :",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",
+      "reschedule": {
+        "failedTitle": "Déplacement impossible",
+        "conflict": "Ce créneau entre en conflit avec un autre rendez-vous ou un temps bloqué.",
+        "invalid": "Ce créneau est hors des horaires du salon.",
+        "unexpected": "Impossible de déplacer le rendez-vous. Réessaie."
+      },
       "shopClosedDay": "Le salon est fermé ce jour-là (jour off ou hors horaires).",
       "blocked": "Bloqué",
       "online": "En ligne",

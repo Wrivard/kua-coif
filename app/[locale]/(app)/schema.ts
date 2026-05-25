@@ -25,6 +25,20 @@ export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 
 export const cancelAppointmentSchema = z.object({ id: z.string().uuid() });
 
+/**
+ * Reschedule (drag-to-move): move an existing appointment to a new
+ * barber column and/or a new start time. Duration is preserved server-side
+ * (we re-derive end_at = old_end - old_start + new_start) so the client
+ * only carries the candidate start instant + target barber.
+ */
+export const rescheduleAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  barber_id: z.string().uuid(),
+  /** ISO 8601 UTC instant for the new start. */
+  start_at: z.string().datetime(),
+});
+export type RescheduleAppointmentInput = z.infer<typeof rescheduleAppointmentSchema>;
+
 export const blockTimeSchema = z.object({
   barber_id: z.string().uuid().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE'),

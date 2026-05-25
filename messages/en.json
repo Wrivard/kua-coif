@@ -145,6 +145,12 @@
       "filterBarbers": "Barbers:",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
+      "reschedule": {
+        "failedTitle": "Move failed",
+        "conflict": "That slot conflicts with another appointment or blocked time.",
+        "invalid": "That slot is outside the shop's open hours.",
+        "unexpected": "Couldn't move the appointment. Try again."
+      },
       "shopClosedDay": "The shop is closed on this day (day off or outside hours).",
       "blocked": "Blocked",
       "online": "Online",
