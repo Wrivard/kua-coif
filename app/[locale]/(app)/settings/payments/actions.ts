@@ -14,6 +14,8 @@ import {
   createOnboardingLink,
   fetchAccountStatus,
 } from '@/lib/stripe/connect';
+import { quickbooksConfigured, revokeQbToken } from '@/lib/quickbooks/server';
+import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
 import { paymentProfileSchema } from './schema';
 
@@ -201,5 +203,66 @@ export const openStripeDashboard = withAction<never, { url: string }>({
       });
       return err('UNEXPECTED');
     }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// QuickBooks Connect — Phase 35
+// ---------------------------------------------------------------------------
+
+/**
+ * Disconnect the shop's QuickBooks connection. Revokes the token on
+ * Intuit's side (so it's no longer valid even if leaked from our DB),
+ * then nulls out the local columns.
+ *
+ * No-op when Intuit's revoke call fails — we still want the local
+ * disconnect to succeed (user intent is explicit).
+ */
+export const disconnectQuickbooks = withAction<never, { ok: true }>({
+  minRole: 'owner',
+  run: async (_input, ctx) => {
+    if (!quickbooksConfigured()) return err('UNEXPECTED');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    const shopRes = await admin
+      .from('shops')
+      .select('quickbooks_refresh_token_enc')
+      .eq('id', ctx.shopId)
+      .single();
+    const shop = shopRes.data as { quickbooks_refresh_token_enc: string | null } | null;
+
+    if (shop?.quickbooks_refresh_token_enc && encryptionConfigured()) {
+      try {
+        const refreshToken = decrypt(shop.quickbooks_refresh_token_enc);
+        await revokeQbToken(refreshToken);
+      } catch (e) {
+        captureException(e, {
+          tags: { layer: 'qb-connect', action: 'disconnect-revoke' },
+        });
+        // Continue — local disconnect below still proceeds.
+      }
+    }
+
+    const { error } = await admin
+      .from('shops')
+      .update({
+        quickbooks_realm_id: null,
+        quickbooks_refresh_token_enc: null,
+        quickbooks_connect_status: 'disconnected',
+      })
+      .eq('id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'shops',
+      entityId: ctx.shopId,
+      diff: { quickbooks_disconnected: true },
+    });
+    revalidatePath(PATH);
+    return ok({ ok: true });
   },
 });

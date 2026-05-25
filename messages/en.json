@@ -597,6 +597,30 @@
           "toasts": {
             "refreshed": "Status refreshed"
           }
+        },
+        "quickbooks": {
+          "title": "QuickBooks Online",
+          "status": {
+            "notStarted": "Not connected",
+            "active": "Connected",
+            "expired": "Reconnect needed",
+            "disconnected": "Disconnected"
+          },
+          "description": {
+            "notStarted": "Connect your QuickBooks Online account so every payment lands directly in your books (with GST/QST tax lines applied).",
+            "expired": "The QuickBooks token expired (100 days idle). Reconnect to resume bookkeeping sync.",
+            "active": "QuickBooks is connected. Future payments sync to your QuickBooks company."
+          },
+          "actions": {
+            "connect": "Connect QuickBooks",
+            "reconnect": "Reconnect QuickBooks",
+            "disconnect": "Disconnect QuickBooks"
+          },
+          "toasts": {
+            "connected": "QuickBooks connected",
+            "disconnected": "QuickBooks disconnected",
+            "error": "QuickBooks connection failed"
+          }
         }
       },
       "commissions": {

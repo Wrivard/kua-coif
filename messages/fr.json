@@ -599,6 +599,30 @@
           "toasts": {
             "refreshed": "État mis à jour"
           }
+        },
+        "quickbooks": {
+          "title": "QuickBooks Online",
+          "status": {
+            "notStarted": "Non connecté",
+            "active": "Connecté",
+            "expired": "Reconnexion requise",
+            "disconnected": "Déconnecté"
+          },
+          "description": {
+            "notStarted": "Connecte ton compte QuickBooks Online pour que chaque paiement enregistré apparaisse automatiquement dans tes livres comptables (taxes TPS/TVQ incluses).",
+            "expired": "Le token QuickBooks a expiré (100 jours sans usage). Reconnecte ton compte pour reprendre la synchro comptable.",
+            "active": "QuickBooks est connecté. Les futurs paiements seront synchronisés avec ta compagnie QuickBooks."
+          },
+          "actions": {
+            "connect": "Connecter QuickBooks",
+            "reconnect": "Reconnecter QuickBooks",
+            "disconnect": "Déconnecter QuickBooks"
+          },
+          "toasts": {
+            "connected": "QuickBooks connecté",
+            "disconnected": "QuickBooks déconnecté",
+            "error": "Échec de la connexion QuickBooks"
+          }
         }
       },
       "commissions": {

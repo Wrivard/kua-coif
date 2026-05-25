@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { Check, ExternalLink, Pencil, RefreshCw, X } from 'lucide-react';
+import { Check, ExternalLink, Pencil, RefreshCw, Unlink, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +15,9 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { BUSINESS_TYPES } from '@/db/enums';
-import type { PaymentProfileRow, StripeConnectState } from './page';
+import type { PaymentProfileRow, QuickbooksConnectState, StripeConnectState } from './page';
 import {
+  disconnectQuickbooks,
   openStripeDashboard,
   refreshStripeStatus,
   startStripeConnect,
@@ -27,9 +29,10 @@ type Props = {
   profile: PaymentProfileRow | null;
   currentUser: { email: string; fullName: string | null };
   stripe: StripeConnectState;
+  quickbooks: QuickbooksConnectState;
 };
 
-export function PaymentsClient({ profile, currentUser, stripe }: Props) {
+export function PaymentsClient({ profile, currentUser, stripe, quickbooks }: Props) {
   const t = useTranslations('pages.settings.payments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -70,6 +73,22 @@ export function PaymentsClient({ profile, currentUser, stripe }: Props) {
       .map((p) => p[0]!.toUpperCase())
       .join('') || '??';
 
+  // Surface toast after QuickBooks OAuth roundtrip (Phase 35).
+  const params = useSearchParams();
+  useEffect(() => {
+    const status = params.get('qb');
+    if (!status) return;
+    if (status === 'connected') {
+      show({ variant: 'success', title: t('quickbooks.toasts.connected') });
+    } else {
+      show({ variant: 'danger', title: t('quickbooks.toasts.error') });
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('qb');
+    url.searchParams.delete('reason');
+    window.history.replaceState(null, '', url.toString());
+  }, [params, show, t]);
+
   return (
     <>
       <PageHeader title={t('title')} />
@@ -79,6 +98,14 @@ export function PaymentsClient({ profile, currentUser, stripe }: Props) {
             page-level helper passes `stripe.configured` through props. */}
         {stripe.configured ? (
           <StripeConnectCard stripe={stripe} t={t} tErr={tErr} show={show} />
+        ) : null}
+
+        {/* ─── QuickBooks Connect (Phase 35) ──────────────────────────────
+            Same env-gate pattern. Shops can connect EITHER Stripe OR
+            QuickBooks (or neither). When both are connected the UI shows
+            both cards — V1.5 picks the active processor per-charge. */}
+        {quickbooks.configured ? (
+          <QuickbooksConnectCard quickbooks={quickbooks} t={t} tErr={tErr} show={show} />
         ) : null}
 
         {/* ─── Profile card ────────────────────────────────────────────── */}
@@ -358,6 +385,87 @@ function StripeConnectCard({
                 <ExternalLink className="h-4 w-4" /> {t('stripe.actions.dashboard')}
               </Button>
             </>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// QuickBooks Connect — Phase 35
+// ─────────────────────────────────────────────────────────────────────────
+
+const QB_STATUS_BADGE: Record<
+  QuickbooksConnectState['status'],
+  { variant: 'info' | 'warning' | 'success' | 'danger'; key: string }
+> = {
+  not_started: { variant: 'info', key: 'quickbooks.status.notStarted' },
+  active: { variant: 'success', key: 'quickbooks.status.active' },
+  expired: { variant: 'warning', key: 'quickbooks.status.expired' },
+  disconnected: { variant: 'info', key: 'quickbooks.status.disconnected' },
+};
+
+function QuickbooksConnectCard({
+  quickbooks,
+  t,
+  tErr,
+  show,
+}: {
+  quickbooks: QuickbooksConnectState;
+  t: (key: string) => string;
+  tErr: (key: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  show: (toast: any) => void;
+}) {
+  const [busy, startTransition] = useTransition();
+  const badge = QB_STATUS_BADGE[quickbooks.status];
+
+  function handleConnect() {
+    // QuickBooks OAuth requires a top-frame redirect (consent screen is
+    // not iframe-friendly). Plain navigation.
+    window.location.href = '/api/quickbooks/oauth/start';
+  }
+
+  function handleDisconnect() {
+    startTransition(async () => {
+      const result = await disconnectQuickbooks(undefined);
+      if (result.ok) {
+        show({ variant: 'info', title: t('quickbooks.toasts.disconnected') });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader>
+        <CardTitle>{t('quickbooks.title')}</CardTitle>
+        <Badge variant={badge.variant}>{t(badge.key)}</Badge>
+      </CardHeader>
+      <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-xl text-xs text-text-secondary">
+          {quickbooks.status === 'active'
+            ? t('quickbooks.description.active')
+            : quickbooks.status === 'expired'
+              ? t('quickbooks.description.expired')
+              : t('quickbooks.description.notStarted')}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {(quickbooks.status === 'not_started' ||
+            quickbooks.status === 'disconnected' ||
+            quickbooks.status === 'expired') && (
+            <Button onClick={handleConnect} loading={busy} size="sm">
+              {quickbooks.status === 'expired'
+                ? t('quickbooks.actions.reconnect')
+                : t('quickbooks.actions.connect')}
+            </Button>
+          )}
+          {quickbooks.status === 'active' && (
+            <Button variant="secondary" onClick={handleDisconnect} loading={busy} size="sm">
+              <Unlink className="h-4 w-4" /> {t('quickbooks.actions.disconnect')}
+            </Button>
           )}
         </div>
       </CardBody>

@@ -97,6 +97,7 @@ npx playwright install chromium
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | client + server | ⛔ | Active Cloudflare Turnstile sur la booking publique (Phase 30). Setup gratuit sur [dash.cloudflare.com/?to=/:account/turnstile](https://dash.cloudflare.com/?to=/:account/turnstile). Sans ces vars, le widget ne render pas et la vérification serveur no-op (honeypot + rate-limit gardent leur rôle de défense). |
 | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | server-only | ⛔ | Active Stripe Connect Express (Phase 28) — onboarding KYC pour que les shops reçoivent les paiements. Sans ces vars, la carte "Stripe Connect" dans `/settings/payments` ne s'affiche pas. Setup : `sk_test_...` du dashboard Stripe + `whsec_...` après avoir créé un webhook endpoint pointant sur `/api/webhooks/stripe`. |
 | `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | server-only | ⛔ | Active Google Calendar sync per-barbier (Phase 34). Sans ces vars, la colonne "Google Calendar" dans `/barbers` ne s'affiche pas. Setup : crée un projet sur [console.cloud.google.com](https://console.cloud.google.com) → enable "Google Calendar API" → OAuth consent screen (External app) → Credentials → Web application → redirect URI `https://<ton-domaine>/api/google/oauth/callback`. Requiert aussi `NOTIFICATION_ENCRYPTION_KEY` (réutilisé pour chiffrer les refresh tokens). |
+| `QUICKBOOKS_CLIENT_ID` + `QUICKBOOKS_CLIENT_SECRET` + `QUICKBOOKS_ENVIRONMENT` | server-only | ⛔ | Active QuickBooks Online comme alternative à Stripe (Phase 35). `QUICKBOOKS_ENVIRONMENT=sandbox` ou `production`. Sans ces vars, la carte QuickBooks dans `/settings/payments` ne s'affiche pas. Setup : compte sur [developer.intuit.com](https://developer.intuit.com), nouvelle app avec scopes Accounting + Payments, redirect URI `https://<ton-domaine>/api/quickbooks/oauth/callback`. Requiert aussi `NOTIFICATION_ENCRYPTION_KEY`. |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -306,6 +307,7 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 31 — Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (déjà livré avec Phase 20 — middleware lit `widget_config.allowed_origins` et bâtit la CSP par shop, UI dans `/settings/widget`).
 - ✅ **Phase 33 — Calendar UI refinement** : softer grid (-50% opacité), alternating hour bands, "now" indicator, format heures clean ("8 AM" / "10 h"), +15% breathing room (PX_PER_MIN 1.4→1.6).
 - ✅ **Phase 34 — Google Calendar two-way sync** (env-gated). Voir section dédiée plus haut.
+- ✅ **Phase 35 — QuickBooks Online Payments** (env-gated, alternative à Stripe). Onboarding OAuth + scope Accounting + Payments. Charges sur invoice viendront en V1.5 (comme Stripe).
 
 ### Phase 29 — UI review / polish global (détail)
 
