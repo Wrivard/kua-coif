@@ -25,6 +25,15 @@ export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 
 export const cancelAppointmentSchema = z.object({ id: z.string().uuid() });
 
+/** Phase 38 — charge a deposit on an appointment. Amount is in cents. */
+export const chargeAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  amount_cents: z.number().int().min(50).max(100_000_00),
+});
+
+/** Phase 38 — refund the appointment's payment in full. */
+export const refundAppointmentSchema = z.object({ id: z.string().uuid() });
+
 /**
  * Reschedule (drag-to-move): move an existing appointment to a new
  * barber column and/or a new start time. Duration is preserved server-side

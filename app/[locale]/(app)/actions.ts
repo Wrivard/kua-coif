@@ -17,12 +17,17 @@ import {
   appointmentSchema,
   blockTimeSchema,
   cancelAppointmentSchema,
+  chargeAppointmentSchema,
+  refundAppointmentSchema,
   rescheduleAppointmentSchema,
   updateAppointmentSchema,
 } from './schema';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
+import { stripeConfigured } from '@/lib/stripe/server';
+import { createDepositPaymentIntent, refundPaymentIntent } from '@/lib/stripe/payments';
+import { captureException } from '@/lib/observability';
 
 const APPOINTMENTS_PATH = '/';
 
@@ -672,5 +677,165 @@ export const blockTime = withAction({
     });
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: insertRes.data.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// chargeAppointment — Phase 38 (Stripe deposit/charge on an appointment).
+//
+// Returns the PaymentIntent's `clientSecret`. The client then renders
+// Stripe Elements (Phase 38b — V1.1 UI work) with this secret and the
+// user enters their card. Webhook payment_intent.succeeded flips
+// payment_status to 'paid'.
+//
+// No-ops with INVALID_INPUT when:
+//   - Stripe isn't configured (env vars absent)
+//   - The shop has no connected Stripe account
+//   - The appointment already has a paid/pending intent (avoid duplicates)
+// ---------------------------------------------------------------------------
+export const chargeAppointment = withAction<
+  typeof chargeAppointmentSchema,
+  { clientSecret: string; paymentIntentId: string }
+>({
+  schema: chargeAppointmentSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    if (!stripeConfigured()) return err('UNEXPECTED');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+    const [apptRes, shopRes] = await Promise.all([
+      sb
+        .from('appointments')
+        .select('id, shop_id, payment_intent_id, payment_status, client_id')
+        .eq('id', input.id)
+        .single(),
+      sb
+        .from('shops')
+        .select('stripe_account_id, stripe_connect_status')
+        .eq('id', ctx.shopId)
+        .single(),
+    ]);
+
+    const appt = apptRes.data as {
+      id: string;
+      shop_id: string;
+      payment_intent_id: string | null;
+      payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+      client_id: string;
+    } | null;
+    const shop = shopRes.data as {
+      stripe_account_id: string | null;
+      stripe_connect_status: string;
+    } | null;
+    if (!appt) return err('NOT_FOUND');
+    if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND');
+
+    // Shop must have an active Stripe Connect account to receive funds.
+    if (!shop?.stripe_account_id || shop.stripe_connect_status !== 'active') {
+      return err('INVALID_INPUT', { stripe: 'not_connected' });
+    }
+
+    // If a paid intent already exists, refuse silently (idempotent).
+    if (appt.payment_status === 'paid') {
+      return err('CONFLICT', { payment: 'already_paid' });
+    }
+
+    // Pull the client's email so Stripe can mail them a receipt.
+    const clientRes = await sb.from('clients').select('email').eq('id', appt.client_id).single();
+    const client = clientRes.data as { email: string | null } | null;
+
+    try {
+      const intent = await createDepositPaymentIntent({
+        connectedAccountId: shop.stripe_account_id,
+        appointmentId: appt.id,
+        amountCents: input.amount_cents,
+        customerEmail: client?.email ?? undefined,
+      });
+      // Persist the intent ID + flip status to 'pending'. Webhook flips
+      // to 'paid' on success — until then, the UI shows "Pending payment."
+      await sb
+        .from('appointments')
+        .update({
+          payment_intent_id: intent.id,
+          payment_status: 'pending',
+          deposit_amount_cents: input.amount_cents,
+        })
+        .eq('id', appt.id);
+      await logAuditAction({
+        shopId: ctx.shopId,
+        actorId: ctx.userId,
+        action: 'update',
+        entity: 'appointments',
+        entityId: appt.id,
+        diff: { payment_intent_created: input.amount_cents },
+      });
+      revalidatePath(APPOINTMENTS_PATH);
+      return ok({
+        clientSecret: intent.client_secret ?? '',
+        paymentIntentId: intent.id,
+      });
+    } catch (e) {
+      captureException(e, {
+        tags: { layer: 'stripe-payments', action: 'chargeAppointment' },
+      });
+      return err('UNEXPECTED');
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// refundAppointment — Phase 38.
+//
+// Issues a full refund against the appointment's PaymentIntent. Webhook
+// `charge.refunded` updates payment_status to 'refunded'.
+//
+// Used internally by `cancelAppointment` when the appointment was paid,
+// but also exposed standalone so a manager can refund without cancelling.
+// ---------------------------------------------------------------------------
+export const refundAppointment = withAction({
+  schema: refundAppointmentSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    if (!stripeConfigured()) return err('UNEXPECTED');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+    const apptRes = await sb
+      .from('appointments')
+      .select('id, shop_id, payment_intent_id, payment_status')
+      .eq('id', input.id)
+      .single();
+    const appt = apptRes.data as {
+      id: string;
+      shop_id: string;
+      payment_intent_id: string | null;
+      payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+    } | null;
+    if (!appt) return err('NOT_FOUND');
+    if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND');
+    if (!appt.payment_intent_id) return err('INVALID_INPUT', { payment: 'no_intent' });
+    if (appt.payment_status !== 'paid') {
+      return err('INVALID_INPUT', { payment: 'not_paid' });
+    }
+
+    try {
+      await refundPaymentIntent({ paymentIntentId: appt.payment_intent_id });
+      await logAuditAction({
+        shopId: ctx.shopId,
+        actorId: ctx.userId,
+        action: 'update',
+        entity: 'appointments',
+        entityId: appt.id,
+        diff: { refunded: true },
+      });
+      revalidatePath(APPOINTMENTS_PATH);
+      return ok({ id: appt.id });
+    } catch (e) {
+      captureException(e, {
+        tags: { layer: 'stripe-payments', action: 'refundAppointment' },
+      });
+      return err('UNEXPECTED');
+    }
   },
 });

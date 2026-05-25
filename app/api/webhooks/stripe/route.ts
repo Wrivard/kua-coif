@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { getStripe, stripeConfigured } from '@/lib/stripe/server';
 import { mapAccountToStatus } from '@/lib/stripe/connect';
+import { mapIntentStatus } from '@/lib/stripe/payments';
 import { captureException } from '@/lib/observability';
 import type Stripe from 'stripe';
 
@@ -70,10 +71,28 @@ export async function POST(req: NextRequest): Promise<Response> {
         await persistAccountStatus(account);
         break;
       }
+      // Phase 38 — payment lifecycle.
+      case 'payment_intent.succeeded':
+      case 'payment_intent.payment_failed':
+      case 'payment_intent.processing':
+      case 'payment_intent.canceled': {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        await persistPaymentStatus(intent);
+        break;
+      }
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge;
+        // `payment_intent` is a string when retrieved from a webhook
+        // event. Refund events always carry it for refunds tied to an
+        // intent (not legacy charges).
+        const intentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
+        if (intentId) {
+          await persistRefundForIntent(intentId);
+        }
+        break;
+      }
       // Future:
-      //   - 'payment_intent.succeeded' (V1.5: mark appointment as paid)
-      //   - 'charge.refunded' (V1.5: appointment refund flow)
-      //   - 'payout.created' (V1.5: notify shop owner of incoming payout)
+      //   - 'payout.created' (notify shop owner of incoming payout)
       default: {
         // Silently accept — Stripe sends lots of events we don't care
         // about (e.g., balance.available). Logging them all would be noisy.
@@ -109,4 +128,35 @@ async function persistAccountStatus(account: Stripe.Account): Promise<void> {
     .from('shops')
     .update({ stripe_connect_status: status })
     .eq('stripe_account_id', account.id);
+}
+
+/**
+ * Update the appointment's payment_status from a PaymentIntent event.
+ * Looked up by the intent ID (unique-indexed in the appointment_payments
+ * migration). No-op when no row matches — happens during partial
+ * deploys or for intents we didn't create (Stripe's webhook is per
+ * project, not per intent).
+ */
+async function persistPaymentStatus(intent: Stripe.PaymentIntent): Promise<void> {
+  const status = mapIntentStatus(intent.status);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  await admin
+    .from('appointments')
+    .update({ payment_status: status })
+    .eq('payment_intent_id', intent.id);
+}
+
+/**
+ * Mark an appointment refunded. Triggered by `charge.refunded` (Stripe
+ * dashboard-initiated refunds also fire this event, so we get them for
+ * free).
+ */
+async function persistRefundForIntent(intentId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  await admin
+    .from('appointments')
+    .update({ payment_status: 'refunded' })
+    .eq('payment_intent_id', intentId);
 }
