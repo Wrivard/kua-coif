@@ -26,8 +26,11 @@ import { captureException } from '@/lib/observability';
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// Allow the function up to 60s — we may send several emails per tick.
-export const maxDuration = 60;
+// Hobby plan caps maxDuration at 10s. The route batches at most ~50 emails
+// per tick on a busy shop, each ~50-150ms via SMTP or Resend, so it usually
+// finishes within the budget. If the budget is tight in production, upgrade
+// the Vercel plan and bump this back to 60 (Pro/Enterprise).
+export const maxDuration = 10;
 
 type ApptRow = {
   id: string;

@@ -160,11 +160,25 @@ Sans cette clé, l'UI bloque la sauvegarde du mot de passe SMTP avec un warning 
 
 ### Cron reminders
 
-`vercel.json` configure un cron `*/15 * * * *` sur `/api/cron/notifications`. Toutes les 15 min :
-- Scan des RDV à venir dans 24h ±15 min → envoie `reminder_24h`
-- Scan des RDV à venir dans 1h ±15 min → envoie `reminder_1h`
+La route `/api/cron/notifications` scan deux fenêtres à chaque appel :
+- RDV à venir dans 24h ±15 min → envoie `reminder_24h`
+- RDV à venir dans 1h ±15 min → envoie `reminder_1h`
 
 Idempotence via la table `notification_sends` (unique sur `(appointment_id, kind)`).
+
+**Trigger** : doit être pingée toutes les 15 minutes pour que les fenêtres couvrent tous les RDV. Deux options selon ton plan Vercel :
+
+**Option A — Vercel Pro/Enterprise (cron natif)** : ajoute dans `vercel.json` :
+```json
+{ "crons": [{ "path": "/api/cron/notifications", "schedule": "*/15 * * * *" }] }
+```
+Vercel injecte automatiquement `Authorization: Bearer $CRON_SECRET` quand `CRON_SECRET` est défini. Remonte aussi `maxDuration` à 60 dans la route (Hobby cape à 10s).
+
+**Option B — Hobby plan (scheduler externe gratuit)** : Vercel Hobby ne permet pas le cron à 15min, donc on utilise un scheduler externe :
+- [cron-job.org](https://cron-job.org) (gratuit, 15 min de granularité)
+- GitHub Actions schedule (gratuit aussi, mais 5-15 min de drift)
+
+Configure l'URL `https://<ton-domaine>/api/cron/notifications` avec le header `Authorization: Bearer <ton CRON_SECRET>`. La route lit le même header peu importe d'où elle est appelée.
 
 **Pour les emails d'auth** (invitation Phase 22, reset password Phase 16) : Supabase les envoie via son SMTP par défaut. Pour les router via Resend, configure le SMTP custom dans Supabase Auth → SMTP Settings avec les credentials Resend SMTP. Aucun changement code.
 
