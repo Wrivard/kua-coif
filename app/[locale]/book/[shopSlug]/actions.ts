@@ -361,9 +361,15 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .filter(Boolean)
         .join(', ');
 
-      // Fire-and-forget: we `await` so the action's tail latency reflects
-      // the send (helps Sentry tracing) but ignore the return value.
+      // The dispatcher (Phase 25) handles three gates internally:
+      //   - `notification_automations.enabled === false` → silent skip
+      //   - shop has SMTP configured → ship from the salon's own domain
+      //   - else Resend Küa-branded fallback (Phase 24 behavior)
+      // We await so the action's tail latency reflects the send (Sentry
+      // tracing) but never block the booking on it.
       await sendEmail({
+        shopId: shop.id,
+        kind: 'booking_confirmation',
         to: input.email,
         subject:
           input.locale === 'fr'
@@ -386,7 +392,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           },
         }),
         tags: [
-          { name: 'kind', value: 'appointment-confirmation' },
+          { name: 'kind', value: 'booking_confirmation' },
           { name: 'shop', value: input.shop_slug },
         ],
       });

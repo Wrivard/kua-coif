@@ -157,6 +157,8 @@ Va sur https://vercel.com/[ton-team]/kua-coif/settings/environment-variables et 
 | `RESEND_API_KEY` (optionnel) | `re_…` | Active les emails Resend (booking confirmations). Sans ça, l'app no-op silencieusement à chaque send. Free tier 100 emails/jour. |
 | `RESEND_FROM` (optionnel) | `"Küa <noreply@kua.quebec>"` | Expéditeur. Domaine doit être vérifié dans Resend (records DNS SPF + DKIM). Pour tester sans DNS : `onboarding@resend.dev`. |
 | `RESEND_REPLY_TO` (optionnel) | `support@kua.quebec` | Reply-To. Fallback sur `RESEND_FROM` si absent. |
+| `NOTIFICATION_ENCRYPTION_KEY` (V1.2+) | Generated avec `openssl rand -base64 32` | **Obligatoire si tu veux que les shops aient leur propre SMTP** (Phase 25). 32 bytes base64. Sans cette clé, l'UI `/settings/notifications` empêche la sauvegarde des mots de passe SMTP. |
+| `CRON_SECRET` (optionnel) | Auto-injecté par Vercel quand `vercel.json` déclare un cron | Protège `/api/cron/notifications`. |
 
 **Important** :
 - Le `service_role` key est ultra-sensible (bypass RLS) — ne JAMAIS le préfixer `NEXT_PUBLIC_`.

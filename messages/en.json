@@ -703,6 +703,70 @@
           "overrideApplied": "Shop defaults applied (not saved yet)"
         }
       },
+      "notifications": {
+        "title": "Email notifications",
+        "subtitle": "Wire up your own SMTP so customers receive emails from your shop's address. Toggle each automation on or off.",
+        "sender": {
+          "title": "Sender configuration",
+          "description": "Without SMTP credentials, emails go out from Küa's default address. Configure your own server (Gmail, Outlook, your hosting provider) and the salon's clients will see emails come from your domain.",
+          "fromName": "From name",
+          "fromEmail": "From email",
+          "smtpHost": "SMTP host",
+          "smtpHostHint": "Gmail: smtp.gmail.com · Outlook: smtp.office365.com · Custom: your provider's host.",
+          "smtpPort": "Port",
+          "smtpUser": "SMTP user",
+          "smtpPassword": "Password (or app password)",
+          "smtpPasswordHint": "For Gmail / Outlook with 2FA, generate an 'app password' rather than your account password. Stored encrypted (AES-256-GCM).",
+          "passwordKept": "Keep existing — leave empty",
+          "disconnect": "Disconnect SMTP"
+        },
+        "test": {
+          "button": "Test connection",
+          "success": "SMTP credentials verified — your server accepted the connection.",
+          "failure": "Connection failed. Double-check host, port, user, and password (app password for Gmail/Outlook with 2FA)."
+        },
+        "automations": {
+          "title": "Automations",
+          "description": "Each automation can be toggled per channel. SMS support is coming in V1.5 (will require a per-shop Twilio account).",
+          "columns": {
+            "kind": "Automation",
+            "email": "Email",
+            "sms": "SMS"
+          },
+          "smsTooltip": "SMS coming in V1.5 — requires a per-shop Twilio account.",
+          "kinds": {
+            "booking_confirmation": {
+              "label": "Booking confirmation",
+              "hint": "Sent right after a customer books online."
+            },
+            "reminder_24h": {
+              "label": "Reminder · 24h before",
+              "hint": "Sent ~24h before the appointment. Reduces no-shows."
+            },
+            "reminder_1h": {
+              "label": "Reminder · 1h before",
+              "hint": "Sent ~1h before. Can feel pushy — opt-in."
+            },
+            "cancellation": {
+              "label": "Cancellation notice",
+              "hint": "Sent when an appointment is cancelled by anyone."
+            },
+            "birthday": {
+              "label": "Birthday greeting (V1.5)",
+              "hint": "Coming soon — requires storing client birthday."
+            }
+          }
+        },
+        "errors": {
+          "encryptionMissing": "Encryption key not configured on the server. Ask Küa to set NOTIFICATION_ENCRYPTION_KEY before saving SMTP credentials.",
+          "testFieldsRequired": "Fill in From email, host, port, user, and password before testing."
+        },
+        "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
+        "toasts": {
+          "configSaved": "Sender configuration saved",
+          "disconnected": "SMTP disconnected. Emails now use Küa fallback."
+        }
+      },
       "auditLog": {
         "title": "Audit log",
         "subtitle": "Last {count} actions across this shop.",

@@ -214,6 +214,31 @@ export async function createShopAction(
         }
       }
     }
+
+    // 6. Seed the notification_automations rows (Phase 25). Same defaults
+    //    as the migration backfill so the /settings/notifications UI shows
+    //    a populated list on first open. Best-effort; a failure here just
+    //    means the dispatcher's automation gate will fail-open (send by
+    //    default until the row exists).
+    const automationSeed = [
+      { kind: 'booking_confirmation', channel: 'email', enabled: true },
+      { kind: 'reminder_24h', channel: 'email', enabled: false },
+      { kind: 'reminder_1h', channel: 'email', enabled: false },
+      { kind: 'cancellation', channel: 'email', enabled: true },
+      { kind: 'birthday', channel: 'email', enabled: false },
+      { kind: 'booking_confirmation', channel: 'sms', enabled: false },
+      { kind: 'reminder_24h', channel: 'sms', enabled: false },
+      { kind: 'reminder_1h', channel: 'sms', enabled: false },
+      { kind: 'cancellation', channel: 'sms', enabled: false },
+      { kind: 'birthday', channel: 'sms', enabled: false },
+    ].map((r) => ({ shop_id: shopId, ...r }));
+    const autoRes = await sb.from('notification_automations').insert(automationSeed);
+    if (autoRes.error) {
+      captureException(autoRes.error, {
+        tags: { layer: 'admin-create-shop', step: 'seed-automations' },
+        extra: { shopId },
+      });
+    }
   } catch (err) {
     captureException(err, { tags: { layer: 'admin-create-shop' } });
     return { kind: 'error', message: err instanceof Error ? err.message : 'Unknown error' };

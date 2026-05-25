@@ -92,6 +92,8 @@ npx playwright install chromium
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | server-only | ⛔ | Active le rate limit Upstash (shared sliding-window au lieu de l'in-memory per-instance). Free tier 10k cmd/jour. |
 | `RESEND_API_KEY` + `RESEND_FROM` | server-only | ⛔ | Active les emails brandés via Resend (booking confirmation). Sans ces vars, le code no-op silencieusement. Voir [Resend](#resend-emails-transactionnels). |
 | `RESEND_REPLY_TO` | server-only | ⛔ | Adresse Reply-To pour les emails (ex. `support@kua.quebec`). Fallback sur `RESEND_FROM`. |
+| `NOTIFICATION_ENCRYPTION_KEY` | server-only | ⚠️ V1.2+ | **Obligatoire si les shops veulent leur propre SMTP** (Phase 25). 32 bytes base64. Générer : `openssl rand -base64 32`. Sans cette clé, l'UI `/settings/notifications` empêche la sauvegarde du mot de passe SMTP. |
+| `CRON_SECRET` | server-only | ⛔ | Vercel cron token (auto-injecté par Vercel quand un cron est config). Protège `/api/cron/notifications`. |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -140,10 +142,31 @@ Wirage Phase 24, **dormant tant que `RESEND_API_KEY` + `RESEND_FROM` ne sont pas
 
 Templates actuels (`lib/email/templates/`) :
 - `appointment-confirmation.tsx` — envoyé après une réservation réussie sur `/book/[shop]`.
+- `appointment-reminder.tsx` — variants 24h + 1h envoyés par le cron Vercel.
+- `appointment-cancellation.tsx` — envoyé quand un admin annule un RDV.
 
-Templates à venir (V1.2.5) : reminders 24h + 1h (besoin d'un cron Vercel + table d'idempotence).
+### SMTP par shop (Phase 25)
 
-**Pour les emails d'auth** (invitation, reset password) : Supabase les envoie via son SMTP par défaut. Pour les router via Resend, configure le SMTP custom dans Supabase Auth → SMTP Settings avec les credentials Resend SMTP. Aucun changement code.
+Chaque shop peut configurer son propre SMTP dans `/settings/notifications` (Gmail / Outlook / hébergeur). Quand configuré, les emails du shop partent de **leur domaine** (`noreply@salonaxum.com`) plutôt que de `noreply@kua.quebec`. Le mot de passe est **chiffré AES-256-GCM** au repos via `lib/crypto/aes.ts`.
+
+**Pré-requis pour activer la feature** : génère une clé d'encryption et set-la dans Vercel :
+
+```bash
+openssl rand -base64 32
+# colle le résultat dans NOTIFICATION_ENCRYPTION_KEY (Production + Preview)
+```
+
+Sans cette clé, l'UI bloque la sauvegarde du mot de passe SMTP avec un warning explicite. Les shops sans SMTP configuré tombent sur le fallback Resend Küa-branded.
+
+### Cron reminders
+
+`vercel.json` configure un cron `*/15 * * * *` sur `/api/cron/notifications`. Toutes les 15 min :
+- Scan des RDV à venir dans 24h ±15 min → envoie `reminder_24h`
+- Scan des RDV à venir dans 1h ±15 min → envoie `reminder_1h`
+
+Idempotence via la table `notification_sends` (unique sur `(appointment_id, kind)`).
+
+**Pour les emails d'auth** (invitation Phase 22, reset password Phase 16) : Supabase les envoie via son SMTP par défaut. Pour les router via Resend, configure le SMTP custom dans Supabase Auth → SMTP Settings avec les credentials Resend SMTP. Aucun changement code.
 
 ## Sentry (observability)
 

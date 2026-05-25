@@ -705,6 +705,70 @@
           "overrideApplied": "Défauts du salon appliqués (non enregistré)"
         }
       },
+      "notifications": {
+        "title": "Notifications par courriel",
+        "subtitle": "Configure ton propre SMTP pour que les clients reçoivent les courriels depuis l'adresse de ton salon. Toggle chaque automatisation on/off.",
+        "sender": {
+          "title": "Configuration de l'expéditeur",
+          "description": "Sans configuration SMTP, les courriels partent depuis l'adresse par défaut de Küa. Configure ton propre serveur (Gmail, Outlook, ton hébergeur) et les clients du salon verront les courriels venir de ton domaine.",
+          "fromName": "Nom expéditeur",
+          "fromEmail": "Courriel expéditeur",
+          "smtpHost": "Hôte SMTP",
+          "smtpHostHint": "Gmail : smtp.gmail.com · Outlook : smtp.office365.com · Personnalisé : l'hôte de ton fournisseur.",
+          "smtpPort": "Port",
+          "smtpUser": "Utilisateur SMTP",
+          "smtpPassword": "Mot de passe (ou app password)",
+          "smtpPasswordHint": "Pour Gmail / Outlook avec 2FA, génère un \"app password\" plutôt que ton mot de passe principal. Stocké chiffré (AES-256-GCM).",
+          "passwordKept": "Conserver l'actuel — laisse vide",
+          "disconnect": "Déconnecter SMTP"
+        },
+        "test": {
+          "button": "Tester la connexion",
+          "success": "Identifiants SMTP validés — ton serveur a accepté la connexion.",
+          "failure": "Connexion échouée. Vérifie hôte, port, utilisateur, mot de passe (app password pour Gmail/Outlook avec 2FA)."
+        },
+        "automations": {
+          "title": "Automatisations",
+          "description": "Chaque automatisation peut être activée par canal. Le SMS arrive en V1.5 (nécessitera un compte Twilio par salon).",
+          "columns": {
+            "kind": "Automatisation",
+            "email": "Courriel",
+            "sms": "SMS"
+          },
+          "smsTooltip": "SMS arrive en V1.5 — nécessite un compte Twilio par salon.",
+          "kinds": {
+            "booking_confirmation": {
+              "label": "Confirmation de réservation",
+              "hint": "Envoyé juste après qu'un client réserve en ligne."
+            },
+            "reminder_24h": {
+              "label": "Rappel · 24h avant",
+              "hint": "Envoyé ~24h avant le rendez-vous. Réduit les no-shows."
+            },
+            "reminder_1h": {
+              "label": "Rappel · 1h avant",
+              "hint": "Envoyé ~1h avant. Peut sembler insistant — opt-in."
+            },
+            "cancellation": {
+              "label": "Avis d'annulation",
+              "hint": "Envoyé quand un rendez-vous est annulé."
+            },
+            "birthday": {
+              "label": "Souhaits d'anniversaire (V1.5)",
+              "hint": "Bientôt — nécessite de stocker l'anniversaire du client."
+            }
+          }
+        },
+        "errors": {
+          "encryptionMissing": "Clé de chiffrement pas configurée sur le serveur. Demande à Küa de set NOTIFICATION_ENCRYPTION_KEY avant de sauvegarder les identifiants SMTP.",
+          "testFieldsRequired": "Remplis Courriel, hôte, port, utilisateur et mot de passe avant de tester."
+        },
+        "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
+        "toasts": {
+          "configSaved": "Configuration enregistrée",
+          "disconnected": "SMTP déconnecté. Les courriels passent par Küa par défaut."
+        }
+      },
       "auditLog": {
         "title": "Journal d'audit",
         "subtitle": "Les {count} dernières actions sur ce salon.",

@@ -18,6 +18,8 @@ import {
   cancelAppointmentSchema,
   updateAppointmentSchema,
 } from './schema';
+import { sendEmail } from '@/lib/email/send';
+import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 
 const APPOINTMENTS_PATH = '/';
 
@@ -323,6 +325,72 @@ export const cancelAppointment = withAction({
       entityId: input.id,
       diff: { status: 'cancelled' },
     });
+
+    // ── Cancellation email (Phase 25b.5) ──────────────────────────────
+    // Fetch the appointment + client + services + shop in one shot, then
+    // dispatch. The dispatcher itself gates on
+    // `notification_automations.kind='cancellation'`, so no extra check
+    // here. Best-effort: a fetch failure doesn't fail the cancel action.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = rawDb() as any;
+      const apptRes = await sb
+        .from('appointments')
+        .select('id, start_at, client_id')
+        .eq('id', input.id)
+        .single();
+      const appt = apptRes.data as {
+        id: string;
+        start_at: string;
+        client_id: string;
+      } | null;
+      if (appt) {
+        const [clientRes, servicesRes, shopRes] = await Promise.all([
+          sb.from('clients').select('first_name, email').eq('id', appt.client_id).single(),
+          sb.from('appointment_services').select('services(name)').eq('appointment_id', appt.id),
+          sb.from('shops').select('name, timezone, phone').eq('id', ctx.shopId).single(),
+        ]);
+        const client = clientRes.data as { first_name: string; email: string | null } | null;
+        const shop = shopRes.data as {
+          name: string;
+          timezone: string;
+          phone: string | null;
+        } | null;
+        const services = (
+          (servicesRes.data as Array<{ services: { name: string } | null }> | null) ?? []
+        )
+          .map((r) => r.services?.name)
+          .filter((n): n is string => Boolean(n))
+          .map((name) => ({ name }));
+        if (client?.email && shop) {
+          await sendEmail({
+            shopId: ctx.shopId,
+            kind: 'cancellation',
+            to: client.email,
+            // V1.5 will derive locale from client preference; for now we
+            // send in the shop's default language (French for new shops).
+            subject: `Annulation — ${shop.name}`,
+            template: AppointmentCancellation({
+              locale: 'fr',
+              shop: { name: shop.name, phone: shop.phone, timezone: shop.timezone },
+              client: { firstName: client.first_name },
+              appointment: { startAt: appt.start_at, services },
+              // V1 schema doesn't carry a reason field — add one once the
+              // cancel modal grows a "reason" textarea.
+              reason: null,
+            }),
+            tags: [
+              { name: 'kind', value: 'cancellation' },
+              { name: 'shop', value: ctx.shopId },
+            ],
+          });
+        }
+      }
+    } catch {
+      // Swallow — the audit log already records the cancel, and the
+      // dispatcher captures its own send errors.
+    }
+
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: input.id });
   },
