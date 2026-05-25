@@ -564,6 +564,29 @@
         },
         "toasts": {
           "saved": "Business details saved"
+        },
+        "stripe": {
+          "title": "Stripe Connect",
+          "status": {
+            "notStarted": "Not connected",
+            "pending": "Setup in progress",
+            "restricted": "Action required",
+            "active": "Connected"
+          },
+          "description": {
+            "notStarted": "Connect your Stripe account to accept online payments. The onboarding form runs on Stripe's secure site.",
+            "pending": "Stripe is waiting for additional information (ID, bank details) before activating your account. Pick up where you left off.",
+            "active": "Your Stripe account is live. Payouts will land in the bank account you set up there."
+          },
+          "actions": {
+            "connect": "Connect Stripe",
+            "continue": "Continue setup",
+            "refresh": "Refresh status",
+            "dashboard": "Open Stripe dashboard"
+          },
+          "toasts": {
+            "refreshed": "Status refreshed"
+          }
         }
       },
       "commissions": {

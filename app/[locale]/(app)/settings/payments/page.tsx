@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentUser, requireShopMember } from '@/lib/auth/server';
+import { stripeConfigured } from '@/lib/stripe/server';
 import { PaymentsClient } from './payments-client';
 import type { BusinessType } from '@/db/enums';
 
@@ -18,6 +19,16 @@ export type PaymentProfileRow = {
   created_at: string;
 };
 
+export type StripeConnectState = {
+  /** Whether STRIPE_SECRET_KEY is set server-side. Drives whether the
+   *  Connect card renders at all. */
+  configured: boolean;
+  /** Cached status from `shops.stripe_connect_status`. */
+  status: 'not_started' | 'pending' | 'restricted' | 'active';
+  /** Whether the shop has ever started onboarding (i.e. acct_* exists). */
+  hasAccount: boolean;
+};
+
 export default async function PaymentsPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
@@ -25,8 +36,21 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
-  const { data } = await supabase.from('payment_profiles').select('*').limit(1);
-  const profile = ((data as PaymentProfileRow[] | null) ?? [])[0] ?? null;
+  const [{ data: profileData }, { data: shopData }] = await Promise.all([
+    supabase.from('payment_profiles').select('*').limit(1),
+    supabase.from('shops').select('stripe_account_id, stripe_connect_status').limit(1),
+  ]);
+  const profile = ((profileData as PaymentProfileRow[] | null) ?? [])[0] ?? null;
+  const shopRow = ((shopData as Array<{
+    stripe_account_id: string | null;
+    stripe_connect_status: StripeConnectState['status'];
+  }> | null) ?? [])[0];
+
+  const stripe: StripeConnectState = {
+    configured: stripeConfigured(),
+    status: shopRow?.stripe_connect_status ?? 'not_started',
+    hasAccount: Boolean(shopRow?.stripe_account_id),
+  };
 
   return (
     <PaymentsClient
@@ -36,6 +60,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
         fullName:
           typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null,
       }}
+      stripe={stripe}
     />
   );
 }

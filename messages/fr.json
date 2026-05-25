@@ -566,6 +566,29 @@
         },
         "toasts": {
           "saved": "Détails enregistrés"
+        },
+        "stripe": {
+          "title": "Stripe Connect",
+          "status": {
+            "notStarted": "Non connecté",
+            "pending": "Configuration en cours",
+            "restricted": "Action requise",
+            "active": "Connecté"
+          },
+          "description": {
+            "notStarted": "Connecte ton compte Stripe pour recevoir les paiements en ligne. Le formulaire d'inscription se déroule sur le site sécurisé de Stripe.",
+            "pending": "Stripe attend des informations supplémentaires (ID, infos bancaires) avant d'activer ton compte. Reprends là où tu en étais.",
+            "active": "Ton compte Stripe est actif. Les fonds des prochains paiements arriveront automatiquement dans le compte bancaire que tu as configuré."
+          },
+          "actions": {
+            "connect": "Connecter Stripe",
+            "continue": "Continuer la configuration",
+            "refresh": "Rafraîchir l'état",
+            "dashboard": "Ouvrir le tableau Stripe"
+          },
+          "toasts": {
+            "refreshed": "État mis à jour"
+          }
         }
       },
       "commissions": {

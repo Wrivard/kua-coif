@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { Check, Pencil, X } from 'lucide-react';
+import { Check, ExternalLink, Pencil, RefreshCw, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,16 +14,22 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { BUSINESS_TYPES } from '@/db/enums';
-import type { PaymentProfileRow } from './page';
-import { updatePaymentProfile } from './actions';
+import type { PaymentProfileRow, StripeConnectState } from './page';
+import {
+  openStripeDashboard,
+  refreshStripeStatus,
+  startStripeConnect,
+  updatePaymentProfile,
+} from './actions';
 import { paymentProfileSchema, type PaymentProfileInput } from './schema';
 
 type Props = {
   profile: PaymentProfileRow | null;
   currentUser: { email: string; fullName: string | null };
+  stripe: StripeConnectState;
 };
 
-export function PaymentsClient({ profile, currentUser }: Props) {
+export function PaymentsClient({ profile, currentUser, stripe }: Props) {
   const t = useTranslations('pages.settings.payments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -68,6 +74,14 @@ export function PaymentsClient({ profile, currentUser }: Props) {
     <>
       <PageHeader title={t('title')} />
       <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-3">
+        {/* ─── Stripe Connect (Phase 28) ──────────────────────────────────
+            Only renders when STRIPE_SECRET_KEY is set server-side. The
+            page-level helper passes `stripe.configured` through props. */}
+        {stripe.configured ? (
+          <StripeConnectCard stripe={stripe} t={t} tErr={tErr} show={show} />
+        ) : null}
+
+        {/* ─── Profile card ────────────────────────────────────────────── */}
         {/* ─── Profile card ────────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -235,5 +249,118 @@ function ProvidedRow({
         )
       }
     />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Stripe Connect — Phase 28
+// ─────────────────────────────────────────────────────────────────────────
+
+type StripeStatus = StripeConnectState['status'];
+
+/** Map our enum onto a Badge variant + i18n key. */
+const STATUS_BADGE: Record<
+  StripeStatus,
+  { variant: 'info' | 'warning' | 'success' | 'danger'; key: string }
+> = {
+  not_started: { variant: 'info', key: 'stripe.status.notStarted' },
+  pending: { variant: 'warning', key: 'stripe.status.pending' },
+  restricted: { variant: 'warning', key: 'stripe.status.restricted' },
+  active: { variant: 'success', key: 'stripe.status.active' },
+};
+
+function StripeConnectCard({
+  stripe,
+  t,
+  tErr,
+  show,
+}: {
+  stripe: StripeConnectState;
+  t: (key: string) => string;
+  tErr: (key: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  show: (toast: any) => void;
+}) {
+  const [busy, startTransition] = useTransition();
+  const badge = STATUS_BADGE[stripe.status];
+
+  function handleStart() {
+    startTransition(async () => {
+      const result = await startStripeConnect(undefined);
+      if (result.ok) {
+        // Full-page redirect — Stripe-hosted onboarding doesn't play
+        // nice with iframes (X-Frame-Options DENY on their side).
+        window.location.href = result.data.url;
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  function handleRefresh() {
+    startTransition(async () => {
+      const result = await refreshStripeStatus(undefined);
+      if (result.ok) {
+        show({ variant: 'success', title: t('stripe.toasts.refreshed') });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  function handleDashboard() {
+    startTransition(async () => {
+      const result = await openStripeDashboard(undefined);
+      if (result.ok) {
+        window.open(result.data.url, '_blank', 'noopener,noreferrer');
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader>
+        <CardTitle>{t('stripe.title')}</CardTitle>
+        <Badge variant={badge.variant}>{t(badge.key)}</Badge>
+      </CardHeader>
+      <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-xl text-xs text-text-secondary">
+          {stripe.status === 'active'
+            ? t('stripe.description.active')
+            : stripe.status === 'pending' || stripe.status === 'restricted'
+              ? t('stripe.description.pending')
+              : t('stripe.description.notStarted')}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {stripe.status === 'not_started' && (
+            <Button onClick={handleStart} loading={busy} size="sm">
+              {t('stripe.actions.connect')}
+            </Button>
+          )}
+          {(stripe.status === 'pending' || stripe.status === 'restricted') && (
+            <>
+              <Button onClick={handleStart} loading={busy} size="sm">
+                {t('stripe.actions.continue')}
+              </Button>
+              <Button variant="secondary" onClick={handleRefresh} loading={busy} size="sm">
+                <RefreshCw className="h-4 w-4" /> {t('stripe.actions.refresh')}
+              </Button>
+            </>
+          )}
+          {stripe.status === 'active' && (
+            <>
+              <Button variant="secondary" onClick={handleRefresh} loading={busy} size="sm">
+                <RefreshCw className="h-4 w-4" /> {t('stripe.actions.refresh')}
+              </Button>
+              <Button onClick={handleDashboard} loading={busy} size="sm">
+                <ExternalLink className="h-4 w-4" /> {t('stripe.actions.dashboard')}
+              </Button>
+            </>
+          )}
+        </div>
+      </CardBody>
+    </Card>
   );
 }

@@ -95,6 +95,7 @@ npx playwright install chromium
 | `NOTIFICATION_ENCRYPTION_KEY` | server-only | ⚠️ V1.2+ | **Obligatoire si les shops veulent leur propre SMTP** (Phase 25). 32 bytes base64. Générer : `openssl rand -base64 32`. Sans cette clé, l'UI `/settings/notifications` empêche la sauvegarde du mot de passe SMTP. |
 | `CRON_SECRET` | server-only | ⛔ | Vercel cron token (auto-injecté par Vercel quand un cron est config). Protège `/api/cron/notifications`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | client + server | ⛔ | Active Cloudflare Turnstile sur la booking publique (Phase 30). Setup gratuit sur [dash.cloudflare.com/?to=/:account/turnstile](https://dash.cloudflare.com/?to=/:account/turnstile). Sans ces vars, le widget ne render pas et la vérification serveur no-op (honeypot + rate-limit gardent leur rôle de défense). |
+| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | server-only | ⛔ | Active Stripe Connect Express (Phase 28) — onboarding KYC pour que les shops reçoivent les paiements. Sans ces vars, la carte "Stripe Connect" dans `/settings/payments` ne s'affiche pas. Setup : `sk_test_...` du dashboard Stripe + `whsec_...` après avoir créé un webhook endpoint pointant sur `/api/webhooks/stripe`. |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -265,6 +266,7 @@ vitest.config.ts · playwright.config.ts
 - **Rate limiting** : auth signin 5/10min, signup 3/10min, forgot-password 3/10min, reset-password 5/10min, public booking 10/10min, slots API 30/min. Bascule auto sur Upstash Redis (sliding-window partagé multi-instance) quand `UPSTASH_REDIS_REST_URL` est renseigné, sinon fallback in-memory per-process.
 - **Honeypot** sur la booking page publique.
 - **Cloudflare Turnstile** (optionnel, Phase 30) : CAPTCHA privacy-friendly sur la booking page. Active en posant `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` dans Vercel. Sans ces vars, le widget ne render pas et la vérification serveur no-op — l'app garde honeypot + rate-limit comme défense. Setup : crée un site sur [dash.cloudflare.com/?to=/:account/turnstile](https://dash.cloudflare.com/?to=/:account/turnstile), copie les deux clés.
+- **Stripe Connect Express** (optionnel, Phase 28) : onboarding hosted Stripe pour que les shops reçoivent leurs paiements. Env-gated via `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`. Sans ces vars, la carte « Stripe Connect » dans `/settings/payments` ne s'affiche pas. Activation : (1) compte sur [dashboard.stripe.com/register](https://dashboard.stripe.com/register), (2) copie le test Secret Key dans Vercel Preview, (3) crée un webhook endpoint pointant vers `https://<ton-domaine>/api/webhooks/stripe` avec l'event `account.updated`, (4) copie le signing secret. Voir `lib/stripe/connect.ts` pour le détail du flow.
 - **Headers** : CSP avec `frame-ancestors *` réservé aux routes `/embed/*`, strict ailleurs · X-Frame-Options DENY · nosniff · Referrer-Policy strict · Permissions-Policy off camera/mic/geo · HSTS 1 an.
 - **Aucune donnée sensible affichée en clair** (SIN, Tax ID) — badges « Provided / Not Provided ».
 - **Audit log** : 7 tables instrumentées via trigger SQL Phase 2 + `logAuditAction()` côté code, surface admin sur `/settings/audit-log`.
@@ -280,7 +282,7 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 25 — SMTP-per-shop + reminders cron** (24h + 1h) + automation toggles + AES-256-GCM des SMTP passwords.
 - ✅ **Phase 26 — Realtime calendar** : Supabase Realtime sur `appointments` + `blocked_time` pour la propagation multi-écrans.
 - ⏳ **Phase 27 — Drag-to-reschedule** : déplacer/redimensionner un RDV directement sur la grille (`@dnd-kit/core` déjà installé). Dépend de Phase 26 pour propagation cross-viewer.
-- ⏳ **Phase 28 — Stripe Connect** : intégration paiement réelle (UI déjà câblée en V1).
+- ✅ **Phase 28 — Stripe Connect Express (onboarding)** : env-gated. UI dans `/settings/payments` qui crée un compte Express, redirige vers le KYC hosted Stripe, et reflète le statut via webhook `account.updated`. **Pas encore de charges** — les PaymentIntents sur booking arrivent en V1.5/Phase 32. Voir section Sécurité pour activation.
 - ⏳ **Phase 29 — UI review / polish global** : passe de finition cross-écrans (voir détail ci-dessous).
 - ✅ **Phase 30 — Cloudflare Turnstile** : protection bot sur booking publique (env-gated — voir section Sécurité).
 - ✅ **Phase 31 — Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (déjà livré avec Phase 20 — middleware lit `widget_config.allowed_origins` et bâtit la CSP par shop, UI dans `/settings/widget`).
