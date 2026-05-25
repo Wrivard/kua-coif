@@ -71,7 +71,7 @@ function clientIp(): string {
 export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: string }>> {
   // Rate limit BEFORE parsing to keep abuse cheap.
   const ip = clientIp();
-  const rl = checkRateLimit(`book:${ip}`, { max: 10, windowMs: 10 * 60 * 1000 });
+  const rl = await checkRateLimit(`book:${ip}`, { max: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return err('RATE_LIMITED');
 
   const parsed = publicBookingSchema.safeParse(raw);

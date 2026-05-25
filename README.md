@@ -89,6 +89,7 @@ npx playwright install chromium
 | `NEXT_PUBLIC_SENTRY_DSN` | client + server | ⛔ | Active Sentry browser quand renseigné |
 | `SENTRY_DSN` | server-only | ⛔ | Active Sentry server/edge (fallback sur `NEXT_PUBLIC_SENTRY_DSN`) |
 | `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | build-time | ⛔ | Activent l'upload source-maps (sinon Sentry montre du minifié) |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | server-only | ⛔ | Active le rate limit Upstash (shared sliding-window au lieu de l'in-memory per-instance). Free tier 10k cmd/jour. |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -204,7 +205,7 @@ vitest.config.ts · playwright.config.ts
 
 - **RLS** sur les 26 tables (`force row level security`), test multi-shop dans [`supabase/tests/rls_cross_shop.sql`](supabase/tests/rls_cross_shop.sql).
 - **Auth** : Supabase email/password, middleware refresh-session, `safeRedirectTarget()` anti open-redirect.
-- **Rate limiting in-memory** : auth signin 5/10min, signup 3/10min, forgot-password 3/10min, reset-password 5/10min, public booking 10/10min, slots API 30/min. V1.1 → Upstash KV pour multi-instance.
+- **Rate limiting** : auth signin 5/10min, signup 3/10min, forgot-password 3/10min, reset-password 5/10min, public booking 10/10min, slots API 30/min. Bascule auto sur Upstash Redis (sliding-window partagé multi-instance) quand `UPSTASH_REDIS_REST_URL` est renseigné, sinon fallback in-memory per-process.
 - **Honeypot** sur la booking page publique.
 - **Headers** : CSP avec `frame-ancestors *` réservé aux routes `/embed/*`, strict ailleurs · X-Frame-Options DENY · nosniff · Referrer-Policy strict · Permissions-Policy off camera/mic/geo · HSTS 1 an.
 - **Aucune donnée sensible affichée en clair** (SIN, Tax ID) — badges « Provided / Not Provided ».
@@ -215,7 +216,6 @@ vitest.config.ts · playwright.config.ts
 - **Stripe Connect** : intégration paiement réelle (UI déjà câblée).
 - **Resend** : emails de confirmation customisés.
 - **Cloudflare Turnstile** : protection bot sur signup + booking.
-- **Upstash KV** : rate limit multi-instance.
 - **Realtime calendar** : Supabase Realtime sur `appointments` pour les barbiers multi-écrans.
 - **Drag-and-drop calendrier** : reprogrammation des RDV (édition par modal en V1).
 - **Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (V1 : permissif `*`).

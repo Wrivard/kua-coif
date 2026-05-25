@@ -46,7 +46,7 @@ export async function signInAction(
 ): Promise<AuthActionState> {
   // 1. Rate-limit BEFORE touching Supabase to blunt brute-force attempts.
   const ip = clientIp();
-  const rl = checkRateLimit(`signin:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
+  const rl = await checkRateLimit(`signin:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };
   }
@@ -98,7 +98,7 @@ export async function signUpAction(
 ): Promise<AuthActionState> {
   // Signup is also rate-limited (lower threshold — even cheaper attack surface).
   const ip = clientIp();
-  const rl = checkRateLimit(`signup:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
+  const rl = await checkRateLimit(`signup:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };
   }

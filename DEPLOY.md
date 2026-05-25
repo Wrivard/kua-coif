@@ -153,6 +153,7 @@ Va sur https://vercel.com/[ton-team]/kua-coif/settings/environment-variables et 
 | `NEXT_PUBLIC_SENTRY_DSN` (optionnel) | `https://abc@o123.ingest.sentry.io/456` | Sentry → Settings → Client Keys (DSN). Active la capture d'erreurs côté navigateur. |
 | `SENTRY_DSN` (optionnel) | idem | Variante server-only. Fallback sur `NEXT_PUBLIC_SENTRY_DSN` si absente. |
 | `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` (optionnel) | … | Activent l'upload source-maps au build → Sentry montre du JS lisible plutôt que minifié. |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (optionnel) | `https://…upstash.io` + token | Active le rate limit Upstash (shared sliding-window). Sans ça, fallback in-memory per-instance — fonctionnel mais réinitialisé à chaque cold start Vercel. Crée le DB sur https://console.upstash.com → Redis, région proche de Vercel. |
 
 **Important** :
 - Le `service_role` key est ultra-sensible (bypass RLS) — ne JAMAIS le préfixer `NEXT_PUBLIC_`.

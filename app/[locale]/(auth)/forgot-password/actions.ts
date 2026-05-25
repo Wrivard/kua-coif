@@ -38,7 +38,7 @@ export async function forgotPasswordAction(
 ): Promise<ForgotPasswordState> {
   const h = headers();
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = checkRateLimit(`forgot:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
+  const rl = await checkRateLimit(`forgot:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return { kind: 'rate-limited' };
 
   const parsed = schema.safeParse({

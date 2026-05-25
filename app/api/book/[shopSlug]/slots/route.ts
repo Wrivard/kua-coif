@@ -19,7 +19,7 @@ export const runtime = 'nodejs';
  */
 export async function GET(req: NextRequest, { params }: { params: { shopSlug: string } }) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = checkRateLimit(`slots:${ip}`, { max: 30, windowMs: 60 * 1000 });
+  const rl = await checkRateLimit(`slots:${ip}`, { max: 30, windowMs: 60 * 1000 });
   if (!rl.allowed) {
     return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
   }
