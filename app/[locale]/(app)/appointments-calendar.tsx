@@ -109,10 +109,12 @@ type Props = {
   googleBusy?: GoogleBusyPerBarber[];
 };
 
-// Pixels per minute on the vertical axis. 1.6 gives a 30-min slot ~48px of
-// vertical space — comfortable touch target on mobile and breathing room on
-// desktop without making the day require excessive scrolling.
-const PX_PER_MIN = 1.6;
+// Pixels per minute on the vertical axis. 1.8 gives a 30-min slot ~54px
+// of vertical space — matches the breathing room of the Squire-style
+// reference calendar without making a 12-hour day require excessive
+// scrolling (~648px of grid + 48px header = ~700px on a typical
+// laptop screen).
+const PX_PER_MIN = 1.8;
 // Default visible range when the shop is closed that day (so the grid still
 // renders something useful).
 const FALLBACK_START_MIN = 8 * 60;
@@ -576,20 +578,21 @@ export function AppointmentsCalendar({
           </div>
         )}
 
-        {/* Calendar grid — Phase 27 wraps in DndContext so each appointment
-            block (useDraggable) can be dropped on any barber column
-            (useDroppable). Phase 33 softened the grid contrast — borders
-            are now 30% opacity, alternating hour bands replace the harsh
-            half-hour lines, and a current-time indicator runs across all
-            columns when viewing today. */}
+        {/* Calendar grid — Phase 33 round 2 dialed the visual noise way
+            down to match the Squire-style reference: NO alternating
+            hour bands (uniform background), borders at 20-25% opacity,
+            container on bg-bg-base (pure dark) instead of bg-bg-surface
+            (the gray-tinted surface). Appointments pop now because the
+            grid recedes. */}
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="border-border/70 overflow-x-auto rounded-lg border bg-bg-surface shadow-sm">
+          <div className="border-border/40 overflow-x-auto rounded-lg border bg-bg-base">
             <div className="flex min-w-[600px]">
-              {/* Time axis — wider (w-16) so "12 PM" fits cleanly, lighter
-                  border. Labels sit at the START of each hour band, not
-                  centered on the line, so the eye lands on them naturally. */}
-              <div className="border-border/40 w-16 shrink-0 border-r bg-bg-surface">
-                <div className="border-border/40 h-12 border-b" />
+              {/* Time axis — labels centered on the hour line
+                  (-translate-y-1/2) so the visual rhythm is
+                  "label-on-line, label-on-line" rather than
+                  "label, blank, line, label". */}
+              <div className="border-border/25 w-16 shrink-0 border-r bg-bg-base">
+                <div className="border-border/25 h-12 border-b" />
                 <div className="relative" style={{ height: `${gridHeightPx}px` }}>
                   {hourLabels.map((min) => {
                     if (min < startMin || min > endMin) return null;
@@ -597,7 +600,7 @@ export function AppointmentsCalendar({
                     return (
                       <div
                         key={min}
-                        className="absolute right-2 pt-1 text-[11px] font-medium uppercase tracking-wide text-text-muted"
+                        className="absolute right-3 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wider text-text-muted"
                         style={{ top: `${top}px` }}
                       >
                         {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
@@ -729,10 +732,11 @@ function BarberColumn({
   // — otherwise it'd dangle off-screen and confuse depth perception.
   const showNow = nowMin !== null && nowMin >= startMin && nowMin <= endMin;
   return (
-    <div className="border-border/40 min-w-[180px] flex-1 border-r last:border-r-0">
+    <div className="border-border/25 min-w-[180px] flex-1 border-r last:border-r-0">
       {/* Header — slightly elevated bg + larger padding + uppercase letterform
-          for a cleaner visual rhythm vs the previous flat row. */}
-      <div className="border-border/40 bg-bg-surface-2/60 flex h-12 items-center gap-2 border-b px-3">
+          for a cleaner visual rhythm vs the previous flat row. Border-b
+          at 25% to match the column dividers' tone. */}
+      <div className="border-border/25 bg-bg-surface-2/40 flex h-12 items-center gap-2 border-b px-4">
         <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
         <span className="truncate text-sm font-semibold text-text-primary">
           {barber.display_name}
@@ -749,36 +753,18 @@ function BarberColumn({
         style={{ height: `${gridHeightPx}px` }}
         onClick={(e) => onSlotClick(barber.id, e)}
       >
-        {/* Alternating hour bands — zebra-stripes the grid every other hour
-            so the eye can scan vertically without counting tick marks. The
-            stripe is bg-bg-surface/30 over the bg-bg-base column background,
-            ~5% lift in luminance: visible but never noisy. */}
-        {hourLabels.map((min, idx) => {
-          if (min < startMin || min >= endMin) return null;
-          if (idx % 2 !== 0) return null;
-          const top = (min - startMin) * PX_PER_MIN;
-          const next = hourLabels[idx + 1] ?? endMin;
-          const height = (Math.min(next, endMin) - min) * PX_PER_MIN;
-          return (
-            <div
-              key={`band-${min}`}
-              className="bg-bg-surface/30 absolute left-0 right-0"
-              style={{ top: `${top}px`, height: `${height}px` }}
-              aria-hidden
-            />
-          );
-        })}
-
-        {/* Hour rules — much softer than before (30% opacity vs 60%) so the
-            grid recedes and the appointment blocks pop. Still solid enough
-            to anchor the eye on hour boundaries. */}
+        {/* Hour rules — soft 20% opacity so the grid is a "ghost"
+            structure, not a checkered pattern. Removed the alternating
+            hour-band stripes from the previous iteration; the reference
+            calendar shows a uniform background and the bands added
+            visual noise without helping scan-ability. */}
         {hourLabels.map((min) => {
           if (min < startMin || min > endMin) return null;
           const top = (min - startMin) * PX_PER_MIN;
           return (
             <div
               key={min}
-              className="border-border/30 absolute left-0 right-0 border-t"
+              className="border-border/20 absolute left-0 right-0 border-t"
               style={{ top: `${top}px` }}
               aria-hidden
             />
