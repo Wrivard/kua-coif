@@ -16,7 +16,9 @@
     "logout": "Déconnexion",
     "switchLanguage": "Changer de langue",
     "expandSidebar": "Agrandir la barre latérale",
-    "collapseSidebar": "Réduire la barre latérale"
+    "collapseSidebar": "Réduire la barre latérale",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
   },
   "auth": {
     "login": {

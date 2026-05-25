@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Sidebar } from '@/components/ui/sidebar';
+import { MobileSidebar } from '@/components/ui/mobile-sidebar';
 import { FabButtons } from '@/components/ui/fab-buttons';
 import { ToastProvider } from '@/components/ui/toast';
 import { QueryProvider } from '@/components/providers/query-provider';
@@ -45,26 +46,30 @@ export default async function AppShellLayout({
           {tA11y('skipToContent')}
         </a>
         <div className="flex min-h-screen bg-bg-base">
-          <Sidebar
-            locale={locale}
-            hideProducts={hideProducts}
-            user={
-              user
-                ? {
-                    id: user.id,
-                    email: user.email ?? '',
-                    fullName:
-                      (typeof user.user_metadata?.full_name === 'string'
-                        ? user.user_metadata.full_name
-                        : undefined) ?? null,
-                    avatarUrl:
-                      (typeof user.user_metadata?.avatar_url === 'string'
-                        ? user.user_metadata.avatar_url
-                        : undefined) ?? null,
-                  }
-                : null
-            }
-          />
+          {(() => {
+            // Resolve the SidebarUser shape once and reuse for both desktop +
+            // mobile renderings. Same payload, different containers.
+            const sidebarUser = user
+              ? {
+                  id: user.id,
+                  email: user.email ?? '',
+                  fullName:
+                    (typeof user.user_metadata?.full_name === 'string'
+                      ? user.user_metadata.full_name
+                      : undefined) ?? null,
+                  avatarUrl:
+                    (typeof user.user_metadata?.avatar_url === 'string'
+                      ? user.user_metadata.avatar_url
+                      : undefined) ?? null,
+                }
+              : null;
+            return (
+              <>
+                <Sidebar locale={locale} hideProducts={hideProducts} user={sidebarUser} />
+                <MobileSidebar locale={locale} hideProducts={hideProducts} user={sidebarUser} />
+              </>
+            );
+          })()}
           <main id="main" className="flex min-w-0 flex-1 flex-col">
             {children}
           </main>

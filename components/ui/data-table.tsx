@@ -84,7 +84,9 @@ export function DataTable<Row>({
 
   return (
     <div className={cn('flex flex-col rounded border border-border bg-bg-surface', className)}>
-      <div className="overflow-x-auto">
+      {/* Desktop: full table. Hidden on mobile where the dense grid would
+          require horizontal scrolling and lose readability. */}
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-bg-surface">
             <tr className="border-b border-border">
@@ -204,6 +206,105 @@ export function DataTable<Row>({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile: card-per-row layout. First column renders as the card
+          title, every other non-actions column renders as a `LABEL · value`
+          row, and the last empty-header column (typically icon-only row
+          actions) renders aligned to the bottom-right.
+
+          The breakpoint matches the desktop sidebar's `md:flex` so the
+          two responsive layers swap together. */}
+      <div className="md:hidden" aria-busy={loading ? 'true' : undefined}>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={`m-skeleton-${i}`}
+              className="border-b border-border px-4 py-3 last:border-b-0"
+            >
+              <Skeleton className="mb-2 h-4 w-40" />
+              <Skeleton className="mb-1 h-3 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          ))
+        ) : isEmpty ? (
+          <EmptyState
+            className="rounded-none border-0"
+            title={emptyState?.title ?? t('empty')}
+            description={emptyState?.description}
+            action={emptyState?.action}
+          />
+        ) : (
+          sortedData.map((row, idx) => {
+            const clickable = Boolean(onRowClick);
+            return (
+              <div
+                key={getRowKey(row, idx)}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onClick={clickable ? () => onRowClick!(row) : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onRowClick!(row);
+                        }
+                      }
+                    : undefined
+                }
+                className={cn(
+                  'block border-b border-border px-4 py-3 transition-colors last:border-b-0',
+                  clickable &&
+                    'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+                )}
+              >
+                {columns.map((col, colIdx) => {
+                  const isPrimary = colIdx === 0;
+                  // An empty header signals "this column is decorative" —
+                  // usually the row-action icon column. Render it alone at
+                  // the end without a label.
+                  const isActions =
+                    !col.header || (typeof col.header === 'string' && col.header.trim() === '');
+                  if (isPrimary) {
+                    return (
+                      <div key={col.id} className="text-sm font-medium text-text-primary">
+                        {col.cell(row)}
+                      </div>
+                    );
+                  }
+                  if (isActions) {
+                    return (
+                      <div
+                        key={col.id}
+                        className="mt-2 flex justify-end"
+                        // Action icons inside should NOT trigger the card click
+                        // (they have their own handlers + stopPropagation, but
+                        // belt-and-braces).
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {col.cell(row)}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={col.id}
+                      className="mt-1 flex items-baseline justify-between gap-3 text-xs"
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                        {col.header}
+                      </span>
+                      <span className="min-w-0 truncate text-right text-text-primary">
+                        {col.cell(row)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {pagination ? (
