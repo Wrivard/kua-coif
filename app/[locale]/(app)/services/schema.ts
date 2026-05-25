@@ -17,6 +17,14 @@ export const serviceSchema = z.object({
   price: z.number().min(0).max(99999.99),
   status: z.enum(SERVICE_STATUSES),
   tax_ids: z.array(z.string().uuid()),
+  /**
+   * Phase 42 — optional deposit charged at booking (in cents).
+   * 0 = no deposit required. Booking flow consumes this via the Phase 38
+   * PaymentIntent backend. Always present in the form (defaults to 0 in
+   * the modal's defaults); kept non-optional to keep react-hook-form's
+   * input/output types aligned.
+   */
+  deposit_amount_cents: z.number().int().min(0).max(100_000_00),
 });
 
 export type ServiceInput = z.infer<typeof serviceSchema>;

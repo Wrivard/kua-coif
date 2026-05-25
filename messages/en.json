@@ -267,7 +267,9 @@
         "price": "Price",
         "status": "Status",
         "taxes": "Applicable taxes",
-        "noTaxes": "No taxes configured. Add some in Settings → Taxes first."
+        "noTaxes": "No taxes configured. Add some in Settings → Taxes first.",
+        "deposit": "Deposit required",
+        "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form."
       },
       "toasts": {
         "created": "Service created",

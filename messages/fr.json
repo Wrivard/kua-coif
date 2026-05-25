@@ -269,7 +269,9 @@
         "price": "Prix",
         "status": "Statut",
         "taxes": "Taxes applicables",
-        "noTaxes": "Aucune taxe configurée. Crée-en d'abord dans Réglages → Taxes."
+        "noTaxes": "Aucune taxe configurée. Crée-en d'abord dans Réglages → Taxes.",
+        "deposit": "Acompte requis",
+        "depositHint": "Montant prélevé au booking (0 = pas d'acompte). V1.1 affichera le formulaire de paiement Stripe."
       },
       "toasts": {
         "created": "Service créé",

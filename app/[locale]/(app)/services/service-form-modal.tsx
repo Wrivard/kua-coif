@@ -41,6 +41,12 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           price: mode.service.price,
           status: mode.service.status,
           tax_ids: existingTaxIds,
+          // Phase 42 — service.deposit_amount_cents was added in
+          // migration 20260525190000_appointment_payments. The ServiceRow
+          // type doesn't carry it yet (db/rows.ts is hand-rolled), so
+          // we coerce via `any` until the rows file regenerates.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          deposit_amount_cents: ((mode.service as any).deposit_amount_cents as number) ?? 0,
         }
       : {
           name: '',
@@ -49,6 +55,7 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           price: 0,
           status: 'enabled',
           tax_ids: taxes.map((t) => t.id), // default: all shop taxes
+          deposit_amount_cents: 0,
         };
 
   const {
@@ -160,6 +167,24 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
             <option value="enabled">{t('status.enabled')}</option>
             <option value="disabled">{t('status.disabled')}</option>
           </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="deposit_amount_cents">{t('form.deposit')}</Label>
+          {/* Phase 42 — store as cents but show as dollars in the UI.
+              `setValueAs` converts string "12.50" → 1250 cents on submit. */}
+          <MoneyInput
+            id="deposit_amount_cents"
+            placeholder="0.00"
+            {...register('deposit_amount_cents', {
+              setValueAs: (v) => {
+                const n = typeof v === 'string' ? parseFloat(v) : Number(v);
+                return Number.isFinite(n) ? Math.round(n * 100) : 0;
+              },
+            })}
+            defaultValue={(defaults.deposit_amount_cents / 100).toFixed(2)}
+          />
+          <FieldHint>{t('form.depositHint')}</FieldHint>
         </div>
 
         <div className="md:col-span-2">

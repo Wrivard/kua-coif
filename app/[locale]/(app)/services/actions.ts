@@ -65,6 +65,8 @@ export const createService = withAction({
         duration_min: input.duration_min,
         price: input.price,
         status: input.status,
+        // Phase 42 — optional deposit charged at booking.
+        deposit_amount_cents: input.deposit_amount_cents ?? 0,
       })
       .select('id')
       .single();
