@@ -14,7 +14,6 @@ import {
   UserCircle2,
   X,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -260,34 +259,50 @@ export function BookingWizard({
   }
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1 text-center">
-        <h1 className="text-2xl font-semibold text-text-primary">{shop.name}</h1>
-        {shop.street && shop.municipality ? (
-          <p className="text-xs text-text-muted">
-            {shop.street} · {shop.municipality}
-            {shop.province ? `, ${shop.province}` : ''}
-          </p>
-        ) : null}
+    <div className="space-y-7">
+      {/* Brand mark + shop name — premium first impression. The accent-glow
+          K matches the auth shell so returning customers feel the same
+          surface quality on both touch-points. */}
+      <header className="flex flex-col items-center gap-3 text-center">
+        <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
+          <span className="text-base font-bold">K</span>
+        </span>
+        <div className="space-y-1">
+          <h1 className="text-display-sm font-semibold tracking-tight text-text-primary">
+            {shop.name}
+          </h1>
+          {shop.street && shop.municipality ? (
+            <p className="text-xs text-text-muted">
+              {shop.street} · {shop.municipality}
+              {shop.province ? `, ${shop.province}` : ''}
+            </p>
+          ) : null}
+        </div>
       </header>
 
       {/* Progress chips — five segments, one per step. The mapping of "step
           number" → semantic kind is computed by `kindForStep` so the chip
-          count stays constant regardless of step ordering. */}
+          count stays constant regardless of step ordering.
+          Phase 47b: active chips widen + gain an accent halo, inactive
+          chips stay slim. The width-grow gives directional feedback ("you
+          made progress") without an extra label. */}
       <ol className="flex items-center justify-center gap-1.5">
-        {Array.from({ length: PROGRESS_CHIP_COUNT }, (_, i) => i + 1).map((id) => (
-          <li
-            key={id}
-            className={cn(
-              'h-1.5 w-10 rounded-full transition-colors',
-              state.step >= id ? 'bg-accent' : 'bg-bg-surface-2',
-            )}
-            aria-hidden
-          />
-        ))}
+        {Array.from({ length: PROGRESS_CHIP_COUNT }, (_, i) => i + 1).map((id) => {
+          const reached = state.step >= id;
+          return (
+            <li
+              key={id}
+              className={cn(
+                'h-1.5 rounded-full transition-all duration-300 ease-out-quint',
+                reached ? 'w-10 bg-accent shadow-accent-glow' : 'w-6 bg-bg-surface-2',
+              )}
+              aria-hidden
+            />
+          );
+        })}
       </ol>
 
-      <div className="rounded border border-border bg-bg-surface p-5 sm:p-6">
+      <div className="rounded-xl border border-border bg-bg-surface p-5 shadow-md sm:p-6">
         {/* ─── Step 1 & 2 — order depends on `show_professional_first` ── */}
         {state.step <= 2 && kindForStep(state.step) === 'service' && (
           <ServiceStep
@@ -345,7 +360,9 @@ export function BookingWizard({
               />
             ) : null}
 
-            <h2 className="text-lg font-semibold">{t('steps.slot.title')}</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+              {t('steps.slot.title')}
+            </h2>
             <DateStrip
               value={state.date}
               onChange={(d) => setState((s) => ({ ...s, date: d, startTime: null }))}
@@ -367,8 +384,12 @@ export function BookingWizard({
         {/* ─── Step 4: contact info ─────────────────────────────────── */}
         {state.step === 4 && (
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">{t('steps.contact.title')}</h2>
-            <p className="text-sm text-text-secondary">{t('steps.contact.help')}</p>
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+                {t('steps.contact.title')}
+              </h2>
+              <p className="text-sm text-text-secondary">{t('steps.contact.help')}</p>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="first_name" required>
@@ -469,11 +490,13 @@ export function BookingWizard({
             ) : null}
 
             {/* Summary card */}
-            <div className="rounded border border-border bg-bg-base p-3 text-sm">
+            <div className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-sm">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                 {t('summary.title')}
               </p>
-              <p className="font-medium">{selectedServices.map((s) => s.name).join(' + ')}</p>
+              <p className="font-medium text-text-primary">
+                {selectedServices.map((s) => s.name).join(' + ')}
+              </p>
               <p className="text-xs text-text-secondary">
                 {totalDuration} min · {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
               </p>
@@ -492,11 +515,22 @@ export function BookingWizard({
         {/* ─── Step 5: confirmation ─────────────────────────────────── */}
         {state.step === 5 && (
           <section className="space-y-4 text-center">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-success" />
-            <h2 className="text-xl font-semibold">{t('done.title')}</h2>
+            {/* Larger success mark with a soft glow ring — feels like a
+                proper "done" celebration, not just an icon. */}
+            <span
+              aria-hidden
+              className="bg-success/15 ring-success/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full ring-4"
+            >
+              <CheckCircle2 className="h-8 w-8 text-success" />
+            </span>
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
+              {t('done.title')}
+            </h2>
             <p className="text-sm text-text-secondary">{t('done.description')}</p>
-            <div className="rounded border border-border bg-bg-base p-3 text-left text-sm">
-              <p className="font-medium">{selectedServices.map((s) => s.name).join(' + ')}</p>
+            <div className="rounded-lg border border-border bg-bg-base p-4 text-left text-sm shadow-sm">
+              <p className="font-medium text-text-primary">
+                {selectedServices.map((s) => s.name).join(' + ')}
+              </p>
               <p className="text-xs text-text-secondary">
                 {formatHeaderDate(
                   new Date(`${state.date}T12:00:00Z`),
@@ -536,14 +570,16 @@ export function BookingWizard({
         )}
       </div>
 
-      {/* Running subtotal at the bottom for small screens */}
+      {/* Running subtotal — sticky on small screens so the customer always
+          sees what they're committing to as they scroll the service list.
+          Frosted glass treatment matches the page-header pattern. */}
       {state.step < 4 && selectedServices.length > 0 ? (
-        <div className="rounded border border-border bg-bg-surface px-4 py-3 text-sm">
+        <div className="bg-bg-surface/90 sticky bottom-3 z-10 rounded-xl border border-border px-4 py-3 text-sm shadow-lg backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">
               {selectedServices.length} {t('summary.servicesLabel')}
             </span>
-            <span className="font-semibold">
+            <span className="text-base font-semibold tracking-tight text-text-primary">
               {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
             </span>
           </div>
@@ -603,26 +639,33 @@ function ServiceStep({
   void services; // unused but kept in the signature for future extension
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold">{t('steps.service.title')}</h2>
-      <p className="text-sm text-text-secondary">{t('steps.service.help')}</p>
+    <section className="space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+          {t('steps.service.title')}
+        </h2>
+        <p className="text-sm text-text-secondary">{t('steps.service.help')}</p>
+      </div>
 
       {/* "Primary" banner — shows the user's current picks. Each pill has an X
           to remove. We don't single out a "primary" item visually (the data
-          model treats services equally); the banner conveys what's locked in. */}
+          model treats services equally); the banner conveys what's locked in.
+          Phase 47b: rounded-lg + accent glow ring instead of a hard border,
+          and the inner rows lose their flat-rectangle look for proper
+          rounded-lg surfaces with a subtle border to separate from the bg. */}
       {hasSelection ? (
-        <div className="border-accent/40 rounded border bg-accent-subtle p-3">
+        <div className="border-accent/25 ring-accent/10 rounded-lg border bg-accent-subtle p-3 shadow-sm ring-1 ring-inset">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
             {allowMultiService ? t('steps.service.selectedPlural') : t('steps.service.selected')}
           </p>
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1.5">
             {selectedServices.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between gap-2 rounded bg-bg-base px-3 py-2 text-sm"
+                className="border-border/60 flex items-center justify-between gap-2 rounded-lg border bg-bg-base px-3 py-2.5 text-sm shadow-sm"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{s.name}</p>
+                  <p className="truncate font-medium text-text-primary">{s.name}</p>
                   <p className="text-[11px] text-text-muted">
                     {s.duration_min} min ·{' '}
                     {formatCurrencyCAD(s.price, locale === 'fr' ? 'fr' : 'en')}
@@ -632,7 +675,7 @@ function ServiceStep({
                   type="button"
                   aria-label={t('steps.service.removeAria', { name: s.name })}
                   onClick={() => onRemove(s.id)}
-                  className="shrink-0 rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -643,9 +686,12 @@ function ServiceStep({
       ) : null}
 
       {/* Add-ons / picker. Header text shifts from "pick a service" to
-          "anything to add?" once the first one is locked in. */}
+          "anything to add?" once the first one is locked in.
+          Phase 47b: each row is now a card with a hover lift + accent ring
+          on hover. The Plus circle gets a colored accent fill on hover for
+          a "click me" affordance that's more inviting than a flat border. */}
       {remainingByCategory.size > 0 && (allowMultiService || !hasSelection) ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {hasSelection ? (
             <p className="text-sm font-medium text-text-primary">
               {t('steps.service.anythingToAdd')}
@@ -655,30 +701,30 @@ function ServiceStep({
             const cat = categories.find((c) => c.id === catId);
             return (
               <div key={catId || 'none'}>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                   {cat?.name ?? t('steps.service.uncategorized')}
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {list.map((s) => (
                     <button
                       key={s.id}
                       type="button"
                       onClick={() => onToggle(s.id)}
-                      className="flex w-full items-center justify-between gap-3 rounded border border-border bg-bg-base px-3 py-2 text-left transition-colors hover:border-accent hover:bg-accent-subtle"
+                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span
                           aria-hidden
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-text-muted"
+                          className="group-hover:border-accent/30 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted transition-colors duration-150 group-hover:bg-accent group-hover:text-accent-fg"
                         >
                           <Plus className="h-4 w-4" />
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{s.name}</p>
+                          <p className="truncate text-sm font-medium text-text-primary">{s.name}</p>
                           <p className="text-[11px] text-text-muted">{s.duration_min} min</p>
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold">
+                      <span className="shrink-0 text-sm font-semibold tracking-tight text-text-primary">
                         {formatCurrencyCAD(s.price, locale === 'fr' ? 'fr' : 'en')}
                       </span>
                     </button>
@@ -712,8 +758,12 @@ function BarberStep({
   onSelect: (id: string | 'any') => void;
 }) {
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold">{t('steps.barber.title')}</h2>
+    <section className="space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+          {t('steps.barber.title')}
+        </h2>
+      </div>
       <div className="space-y-2">
         {shop.allow_booking_any_barber ? (
           <BarberCard
@@ -756,37 +806,55 @@ function BarberCard({
   avatarUrl: string | null;
   initials: string;
 }) {
+  // Phase 47b — selected state now reads as a halo'd card with a proper
+  // CheckCircle indicator instead of the hacky "●" badge. The hover lifts
+  // the card 1px so the affordance carries across mouse + touch.
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex w-full items-center justify-between rounded border px-4 py-3 text-left transition-colors',
+        'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         selected
-          ? 'border-accent bg-accent-subtle'
-          : 'border-border bg-bg-base hover:bg-bg-surface-2',
+          ? 'border-accent bg-accent-subtle shadow-accent-glow'
+          : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-md',
       )}
+      aria-pressed={selected}
     >
       <div className="flex min-w-0 items-center gap-3">
         {/* Avatar — img tag if URL provided, otherwise initials in a circle.
-            Falls back to a generic icon for the "Any" option (initials = "?"). */}
+            Falls back to a generic icon for the "Any" option (initials = "?").
+            Selected state adds an accent ring around the avatar to reinforce
+            the "this one is locked in" read at a glance. */}
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          <img
+            src={avatarUrl}
+            alt=""
+            className={cn(
+              'h-11 w-11 shrink-0 rounded-full object-cover transition-shadow',
+              selected && 'ring-2 ring-accent ring-offset-2 ring-offset-bg-surface',
+            )}
+          />
         ) : (
           <span
             aria-hidden
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-surface-2 text-sm font-semibold text-text-secondary"
+            className={cn(
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all',
+              selected
+                ? 'bg-accent text-accent-fg ring-2 ring-accent ring-offset-2 ring-offset-bg-surface'
+                : 'bg-bg-surface-2 text-text-secondary',
+            )}
           >
             {initials === '?' ? <UserCircle2 className="h-6 w-6" /> : initials}
           </span>
         )}
         <div className="min-w-0">
-          <p className="truncate font-medium">{title}</p>
+          <p className="truncate font-medium text-text-primary">{title}</p>
           {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
         </div>
       </div>
-      {selected ? <Badge variant="accent">●</Badge> : null}
+      {selected ? <CheckCircle2 className="h-5 w-5 shrink-0 text-accent" aria-hidden /> : null}
     </button>
   );
 }
@@ -827,30 +895,30 @@ function OrderRecap({
   const initials = !isAnyBarber && barber ? initialsOf(barber.display_name) : '?';
 
   return (
-    <div className="rounded border border-border bg-bg-base p-4">
+    <div className="rounded-lg border border-border bg-bg-base p-4 shadow-sm">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
         {t('order.title')}
       </p>
       <div className="mt-2 flex items-center gap-3">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          <img src={avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
         ) : (
           <span
             aria-hidden
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-surface-2 text-sm font-semibold text-text-secondary"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bg-surface-2 text-sm font-semibold text-text-secondary"
           >
             {initials === '?' ? <UserCircle2 className="h-6 w-6" /> : initials}
           </span>
         )}
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{proLabel}</p>
+          <p className="truncate text-sm font-medium text-text-primary">{proLabel}</p>
           <p className="text-xs text-text-secondary">{services.map((s) => s.name).join(' + ')}</p>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
         <span className="text-text-secondary">{t('order.subtotal')}</span>
-        <span className="font-semibold">
+        <span className="text-base font-semibold tracking-tight text-text-primary">
           {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
         </span>
       </div>
@@ -885,9 +953,9 @@ function SlotPicker({
         <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           {t('steps.slot.times')}
         </p>
-        <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-9" />
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 rounded-lg" />
           ))}
         </div>
       </div>
@@ -895,7 +963,7 @@ function SlotPicker({
   }
   if (!slots || slots.length === 0) {
     return (
-      <p className="rounded border border-border bg-bg-base p-4 text-center text-sm text-text-muted">
+      <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-sm">
         {t('steps.slot.empty')}
       </p>
     );
@@ -957,11 +1025,12 @@ function SlotGroup({
               type="button"
               onClick={() => onSelect(time)}
               className={cn(
-                'h-9 rounded border text-sm font-medium transition-colors',
+                'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                 active
-                  ? 'border-accent bg-accent text-accent-fg'
-                  : 'border-border bg-bg-base hover:bg-bg-surface-2',
+                  ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
+                  : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
               )}
+              aria-pressed={active}
             >
               {time}
             </button>
@@ -1001,7 +1070,7 @@ function DateStrip({
   }, [today, timezone, hours, daysOff]);
 
   return (
-    <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-1">
+    <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-2">
       {days.map((d) => {
         const active = d.iso === value;
         return (
@@ -1011,14 +1080,16 @@ function DateStrip({
             disabled={d.closed}
             onClick={() => onChange(d.iso)}
             className={cn(
-              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded border transition-colors',
+              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
               active
-                ? 'border-accent bg-accent text-accent-fg'
-                : 'border-border bg-bg-base hover:bg-bg-surface-2',
-              d.closed && 'cursor-not-allowed opacity-40',
+                ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
+                : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
+              d.closed &&
+                'cursor-not-allowed opacity-40 hover:translate-y-0 hover:border-border hover:bg-bg-base hover:shadow-sm',
             )}
+            aria-pressed={active}
           >
-            <span className="text-[10px] uppercase">
+            <span className="text-[10px] font-medium uppercase tracking-wide">
               {new Date(`${d.iso}T12:00:00Z`).toLocaleDateString(
                 locale === 'fr' ? 'fr-CA' : 'en-CA',
                 {
@@ -1027,7 +1098,7 @@ function DateStrip({
                 },
               )}
             </span>
-            <span className="text-base font-semibold">
+            <span className="text-lg font-semibold tracking-tight">
               {new Date(`${d.iso}T12:00:00Z`).toLocaleDateString(
                 locale === 'fr' ? 'fr-CA' : 'en-CA',
                 {

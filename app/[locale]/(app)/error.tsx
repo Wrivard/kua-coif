@@ -25,7 +25,8 @@ export default function AppShellError({
   return (
     <div className="p-6">
       <EmptyState
-        icon={<AlertTriangle className="h-8 w-8 text-danger" />}
+        tone="danger"
+        icon={<AlertTriangle className="h-7 w-7" />}
         title={t('title')}
         description={
           <>

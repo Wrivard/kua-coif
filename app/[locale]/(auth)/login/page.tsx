@@ -22,14 +22,16 @@ function LoginPageContent({
 }) {
   const t = useTranslations('auth.login');
   return (
-    <div className="rounded border border-border bg-bg-surface p-8 shadow-lg">
-      <h1 className="text-2xl font-semibold text-text-primary">{t('title')}</h1>
-      <p className="mt-1 text-sm text-text-secondary">{t('subtitle')}</p>
+    <div className="rounded-xl border border-border bg-bg-surface p-8 shadow-xl">
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{t('title')}</h1>
+        <p className="mt-2 text-sm text-text-secondary">{t('subtitle')}</p>
+      </div>
 
       {searchParams.signedUp ? (
         <p
           role="status"
-          className="border-success/40 bg-success/10 mt-4 rounded border px-3 py-2 text-xs text-success"
+          className="border-success/30 mt-6 rounded-lg border bg-success-subtle px-3 py-2 text-xs text-success"
         >
           {t('signedUpHint')}
         </p>
@@ -46,17 +48,20 @@ function LoginPageContent({
         }}
       />
 
-      <p className="mt-4 text-center text-xs">
-        <Link href={`/${locale}/forgot-password`} className="text-text-muted hover:text-accent">
+      <p className="mt-5 text-center text-xs">
+        <Link
+          href={`/${locale}/forgot-password`}
+          className="rounded text-text-muted transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           {t('forgotLink')}
         </Link>
       </p>
 
-      {/* Self-signup is disabled (Phase 22 — whitelist auth). Accounts are
-          created by Küa admins or by existing shop owners/managers via the
-          invitation flow. We surface the policy explicitly so an unaffiliated
-          visitor isn't left wondering how to sign up. */}
-      <p className="mt-6 text-center text-xs text-text-muted">{t('byInvitationOnly')}</p>
+      <div className="mt-6 border-t border-border pt-4">
+        <p className="text-center text-xs leading-relaxed text-text-muted">
+          {t('byInvitationOnly')}
+        </p>
+      </div>
     </div>
   );
 }

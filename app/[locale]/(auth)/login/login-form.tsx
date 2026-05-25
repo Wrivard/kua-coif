@@ -62,7 +62,7 @@ export function LoginForm({ locale, redirectTo, labels }: Props) {
       {state && !state.ok && !state.fieldErrors ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="border-danger/30 bg-danger/10 rounded-lg border px-3 py-2 text-xs text-danger shadow-sm"
         >
           {tErr(state.errorCode satisfies AuthErrorCode)}
         </p>

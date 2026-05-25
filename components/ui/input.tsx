@@ -18,6 +18,12 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
 //   - shadow-sm provides subtle depth (drop + inset highlight)
 //   - focus: 2px accent ring with offset (matches Button focus)
 //   - placeholder text-muted (was text-muted, kept)
+//
+// Phase 47d harmonization: the prefix/suffix branch and Textarea now share
+// the same rounded-lg + shadow-sm + ring-2/30 focus recipe so every field
+// in the app reads as one family. Invalid state uses ring-danger/30 (was
+// solid ring-danger) for a softer error glow consistent with the accent
+// ring it replaces.
 const baseField =
   'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted ' +
   'border border-border rounded-lg px-3 shadow-sm ' +
@@ -25,29 +31,24 @@ const baseField =
   'focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
+const invalidField = 'border-danger focus:border-danger focus:ring-danger/30';
+
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, prefix, suffix, invalid, ...rest },
   ref,
 ) {
   if (!prefix && !suffix) {
     return (
-      <input
-        ref={ref}
-        className={cn(
-          baseField,
-          invalid && 'border-danger focus:border-danger focus:ring-danger',
-          className,
-        )}
-        {...rest}
-      />
+      <input ref={ref} className={cn(baseField, invalid && invalidField, className)} {...rest} />
     );
   }
   return (
     <div
       className={cn(
-        'flex h-10 w-full items-center rounded border border-border bg-bg-surface-2',
-        'focus-within:border-accent focus-within:ring-1 focus-within:ring-accent',
-        invalid && 'border-danger focus-within:border-danger focus-within:ring-danger',
+        'flex h-10 w-full items-center rounded-lg border border-border bg-bg-surface-2 shadow-sm',
+        'transition-colors duration-150 ease-out-quint',
+        'focus-within:ring-accent/30 focus-within:border-accent focus-within:ring-2',
+        invalid && 'focus-within:ring-danger/30 border-danger focus-within:border-danger',
         className,
       )}
     >
@@ -83,10 +84,11 @@ export const Textarea = forwardRef<
       rows={rows}
       className={cn(
         'w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted',
-        'rounded border border-border px-3 py-2',
-        'focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+        'rounded-lg border border-border px-3 py-2 shadow-sm',
+        'transition-colors duration-150 ease-out-quint',
+        'focus:ring-accent/30 focus:border-accent focus:outline-none focus:ring-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        invalid && 'border-danger focus:border-danger focus:ring-danger',
+        invalid && invalidField,
         className,
       )}
       {...rest}
