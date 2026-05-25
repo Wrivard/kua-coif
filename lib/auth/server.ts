@@ -97,6 +97,52 @@ export async function getCurrentShopId(): Promise<string | null> {
 }
 
 /**
+ * Gate a route on the Küa super-admin flag (Phase 22). Looks up
+ * `profiles.is_kua_admin` for the current user; redirects to `/no-shop` if
+ * not authenticated or not a Küa team member. The boolean is column-level
+ * locked against client-side updates (only service-role can flip it), so
+ * trusting it here is safe.
+ */
+export const getIsKuaAdmin = cache(async (): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const supabase = createSupabaseServerClient();
+  const { data } = await (
+    supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => {
+            single: () => Promise<{
+              data: { is_kua_admin: boolean } | null;
+              error: unknown;
+            }>;
+          };
+        };
+      };
+    }
+  )
+    .from('profiles')
+    .select('is_kua_admin')
+    .eq('id', user.id)
+    .single();
+  return Boolean(data?.is_kua_admin);
+});
+
+export async function requireKuaAdmin(opts?: { locale?: string }) {
+  const user = await requireUser({ locale: opts?.locale });
+  const isAdmin = await getIsKuaAdmin();
+  if (!isAdmin) {
+    // We bounce non-admins to /no-shop rather than throwing — keeps the URL
+    // discoverable without leaking that the admin section exists.
+    redirect(`/${opts?.locale ?? defaultLocale}/no-shop`);
+  }
+  return user;
+}
+
+/**
  * Gate a Server Action / page on a minimum role within the active shop.
  * Throws (so `error.tsx` can render) instead of redirecting — callers in form
  * actions usually want to surface the error to the user.

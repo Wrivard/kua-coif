@@ -90,57 +90,15 @@ export async function signInAction(
 }
 
 // ---------------------------------------------------------------------------
-// Sign up
+// Sign up — REMOVED in Phase 22.
 // ---------------------------------------------------------------------------
-export async function signUpAction(
-  _prev: AuthActionState | undefined,
-  formData: FormData,
-): Promise<AuthActionState> {
-  // Signup is also rate-limited (lower threshold — even cheaper attack surface).
-  const ip = clientIp();
-  const rl = await checkRateLimit(`signup:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
-  if (!rl.allowed) {
-    return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };
-  }
-
-  const parsed = z
-    .object({
-      email: emailSchema,
-      password: passwordSchema,
-      fullName: z.string().trim().min(1, 'NAME_REQUIRED').max(120),
-      locale: localeSchema.default(defaultLocale),
-    })
-    .safeParse({
-      email: formData.get('email'),
-      password: formData.get('password'),
-      fullName: formData.get('fullName'),
-      locale: formData.get('locale') ?? defaultLocale,
-    });
-
-  if (!parsed.success) {
-    const fieldErrors: FieldErrors = {};
-    for (const issue of parsed.error.issues) {
-      const path = issue.path[0];
-      if (path === 'email') fieldErrors.email = issue.message;
-      if (path === 'password') fieldErrors.password = issue.message;
-      if (path === 'fullName') fieldErrors.fullName = issue.message;
-    }
-    return { ok: false, errorCode: 'INVALID_INPUT', fieldErrors };
-  }
-
-  const supabase = createSupabaseServerClient();
-  const { error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: { data: { full_name: parsed.data.fullName } },
-  });
-
-  if (error) return { ok: false, errorCode: mapSupabaseAuthError(error) };
-
-  // If email confirmations are enabled in Supabase, the user lands here with
-  // an unconfirmed session. We send them to a confirmation-pending page.
-  redirect(`/${parsed.data.locale}/login?signedUp=1`);
-}
+// Self-signup is disabled by the whitelist auth model. New accounts are
+// created exclusively via:
+//   - `/admin/shops/new` (Küa super-admin creates owners)
+//   - `/settings/users` (existing owners / managers invite their staff)
+// Both go through `supabase.auth.admin.inviteUserByEmail` server-side, never
+// from a public form. The Supabase Auth dashboard's "Enable email signups"
+// toggle is also off as a belt-and-braces defense.
 
 // ---------------------------------------------------------------------------
 // Sign out

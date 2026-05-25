@@ -12,11 +12,16 @@ const handleI18n = createIntlMiddleware({
 
 // Public path prefixes (under the locale segment). Anything else inside the
 // authenticated shell requires a session — see redirect logic below.
+//
+// `/signup` is intentionally absent: self-signup is disabled by the whitelist
+// auth model (Phase 22). The route itself doesn't exist anymore — accounts
+// are created via `/admin/shops/new` (Küa) or `/settings/users` (shop
+// owners/managers), both behind auth.
 const PUBLIC_PATH_PREFIXES = [
   '/login',
-  '/signup',
   '/forgot-password',
   '/reset-password',
+  '/setup-password', // first-login flow for invitees (Phase 22)
   '/book', // public booking flow (Phase 8)
   '/embed', // embeddable widget (Phase 10) — must be unauthenticated
   '/kitchen-sink', // design system gallery — always accessible for review
@@ -234,8 +239,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Authenticated user hitting /login or /signup → send them home.
-  if (user && (pathname.endsWith('/login') || pathname.endsWith('/signup'))) {
+  // Authenticated user hitting /login → send them home. (`/signup` no longer
+  // exists; the matching clause was removed in Phase 22.)
+  if (user && pathname.endsWith('/login')) {
     const url = request.nextUrl.clone();
     const segs = pathname.split('/').filter(Boolean);
     const locale = (locales as readonly string[]).includes(segs[0] ?? '') ? segs[0] : defaultLocale;

@@ -1,26 +1,42 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
+import { defaultLocale } from '@/i18n';
 import { inviteUserSchema, removeMemberSchema, updateMemberSchema } from './schema';
 
 const PATH = '/settings/users';
 
+// The invite action returns either 'confirmed' (existing profile linked
+// straight away) or 'staff' (invitation email sent, awaiting setup-password).
+// Extracted so both branches of `inviteUser` infer the same union type — TS
+// otherwise narrows to whichever literal it sees first.
+type InviteResult = { status: 'confirmed' | 'staff' };
+
 /**
- * V1 invitation flow:
- *  - If a profile already exists with that email, add a `shop_members` row
- *    immediately with status='confirmed'. The user shows up on next login.
- *  - Otherwise, mark the membership as `status='staff'` (used by the spec as
- *    "pending" — they exist in the shop but haven't accepted yet). When the
- *    user signs up later with that email, the trigger `tg_create_profile_on_signup`
- *    creates the profile and an admin can flip status to 'confirmed'.
+ * Whitelist invite flow (Phase 22).
  *
- * V1.1 will plug Supabase Auth `inviteUserByEmail` + Resend so a real email
- * invitation gets sent. Hook ready: `auth.admin.inviteUserByEmail(email)`.
+ * Two paths depending on whether the email already has a Küa profile:
+ *
+ *   A) **Profile exists** (multi-shop scenario — they're already a member of
+ *      another shop): link them to this shop with `status='confirmed'`
+ *      immediately. No email sent — they keep their existing password.
+ *
+ *   B) **No profile**: call Supabase's `auth.admin.inviteUserByEmail`. Supabase
+ *      creates the `auth.users` row (the `tg_create_profile_on_signup`
+ *      trigger then fills in `profiles`) and ships an invitation email with
+ *      a PKCE link landing on `/<locale>/setup-password`. We pre-create
+ *      `shop_members(role, status='staff')` so the invitee shows up as
+ *      pending in `/settings/users` right away; status flips to 'confirmed'
+ *      when they finish setup.
+ *
+ * Self-signups are off at the Supabase Auth dashboard level since Phase 22,
+ * so `inviteUserByEmail` is the only way an account gets created.
  */
 export const inviteUser = withAction({
   schema: inviteUserSchema,
@@ -37,9 +53,10 @@ export const inviteUser = withAction({
       .limit(1);
     const profile = ((profileRes.data as Array<{ id: string; email: string }> | null) ?? [])[0];
 
+    // Common pre-check: refuse if they're already a member of this shop
+    // (covers both paths — re-linking an existing profile or re-inviting an
+    // already-invited address).
     if (profile) {
-      // Already a registered user — link them straight away.
-      // Refuse if they're already a member (any status).
       const existing = await sb
         .from('shop_members')
         .select('id, status')
@@ -49,7 +66,10 @@ export const inviteUser = withAction({
       const existingRow = ((existing.data as Array<{ id: string; status: string }> | null) ??
         [])[0];
       if (existingRow) return err('CONFLICT');
+    }
 
+    // ── Path A: existing profile → confirm immediately ───────────────────
+    if (profile) {
       const ins = await sb.from('shop_members').insert({
         shop_id: ctx.shopId,
         user_id: profile.id,
@@ -66,15 +86,39 @@ export const inviteUser = withAction({
         diff: { email: input.email, role: input.role, status: 'confirmed' },
       });
       revalidatePath(PATH);
-      return ok({ status: 'confirmed' as const });
+      return ok<InviteResult>({ status: 'confirmed' });
     }
 
-    // No profile yet — record a pending membership keyed by email. We can't
-    // insert a shop_members row (needs user_id FK), so we stash the invite in
-    // a lightweight pending table. For V1 we just return INVALID_INPUT and
-    // surface a helpful message client-side ("ask them to sign up first").
-    // V1.1 will introduce a pending_invitations table + Supabase invite.
-    return err('NOT_FOUND');
+    // ── Path B: invite a brand-new user ──────────────────────────────────
+    const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
+    const inviteRes = await sb.auth.admin.inviteUserByEmail(input.email, {
+      redirectTo: `${origin}/${defaultLocale}/setup-password`,
+    });
+    if (inviteRes.error || !inviteRes.data?.user) {
+      // Most common case: Supabase rejects because the email is already in
+      // `auth.users` but had no matching `profiles` row (rare race). We
+      // surface a clean CONFLICT instead of leaking the raw Supabase error.
+      return err('CONFLICT');
+    }
+    const newUserId = inviteRes.data.user.id as string;
+
+    const ins = await sb.from('shop_members').insert({
+      shop_id: ctx.shopId,
+      user_id: newUserId,
+      role: input.role,
+      status: 'staff', // pending — flips to 'confirmed' on /setup-password completion
+    });
+    if (ins.error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'insert',
+      entity: 'shop_members',
+      diff: { email: input.email, role: input.role, status: 'staff', invited: true },
+    });
+    revalidatePath(PATH);
+    return ok<InviteResult>({ status: 'staff' });
   },
 });
 

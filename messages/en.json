@@ -26,21 +26,24 @@
       "password": "Password",
       "submit": "Sign in",
       "submitting": "Signing in…",
-      "noAccount": "No account yet?",
-      "signupLink": "Create one",
       "forgotLink": "Forgot your password?",
+      "byInvitationOnly": "Access is by invitation only — your salon owner adds your email, then you receive a setup link.",
       "signedUpHint": "Account created. If email confirmation is enabled, check your inbox, then sign in."
     },
-    "signup": {
-      "title": "Create an account",
-      "subtitle": "One account = one profile. You can then create or join a shop.",
-      "fullName": "Full name",
-      "email": "Email",
-      "password": "Password (min 8 characters)",
-      "submit": "Create my account",
-      "submitting": "Creating…",
-      "hasAccount": "Already have an account?",
-      "loginLink": "Sign in"
+    "setup": {
+      "title": "Set your password",
+      "subtitle": "Welcome to Küa! Pick a password to finish setting up your account.",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "submit": "Activate my account",
+      "submitting": "Activating…",
+      "exchanging": "Validating your invitation link…",
+      "errorNoCode": "This page expects an invitation link sent by your salon owner. Ask them to resend.",
+      "errorFailed": "This invitation link is expired or has already been used. Ask your salon owner to resend.",
+      "errorMismatch": "Passwords don't match.",
+      "errorWeak": "Password must be at least 8 characters.",
+      "errorRateLimited": "Too many attempts. Try again in 10 minutes.",
+      "errorGeneric": "Could not activate your account. Please try again."
     },
     "forgot": {
       "title": "Forgot your password?",

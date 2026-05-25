@@ -29,18 +29,23 @@
       "noAccount": "Pas encore de compte ?",
       "signupLink": "Créer un compte",
       "forgotLink": "Mot de passe oublié ?",
+      "byInvitationOnly": "L'accès est sur invitation — ton propriétaire de salon t'ajoute par courriel, puis tu reçois un lien de configuration.",
       "signedUpHint": "Compte créé. Vérifie ta boîte courriel si la confirmation est activée, puis connecte-toi."
     },
-    "signup": {
-      "title": "Créer un compte",
-      "subtitle": "Un compte = un profil. Tu pourras ensuite créer ou rejoindre un salon.",
-      "fullName": "Nom complet",
-      "email": "Courriel",
-      "password": "Mot de passe (8 caractères minimum)",
-      "submit": "Créer mon compte",
-      "submitting": "Création…",
-      "hasAccount": "Déjà inscrit ?",
-      "loginLink": "Se connecter"
+    "setup": {
+      "title": "Configure ton mot de passe",
+      "subtitle": "Bienvenue chez Küa ! Choisis un mot de passe pour finaliser ton compte.",
+      "password": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "submit": "Activer mon compte",
+      "submitting": "Activation…",
+      "exchanging": "Validation de ton lien d'invitation…",
+      "errorNoCode": "Cette page attend un lien d'invitation envoyé par ton propriétaire de salon. Demande qu'il te renvoie.",
+      "errorFailed": "Ce lien d'invitation est expiré ou a déjà été utilisé. Demande qu'on te renvoie une invitation.",
+      "errorMismatch": "Les mots de passe ne correspondent pas.",
+      "errorWeak": "Le mot de passe doit faire au moins 8 caractères.",
+      "errorRateLimited": "Trop de tentatives. Réessaye dans 10 minutes.",
+      "errorGeneric": "Impossible d'activer ton compte. Réessaye."
     },
     "forgot": {
       "title": "Mot de passe oublié ?",

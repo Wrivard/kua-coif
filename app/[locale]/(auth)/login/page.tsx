@@ -52,12 +52,11 @@ function LoginPageContent({
         </Link>
       </p>
 
-      <p className="mt-6 text-center text-sm text-text-secondary">
-        {t('noAccount')}{' '}
-        <Link href={`/${locale}/signup`} className="text-accent hover:underline">
-          {t('signupLink')}
-        </Link>
-      </p>
+      {/* Self-signup is disabled (Phase 22 — whitelist auth). Accounts are
+          created by Küa admins or by existing shop owners/managers via the
+          invitation flow. We surface the policy explicitly so an unaffiliated
+          visitor isn't left wondering how to sign up. */}
+      <p className="mt-6 text-center text-xs text-text-muted">{t('byInvitationOnly')}</p>
     </div>
   );
 }

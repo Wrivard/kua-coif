@@ -1,43 +1,36 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Signup → login redirect chain.
- *
- * We use a randomized email per run so the test can be re-run on the same
- * Supabase project without colliding with previous runs. The created account
- * lingers in `auth.users` — for V1 this is acceptable noise; a Phase 15+
- * cleanup hook can delete e2e users by email prefix.
- *
- * Note: this test relies on Supabase Auth being configured with email
- * confirmation *disabled* OR the test is tagged `@requires-real-email` for
- * skip. By default Supabase's free tier confirms via email, which would
- * block this flow. We assert the post-signup state by matching the success
- * hint on `/login?signedUp=1` rather than logging in.
+ * Phase 22 changed the auth model from self-signup to whitelist invitation.
+ * The `/signup` route is gone — new accounts come from
+ * `auth.admin.inviteUserByEmail` triggered by `/admin/shops/new` (Küa
+ * super-admin) or `/settings/users` (existing owner/manager). The previous
+ * randomized-email signup test no longer applies; we replace it with two
+ * smoke tests covering what users CAN do on the public auth surface.
  */
 test.describe('auth', () => {
-  test('signup creates an account and bounces to /login?signedUp=1', async ({ page }) => {
-    const email = `e2e+${Date.now()}@kua.quebec`;
-    const password = 'this-is-a-strong-test-password-123';
-
-    await page.goto('/fr/signup');
-
-    await page.getByLabel(/Nom complet/i).fill('E2E Tester');
-    await page.getByLabel(/^Courriel$/i).fill(email);
-    await page.getByLabel(/Mot de passe/i).fill(password);
-
-    await page.getByRole('button', { name: /Créer mon compte/i }).click();
-
-    // After a successful signup the action redirects to `/login?signedUp=1`,
-    // and the login page shows the green confirmation hint.
-    await page.waitForURL(/\/login\?signedUp=1$/, { timeout: 10_000 });
-    await expect(page).toHaveURL(/\/fr\/login\?signedUp=1$/);
-  });
-
-  test('login page renders and links to signup', async ({ page }) => {
+  test('login page renders the by-invitation-only notice', async ({ page }) => {
     await page.goto('/fr/login');
     await expect(page.getByRole('heading', { name: /Connexion|Sign in/i })).toBeVisible();
-    // The "Create account" link points to /fr/signup.
-    const signupLink = page.getByRole('link', { name: /Créer un compte|Create one/i });
-    await expect(signupLink).toHaveAttribute('href', /\/fr\/signup/);
+    // The deleted "Create an account" link must NOT be present anymore.
+    await expect(page.getByRole('link', { name: /Créer un compte|Create one/i })).toHaveCount(0);
+    // The invitation-only hint must show.
+    await expect(page.getByText(/invitation/i)).toBeVisible();
+  });
+
+  test('forgot-password page is reachable from /login', async ({ page }) => {
+    await page.goto('/fr/login');
+    await page.getByRole('link', { name: /Mot de passe oublié|Forgot/i }).click();
+    await expect(page).toHaveURL(/\/fr\/forgot-password$/);
+    await expect(
+      page.getByRole('heading', { name: /Mot de passe oublié|Forgot your password/i }),
+    ).toBeVisible();
+  });
+
+  test('/signup is gone (404)', async ({ page }) => {
+    const response = await page.goto('/fr/signup');
+    // Next.js returns 404 for missing routes; Phase 22 deleted the
+    // `/signup` page tree.
+    expect(response?.status()).toBe(404);
   });
 });
