@@ -90,7 +90,8 @@
     }
   },
   "a11y": {
-    "close": "Close"
+    "close": "Close",
+    "skipToContent": "Skip to main content"
   },
   "actionErrors": {
     "UNAUTHENTICATED": "You must be signed in.",

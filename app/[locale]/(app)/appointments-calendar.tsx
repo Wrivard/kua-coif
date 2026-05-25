@@ -499,6 +499,7 @@ export function AppointmentsCalendar({
                     return next;
                   });
                 }}
+                aria-pressed={isActive}
                 className={cn(
                   'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',

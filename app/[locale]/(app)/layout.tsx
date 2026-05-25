@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { Sidebar } from '@/components/ui/sidebar';
 import { FabButtons } from '@/components/ui/fab-buttons';
 import { ToastProvider } from '@/components/ui/toast';
@@ -15,6 +16,7 @@ export default async function AppShellLayout({
   params: { locale: string };
 }) {
   const user = await getCurrentUser();
+  const tA11y = await getTranslations({ locale, namespace: 'a11y' });
 
   // Resolve the shop's industry → drives nav-item visibility (Phase 23).
   // Therapy verticals (massage, physio, chiro) skip the Products tab. RLS
@@ -34,6 +36,16 @@ export default async function AppShellLayout({
   return (
     <QueryProvider>
       <ToastProvider>
+        {/* Skip link — visible only when focused. Keyboard users hitting
+            Tab on page load land here first so they can jump past the
+            13+ sidebar items straight into the main content. Required
+            for WCAG 2.1 SC 2.4.1 (Bypass Blocks). */}
+        <a
+          href="#main"
+          className="sr-only z-[60] rounded-sm bg-accent px-3 py-2 text-sm font-semibold text-accent-fg shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        >
+          {tA11y('skipToContent')}
+        </a>
         <div className="flex min-h-screen bg-bg-base">
           <Sidebar
             locale={locale}

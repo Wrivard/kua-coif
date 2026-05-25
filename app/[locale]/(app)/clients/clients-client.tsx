@@ -140,7 +140,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setMode({ kind: 'edit', client: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -151,7 +151,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -205,10 +205,10 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               setLetterFilter(null);
               setPage(1);
             }}
-            className={`rounded-sm border px-2 py-1 text-xs font-medium ${
+            className={`rounded-sm border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
               letterFilter === null
                 ? 'border-accent bg-accent-subtle text-accent'
-                : 'border-border text-text-secondary hover:bg-bg-surface-2'
+                : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
             }`}
           >
             {t('all')}
@@ -223,10 +223,11 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
                   setLetterFilter(active ? null : letter);
                   setPage(1);
                 }}
-                className={`h-7 w-7 rounded-sm border text-xs font-medium ${
+                aria-pressed={active}
+                className={`h-7 w-7 rounded-sm border text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
                   active
                     ? 'border-accent bg-accent text-accent-fg'
-                    : 'border-border text-text-secondary hover:bg-bg-surface-2'
+                    : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
                 }`}
               >
                 {letter}

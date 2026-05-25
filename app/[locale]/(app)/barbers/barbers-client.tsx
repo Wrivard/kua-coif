@@ -116,7 +116,7 @@ export function BarbersClient({ locale, barbers }: { locale: string; barbers: Ba
               e.stopPropagation();
               setMode({ kind: 'edit', barber: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -128,7 +128,7 @@ export function BarbersClient({ locale, barbers }: { locale: string; barbers: Ba
                 e.stopPropagation();
                 onRestore(r);
               }}
-              className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+              className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ArchiveRestore className="h-4 w-4" />
             </button>
@@ -140,7 +140,7 @@ export function BarbersClient({ locale, barbers }: { locale: string; barbers: Ba
                 e.stopPropagation();
                 setConfirmDelete(r);
               }}
-              className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+              className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <Trash2 className="h-4 w-4" />
             </button>

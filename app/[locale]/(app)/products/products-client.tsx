@@ -215,7 +215,7 @@ export function ProductsClient({
               e.stopPropagation();
               setProductMode({ kind: 'edit', product: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -226,7 +226,7 @@ export function ProductsClient({
               e.stopPropagation();
               setConfirmDelete({ kind: 'product', row: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -261,7 +261,7 @@ export function ProductsClient({
               e.stopPropagation();
               onEdit(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -272,7 +272,7 @@ export function ProductsClient({
               e.stopPropagation();
               onDelete(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Trash2 className="h-4 w-4" />
           </button>

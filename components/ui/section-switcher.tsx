@@ -82,10 +82,11 @@ export function SectionSwitcher<V extends string>({
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2.5 text-left text-sm last:border-b-0',
+                    'flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2.5 text-left text-sm transition-colors last:border-b-0',
+                    'focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-1 focus-visible:ring-accent',
                     active
                       ? 'bg-bg-surface-2 text-text-primary'
-                      : 'text-text-secondary hover:bg-bg-surface-2',
+                      : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
                   )}
                 >
                   <span className="flex items-center gap-2">

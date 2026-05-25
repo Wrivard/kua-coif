@@ -92,7 +92,8 @@
     }
   },
   "a11y": {
-    "close": "Fermer"
+    "close": "Fermer",
+    "skipToContent": "Aller au contenu principal"
   },
   "actionErrors": {
     "UNAUTHENTICATED": "Tu dois être connecté.",
