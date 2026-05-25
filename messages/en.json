@@ -148,6 +148,7 @@
       "filterBarbers": "Barbers:",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
+      "googlePersonalBusy": "Personal",
       "reschedule": {
         "failedTitle": "Move failed",
         "conflict": "That slot conflicts with another appointment or blocked time.",
@@ -285,10 +286,16 @@
         "name": "Barber",
         "email": "Email",
         "phone": "Phone",
-        "personnelId": "Personnel ID"
+        "personnelId": "Personnel ID",
+        "google": "Google Calendar"
       },
       "actions": {
-        "restore": "Restore"
+        "restore": "Restore",
+        "connectGoogle": "Connect Google",
+        "disconnectGoogle": "Disconnect Google Calendar"
+      },
+      "googleStatus": {
+        "error": "Error — reconnect"
       },
       "confirmDelete": {
         "title": "Archive this barber?",
@@ -307,7 +314,10 @@
         "created": "Barber added",
         "updated": "Barber updated",
         "deleted": "\"{name}\" archived",
-        "restored": "\"{name}\" restored"
+        "restored": "\"{name}\" restored",
+        "googleConnected": "Google Calendar connected",
+        "googleDisconnected": "Google Calendar disconnected for {name}",
+        "googleError": "Google Calendar connection failed"
       }
     },
     "products": {

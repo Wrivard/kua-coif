@@ -36,3 +36,7 @@ export const setBarberStatusSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(SHOP_MEMBER_STATUSES),
 });
+
+/** Phase 34 — disconnect a barber's Google Calendar. Removes the row from
+ *  barber_google_calendar; future pushes/pulls no-op. */
+export const disconnectGoogleSchema = z.object({ barber_id: z.string().uuid() });

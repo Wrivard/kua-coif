@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArchiveRestore, Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArchiveRestore, Check, Download, Pencil, Plus, Trash2, Unlink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
@@ -13,11 +15,27 @@ import { useToast } from '@/components/ui/toast';
 import type { BarberRow } from '@/db/rows';
 import type { ShopMemberStatus } from '@/db/enums';
 import { BarberFormModal } from './barber-form-modal';
-import { deleteBarber, setBarberStatus } from './actions';
+import { deleteBarber, disconnectGoogleCalendar, setBarberStatus } from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; barber: BarberRow };
 
-export function BarbersClient({ locale, barbers }: { locale: string; barbers: BarberRow[] }) {
+export type GoogleConnectionView = {
+  googleEmail: string;
+  syncStatus: 'active' | 'paused' | 'error';
+  lastError: string | null;
+  lastSyncedAt: string | null;
+};
+
+type Props = {
+  locale: string;
+  barbers: BarberRow[];
+  /** Phase 34: feature gate. When false, the Google column is hidden. */
+  googleConfigured: boolean;
+  /** Per-barber connection state, keyed by barber.id. */
+  googleByBarber: Record<string, GoogleConnectionView>;
+};
+
+export function BarbersClient({ locale, barbers, googleConfigured, googleByBarber }: Props) {
   const t = useTranslations('pages.barbers');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -30,6 +48,43 @@ export function BarbersClient({ locale, barbers }: { locale: string; barbers: Ba
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const [confirmDelete, setConfirmDelete] = useState<BarberRow | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Phase 34 — surface a toast after the OAuth round-trip. The callback
+  // route redirects here with ?google=connected or ?google=error&reason=...
+  const params = useSearchParams();
+  useEffect(() => {
+    const status = params.get('google');
+    if (!status) return;
+    if (status === 'connected') {
+      show({ variant: 'success', title: t('toasts.googleConnected') });
+    } else {
+      show({ variant: 'danger', title: t('toasts.googleError') });
+    }
+    // Strip the param so a back-nav doesn't re-fire the toast. Using
+    // history API directly avoids a full route refresh.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('google');
+    url.searchParams.delete('reason');
+    window.history.replaceState(null, '', url.toString());
+  }, [params, show, t]);
+
+  function startGoogleConnect(barberId: string) {
+    // Plain navigation rather than `fetch` — Google needs a top-frame
+    // redirect (the consent screen sets cookies and won't run inside an
+    // XHR). The start route returns a 302 to accounts.google.com.
+    window.location.href = `/api/google/oauth/start?barber_id=${barberId}`;
+  }
+
+  function disconnectGoogle(barberId: string, name: string) {
+    startTransition(async () => {
+      const result = await disconnectGoogleCalendar({ barber_id: barberId });
+      if (result.ok) {
+        show({ variant: 'info', title: t('toasts.googleDisconnected', { name }) });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
 
   // Counts per tab — shown as small chips in the Tabs component.
   const counts = useMemo(() => {
@@ -102,6 +157,58 @@ export function BarbersClient({ locale, barbers }: { locale: string; barbers: Ba
       header: t('columns.personnelId'),
       cell: (r) => r.personnel_id ?? <span className="text-text-muted">—</span>,
     },
+    // Phase 34 — Google Calendar connection column. Hidden when the
+    // feature isn't configured server-side (env vars missing).
+    ...(googleConfigured
+      ? [
+          {
+            id: 'google',
+            header: t('columns.google'),
+            cell: (r: BarberRow) => {
+              const conn = googleByBarber[r.id];
+              if (!conn) {
+                return (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startGoogleConnect(r.id);
+                    }}
+                  >
+                    {t('actions.connectGoogle')}
+                  </Button>
+                );
+              }
+              return (
+                <div className="flex items-center gap-2">
+                  <Badge variant={conn.syncStatus === 'error' ? 'danger' : 'success'}>
+                    {conn.syncStatus === 'error' ? (
+                      t('googleStatus.error')
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3" /> {conn.googleEmail}
+                      </>
+                    )}
+                  </Badge>
+                  <button
+                    type="button"
+                    aria-label={t('actions.disconnectGoogle')}
+                    title={t('actions.disconnectGoogle')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      disconnectGoogle(r.id, r.display_name);
+                    }}
+                    className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Unlink className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            },
+          } satisfies ColumnDef<BarberRow>,
+        ]
+      : []),
     {
       id: 'actions',
       header: '',

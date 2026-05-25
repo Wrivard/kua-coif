@@ -96,6 +96,7 @@ npx playwright install chromium
 | `CRON_SECRET` | server-only | ⛔ | Vercel cron token (auto-injecté par Vercel quand un cron est config). Protège `/api/cron/notifications`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | client + server | ⛔ | Active Cloudflare Turnstile sur la booking publique (Phase 30). Setup gratuit sur [dash.cloudflare.com/?to=/:account/turnstile](https://dash.cloudflare.com/?to=/:account/turnstile). Sans ces vars, le widget ne render pas et la vérification serveur no-op (honeypot + rate-limit gardent leur rôle de défense). |
 | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | server-only | ⛔ | Active Stripe Connect Express (Phase 28) — onboarding KYC pour que les shops reçoivent les paiements. Sans ces vars, la carte "Stripe Connect" dans `/settings/payments` ne s'affiche pas. Setup : `sk_test_...` du dashboard Stripe + `whsec_...` après avoir créé un webhook endpoint pointant sur `/api/webhooks/stripe`. |
+| `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | server-only | ⛔ | Active Google Calendar sync per-barbier (Phase 34). Sans ces vars, la colonne "Google Calendar" dans `/barbers` ne s'affiche pas. Setup : crée un projet sur [console.cloud.google.com](https://console.cloud.google.com) → enable "Google Calendar API" → OAuth consent screen (External app) → Credentials → Web application → redirect URI `https://<ton-domaine>/api/google/oauth/callback`. Requiert aussi `NOTIFICATION_ENCRYPTION_KEY` (réutilisé pour chiffrer les refresh tokens). |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -159,6 +160,23 @@ openssl rand -base64 32
 ```
 
 Sans cette clé, l'UI bloque la sauvegarde du mot de passe SMTP avec un warning explicite. Les shops sans SMTP configuré tombent sur le fallback Resend Küa-branded.
+
+### Google Calendar sync (Phase 34)
+
+Chaque barbier peut connecter SON compte Google Calendar perso. Le flow est two-way :
+
+- **Küa → Google (push)** : à chaque `createAppointment` / `rescheduleAppointment` / `cancelAppointment`, on push le changement vers le calendrier personnel du barbier. Stocké via `appointments.google_event_id` pour les updates/deletes idempotents.
+- **Google → Küa (pull)** : à chaque render du calendrier `/`, on query l'API `freeBusy` de chaque barbier connecté pour le jour affiché. Les events perso (vacances, RDV médicaux, etc.) apparaissent comme des overlays gris striés. Cached 60s via `unstable_cache`.
+
+**Activation** :
+1. Créer un projet Google Cloud → enable Calendar API
+2. OAuth consent screen → External app, scopes `calendar.events` + `userinfo.email`
+3. Credentials → Web application avec redirect URI `https://<ton-domaine>/api/google/oauth/callback`
+4. Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `NOTIFICATION_ENCRYPTION_KEY` dans Vercel
+5. Redeploy
+6. Page `/barbers` → colonne Google Calendar → "Connecter Google" par barbier
+
+**Sécurité** : le refresh_token est chiffré AES-256-GCM via `NOTIFICATION_ENCRYPTION_KEY` (même clé que SMTP). La colonne `refresh_token_enc` a un REVOKE SELECT pour anon/authenticated — seul le service-role la lit. Les access tokens (1h) ne sont JAMAIS persistés — on refresh sur chaque batch (~50ms).
 
 ### Cron reminders
 
@@ -286,6 +304,8 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ⏳ **Phase 29 — UI review / polish global** : passe de finition cross-écrans (voir détail ci-dessous).
 - ✅ **Phase 30 — Cloudflare Turnstile** : protection bot sur booking publique (env-gated — voir section Sécurité).
 - ✅ **Phase 31 — Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (déjà livré avec Phase 20 — middleware lit `widget_config.allowed_origins` et bâtit la CSP par shop, UI dans `/settings/widget`).
+- ✅ **Phase 33 — Calendar UI refinement** : softer grid (-50% opacité), alternating hour bands, "now" indicator, format heures clean ("8 AM" / "10 h"), +15% breathing room (PX_PER_MIN 1.4→1.6).
+- ✅ **Phase 34 — Google Calendar two-way sync** (env-gated). Voir section dédiée plus haut.
 
 ### Phase 29 — UI review / polish global (détail)
 

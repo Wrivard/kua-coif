@@ -83,6 +83,11 @@ type Blocked = {
   reason: string | null;
 };
 
+type GoogleBusyPerBarber = {
+  barberId: string;
+  periods: Array<{ start: string; end: string }>;
+};
+
 type Props = {
   locale: string;
   timezone: string;
@@ -95,6 +100,13 @@ type Props = {
   daysOff: string[];
   appointments: CalendarAppointment[];
   blocked: Blocked[];
+  /**
+   * Phase 34 — per-barber personal busy periods pulled from their
+   * connected Google Calendar. Rendered as a muted overlay distinct
+   * from shop-side blocked time. Empty when Google isn't configured
+   * or no barber has connected.
+   */
+  googleBusy?: GoogleBusyPerBarber[];
 };
 
 // Pixels per minute on the vertical axis. 1.6 gives a 30-min slot ~48px of
@@ -143,6 +155,7 @@ export function AppointmentsCalendar({
   daysOff,
   appointments,
   blocked,
+  googleBusy = [],
 }: Props) {
   const t = useTranslations('pages.appointments');
   const router = useRouter();
@@ -268,6 +281,15 @@ export function AppointmentsCalendar({
     }
     return m;
   }, [effectiveAppointments]);
+
+  // Phase 34 — Google busy bucketed by barber for O(1) lookup. The page
+  // already filtered out barbers with no busy periods; here we just turn
+  // the array into a Map.
+  const googleBusyByBarber = useMemo(() => {
+    const m = new Map<string, Array<{ start: string; end: string }>>();
+    for (const g of googleBusy) m.set(g.barberId, g.periods);
+    return m;
+  }, [googleBusy]);
 
   // Same bucketing for blocked-time, with shop-wide blocks (barber_id = null)
   // denormalized into every barber's bucket so the render path is uniform.
@@ -592,6 +614,7 @@ export function AppointmentsCalendar({
                   barber={barber}
                   barberAppts={apptsByBarber.get(barber.id) ?? []}
                   barberBlocks={blocksByBarber.get(barber.id) ?? []}
+                  googleBusy={googleBusyByBarber.get(barber.id) ?? []}
                   timezone={timezone}
                   startMin={startMin}
                   endMin={endMin}
@@ -667,6 +690,8 @@ type BarberColumnProps = {
     end_at: string;
     reason: string | null;
   }>;
+  /** Phase 34 — busy windows pulled from the barber's connected Google. */
+  googleBusy: Array<{ start: string; end: string }>;
   timezone: string;
   startMin: number;
   endMin: number;
@@ -683,6 +708,7 @@ function BarberColumn({
   barber,
   barberAppts,
   barberBlocks,
+  googleBusy,
   timezone,
   startMin,
   endMin,
@@ -787,6 +813,35 @@ function BarberColumn({
               onClick={(e) => e.stopPropagation()}
             >
               <XOctagon className="mr-1 h-3 w-3" /> {b.reason ?? t('blocked')}
+            </div>
+          );
+        })}
+
+        {/* Google Calendar busy overlays (Phase 34). Distinct visual from
+            blocked-time: muted gray with diagonal striping suggests
+            "personal, not shop-controlled." Non-interactive — clicking
+            stops propagation so the slot-create flow doesn't fire. */}
+        {googleBusy.map((g, idx) => {
+          const top = (minutesFromShopMidnight(g.start, timezone) - startMin) * PX_PER_MIN;
+          const height =
+            (minutesFromShopMidnight(g.end, timezone) -
+              minutesFromShopMidnight(g.start, timezone)) *
+            PX_PER_MIN;
+          if (height <= 0) return null;
+          return (
+            <div
+              key={`gbusy-${idx}-${g.start}`}
+              className="border-border/40 bg-bg-surface-2/70 absolute left-1 right-1 flex items-center justify-center rounded-sm border text-[10px] font-medium uppercase tracking-wide text-text-muted"
+              style={{
+                top: `${top}px`,
+                height: `${height}px`,
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+              title={t('googlePersonalBusy')}
+            >
+              {t('googlePersonalBusy')}
             </div>
           );
         })}

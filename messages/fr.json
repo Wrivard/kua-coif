@@ -150,6 +150,7 @@
       "filterBarbers": "Barbiers :",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",
+      "googlePersonalBusy": "Personnel",
       "reschedule": {
         "failedTitle": "Déplacement impossible",
         "conflict": "Ce créneau entre en conflit avec un autre rendez-vous ou un temps bloqué.",
@@ -287,10 +288,16 @@
         "name": "Barbier",
         "email": "Courriel",
         "phone": "Téléphone",
-        "personnelId": "ID employé"
+        "personnelId": "ID employé",
+        "google": "Google Calendar"
       },
       "actions": {
-        "restore": "Restaurer"
+        "restore": "Restaurer",
+        "connectGoogle": "Connecter Google",
+        "disconnectGoogle": "Déconnecter Google Calendar"
+      },
+      "googleStatus": {
+        "error": "Erreur — reconnecte"
       },
       "confirmDelete": {
         "title": "Désactiver ce barbier ?",
@@ -309,7 +316,10 @@
         "created": "Barbier ajouté",
         "updated": "Barbier mis à jour",
         "deleted": "« {name} » archivé",
-        "restored": "« {name} » restauré"
+        "restored": "« {name} » restauré",
+        "googleConnected": "Google Calendar connecté",
+        "googleDisconnected": "Google Calendar déconnecté pour {name}",
+        "googleError": "Échec de la connexion Google Calendar"
       }
     },
     "products": {

@@ -2,6 +2,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { parseShopIsoDate, shopDayEnd, shopIsoDate } from '@/lib/business/timezone';
+import { googleConfigured } from '@/lib/google/server';
+import { fetchBarberBusyForDay } from '@/lib/google/sync';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { AppointmentsCalendar, type CalendarAppointment } from './appointments-calendar';
 
@@ -172,6 +174,28 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     services: servicesByAppt.get(a.id) ?? [],
   }));
 
+  // ── Google Calendar busy overlays (Phase 34) ──────────────────────────
+  // For each confirmed barber, ask their connected Google account for
+  // busy periods in today's window. unstable_cache (60s TTL) means most
+  // navigations hit the cache. Empty array when Google is not configured
+  // or the barber hasn't connected. Parallel so the slowest barber gates
+  // the worst case.
+  const googleBusy: Array<{
+    barberId: string;
+    periods: Array<{ start: string; end: string }>;
+  }> = [];
+  if (googleConfigured()) {
+    const results = await Promise.all(
+      barbers.map(async (b) => ({
+        barberId: b.id,
+        periods: await fetchBarberBusyForDay(b.id, dayStart, dayEnd),
+      })),
+    );
+    for (const r of results) {
+      if (r.periods.length > 0) googleBusy.push(r);
+    }
+  }
+
   return (
     <AppointmentsCalendar
       locale={locale}
@@ -185,6 +209,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       daysOff={daysOff}
       appointments={appointments}
       blocked={blocked}
+      googleBusy={googleBusy}
     />
   );
 }

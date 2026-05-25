@@ -22,10 +22,11 @@ import {
 } from './schema';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
+import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
 
 const APPOINTMENTS_PATH = '/';
 
-type ServiceRowLite = { id: string; duration_min: number; price: number };
+type ServiceRowLite = { id: string; name: string; duration_min: number; price: number };
 type HoursRow = {
   weekday: number;
   enabled: boolean;
@@ -125,7 +126,9 @@ async function fetchServices(serviceIds: ReadonlyArray<string>, shopId: string) 
   };
   const { data, error } = await sb
     .from('services')
-    .select('id, duration_min, price')
+    // `name` added Phase 34 so the Google Calendar event summary can list
+    // the booked services. ~no cost (same row).
+    .select('id, name, duration_min, price')
     .eq('shop_id', shopId)
     .in('id', [...serviceIds]);
   if (error) return null;
@@ -256,6 +259,20 @@ export const createAppointment = withAction({
       entity: 'appointments',
       entityId: insertRes.data.id,
       diff: { after: { ...input, totalMinutes, totalAmount } },
+    });
+
+    // Best-effort push to Google Calendar (Phase 34) — fires and forgets;
+    // any failure is logged on the barber's connection row but never
+    // breaks the appointment creation flow.
+    void pushAppointment({
+      appointmentId: insertRes.data.id,
+      barberId: input.barber_id,
+      startAtIso: startAt.toISOString(),
+      endAtIso: endAt.toISOString(),
+      timezone,
+      googleEventId: null,
+      summary: services.map((s) => s.name ?? 'Service').join(' + ') || 'Appointment',
+      description: input.notes ?? undefined,
     });
 
     revalidatePath(APPOINTMENTS_PATH);
@@ -423,10 +440,60 @@ export const rescheduleAppointment = withAction({
       },
     });
 
+    // ── Google Calendar push (Phase 34) ──────────────────────────────
+    // If the barber changed (cross-column drag), the OLD barber's
+    // mirrored event needs to be removed from THEIR calendar, then a
+    // fresh event created on the NEW barber's calendar. If the barber
+    // didn't change, a single update on the existing event ID suffices.
+    if (input.barber_id !== appt.barber_id) {
+      void deleteAppointmentMirror({
+        appointmentId: input.id,
+        barberId: appt.barber_id,
+        googleEventId: await fetchGoogleEventId(input.id),
+      });
+      void pushAppointment({
+        appointmentId: input.id,
+        barberId: input.barber_id,
+        startAtIso: newStart.toISOString(),
+        endAtIso: newEnd.toISOString(),
+        timezone,
+        googleEventId: null,
+        summary: 'Appointment',
+      });
+    } else {
+      void pushAppointment({
+        appointmentId: input.id,
+        barberId: input.barber_id,
+        startAtIso: newStart.toISOString(),
+        endAtIso: newEnd.toISOString(),
+        timezone,
+        googleEventId: await fetchGoogleEventId(input.id),
+        summary: 'Appointment',
+      });
+    }
+
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: input.id });
   },
 });
+
+/**
+ * Pull just the `google_event_id` for an appointment so the push helper
+ * can decide between create-vs-update. Returns null when the column is
+ * empty or the row is gone. Service-role read because the column is
+ * effectively a sync handle, not user-facing data.
+ */
+async function fetchGoogleEventId(appointmentId: string): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = rawDb() as any;
+  const res = await sb
+    .from('appointments')
+    .select('google_event_id')
+    .eq('id', appointmentId)
+    .single();
+  const row = res.data as { google_event_id: string | null } | null;
+  return row?.google_event_id ?? null;
+}
 
 // ---------------------------------------------------------------------------
 // cancelAppointment
@@ -435,6 +502,18 @@ export const cancelAppointment = withAction({
   schema: cancelAppointmentSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
+    // Pull the row BEFORE the cancel so we have barber_id +
+    // google_event_id for the mirror-delete below. Two reads instead of
+    // one but keeps the cancel logic readable.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const preSb = rawDb() as any;
+    const preRes = await preSb
+      .from('appointments')
+      .select('barber_id, google_event_id')
+      .eq('id', input.id)
+      .single();
+    const pre = preRes.data as { barber_id: string; google_event_id: string | null } | null;
+
     const { error } = await (
       rawDb() as unknown as {
         from: (t: string) => {
@@ -457,6 +536,18 @@ export const cancelAppointment = withAction({
       entityId: input.id,
       diff: { status: 'cancelled' },
     });
+
+    // ── Google Calendar delete (Phase 34) ────────────────────────────
+    // Remove the mirrored event from the barber's personal calendar.
+    // No-op when the appointment was never pushed (e.g., barber connected
+    // their calendar AFTER the appointment was created).
+    if (pre?.google_event_id) {
+      void deleteAppointmentMirror({
+        appointmentId: input.id,
+        barberId: pre.barber_id,
+        googleEventId: pre.google_event_id,
+      });
+    }
 
     // ── Cancellation email (Phase 25b.5) ──────────────────────────────
     // Fetch the appointment + client + services + shop in one shot, then

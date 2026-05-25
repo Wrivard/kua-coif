@@ -6,9 +6,11 @@ import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import {
   barberSchema,
   deleteBarberSchema,
+  disconnectGoogleSchema,
   setBarberStatusSchema,
   updateBarberSchema,
 } from './schema';
@@ -134,5 +136,49 @@ export const setBarberStatus = withAction({
     // their caches too so admins see staff changes propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: input.status });
+  },
+});
+
+/**
+ * Phase 34 — disconnect a barber's Google Calendar.
+ *
+ * Two effects:
+ *   1. Delete the barber_google_calendar row. Future pushes silently
+ *      no-op (resolveConnection returns null).
+ *   2. Null out `appointments.google_event_id` for that barber's
+ *      appointments. We DON'T attempt to delete the events on Google's
+ *      side — the user explicitly wants the connection severed, so
+ *      reaching back into their calendar would be presumptuous. If they
+ *      reconnect later, we'll create fresh mirrors on the next push.
+ *
+ * Uses service-role because the barber_google_calendar table has the
+ * encrypted-column REVOKE. Manager-only — barbers can ask their manager
+ * to disconnect them rather than self-serve from here (no /me page yet).
+ */
+export const disconnectGoogleCalendar = withAction({
+  schema: disconnectGoogleSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    const delRes = await admin
+      .from('barber_google_calendar')
+      .delete()
+      .eq('barber_id', input.barber_id)
+      .eq('shop_id', ctx.shopId);
+    if (delRes.error) return err('UNEXPECTED');
+    await admin
+      .from('appointments')
+      .update({ google_event_id: null })
+      .eq('barber_id', input.barber_id);
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'barber_google_calendar',
+      entityId: input.barber_id,
+    });
+    revalidatePath(BARBERS_PATH);
+    return ok({ ok: true });
   },
 });
