@@ -147,13 +147,17 @@ Va sur https://vercel.com/[ton-team]/kua-coif/settings/environment-variables et 
 | Nom | Valeur | Source |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://jzpfvefrjtwqfyynhczp.supabase.co` | Project Settings → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGc…` | Project Settings → API → `anon` `public` key |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGc…` | Project Settings → API → `service_role` `secret` key |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_…` | Project Settings → API → publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `sb_secret_…` | Project Settings → API → secret key |
 | `NEXT_PUBLIC_SITE_URL` | `https://<ton-domaine-vercel>` | URL Vercel du projet |
+| `NEXT_PUBLIC_SENTRY_DSN` (optionnel) | `https://abc@o123.ingest.sentry.io/456` | Sentry → Settings → Client Keys (DSN). Active la capture d'erreurs côté navigateur. |
+| `SENTRY_DSN` (optionnel) | idem | Variante server-only. Fallback sur `NEXT_PUBLIC_SENTRY_DSN` si absente. |
+| `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` (optionnel) | … | Activent l'upload source-maps au build → Sentry montre du JS lisible plutôt que minifié. |
 
 **Important** :
-- Le `service_role` key est ultra-sensible (bypass RLS) — ne JAMAIS le prefixer `NEXT_PUBLIC_`.
+- Le `service_role` key est ultra-sensible (bypass RLS) — ne JAMAIS le préfixer `NEXT_PUBLIC_`.
 - Quand tu changes une env var, tu dois redéployer (Vercel → Deployments → Redeploy).
+- Sentry est **dormant tant que `NEXT_PUBLIC_SENTRY_DSN` n'est pas renseigné** — zéro overhead runtime. Détails dans le README §Sentry.
 
 ### Redéployer
 
@@ -172,8 +176,16 @@ Sans ça, le signup confirme l'email vers `localhost:3000` au lieu de ton domain
 
 1. https://supabase.com/dashboard/project/jzpfvefrjtwqfyynhczp/auth/url-configuration
 2. **Site URL** : `https://<ton-domaine-vercel>` (sans slash final)
-3. **Redirect URLs** : ajoute `https://<ton-domaine-vercel>/**` (avec le double astérisque)
+3. **Redirect URLs** — un par ligne :
+   - `https://<ton-domaine-vercel>/**`
+   - `https://<ton-domaine-vercel>/fr/reset-password`
+   - `https://<ton-domaine-vercel>/en/reset-password`
+   Les deux derniers sont nécessaires pour que les liens du courriel « mot de passe oublié » (Phase 16) ne soient pas rejetés par Supabase comme redirections non autorisées.
 4. Save.
+
+### Activer Leaked Password Protection
+
+https://supabase.com/dashboard/project/jzpfvefrjtwqfyynhczp/auth/policies → toggle **Leaked password protection** (vérifie les mots de passe contre HaveIBeenPwned). Tue le dernier warning de l'advisor sécurité Supabase.
 
 ---
 
