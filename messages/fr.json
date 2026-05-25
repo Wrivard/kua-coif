@@ -97,6 +97,16 @@
     "close": "Fermer",
     "skipToContent": "Aller au contenu principal"
   },
+  "onboarding": {
+    "title": "Bienvenue dans Küa",
+    "subtitle": "Setup à {progress}% complet — encore quelques étapes :",
+    "steps": {
+      "shop": "Compléter les détails du salon (adresse)",
+      "hours": "Configurer tes heures d'ouverture",
+      "services": "Ajouter tes premiers services",
+      "barbers": "Inviter ton équipe de barbiers"
+    }
+  },
   "actionErrors": {
     "UNAUTHENTICATED": "Tu dois être connecté.",
     "NO_SHOP": "Tu n'es membre d'aucun salon.",

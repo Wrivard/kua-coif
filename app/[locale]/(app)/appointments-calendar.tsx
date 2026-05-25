@@ -39,6 +39,7 @@ import {
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
 import { rescheduleAppointment } from './actions';
+import { OnboardingCard } from '@/components/features/shell/onboarding-card';
 
 // Heavy children — code-split out of the initial calendar bundle. They only
 // mount when the user opens a drawer (clicks a block) or a modal (clicks
@@ -107,6 +108,16 @@ type Props = {
    * or no barber has connected.
    */
   googleBusy?: GoogleBusyPerBarber[];
+  /**
+   * Phase 45 — onboarding completion signals. When omitted or all
+   * fields are "done", the OnboardingCard auto-hides.
+   */
+  onboarding?: {
+    shopAddressFilled: boolean;
+    hoursConfigured: boolean;
+    servicesCount: number;
+    barbersCount: number;
+  };
 };
 
 // Pixels per minute on the vertical axis. 1.8 gives a 30-min slot ~54px
@@ -158,6 +169,7 @@ export function AppointmentsCalendar({
   appointments,
   blocked,
   googleBusy = [],
+  onboarding,
 }: Props) {
   const t = useTranslations('pages.appointments');
   const router = useRouter();
@@ -538,6 +550,17 @@ export function AppointmentsCalendar({
       />
 
       <div className="space-y-4 p-6">
+        {/* Phase 45 — onboarding hint. Auto-hides once setup is complete. */}
+        {onboarding ? (
+          <OnboardingCard
+            locale={locale}
+            shopAddressFilled={onboarding.shopAddressFilled}
+            hoursConfigured={onboarding.hoursConfigured}
+            servicesCount={onboarding.servicesCount}
+            barbersCount={onboarding.barbersCount}
+          />
+        ) : null}
+
         {/* Barber filter chips */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">

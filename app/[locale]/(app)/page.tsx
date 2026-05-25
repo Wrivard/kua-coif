@@ -196,6 +196,20 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     }
   }
 
+  // Phase 45 — onboarding hint signals. Each is a cheap boolean derived
+  // from data we already fetched. The OnboardingCard auto-hides when
+  // every step is complete, so a fully-setup shop sees nothing.
+  const shopAddressFilled = Boolean(
+    (shop as { id: string; street?: string | null } | null)?.street,
+  );
+  const hoursConfigured = hours.some((h) => h.enabled);
+  const onboarding = {
+    shopAddressFilled,
+    hoursConfigured,
+    servicesCount: services.length,
+    barbersCount: barbers.length,
+  };
+
   return (
     <AppointmentsCalendar
       locale={locale}
@@ -210,6 +224,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       appointments={appointments}
       blocked={blocked}
       googleBusy={googleBusy}
+      onboarding={onboarding}
     />
   );
 }

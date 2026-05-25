@@ -95,6 +95,16 @@
     "close": "Close",
     "skipToContent": "Skip to main content"
   },
+  "onboarding": {
+    "title": "Welcome to Küa",
+    "subtitle": "Setup {progress}% complete — a few steps left:",
+    "steps": {
+      "shop": "Fill in your shop details (address)",
+      "hours": "Set your opening hours",
+      "services": "Add your first services",
+      "barbers": "Invite your team of barbers"
+    }
+  },
   "actionErrors": {
     "UNAUTHENTICATED": "You must be signed in.",
     "NO_SHOP": "You're not a member of any shop yet.",
