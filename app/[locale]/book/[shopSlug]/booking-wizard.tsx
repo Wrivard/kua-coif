@@ -62,6 +62,7 @@ type WizardState = {
   notes: string;
   hp: string; // honeypot
   turnstileToken: string; // Phase 30 — empty until widget verifies
+  promoCode: string; // Phase 41 — optional, server-validated
 };
 
 type Props = {
@@ -154,6 +155,7 @@ export function BookingWizard({
     notes: '',
     hp: '',
     turnstileToken: '',
+    promoCode: '',
   });
   // Cached check — `turnstileSiteKeyConfigured()` reads `process.env` which
   // Next.js inlines at build time for `NEXT_PUBLIC_*` vars, but caching it
@@ -246,6 +248,8 @@ export function BookingWizard({
         // disabled at the env-var level — the server-side helper treats it
         // as a no-op in that case.
         cf_turnstile_response: state.turnstileToken,
+        // Promo code (Phase 41). Empty string → undefined server-side.
+        promo_code: state.promoCode,
       });
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
@@ -416,6 +420,28 @@ export function BookingWizard({
                 />
                 <FieldHint>{t('steps.contact.notesHint')}</FieldHint>
               </div>
+              {/* Promo code (Phase 41) — visible only when the shop's
+                  widget_config opted in (defaults to false). Server-side
+                  validation handles the rest; the UI just collects the
+                  string and surfaces the field-error if invalid. */}
+              {widgetConfig?.show_promo_code ? (
+                <div className="sm:col-span-2">
+                  <Label htmlFor="promoCode">{t('steps.contact.promoCode')}</Label>
+                  <Input
+                    id="promoCode"
+                    autoComplete="off"
+                    placeholder="WELCOME20"
+                    value={state.promoCode}
+                    onChange={(e) =>
+                      setState((s) => ({
+                        ...s,
+                        promoCode: e.target.value.toUpperCase().trim(),
+                      }))
+                    }
+                  />
+                  <FieldHint>{t('steps.contact.promoCodeHint')}</FieldHint>
+                </div>
+              ) : null}
             </div>
             {/* Honeypot — visually hidden but present in the DOM. */}
             <input

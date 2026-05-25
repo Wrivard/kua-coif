@@ -59,6 +59,20 @@ export const publicBookingSchema = z.object({
     .max(4096)
     .optional()
     .or(z.literal('').transform(() => undefined)),
+  /**
+   * Promo code (Phase 41). Optional — validated server-side against the
+   * shop's `promo_codes` table. Invalid codes return INVALID_INPUT with
+   * `{promo_code: 'invalid'|'expired'|'used'|'first_only'}` so the UI
+   * can render a specific message. Discount is applied to total_amount
+   * before insert; redemptions counter is bumped after success.
+   */
+  promo_code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .max(40)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
@@ -166,7 +180,62 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return err('NOT_FOUND');
     }
     const totalMinutes = services.reduce((sum, s) => sum + s.duration_min, 0);
-    const totalAmount = services.reduce((sum, s) => sum + s.price, 0);
+    const subtotal = services.reduce((sum, s) => sum + s.price, 0);
+
+    // ── Promo code validation (Phase 41) ──────────────────────────────
+    // Validate first; if invalid, refuse the booking with a specific
+    // error code so the UI can highlight the field. Then apply the
+    // discount to compute the final total. Redemption bump happens
+    // AFTER appointment insert succeeds — keep DB writes ordered to
+    // avoid a refund-style cleanup if the booking fails downstream.
+    type PromoCodeRow = {
+      id: string;
+      type: 'percent' | 'fixed';
+      value: number;
+      first_appointment_only: boolean;
+      one_time: boolean;
+      expiration_date: string | null;
+      redemptions: number;
+    };
+    let promoCodeRow: PromoCodeRow | null = null;
+    let discountAmount = 0;
+    if (input.promo_code) {
+      const promoRes = await supabase
+        .from('promo_codes')
+        .select('id, type, value, first_appointment_only, one_time, expiration_date, redemptions')
+        .eq('shop_id', shop.id)
+        .eq('code', input.promo_code)
+        .limit(1);
+      promoCodeRow = ((promoRes.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
+      if (!promoCodeRow) {
+        return err('INVALID_INPUT', { promo_code: 'invalid' });
+      }
+      // Expired?
+      if (
+        promoCodeRow.expiration_date &&
+        new Date(promoCodeRow.expiration_date).getTime() < Date.now()
+      ) {
+        return err('INVALID_INPUT', { promo_code: 'expired' });
+      }
+      // One-time and already used?
+      if (promoCodeRow.one_time && promoCodeRow.redemptions > 0) {
+        return err('INVALID_INPUT', { promo_code: 'used' });
+      }
+      // First-appointment only: this requires looking up the client's
+      // history, but for a public booking we don't have a stable client
+      // identity until find-or-create runs below. We defer this check
+      // until after the client is resolved — see below.
+
+      // Compute discount.
+      if (promoCodeRow.type === 'percent') {
+        discountAmount = (subtotal * promoCodeRow.value) / 100;
+      } else {
+        discountAmount = promoCodeRow.value;
+      }
+      // Cap at subtotal — promo codes can't drive an appointment negative.
+      if (discountAmount > subtotal) discountAmount = subtotal;
+    }
+    const totalAmount = subtotal - discountAmount;
 
     // ── Resolve barber ────────────────────────────────────────────────
     let barberId = input.barber_id;
@@ -294,6 +363,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // ── Find-or-create client by normalized phone ────────────────────
     const phoneKey = input.phone.replace(/\D/g, '');
     let clientId: string | null = null;
+    let clientIsNew = false;
     if (phoneKey.length >= 7) {
       const clientLookup = await supabase
         .from('clients')
@@ -304,6 +374,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       clientId = ((clientLookup.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
     }
     if (!clientId) {
+      clientIsNew = true;
       const insertClient = await supabase
         .from('clients')
         .insert({
@@ -317,6 +388,23 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .single();
       if (insertClient.error || !insertClient.data) return err('UNEXPECTED');
       clientId = (insertClient.data as { id: string }).id;
+    }
+
+    // ── Promo first_appointment_only check (Phase 41) ────────────────
+    // Deferred until we know the client's identity. "First appointment"
+    // = no PRIOR appointments. We just created the client row above
+    // when clientIsNew=true so they trivially qualify; for an existing
+    // client we count their past bookings.
+    if (promoCodeRow?.first_appointment_only && !clientIsNew) {
+      const existingApptRes = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('client_id', clientId)
+        .limit(1);
+      const hasPrior = ((existingApptRes.data as Array<{ id: string }> | null) ?? []).length > 0;
+      if (hasPrior) {
+        return err('INVALID_INPUT', { promo_code: 'first_only' });
+      }
     }
 
     // ── Insert appointment ───────────────────────────────────────────
@@ -347,13 +435,51 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       })),
     );
 
+    // ── Bump promo code redemption counter (Phase 41) ────────────────
+    // Best-effort — a counter update failure shouldn't kill the booking
+    // (the user got their appointment, that's what matters). We read
+    // the current total_redemption_value once at validation time
+    // (promoCodeRow above) and increment locally. Concurrent bookings
+    // could undercount under heavy load — acceptable for a promo stat.
+    if (promoCodeRow) {
+      try {
+        // Re-read the current total to avoid stomping a concurrent bump.
+        const currentRes = await supabase
+          .from('promo_codes')
+          .select('redemptions, total_redemption_value')
+          .eq('id', promoCodeRow.id)
+          .single();
+        const current = currentRes.data as {
+          redemptions: number;
+          total_redemption_value: number;
+        } | null;
+        if (current) {
+          await supabase
+            .from('promo_codes')
+            .update({
+              redemptions: current.redemptions + 1,
+              total_redemption_value: Number(current.total_redemption_value ?? 0) + discountAmount,
+            })
+            .eq('id', promoCodeRow.id);
+        }
+      } catch {
+        // Swallow — see comment above.
+      }
+    }
+
     await logAuditAction({
       shopId: shop.id,
       actorId: '00000000-0000-0000-0000-000000000000', // public anon
       action: 'insert',
       entity: 'appointments',
       entityId: apptId,
-      diff: { source: 'online', service_count: services.length, totalAmount },
+      diff: {
+        source: 'online',
+        service_count: services.length,
+        totalAmount,
+        promoCode: promoCodeRow ? input.promo_code : undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+      },
     });
 
     // ── Send branded confirmation email (Phase 24) ────────────────────

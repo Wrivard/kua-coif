@@ -963,7 +963,9 @@
           "phone": "Phone",
           "email": "Email",
           "notes": "Notes (optional)",
-          "notesHint": "Mention a special request, allergy, etc."
+          "notesHint": "Mention a special request, allergy, etc.",
+          "promoCode": "Promo code (optional)",
+          "promoCodeHint": "Enter a discount code if you have one."
         }
       },
       "summary": {

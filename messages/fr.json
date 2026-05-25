@@ -965,7 +965,9 @@
           "phone": "Téléphone",
           "email": "Courriel",
           "notes": "Notes (optionnel)",
-          "notesHint": "Précise une demande spéciale, allergie, etc."
+          "notesHint": "Précise une demande spéciale, allergie, etc.",
+          "promoCode": "Code promo (optionnel)",
+          "promoCodeHint": "Si tu as un code de réduction, entre-le ici."
         }
       },
       "summary": {
