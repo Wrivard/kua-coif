@@ -4,8 +4,7 @@ import { Sidebar } from '@/components/ui/sidebar';
 import { FabButtons } from '@/components/ui/fab-buttons';
 import { ToastProvider } from '@/components/ui/toast';
 import { QueryProvider } from '@/components/providers/query-provider';
-import { getCurrentShopId, getCurrentUser } from '@/lib/auth/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentShop, getCurrentUser } from '@/lib/auth/server';
 import { INDUSTRIES, isIndustryKind } from '@/lib/industries';
 
 export default async function AppShellLayout({
@@ -15,22 +14,21 @@ export default async function AppShellLayout({
   children: ReactNode;
   params: { locale: string };
 }) {
-  const user = await getCurrentUser();
-  const tA11y = await getTranslations({ locale, namespace: 'a11y' });
+  // Pull user, translations, and the shop row in parallel — they have no
+  // ordering dependency on each other. `getCurrentShop` is the single
+  // request-cached read of the shops table (id, name, timezone, industry)
+  // that downstream pages will re-use without re-querying.
+  const [user, tA11y, shop] = await Promise.all([
+    getCurrentUser(),
+    getTranslations({ locale, namespace: 'a11y' }),
+    getCurrentShop(),
+  ]);
 
   // Resolve the shop's industry → drives nav-item visibility (Phase 23).
-  // Therapy verticals (massage, physio, chiro) skip the Products tab. RLS
-  // restricts the read to shops the user is a member of.
+  // Therapy verticals (massage, physio, chiro) skip the Products tab.
   let hideProducts = false;
-  const shopId = await getCurrentShopId();
-  if (shopId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
-    const res = await sb.from('shops').select('industry').eq('id', shopId).single();
-    const industry = (res.data as { industry?: string } | null)?.industry;
-    if (industry && isIndustryKind(industry)) {
-      hideProducts = !INDUSTRIES[industry].features.products;
-    }
+  if (shop?.industry && isIndustryKind(shop.industry)) {
+    hideProducts = !INDUSTRIES[shop.industry].features.products;
   }
 
   return (

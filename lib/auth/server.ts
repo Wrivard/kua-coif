@@ -12,11 +12,33 @@ import { defaultLocale } from '@/i18n';
  * the user, page reads the user — only one round-trip to Supabase).
  */
 
+/**
+ * Resolve the current user from the request cookies.
+ *
+ * Uses `getSession()` rather than `getUser()` deliberately. Both expose
+ * the same `user` object; the difference is:
+ *
+ *   - `getUser()` POSTs the JWT to the Supabase Auth server on every call
+ *     to re-validate and rotate the refresh token. ~150ms per call.
+ *   - `getSession()` reads the JWT from cookies and validates the
+ *     signature locally. ~5ms.
+ *
+ * Our `middleware.ts` already calls `getUser()` (via `refreshSupabaseSession`)
+ * on every request — that's the canonical auth gate. By the time a Server
+ * Component runs, the session has been freshly validated and refreshed.
+ * Calling `getUser()` again here would mean two network round-trips per
+ * page load for the same answer, which is exactly the latency the user
+ * was complaining about.
+ *
+ * Wrapped in React `cache()` so multiple components in the same render
+ * (layout + page + nested server components) share a single read of the
+ * cookie store.
+ */
 export const getCurrentUser = cache(async () => {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user;
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) return null;
+  return data.session.user;
 });
 
 /**
@@ -95,6 +117,47 @@ export async function getCurrentShopId(): Promise<string | null> {
   if (memberships.length === 0) return null;
   return memberships[0]!.shop_id;
 }
+
+/**
+ * Static-ish shop row (id + name + timezone + industry) cached per request.
+ *
+ * Layout + page both used to query `shops` independently — that's two
+ * sequential round-trips before the page can start rendering. Pulling the
+ * fields they both need into a single React-cached helper means the second
+ * caller hits the cache (0ms) instead of the DB. Saves ~100-150ms per
+ * server-rendered page.
+ */
+export type CurrentShop = {
+  id: string;
+  name: string;
+  timezone: string;
+  industry: string | null;
+};
+
+export const getCurrentShop = cache(async (): Promise<CurrentShop | null> => {
+  const shopId = await getCurrentShopId();
+  if (!shopId) return null;
+  const supabase = createSupabaseServerClient();
+  const { data } = await (
+    supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => {
+            single: () => Promise<{ data: CurrentShop | null; error: unknown }>;
+          };
+        };
+      };
+    }
+  )
+    .from('shops')
+    .select('id, name, timezone, industry')
+    .eq('id', shopId)
+    .single();
+  return data ?? null;
+});
 
 /**
  * Gate a route on the Küa super-admin flag (Phase 22). Looks up

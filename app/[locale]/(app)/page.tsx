@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { parseShopIsoDate, shopDayEnd, shopIsoDate } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { AppointmentsCalendar, type CalendarAppointment } from './appointments-calendar';
@@ -22,13 +22,11 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any;
 
-  // 1. Resolve shop timezone (RLS ensures we only see our shop).
-  const shopRes = await sb
-    .from('shops')
-    .select('id, timezone, name')
-    .order('created_at', { ascending: true });
-  const shop = ((shopRes.data as Array<{ id: string; timezone: string; name: string }> | null) ??
-    [])[0];
+  // 1. Resolve shop timezone. `getCurrentShop()` is the React-cached read
+  //    of the shops row — the layout already called this same helper on
+  //    its way down, so this returns instantly from cache rather than
+  //    hitting Postgres again.
+  const shop = await getCurrentShop();
   const timezone = shop?.timezone ?? 'America/Toronto';
 
   // 2. Pick the day to render. `?date=YYYY-MM-DD` or today (in shop tz).
