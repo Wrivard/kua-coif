@@ -20,6 +20,7 @@ import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
+import { TurnstileWidget, turnstileSiteKeyConfigured } from '@/components/ui/turnstile';
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
 import type { WidgetConfig } from '@/lib/business/widget-config';
@@ -60,6 +61,7 @@ type WizardState = {
   phone: string;
   notes: string;
   hp: string; // honeypot
+  turnstileToken: string; // Phase 30 — empty until widget verifies
 };
 
 type Props = {
@@ -151,7 +153,12 @@ export function BookingWizard({
     phone: '',
     notes: '',
     hp: '',
+    turnstileToken: '',
   });
+  // Cached check — `turnstileSiteKeyConfigured()` reads `process.env` which
+  // Next.js inlines at build time for `NEXT_PUBLIC_*` vars, but caching it
+  // here keeps the JSX readable.
+  const turnstileEnforced = turnstileSiteKeyConfigured();
 
   const selectedServices = services.filter((s) => state.serviceIds.includes(s.id));
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration_min, 0);
@@ -207,7 +214,12 @@ export function BookingWizard({
     if (kind === 'barber') return state.barberId !== null;
     if (kind === 'slot') return state.startTime !== null;
     if (kind === 'contact') {
-      return state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
+      const hasIdentity = state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
+      // When Turnstile is enforced (env var set), the user must complete the
+      // challenge before Confirm enables. When the feature is off, the token
+      // is just an empty string and we skip this gate.
+      const tokenOk = !turnstileEnforced || state.turnstileToken.length > 0;
+      return hasIdentity && tokenOk;
     }
     return false;
   })();
@@ -230,6 +242,10 @@ export function BookingWizard({
         // Forwarded so the confirmation email (Phase 24) ships in the
         // customer's language rather than always defaulting to French.
         locale: locale === 'en' ? 'en' : 'fr',
+        // Turnstile token (Phase 30). Empty string when the feature is
+        // disabled at the env-var level — the server-side helper treats it
+        // as a no-op in that case.
+        cf_turnstile_response: state.turnstileToken,
       });
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
@@ -412,6 +428,19 @@ export function BookingWizard({
               onChange={(e) => setState((s) => ({ ...s, hp: e.target.value }))}
               className="hidden"
             />
+
+            {/* Turnstile challenge (Phase 30) — renders only when the
+                NEXT_PUBLIC_TURNSTILE_SITE_KEY env var is set. When the
+                token comes back via callback we store it in state; the
+                Confirm button is gated on its presence via `canAdvance`. */}
+            {turnstileEnforced ? (
+              <div className="flex justify-center">
+                <TurnstileWidget
+                  onToken={(token) => setState((s) => ({ ...s, turnstileToken: token }))}
+                  action="booking"
+                />
+              </div>
+            ) : null}
 
             {/* Summary card */}
             <div className="rounded border border-border bg-bg-base p-3 text-sm">

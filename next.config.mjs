@@ -34,13 +34,19 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
  * Next 15+ exposes a stable nonce API.
  */
 function buildStrictCsp() {
+  // Cloudflare Turnstile (Phase 30) needs script-src + frame-src + connect-src
+  // entries for `challenges.cloudflare.com`. These are no-ops at runtime when
+  // Turnstile env vars are absent (the widget never loads), but the CSP rule
+  // is static so we include them unconditionally.
+  const turnstileHost = 'https://challenges.cloudflare.com';
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${isProd ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost}${isProd ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHost}`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost}`,
+    `frame-src ${turnstileHost}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

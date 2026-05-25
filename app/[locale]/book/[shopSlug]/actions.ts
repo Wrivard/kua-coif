@@ -11,6 +11,7 @@ import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/ti
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
+import { verifyTurnstile } from '@/lib/security/turnstile';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -47,6 +48,17 @@ export const publicBookingSchema = z.object({
    *  language. Defaults to FR if the wizard doesn't forward it (older
    *  builds, or non-browser POSTs). */
   locale: z.enum(['fr', 'en']).default('fr'),
+  /**
+   * Cloudflare Turnstile response token (Phase 30). Server-side verified
+   * against /siteverify. Optional in the schema so the action keeps
+   * working when Turnstile is disabled (env vars absent); the action
+   * itself enforces presence when `turnstileConfigured()` returns true.
+   */
+  cf_turnstile_response: z
+    .string()
+    .max(4096)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
@@ -95,6 +107,15 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
   // to avoid telegraphing that we detected the bot.
   if (input.hp && input.hp.length > 0) {
     return ok({ id: 'honeypot-discard' });
+  }
+
+  // Turnstile verification (Phase 30). No-op when env vars are absent.
+  // We verify BEFORE expensive DB work so an invalid token costs nothing.
+  // Returning INVALID_INPUT (not RATE_LIMITED) so a user with an expired
+  // challenge can refresh and retry without triggering a cooldown.
+  const turnstileResult = await verifyTurnstile(input.cf_turnstile_response, ip);
+  if (!turnstileResult.ok) {
+    return err('INVALID_INPUT', { cf_turnstile_response: turnstileResult.reason });
   }
 
   try {

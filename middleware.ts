@@ -86,13 +86,18 @@ function getSupabaseHost(): string {
  */
 function buildEmbedCsp(frameAncestors: string): string {
   const supabaseHost = getSupabaseHost();
+  // Cloudflare Turnstile (Phase 30) — same whitelist as the strict CSP in
+  // next.config.mjs. The embed iframe also runs the booking wizard, so it
+  // needs Turnstile entries too if the env vars are configured.
+  const turnstileHost = 'https://challenges.cloudflare.com';
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${isProdRuntime ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost}${isProdRuntime ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHost}`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost}`,
+    `frame-src ${turnstileHost}`,
     `frame-ancestors ${frameAncestors}`,
     "base-uri 'self'",
     "form-action 'self'",
