@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, Globe, LogOut } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { isItemActive, NAV_ITEMS, stripLocale, type NavItem } from '@/lib/nav-items';
@@ -98,6 +98,13 @@ export function Sidebar({ locale, user }: Props) {
             ) : null}
           </div>
         ) : null}
+        <LocaleSwitcher
+          locale={locale}
+          currentPath={currentPath}
+          expanded={expanded}
+          label={t('switchLanguage')}
+        />
+
         <form action={signOutAction}>
           <input type="hidden" name="locale" value={locale} />
           <button
@@ -118,6 +125,48 @@ export function Sidebar({ locale, user }: Props) {
         </form>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Sidebar locale toggle. Computes the URL of the current page in the other
+ * locale by replacing the leading `/<locale>` segment, preserving the
+ * pathname so the user lands on the same screen they were viewing.
+ */
+function LocaleSwitcher({
+  locale,
+  currentPath,
+  expanded,
+  label,
+}: {
+  locale: string;
+  currentPath: string;
+  expanded: boolean;
+  label: string;
+}) {
+  const other = locale === 'fr' ? 'en' : 'fr';
+  // `currentPath` is already locale-stripped. Empty / "/" means root.
+  const target = currentPath === '/' ? `/${other}/` : `/${other}${currentPath}`;
+  return (
+    <Link
+      href={target}
+      title={expanded ? undefined : label}
+      aria-label={label}
+      className={cn(
+        'flex h-10 w-full items-center gap-3 rounded px-2 transition-colors',
+        'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+      )}
+    >
+      <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center">
+        <Globe className="h-5 w-5" />
+      </span>
+      {expanded ? (
+        <span className="truncate text-sm font-medium">
+          {locale.toUpperCase()} → {other.toUpperCase()}
+        </span>
+      ) : null}
+    </Link>
   );
 }
 
