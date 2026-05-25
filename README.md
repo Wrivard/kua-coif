@@ -90,6 +90,8 @@ npx playwright install chromium
 | `SENTRY_DSN` | server-only | ⛔ | Active Sentry server/edge (fallback sur `NEXT_PUBLIC_SENTRY_DSN`) |
 | `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | build-time | ⛔ | Activent l'upload source-maps (sinon Sentry montre du minifié) |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | server-only | ⛔ | Active le rate limit Upstash (shared sliding-window au lieu de l'in-memory per-instance). Free tier 10k cmd/jour. |
+| `RESEND_API_KEY` + `RESEND_FROM` | server-only | ⛔ | Active les emails brandés via Resend (booking confirmation). Sans ces vars, le code no-op silencieusement. Voir [Resend](#resend-emails-transactionnels). |
+| `RESEND_REPLY_TO` | server-only | ⛔ | Adresse Reply-To pour les emails (ex. `support@kua.quebec`). Fallback sur `RESEND_FROM`. |
 
 Toutes les vars `NEXT_PUBLIC_*` sont **bakées au build time** — un redeploy est nécessaire après changement Vercel.
 
@@ -125,6 +127,23 @@ Le seed est idempotent par run mais pas par état : pour le rejouer, supprime d'
 ## Déployer sur Vercel
 
 Voir [`DEPLOY.md`](./DEPLOY.md) — checklist concrète post-Phase 11.
+
+## Resend (emails transactionnels)
+
+Wirage Phase 24, **dormant tant que `RESEND_API_KEY` + `RESEND_FROM` ne sont pas renseignés**. Aucun coût runtime quand off. Pour activer :
+
+1. Crée un compte gratuit Resend (100 emails/jour, 3k/mois) sur https://resend.com.
+2. Vérifie le domaine `kua.quebec` (records DNS SPF + DKIM + DMARC) — ou utilise `onboarding@resend.dev` pour tester sans DNS.
+3. Crée une API key → `RESEND_API_KEY` dans Vercel.
+4. Set `RESEND_FROM` (ex. `"Küa <noreply@kua.quebec>"`). Optionnel : `RESEND_REPLY_TO=support@kua.quebec`.
+5. Redeploy. La prochaine réservation publique envoie un email branded au client.
+
+Templates actuels (`lib/email/templates/`) :
+- `appointment-confirmation.tsx` — envoyé après une réservation réussie sur `/book/[shop]`.
+
+Templates à venir (V1.2.5) : reminders 24h + 1h (besoin d'un cron Vercel + table d'idempotence).
+
+**Pour les emails d'auth** (invitation, reset password) : Supabase les envoie via son SMTP par défaut. Pour les router via Resend, configure le SMTP custom dans Supabase Auth → SMTP Settings avec les credentials Resend SMTP. Aucun changement code.
 
 ## Sentry (observability)
 
@@ -214,8 +233,8 @@ vitest.config.ts · playwright.config.ts
 ## Différé V1.1+
 
 - **Stripe Connect** : intégration paiement réelle (UI déjà câblée).
-- **Resend** : emails de confirmation customisés.
-- **Cloudflare Turnstile** : protection bot sur signup + booking.
+- **Cloudflare Turnstile** : protection bot sur booking.
+- **Resend reminders** : cron 24h + 1h avant RDV (Phase 24.5).
 - **Realtime calendar** : Supabase Realtime sur `appointments` pour les barbiers multi-écrans.
 - **Drag-and-drop calendrier** : reprogrammation des RDV (édition par modal en V1).
 - **Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (V1 : permissif `*`).

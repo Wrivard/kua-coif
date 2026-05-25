@@ -9,6 +9,8 @@ import { captureException } from '@/lib/observability';
 import { logAuditAction } from '@/lib/audit-log';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { sendEmail } from '@/lib/email/send';
+import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -41,6 +43,10 @@ export const publicBookingSchema = z.object({
     .or(z.literal('').transform(() => '')),
   /** Honeypot field — must remain empty for a bot to be detected. */
   hp: z.string().max(0).optional(),
+  /** Locale of the customer (Phase 24) — drives the confirmation email's
+   *  language. Defaults to FR if the wizard doesn't forward it (older
+   *  builds, or non-browser POSTs). */
+  locale: z.enum(['fr', 'en']).default('fr'),
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
@@ -96,27 +102,38 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     const supabase = createSupabaseServiceRoleClient() as any;
 
     // ── Resolve shop ──────────────────────────────────────────────────
+    // We also pull the contact fields here so the Phase 24 confirmation
+    // email at the bottom can show address + phone without a second
+    // round-trip.
     const shopRes = await supabase
       .from('shops')
-      .select('id, timezone, allow_booking_any_barber')
+      .select('id, name, timezone, allow_booking_any_barber, street, municipality, province, phone')
       .eq('alias', input.shop_slug)
       .limit(1);
     const shop = ((shopRes.data as Array<{
       id: string;
+      name: string;
       timezone: string;
       allow_booking_any_barber: boolean;
+      street: string | null;
+      municipality: string | null;
+      province: string | null;
+      phone: string | null;
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
 
     // ── Resolve services ──────────────────────────────────────────────
+    // `name` added in Phase 24 so the confirmation email can list services
+    // by name. Cheap — same query, one extra column.
     const servicesRes = await supabase
       .from('services')
-      .select('id, duration_min, price, status')
+      .select('id, name, duration_min, price, status')
       .eq('shop_id', shop.id)
       .in('id', input.service_ids);
     const services =
       (servicesRes.data as Array<{
         id: string;
+        name: string;
         duration_min: number;
         price: number;
         status: 'enabled' | 'disabled';
@@ -317,6 +334,63 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       entityId: apptId,
       diff: { source: 'online', service_count: services.length, totalAmount },
     });
+
+    // ── Send branded confirmation email (Phase 24) ────────────────────
+    // No-op when Resend env vars aren't set (lib/email/send.ts handles
+    // that) or when the customer didn't leave an email. We deliberately
+    // do NOT block on the send — a Resend outage shouldn't surface as a
+    // booking error to the user. `sendEmail` catches its own errors and
+    // routes them through Sentry.
+    if (input.email) {
+      // Look up the barber's display name only when a specific one was
+      // picked. For the "any barber" path we leave the field null and the
+      // template falls back to its localized "first available" string.
+      let professionalName: string | null = null;
+      if (barberId) {
+        const barberRes = await supabase
+          .from('barbers')
+          .select('display_name')
+          .eq('id', barberId)
+          .limit(1);
+        professionalName =
+          ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ??
+          null;
+      }
+
+      const addressLine = [shop.street, shop.municipality, shop.province]
+        .filter(Boolean)
+        .join(', ');
+
+      // Fire-and-forget: we `await` so the action's tail latency reflects
+      // the send (helps Sentry tracing) but ignore the return value.
+      await sendEmail({
+        to: input.email,
+        subject:
+          input.locale === 'fr'
+            ? `Ton rendez-vous chez ${shop.name} est confirmé`
+            : `Your appointment at ${shop.name} is confirmed`,
+        template: AppointmentConfirmation({
+          locale: input.locale,
+          shop: {
+            name: shop.name,
+            addressLine: addressLine || null,
+            phone: shop.phone,
+            timezone: shop.timezone,
+          },
+          client: { firstName: input.first_name },
+          appointment: {
+            startAt: startAt.toISOString(),
+            services: services.map((s) => ({ name: s.name, durationMin: s.duration_min })),
+            totalAmount,
+            professionalName,
+          },
+        }),
+        tags: [
+          { name: 'kind', value: 'appointment-confirmation' },
+          { name: 'shop', value: input.shop_slug },
+        ],
+      });
+    }
 
     return ok({ id: apptId });
   } catch (e) {

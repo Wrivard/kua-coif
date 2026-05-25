@@ -227,6 +227,9 @@ export function BookingWizard({
         phone: state.phone,
         notes: state.notes,
         hp: state.hp,
+        // Forwarded so the confirmation email (Phase 24) ships in the
+        // customer's language rather than always defaulting to French.
+        locale: locale === 'en' ? 'en' : 'fr',
       });
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
