@@ -210,6 +210,10 @@
         "email": "Courriel",
         "phone": "Téléphone"
       },
+      "actions": {
+        "exportData": "Exporter les données (Loi 25)",
+        "anonymize": "Anonymiser (Loi 25)"
+      },
       "confirmDelete": {
         "title": "Supprimer ce client ?",
         "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
@@ -226,7 +230,9 @@
       "toasts": {
         "created": "Client créé",
         "updated": "Client mis à jour",
-        "deleted": "« {name} » supprimé"
+        "deleted": "« {name} » supprimé",
+        "exported": "Données de « {name} » exportées",
+        "anonymized": "« {name} » anonymisé (Loi 25)"
       }
     },
     "services": {

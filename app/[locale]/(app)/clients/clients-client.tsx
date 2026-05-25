@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Download, FileDown, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -12,7 +12,7 @@ import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
 import type { ClientRow } from '@/db/rows';
 import { ClientFormModal } from './client-form-modal';
-import { deleteClient } from './actions';
+import { anonymizeClient, deleteClient, exportClient } from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: ClientRow };
 
@@ -95,6 +95,43 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     });
   }
 
+  // Phase 40 — Loi 25. Triggers a server export that returns the full
+  // JSON snapshot, then downloads it as a file via a data URL. Keeps
+  // the data flow server-side (no PII passes through the client beyond
+  // the final download blob).
+  function onExport(row: ClientRow) {
+    startTransition(async () => {
+      const result = await exportClient({ id: row.id });
+      if (!result.ok) {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+        return;
+      }
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kua-client-export-${row.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      show({ variant: 'success', title: t('toasts.exported', { name: clientLabel(row) }) });
+    });
+  }
+
+  function onAnonymize(row: ClientRow) {
+    startTransition(async () => {
+      const result = await anonymizeClient({ id: row.id });
+      if (result.ok) {
+        show({ variant: 'info', title: t('toasts.anonymized', { name: clientLabel(row) }) });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   function clientLabel(c: ClientRow) {
     return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
   }
@@ -129,7 +166,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     {
       id: 'actions',
       header: '',
-      width: '90px',
+      width: '150px',
       align: 'right',
       cell: (r) => (
         <div className="flex items-center justify-end gap-1">
@@ -143,6 +180,31 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
             className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
+          </button>
+          {/* Phase 40 — Loi 25 actions */}
+          <button
+            type="button"
+            aria-label={t('actions.exportData')}
+            title={t('actions.exportData')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onExport(r);
+            }}
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <FileDown className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label={t('actions.anonymize')}
+            title={t('actions.anonymize')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAnonymize(r);
+            }}
+            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <UserX className="h-4 w-4" />
           </button>
           <button
             type="button"

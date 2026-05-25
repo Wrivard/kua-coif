@@ -208,6 +208,10 @@
         "email": "Email",
         "phone": "Phone"
       },
+      "actions": {
+        "exportData": "Export data (Loi 25)",
+        "anonymize": "Anonymize (Loi 25)"
+      },
       "confirmDelete": {
         "title": "Delete this client?",
         "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
@@ -224,7 +228,9 @@
       "toasts": {
         "created": "Client created",
         "updated": "Client updated",
-        "deleted": "\"{name}\" deleted"
+        "deleted": "\"{name}\" deleted",
+        "exported": "\"{name}\" data exported",
+        "anonymized": "\"{name}\" anonymized (Loi 25)"
       }
     },
     "services": {

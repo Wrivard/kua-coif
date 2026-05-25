@@ -40,3 +40,7 @@ export const updateClientSchema = clientSchema.extend({ id: z.string().uuid() })
 export type UpdateClientInput = z.infer<typeof updateClientSchema>;
 
 export const deleteClientSchema = z.object({ id: z.string().uuid() });
+
+/** Phase 40 — Loi 25 export + anonymize. Both take just the client id. */
+export const exportClientSchema = z.object({ id: z.string().uuid() });
+export const anonymizeClientSchema = z.object({ id: z.string().uuid() });
