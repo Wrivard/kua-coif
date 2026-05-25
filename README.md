@@ -253,11 +253,39 @@ vitest.config.ts · playwright.config.ts
 - **Aucune donnée sensible affichée en clair** (SIN, Tax ID) — badges « Provided / Not Provided ».
 - **Audit log** : 7 tables instrumentées via trigger SQL Phase 2 + `logAuditAction()` côté code, surface admin sur `/settings/audit-log`.
 
-## Différé V1.1+
+## Différé V1.1+ / V1.2
 
-- **Stripe Connect** : intégration paiement réelle (UI déjà câblée).
-- **Cloudflare Turnstile** : protection bot sur booking.
-- **Resend reminders** : cron 24h + 1h avant RDV (Phase 24.5).
-- **Realtime calendar** : Supabase Realtime sur `appointments` pour les barbiers multi-écrans.
-- **Drag-and-drop calendrier** : reprogrammation des RDV (édition par modal en V1).
-- **Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (V1 : permissif `*`).
+Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳ sont à venir).
+
+- ✅ **Phase 21 — Upstash Redis rate limiting** : bascule auto multi-instance + fallback in-memory.
+- ✅ **Phase 22 — Whitelist auth + super-admin Küa** : signup désactivé, owners créés via `/admin/shops/new`, staff invité via `/settings/users`.
+- ✅ **Phase 23 — Multi-vertical** : 6 industries (hair_salon, barbershop, massage, physio, chiropractic, esthetics) avec catalogues éditables.
+- ✅ **Phase 24 — Resend email + booking confirmation brandée**.
+- ✅ **Phase 25 — SMTP-per-shop + reminders cron** (24h + 1h) + automation toggles + AES-256-GCM des SMTP passwords.
+- ✅ **Phase 26 — Realtime calendar** : Supabase Realtime sur `appointments` + `blocked_time` pour la propagation multi-écrans.
+- ⏳ **Phase 27 — Drag-to-reschedule** : déplacer/redimensionner un RDV directement sur la grille (`@dnd-kit/core` déjà installé). Dépend de Phase 26 pour propagation cross-viewer.
+- ⏳ **Phase 28 — Stripe Connect** : intégration paiement réelle (UI déjà câblée en V1).
+- ⏳ **Phase 29 — UI review / polish global** : passe de finition cross-écrans (voir détail ci-dessous).
+- ⏳ **Phase 30 — Cloudflare Turnstile** : protection bot sur booking publique.
+- ⏳ **Phase 31 — Per-shop CSP `frame-ancestors` whitelist** pour `/embed` (V1 ships `*` permissif).
+
+### Phase 29 — UI review / polish global (détail)
+
+Passe de finition cross-écrans, à faire une fois que toutes les features fonctionnelles sont en main. Objectif : que l'app passe du « ça marche » au « ça se sent bon à utiliser », sans toucher au modèle de données ni casser le contrat des Server Actions.
+
+**Axes** :
+- **Animations & micro-interactions** : ouverture/fermeture Modal+Drawer en `transform+opacity` (pas de layout shift), toasts qui slide-in depuis bas-droite, chips de filtre avec transition `bg-color`, blocs de calendrier avec hover/active scale subtil, page transitions cohérentes. Évaluer `framer-motion` vs CSS pur (penche CSS pur — bundle).
+- **Loading & empty states** : audit page-par-page que chaque async surface a un skeleton (déjà partiellement fait Phase 12) et chaque liste vide a un `EmptyState` avec icône + message + CTA (pas juste un `<p>No data</p>`).
+- **Icônes** : audit cohérence `lucide-react` (mêmes tailles `h-4 w-4` ou `h-5 w-5`, pas de mélange), aria-label sur tout bouton icône-only, paire icône+label partout où l'icône seule est ambiguë.
+- **Hiérarchie visuelle** : sur chaque écran, une seule action primaire (accent), le reste en `secondary` ou `ghost`. Pas de boutons accent qui se battent pour l'attention.
+- **Spacing & density** : vérifier la rythmique verticale (gap-2/3/4/6) cohérente entre les pages — certaines pages denses (Products, Services) ont un rythme différent de Clients ou Settings.
+- **Typography scale** : seulement les tailles du design system (`text-xs/sm/base/lg/xl/2xl`), pas de valeurs custom.
+- **Hover/focus/active** : chaque élément interactif a un focus ring visible (clavier), un hover affordance (curseur + change subtil de bg), un état actif/pressed.
+- **Mobile responsive** : audit chaque page à 360px / 768px / 1024px — sidebar drawer-able, tables → cartes, modals plein écran.
+- **Accessibilité** : `axe-core` run sur le kitchen-sink + 5 pages clés, fix les critical issues, vérifier le tab order, ajouter `aria-current` sur la nav active.
+- **Performance perçue** : `useTransition` / `useOptimistic` sur les Server Actions pour pas de bloc visuel pendant les mutations ; verify aucune liste ne re-render entièrement quand un item change (memo + key stable).
+- **Branding cohérence** : logo Küa visible mais discret, palette accent partout via `--accent` (déjà fait V0), pas de couleur d'accent en dur.
+
+**Critères de succès** : Lighthouse a11y > 95 sur 3 pages clés (Calendar, Clients, Booking public), axe-core 0 critique, ressenti subjectif sur un parcours « créer un RDV → encaisser » : aucune transition brutale, aucun flash de contenu, aucun bouton ambigu.
+
+**Budget temps estimé** : 12-18 h (gros volume mais aucun risque, c'est du polish ciblé).
