@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireKuaAdmin } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
+import { INDUSTRY_KINDS, getCatalogFor, type IndustryKind } from '@/lib/industries';
 
 const createShopSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -17,9 +18,10 @@ const createShopSchema = z.object({
     .max(40),
   ownerEmail: z.string().trim().toLowerCase().email(),
   ownerFullName: z.string().trim().min(1).max(120).optional(),
-  // Industry is optional in Phase 22 (defaults to hair_salon). Phase 23 adds
-  // the wizard step that exposes the choice + seeds the catalog.
-  industry: z.string().trim().optional(),
+  // Phase 23: required. The form's radio group always submits a value;
+  // we still parse strictly so a tampered submission can't slip a bad
+  // value past the enum.
+  industry: z.enum(INDUSTRY_KINDS),
 });
 
 export type CreateShopState =
@@ -77,9 +79,9 @@ export async function createShopAction(
     }
 
     // 2. Create the shop. Defaults from CLAUDE.md spec (Quebec-centric):
-    //    timezone America/Toronto, language FR, currency CAD. The Phase 23
-    //    industry step will override the catalog seed; here we just create
-    //    the shop shell.
+    //    timezone America/Toronto, language FR, currency CAD. The industry
+    //    drives the catalog seed in step 5 below.
+    const industry = parsed.data.industry as IndustryKind;
     const shopRes = await sb
       .from('shops')
       .insert({
@@ -90,7 +92,7 @@ export async function createShopAction(
         default_language: 'fr',
         country: 'Canada',
         province: 'QC',
-        ...(parsed.data.industry ? { industry: parsed.data.industry } : {}),
+        industry,
       })
       .select('id')
       .single();
@@ -155,6 +157,62 @@ export async function createShopAction(
     });
     if (memberRes.error) {
       return { kind: 'error', message: memberRes.error.message };
+    }
+
+    // 5. Seed the industry-specific catalog (Phase 23). Categories first
+    //    (we need their generated ids), then services keyed back by the
+    //    locale-stable `categoryKey` from the template. Best-effort: a
+    //    seed failure does NOT roll back the shop — the owner can still
+    //    fill the catalog manually from `/services`. We do surface a
+    //    warning via Sentry for visibility.
+    const catalog = getCatalogFor(industry, 'fr');
+    const categoriesInsert = catalog.categories.map((c, i) => ({
+      shop_id: shopId,
+      name: c.name,
+      sort_order: i + 1,
+    }));
+    const catRes = await sb.from('service_categories').insert(categoriesInsert).select('id, name');
+    if (catRes.error) {
+      captureException(catRes.error, {
+        tags: { layer: 'admin-create-shop', step: 'seed-categories' },
+        extra: { shopId, industry },
+      });
+    } else {
+      // Build a Map from FR-key → category.id. Categories in the DB carry
+      // the displayed (FR) name, which equals the template's `key` since
+      // we seed in FR. (When V1.1 adds EN seeding, we'll instead carry
+      // the key in a separate column or use a temp lookup table.)
+      const inserted = (catRes.data as Array<{ id: string; name: string }> | null) ?? [];
+      const idByKey = new Map(
+        catalog.categories.map((c) => {
+          const row = inserted.find((r) => r.name === c.name);
+          return [c.key, row?.id ?? null] as const;
+        }),
+      );
+      const servicesInsert = catalog.services
+        .map((s, i) => {
+          const categoryId = idByKey.get(s.categoryKey);
+          if (!categoryId) return null;
+          return {
+            shop_id: shopId,
+            category_id: categoryId,
+            name: s.name,
+            duration_min: s.duration_min,
+            price: s.price,
+            sort_order: i + 1,
+            status: 'enabled',
+          };
+        })
+        .filter(<T>(v: T | null): v is T => v !== null);
+      if (servicesInsert.length > 0) {
+        const svcRes = await sb.from('services').insert(servicesInsert);
+        if (svcRes.error) {
+          captureException(svcRes.error, {
+            tags: { layer: 'admin-create-shop', step: 'seed-services' },
+            extra: { shopId, industry },
+          });
+        }
+      }
     }
   } catch (err) {
     captureException(err, { tags: { layer: 'admin-create-shop' } });

@@ -1,17 +1,59 @@
 'use client';
 
+import { useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { INDUSTRIES, INDUSTRY_KINDS, type IndustryKind } from '@/lib/industries';
 import { createShopAction, type CreateShopState } from './actions';
 
 const initialState: CreateShopState = { kind: 'idle' };
 
 export function CreateShopForm() {
   const [state, formAction] = useFormState(createShopAction, initialState);
+  const [industry, setIndustry] = useState<IndustryKind>('hair_salon');
 
   return (
-    <form action={formAction} className="max-w-xl space-y-5" noValidate>
+    <form action={formAction} className="max-w-xl space-y-6" noValidate>
+      {/* Industry picker — drives the catalog seed + feature flags after
+          submission. We keep this controlled (`useState` + hidden input)
+          rather than a native radio because the card UI is friendlier than
+          stacked radios for 6 options. */}
+      <fieldset>
+        <legend className="text-sm font-semibold">Industry</legend>
+        <p className="mt-1 text-xs text-text-muted">
+          We seed a starter catalog (services + categories) that matches this vertical. The shop
+          owner can edit everything afterwards.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {INDUSTRY_KINDS.map((id) => {
+            const def = INDUSTRIES[id];
+            const active = industry === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setIndustry(id)}
+                aria-pressed={active}
+                className={cn(
+                  'rounded border p-3 text-left text-sm transition-colors',
+                  active
+                    ? 'border-accent bg-accent-subtle text-text-primary'
+                    : 'border-border bg-bg-base text-text-secondary hover:bg-bg-surface-2',
+                )}
+              >
+                <p className="font-medium">{def.displayName.en}</p>
+                <p className="mt-0.5 text-[11px] text-text-muted">
+                  {def.catalog.services.length} services pre-loaded
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <input type="hidden" name="industry" value={industry} />
+      </fieldset>
+
       <div>
         <Label htmlFor="name" required>
           Shop name

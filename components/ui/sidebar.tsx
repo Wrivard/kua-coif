@@ -21,15 +21,24 @@ export type SidebarUser = {
 type Props = {
   locale: string;
   user: SidebarUser | null;
+  /**
+   * Industry feature flag (Phase 23): when true, the Products nav item is
+   * hidden — therapy verticals (massage / physio / chiro) typically don't
+   * sell retail products. Default `false` preserves V1 behavior.
+   */
+  hideProducts?: boolean;
 };
 
-export function Sidebar({ locale, user }: Props) {
+export function Sidebar({ locale, user, hideProducts = false }: Props) {
   const pathname = usePathname();
   const t = useTranslations('nav');
   const [expanded, setExpanded] = useState(false);
 
   const currentPath = stripLocale(pathname, locales);
   const localePrefix = `/${locale}`;
+  const navItems = hideProducts
+    ? NAV_ITEMS.filter((item) => item.labelKey !== 'products')
+    : NAV_ITEMS;
 
   return (
     <aside
@@ -62,7 +71,7 @@ export function Sidebar({ locale, user }: Props) {
 
       <nav className="flex-1 overflow-y-auto py-3" aria-label="Main">
         <ul className="flex flex-col gap-1 px-2">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <li key={item.labelKey}>
               <SidebarLink
                 item={item}
