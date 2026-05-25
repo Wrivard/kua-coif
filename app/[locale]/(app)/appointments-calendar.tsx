@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -150,6 +151,9 @@ export function AppointmentsCalendar({
   );
   const [drawer, setDrawer] = useState<CalendarAppointment | null>(null);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
+  // Brief "Updated" pill shown for ~1.5s whenever a Realtime event triggers a
+  // refresh. Tells the user the view is fresh without being intrusive.
+  const [justRefreshed, setJustRefreshed] = useState(false);
 
   // ── Memoized derivations ──────────────────────────────────────────────
   // The calendar re-renders on every parent state change (modal/drawer
@@ -195,6 +199,55 @@ export function AppointmentsCalendar({
     }
     return m;
   }, [barbers, blocked]);
+
+  // ── Phase 26 — Supabase Realtime ──────────────────────────────────────
+  // Subscribe to INSERT/UPDATE/DELETE on `appointments` and `blocked_time`
+  // scoped to the current shop. On any event, call `router.refresh()` which
+  // re-runs the Server Component (Promise.all of ~9 queries, ~200ms) and
+  // pushes fresh data into this client component.
+  //
+  // Why refresh instead of patching local state:
+  //  - appointments carry joined rows (services, client name) — re-deriving
+  //    them client-side would mean duplicating the SQL view logic. Refresh
+  //    keeps a single source of truth on the server.
+  //  - 200ms is invisible at the cadence calendar mutations actually happen
+  //    (a few times per minute on a busy shop).
+  //
+  // Subscriptions require the tables to be in the `supabase_realtime`
+  // publication — added in migration 20260525114840_realtime_calendar.sql.
+  // RLS still applies: the browser's anon JWT must satisfy the same
+  // `is_shop_member()` policy as a normal SELECT.
+  useEffect(() => {
+    const shopId = barbers[0]?.shop_id;
+    if (!shopId) return;
+    const supabase = createSupabaseBrowserClient();
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const onChange = () => {
+      router.refresh();
+      setJustRefreshed(true);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setJustRefreshed(false), 1500);
+    };
+    const channel = supabase
+      .channel(`calendar:${shopId}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'appointments', filter: `shop_id=eq.${shopId}` },
+        onChange,
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'blocked_time', filter: `shop_id=eq.${shopId}` },
+        onChange,
+      )
+      .subscribe();
+    return () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [barbers, router]);
 
   const shiftDate = useCallback(
     (deltaDays: number) => {
@@ -247,6 +300,19 @@ export function AppointmentsCalendar({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            {/* Phase 26 — Realtime refresh indicator. CSS-only fade keeps it
+                from stealing focus; aria-live='polite' announces to screen
+                readers without interrupting. */}
+            <span
+              aria-live="polite"
+              className={cn(
+                'border-success/30 bg-success/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-success transition-opacity duration-300',
+                justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              {t('liveUpdate')}
+            </span>
           </div>
         }
         actions={

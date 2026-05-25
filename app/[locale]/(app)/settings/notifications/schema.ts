@@ -8,25 +8,10 @@ import { z } from 'zod';
 
 export const senderConfigSchema = z.object({
   from_email: z.string().trim().toLowerCase().email().or(z.literal('')),
-  from_name: z
-    .string()
-    .trim()
-    .max(120)
-    .optional()
-    .or(z.literal('')),
-  smtp_host: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .or(z.literal('')),
+  from_name: z.string().trim().max(120).optional().or(z.literal('')),
+  smtp_host: z.string().trim().max(200).optional().or(z.literal('')),
   smtp_port: z.number().int().min(1).max(65535).nullable().optional(),
-  smtp_user: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .or(z.literal('')),
+  smtp_user: z.string().trim().max(200).optional().or(z.literal('')),
   /**
    * Empty string = "keep the existing encrypted password" (the form is
    * write-only — we never echo the current value back, so the user submits
