@@ -1,0 +1,14 @@
+# Enforce LF line endings in the git object store for all text files.
+# Without this, contributors with `core.autocrlf=true` (Windows default)
+# can accidentally commit CRLF, which Prettier's `endOfLine: "lf"`
+# default flags as a style violation when CI checks out the file on
+# Linux. This file is the single source of truth — `autocrlf` becomes
+# irrelevant.
+
+* text=auto eol=lf
+
+# Lockfiles are checked in but never hand-edited; mark them so git
+# doesn't try to diff them as normal text.
+package-lock.json -diff
+pnpm-lock.yaml -diff
+yarn.lock -diff

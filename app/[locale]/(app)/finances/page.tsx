@@ -20,11 +20,7 @@ export const dynamic = 'force-dynamic';
  * Manager+ only — barbers shouldn't see shop-wide revenue. They can
  * still see their own appointments on the calendar.
  */
-export default async function FinancesPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function FinancesPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');
@@ -62,10 +58,7 @@ export default async function FinancesPage({
       .eq('status', 'completed')
       .gte('start_at', monthStart.toISOString())
       .lt('start_at', monthEnd.toISOString()),
-    supabase
-      .from('clients')
-      .select('id, loyalty_balance_cents')
-      .gt('loyalty_balance_cents', 0),
+    supabase.from('clients').select('id, loyalty_balance_cents').gt('loyalty_balance_cents', 0),
   ]);
 
   type ApptRow = {
@@ -99,10 +92,7 @@ export default async function FinancesPage({
   const barberIds = Array.from(byBarber.keys());
   let barberRows: Array<{ id: string; display_name: string; count: number; revenue: number }> = [];
   if (barberIds.length > 0) {
-    const namesRes = await supabase
-      .from('barbers')
-      .select('id, display_name')
-      .in('id', barberIds);
+    const namesRes = await supabase.from('barbers').select('id, display_name').in('id', barberIds);
     const names = new Map(
       ((namesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map((b) => [
         b.id,
@@ -134,10 +124,7 @@ export default async function FinancesPage({
           <Kpi label={t('kpis.grossRevenue')} value={fmtCAD(grossRevenue)} />
           <Kpi label={t('kpis.completedAppointments')} value={String(completedCount)} />
           <Kpi label={t('kpis.avgTicket')} value={fmtCAD(avgTicket)} />
-          <Kpi
-            label={t('kpis.loyaltyOutstanding')}
-            value={fmtCAD(loyaltyOutstandingCents / 100)}
-          />
+          <Kpi label={t('kpis.loyaltyOutstanding')} value={fmtCAD(loyaltyOutstandingCents / 100)} />
         </div>
 
         <Card>

@@ -156,9 +156,7 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
       .select('id, shop_id, first_name, last_name, email, phone, notes, created_at, anonymized_at')
       .eq('id', input.id)
       .single();
-    const client = clientRes.data as
-      | (ExportedClient['client'] & { shop_id: string })
-      | null;
+    const client = clientRes.data as (ExportedClient['client'] & { shop_id: string }) | null;
     if (!client) return err('NOT_FOUND');
     if (client.shop_id !== ctx.shopId) return err('NOT_FOUND');
 
