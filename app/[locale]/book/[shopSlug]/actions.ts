@@ -162,7 +162,9 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // round-trip.
     const shopRes = await supabase
       .from('shops')
-      .select('id, name, timezone, allow_booking_any_barber, street, municipality, province, phone')
+      .select(
+        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color',
+      )
       .eq('alias', input.shop_slug)
       .limit(1);
     const shop = ((shopRes.data as Array<{
@@ -174,6 +176,8 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       municipality: string | null;
       province: string | null;
       phone: string | null;
+      email_logo_url: string | null;
+      email_accent_color: string | null;
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
 
@@ -609,6 +613,9 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
             addressLine: addressLine || null,
             phone: shop.phone,
             timezone: shop.timezone,
+            // Phase 62b — per-shop email branding.
+            emailLogoUrl: shop.email_logo_url,
+            emailAccentColor: shop.email_accent_color,
           },
           client: { firstName: input.first_name },
           appointment: {

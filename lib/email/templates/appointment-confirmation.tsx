@@ -30,6 +30,14 @@ export type AppointmentConfirmationProps = {
     addressLine?: string | null;
     phone?: string | null;
     timezone: string;
+    /**
+     * Phase 62b — per-shop branding. When set, the template renders the
+     * shop's logo instead of the "Küa" wordmark and applies the shop's
+     * accent color to the brand chip / total / outro signature so the
+     * email reads like it came from THIS salon, not the platform.
+     */
+    emailLogoUrl?: string | null;
+    emailAccentColor?: string | null;
   };
   client: {
     firstName: string;
@@ -44,14 +52,20 @@ export type AppointmentConfirmationProps = {
   };
 };
 
-const palette = {
-  bgOuter: '#1b1b1b',
-  bgCard: '#222222',
-  border: '#383838',
-  text: '#f5f5f5',
-  textMuted: '#a0a0a0',
-  accent: '#8b5cf6',
-};
+// Phase 62b — accent color now per-shop. The other palette tokens stay
+// fixed (background + text contrast is universal); only the brand pop
+// shifts to the shop's chosen hex.
+const DEFAULT_ACCENT = '#8b5cf6';
+function buildPalette(accentOverride?: string | null) {
+  return {
+    bgOuter: '#1b1b1b',
+    bgCard: '#222222',
+    border: '#383838',
+    text: '#f5f5f5',
+    textMuted: '#a0a0a0',
+    accent: accentOverride ?? DEFAULT_ACCENT,
+  };
+}
 
 const t = (locale: 'fr' | 'en') =>
   locale === 'fr'
@@ -95,6 +109,7 @@ export function AppointmentConfirmation({
   appointment,
 }: AppointmentConfirmationProps) {
   const L = t(locale);
+  const palette = buildPalette(shop.emailAccentColor);
   const startDate = new Date(appointment.startAt);
   const formattedDate = formatHeaderDate(startDate, locale, shop.timezone);
   const formattedTime = formatShopTime(appointment.startAt, shop.timezone, 'HH:mm');
@@ -116,20 +131,33 @@ export function AppointmentConfirmation({
             padding: 32,
           }}
         >
-          {/* Brand mark */}
+          {/* Brand mark — Phase 62b: shop logo if provided, else the Küa
+              wordmark with the (possibly overridden) accent. Logo is
+              capped at 40px height to keep the email compact across
+              clients. */}
           <Section style={{ marginBottom: 24 }}>
-            <span
-              style={{
-                backgroundColor: palette.accent,
-                borderRadius: 6,
-                color: '#ffffff',
-                display: 'inline-block',
-                fontWeight: 700,
-                padding: '6px 10px',
-              }}
-            >
-              Küa
-            </span>
+            {shop.emailLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={shop.emailLogoUrl}
+                alt={shop.name}
+                height={40}
+                style={{ display: 'block', height: 40, maxWidth: 200, objectFit: 'contain' }}
+              />
+            ) : (
+              <span
+                style={{
+                  backgroundColor: palette.accent,
+                  borderRadius: 6,
+                  color: '#ffffff',
+                  display: 'inline-block',
+                  fontWeight: 700,
+                  padding: '6px 10px',
+                }}
+              >
+                Küa
+              </span>
+            )}
           </Section>
 
           <Heading
@@ -244,12 +272,15 @@ export function AppointmentConfirmation({
   );
 }
 
+// `Row` uses the fixed muted color from the base palette — it never
+// shifts per-shop (only the accent does). Inlining the hex keeps the
+// Row helper independent of the per-shop palette build.
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Section style={{ marginBottom: 16 }}>
       <Text
         style={{
-          color: palette.textMuted,
+          color: '#a0a0a0',
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: '0.05em',

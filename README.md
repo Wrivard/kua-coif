@@ -342,6 +342,10 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 63 — Reviews schema** : migration `reviews` (rating 1-5, status pending/published/rejected, indexes + RLS shop_members + public SELECT sur published). Submission flow public via signed token + admin moderation UI = V1.1 (63b/63c).
 - ⏳ **Phases 66, 67, 68, 69** : deferred (chacune mérite son loop — Storage bucket setup, MFA enrollment flow, phone-OTP infra, cron/matcher algo).
 - ✅ **Phase 65 audit doc** : `AUDIT_PHASE65.md` (loop 8 wrap, MVPs + clear deferrals, roadmap loop 9).
+- ✅ **Phase 62b — Email branding wiring** : template `appointment-confirmation.tsx` accepte `emailLogoUrl` + `emailAccentColor` ; logo image au lieu du Küa wordmark si fourni, palette accent overridable. Booking action lit les nouveaux colonnes + passe au template.
+- ✅ **Phase 63c — Reviews moderation UI** : `/settings/reviews` admin page (3 sections pending/published/rejected) + actions `moderateReview` (publish/reject) + `deleteReview`. Star rating display, barber name lookup, audit log capture. RLS already enforced.
+- ⏳ **Phase 65b — Sidebar dropdown** : reporté (sidebar 324 lignes — refactor sortant du budget loop, switcher reste accessible via `/settings/active-shop`).
+- ⏳ **Phases 63b, 66, 67, 68, 69** : encore à venir (public review submission via signed token, image upload, 2FA, /me page, waitlist auto-notify).
 
 ### Phase 29 — UI review / polish global (détail)
 
