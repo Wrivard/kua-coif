@@ -8,6 +8,7 @@ import { err, ok, type Result } from '@/lib/server-actions/result';
 import { captureException } from '@/lib/observability';
 import { logAuditAction } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
+import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 
 /**
  * Phase 68 — Self-service Loi 25 export.
@@ -71,8 +72,13 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
 
     const clientRes = await supabase
       .from('clients')
+      // Loop 35 self-review — include `loyalty_balance_expires_at` so
+      // the /me self-export shows the effective (post-expiry) balance
+      // rather than the raw column value. A customer seeing "$10"
+      // here that's actually expired would be confused on their next
+      // booking attempt.
       .select(
-        'id, shop_id, first_name, last_name, email, phone, created_at, loyalty_balance_cents, anonymized_at',
+        'id, shop_id, first_name, last_name, email, phone, created_at, loyalty_balance_cents, loyalty_balance_expires_at, anonymized_at',
       )
       .eq('id', payload.resourceId)
       .limit(1);
@@ -85,9 +91,16 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
       phone: string | null;
       created_at: string;
       loyalty_balance_cents: number | null;
+      loyalty_balance_expires_at: string | null;
       anonymized_at: string | null;
     }> | null) ?? [])[0];
     if (!client || client.anonymized_at) return err('NOT_FOUND');
+
+    const effectiveBalanceCents = await effectiveLoyaltyBalanceCents({
+      clientId: client.id,
+      balanceCents: client.loyalty_balance_cents ?? 0,
+      expiresAt: client.loyalty_balance_expires_at,
+    });
 
     const apptRes = await supabase
       .from('appointments')
@@ -138,7 +151,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
         email: client.email,
         phone: client.phone,
         created_at: client.created_at,
-        loyalty_balance_cents: client.loyalty_balance_cents ?? 0,
+        loyalty_balance_cents: effectiveBalanceCents,
       },
       appointments,
     });
