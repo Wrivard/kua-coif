@@ -622,7 +622,7 @@ export function AppointmentsCalendar({
               against bg-base. We replaced them with /8-/15 ranges + a
               shadow-sm to lift the surface. The grid still segments the
               day visually but doesn't compete with the appointments. */}
-          <div className="overflow-x-auto rounded-lg border border-border bg-bg-base shadow-sm">
+          <div className="overflow-x-auto rounded-lg bg-bg-base shadow-sm">
             <div className="flex min-w-[600px]">
               {/* Time axis — labels centered on the hour line
                   (-translate-y-1/2) so the visual rhythm is

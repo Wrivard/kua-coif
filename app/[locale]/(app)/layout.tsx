@@ -8,6 +8,7 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import { getCurrentShop, getCurrentUser } from '@/lib/auth/server';
 import { INDUSTRIES, isIndustryKind } from '@/lib/industries';
 import { setUser } from '@/lib/observability';
+import { SentryUserInit } from '@/components/features/shell/sentry-user-init';
 
 export default async function AppShellLayout({
   children,
@@ -45,6 +46,10 @@ export default async function AppShellLayout({
   return (
     <QueryProvider>
       <ToastProvider>
+        {/* Phase 70 audit fix (Loop 18) — tag the Sentry client scope
+            with the user. Renders nothing; runs Sentry.setUser in a
+            useEffect. Server-scope is set above via setUser(...). */}
+        <SentryUserInit id={user?.id ?? null} email={user?.email ?? null} />
         {/* Skip link — visible only when focused. Keyboard users hitting
             Tab on page load land here first so they can jump past the
             13+ sidebar items straight into the main content. Required
