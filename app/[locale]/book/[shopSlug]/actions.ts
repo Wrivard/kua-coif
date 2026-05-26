@@ -470,11 +470,35 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // its ID + the deposit amount. payment_status starts as 'pending'
     // and gets moved to 'paid' by the webhook handler on
     // payment_intent.succeeded.
+    //
+    // Loop 29 (P2.103 from AUDIT_PHASE70) — `deposit_amount_cents` was
+    // previously stored from the client's payload (`input.deposit_amount_cents`).
+    // A hand-crafted POST could set `999999` to make the row claim a
+    // larger deposit than Stripe actually captured — corrupting the
+    // finances trail and any "Balance due in-shop" the customer sees
+    // on the receipt. Re-derive from `services.deposit_amount_cents`
+    // server-side and discard the client value entirely (the schema
+    // still accepts the field so old clients don't break, but we
+    // ignore it).
+    let recomputedDepositCents = 0;
+    if (input.payment_intent_id) {
+      const depRes = await supabase
+        .from('services')
+        .select('id, deposit_amount_cents')
+        .eq('shop_id', shop.id)
+        .in('id', input.service_ids);
+      const depRows =
+        (depRes.data as Array<{ id: string; deposit_amount_cents: number | null }> | null) ?? [];
+      recomputedDepositCents = depRows.reduce(
+        (sum, s) => sum + Number(s.deposit_amount_cents ?? 0),
+        0,
+      );
+    }
     const paymentFields = input.payment_intent_id
       ? {
           payment_intent_id: input.payment_intent_id,
           payment_status: 'pending' as const,
-          deposit_amount_cents: input.deposit_amount_cents ?? 0,
+          deposit_amount_cents: recomputedDepositCents,
         }
       : {};
     // Phase 72 — client_name_snapshot captured at insert time so the
