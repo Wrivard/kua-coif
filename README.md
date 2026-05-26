@@ -55,20 +55,20 @@ cp .env.example .env.local
 # … puis remplir NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
 # SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PROJECT_REF.
 
-# 2. Dépendances
-npm install
+# 2. Dépendances (le projet utilise pnpm — la CI échoue sur npm ci)
+pnpm install
 
 # 3. Dev
-npm run dev       # http://localhost:3000 → redirige vers /fr
+pnpm dev          # http://localhost:3000 → redirige vers /fr
 
 # 4. Vérifs
-npm run build
-npm run typecheck
-npm run lint
-npm run format:check
-npm test                # 56 tests Vitest
-npm run test:e2e        # Playwright (headless) — boote `npm run dev` auto
-npm run test:e2e:ui     # Playwright (mode interactif)
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm test                # tests Vitest
+pnpm test:e2e            # Playwright (headless) — boote `pnpm dev` auto
+pnpm test:e2e:ui         # Playwright (mode interactif)
 ```
 
 Première installation Playwright (par machine) :

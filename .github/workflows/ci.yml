@@ -21,23 +21,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Loop 41 — switched from npm to pnpm because local dev uses
+      # pnpm (`pnpm add` only updates pnpm-lock.yaml) and the parallel
+      # `package-lock.json` was constantly drifting out of sync,
+      # making `npm ci` fail. Single source of truth = pnpm-lock.yaml.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Format check
-        run: npm run format:check
+        run: pnpm format:check
 
       - name: Build (Next.js)
         # Provide harmless placeholders so middleware/auth init doesn't blow up
@@ -45,4 +54,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-        run: npm run build
+        run: pnpm build
