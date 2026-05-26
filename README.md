@@ -317,6 +317,10 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 43 — Loyalty program activation** : `awardLoyaltyOnCompletion` hooké dans `updateAppointment` → bump `clients.loyalty_counter` + grant reward au goal. UI consommation = V1.1.
 - ✅ **Phase 44 — Finances dashboard** : KPIs du mois courant (gross revenue, RDV complétés, panier moyen, loyalty outstanding) + table ventes par barbier. Manager+ only.
 - ✅ **Phase 45 — Onboarding hint** : carte contextuelle sur le calendar quand le setup est < 100% (shop address, hours, services, barbers). Auto-cache une fois complet.
+- ✅ **Phase 46 — Audit production-readiness post-loop 2** : doc `AUDIT_PHASE46.md` (état des P0/P1, verdict launch-ready avec caveats, roadmap V1.1).
+- ✅ **Phase 47 — Premium UX polish** : auth shell (ambient gradient + brand mark), booking wizard (header, progress chips, service cards, barber cards, sticky subtotal), EmptyState (icon halo accent/danger), forms (Input/Select/Textarea/Toggle/Checkbox harmonisés ring-2 ring-accent/30 + shadow-sm).
+- ✅ **Phase 48 — Calendar grid white-stroke root-cause fix** : découverte que `border-border/X` est un no-op silencieux depuis Phase 33 (Tailwind 3 ne strip pas l'alpha d'un `rgba()` token). Introduction de `--border-soft` (0.04) et `--border-faint` (0.025) bakés. Calendar overlays (blocked, Google busy, appointment blocks) au standard rounded-md + shadow-sm + hover-lift.
+- ✅ **Phase 49 — Audit + roadmap loop 3** : doc `AUDIT_PHASE49.md` (état post-47/48, V1 remnants identifiés, roadmap loop 4).
 
 ### Phase 29 — UI review / polish global (détail)
 

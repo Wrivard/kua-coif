@@ -177,7 +177,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setMode({ kind: 'edit', client: r });
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -190,7 +190,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               onExport(r);
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <FileDown className="h-4 w-4" />
           </button>
@@ -202,7 +202,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               onAnonymize(r);
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <UserX className="h-4 w-4" />
           </button>
@@ -213,7 +213,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Trash2 className="h-4 w-4" />
           </button>

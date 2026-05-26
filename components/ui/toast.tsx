@@ -86,7 +86,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         type="button"
         onClick={onDismiss}
         aria-label={tA11y('close')}
-        className="rounded p-0.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary"
+        className="rounded-md p-0.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary"
       >
         <X className="h-3.5 w-3.5" />
       </button>

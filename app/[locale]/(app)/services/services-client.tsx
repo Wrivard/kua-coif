@@ -157,7 +157,7 @@ export function ServicesClient({
               e.stopPropagation();
               setMode({ kind: 'edit', service: r });
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -168,7 +168,7 @@ export function ServicesClient({
               e.stopPropagation();
               onToggleStatus(r);
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Power className="h-4 w-4" />
           </button>
@@ -179,7 +179,7 @@ export function ServicesClient({
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Trash2 className="h-4 w-4" />
           </button>
