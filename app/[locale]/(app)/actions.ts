@@ -544,16 +544,54 @@ export const cancelAppointment = withAction({
   minRole: 'barber',
   run: async (input, ctx) => {
     // Pull the row BEFORE the cancel so we have barber_id +
-    // google_event_id for the mirror-delete below. Two reads instead of
-    // one but keeps the cancel logic readable.
+    // google_event_id for the mirror-delete below. Loop 25 also reads
+    // payment fields to support the `also_refund` flag — same query.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const preSb = rawDb() as any;
     const preRes = await preSb
       .from('appointments')
-      .select('barber_id, google_event_id')
+      .select('barber_id, google_event_id, payment_intent_id, payment_status')
       .eq('id', input.id)
       .single();
-    const pre = preRes.data as { barber_id: string; google_event_id: string | null } | null;
+    const pre = preRes.data as {
+      barber_id: string;
+      google_event_id: string | null;
+      payment_intent_id: string | null;
+      payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+    } | null;
+
+    // Loop 25 — "Cancel & Refund" combo (P1.12 audit). When the
+    // caller sets `also_refund` AND the appointment is actually paid,
+    // we fire the refund FIRST (irreversible toward the customer —
+    // they got their money back; safer than refunding after a cancel
+    // that fails halfway through). The cancel itself proceeds even if
+    // the refund errors — we'd rather have a refund'd-but-still-
+    // booked row that the owner can clean up than a cancelled-but-
+    // not-refunded chargeback risk.
+    if (
+      input.also_refund &&
+      pre?.payment_status === 'paid' &&
+      pre?.payment_intent_id &&
+      stripeConfigured()
+    ) {
+      try {
+        await refundPaymentIntent({ paymentIntentId: pre.payment_intent_id });
+        await logAuditAction({
+          shopId: ctx.shopId,
+          actorId: ctx.userId,
+          action: 'update',
+          entity: 'appointments',
+          entityId: input.id,
+          diff: { refunded: true, source: 'cancel-and-refund' },
+        });
+      } catch (e) {
+        captureException(e, {
+          tags: { layer: 'stripe-payments', action: 'cancelAppointment.refund' },
+        });
+        // Fall through — cancel proceeds anyway. Owner can retry the
+        // refund manually via the refund button if it failed.
+      }
+    }
 
     const { error } = await (
       rawDb() as unknown as {

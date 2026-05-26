@@ -28,18 +28,32 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
 
   const isCancelled = appointment?.status === 'cancelled' || appointment?.status === 'no_show';
 
-  function onCancel() {
+  function onCancel(alsoRefund: boolean = false) {
     if (!appointment) return;
+    // Loop 25 — owner intent: "I'm just cancelling" vs "Cancel and
+    // refund the customer." When `alsoRefund=true`, the cancel action
+    // refunds the PaymentIntent first (irreversible, customer-safe
+    // order) then marks the row cancelled. Refund failure doesn't
+    // block the cancel — the owner gets a toast and can retry the
+    // refund via the standalone refund flow.
     startTransition(async () => {
-      const result = await cancelAppointment({ id: appointment.id });
+      const result = await cancelAppointment({ id: appointment.id, also_refund: alsoRefund });
       if (result.ok) {
-        show({ variant: 'success', title: t('toasts.cancelled') });
+        show({
+          variant: 'success',
+          title: alsoRefund ? t('toasts.cancelledAndRefunded') : t('toasts.cancelled'),
+        });
         onClose();
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
   }
+
+  // Whether the appointment is in a payment state where a refund is
+  // actually possible. "paid" is the only happy path; refunded/failed/
+  // pending all skip the refund button.
+  const canRefund = appointment?.payment_status === 'paid';
 
   // Phase 12 (post-loop-11) — generate a signed public link, prefix
   // with the live origin if the env-set base is empty (dev), then copy
@@ -100,10 +114,21 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
       onClose={onClose}
       title={t('detailTitle')}
       footer={
+        // Loop 25 — split into two buttons when the appointment was
+        // paid. "Cancel & refund" handles the chargeback-avoidance
+        // pattern in one action; plain "Cancel" stays for the unpaid
+        // case (most appointments). When already cancelled, no footer.
         appointment && !isCancelled ? (
-          <Button variant="danger" onClick={onCancel} loading={isPending}>
-            {t('cancelAppointment')}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
+              {t('cancelAppointment')}
+            </Button>
+            {canRefund ? (
+              <Button variant="danger" onClick={() => onCancel(true)} loading={isPending}>
+                {t('cancelAndRefund')}
+              </Button>
+            ) : null}
+          </div>
         ) : null
       }
     >

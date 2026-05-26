@@ -78,7 +78,9 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     sb.from('shop_days_off').select('date').order('date', { ascending: true }),
     sb
       .from('appointments')
-      .select('id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount')
+      .select(
+        'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+      )
       .order('start_at', { ascending: true })
       // Filter by start_at within the day in UTC bounds. We use gte/lt via the chained builder.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,6 +131,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       notes: string | null;
       source: 'admin' | 'online';
       total_amount: number;
+      payment_status: CalendarAppointment['payment_status'];
     }> | null) ?? [];
   const blocked =
     (blockedRes.data as Array<{
@@ -172,6 +175,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     source: a.source,
     total_amount: a.total_amount,
     services: servicesByAppt.get(a.id) ?? [],
+    payment_status: a.payment_status,
   }));
 
   // ── Google Calendar busy overlays (Phase 34) ──────────────────────────

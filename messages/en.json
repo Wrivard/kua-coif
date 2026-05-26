@@ -176,6 +176,7 @@
       "services": "Services",
       "notes": "Notes",
       "cancelAppointment": "Cancel appointment",
+      "cancelAndRefund": "Cancel & refund",
       "statuses": {
         "booked": "Booked",
         "confirmed": "Confirmed",
@@ -198,7 +199,8 @@
       },
       "toasts": {
         "created": "Appointment created",
-        "cancelled": "Appointment cancelled"
+        "cancelled": "Appointment cancelled",
+        "cancelledAndRefunded": "Cancelled and refunded"
       }
     },
     "clients": {

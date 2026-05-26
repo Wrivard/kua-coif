@@ -178,6 +178,7 @@
       "services": "Services",
       "notes": "Notes",
       "cancelAppointment": "Annuler le rendez-vous",
+      "cancelAndRefund": "Annuler et rembourser",
       "statuses": {
         "booked": "Réservé",
         "confirmed": "Confirmé",
@@ -200,7 +201,8 @@
       },
       "toasts": {
         "created": "Rendez-vous créé",
-        "cancelled": "Rendez-vous annulé"
+        "cancelled": "Rendez-vous annulé",
+        "cancelledAndRefunded": "Rendez-vous annulé et remboursé"
       }
     },
     "clients": {

@@ -68,6 +68,9 @@ export type CalendarAppointment = {
   source: 'admin' | 'online';
   total_amount: number;
   services: ServiceRow[];
+  // Loop 25 — surfaced so the detail drawer can show "Cancel" vs
+  // "Cancel & refund" based on whether the appointment was paid.
+  payment_status?: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
 };
 
 type Hours = {

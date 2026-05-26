@@ -23,7 +23,17 @@ export type AppointmentInput = z.infer<typeof appointmentSchema>;
 export const updateAppointmentSchema = appointmentSchema.extend({ id: z.string().uuid() });
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 
-export const cancelAppointmentSchema = z.object({ id: z.string().uuid() });
+export const cancelAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  /**
+   * Loop 25 — when true, also issue a full refund via the
+   * appointment's PaymentIntent in the same call. No-op when the
+   * appointment is not `payment_status === 'paid'`. Combined into one
+   * action so an owner can't cancel-and-forget-to-refund (chargeback
+   * risk identified in AUDIT_PHASE70 P1.12).
+   */
+  also_refund: z.boolean().optional().default(false),
+});
 
 /** Phase 38 — charge a deposit on an appointment. Amount is in cents. */
 export const chargeAppointmentSchema = z.object({
