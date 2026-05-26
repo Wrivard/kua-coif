@@ -298,7 +298,19 @@ export function BookingWizard({
       if (paymentRef.current) {
         const paid = await paymentRef.current.confirmPayment();
         if (paid.kind === 'error') {
-          show({ variant: 'danger', title: paid.message });
+          // Loop 34 (P93) — surface Stripe's structured error code in
+          // the toast description when present, so an "Insufficient
+          // funds" decline reads as "Card declined · insufficient_funds"
+          // rather than just the bare human message. Helps the customer
+          // identify the right card to try and gives support better
+          // information when they call. `decline_code` is the more
+          // specific bank-side reason when available.
+          const subCode = paid.declineCode ?? paid.code;
+          show({
+            variant: 'danger',
+            title: paid.message,
+            description: subCode ? `Stripe: ${subCode}` : undefined,
+          });
           return;
         }
         if (paid.kind === 'paid') {

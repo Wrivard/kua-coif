@@ -41,11 +41,17 @@ export type BookingPaymentSectionRef = {
    * Rejects with an error message on failure (declined card, 3DS
    * cancel, etc.). Resolves with `{ kind: 'no_deposit' }` when there's
    * no payment to make — caller can proceed to booking immediately.
+   *
+   * Loop 34 (P93) — error result now carries Stripe's structured
+   * `code` (e.g. `card_declined`, `expired_card`) and the more
+   * specific `declineCode` (e.g. `insufficient_funds`,
+   * `fraudulent`). The wizard surfaces the human `message` in the
+   * toast title and the code in a `description` for clarity.
    */
   confirmPayment: () => Promise<
     | { kind: 'no_deposit' }
     | { kind: 'paid'; paymentIntentId: string; depositCents: number }
-    | { kind: 'error'; message: string }
+    | { kind: 'error'; message: string; code?: string; declineCode?: string }
   >;
   /** Returns true when the PaymentElement is mounted and ready. */
   isReady: () => boolean;
@@ -238,7 +244,9 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
 // ---------------------------------------------------------------------------
 
 type ConfirmerHandle = {
-  confirm: () => Promise<{ kind: 'paid' } | { kind: 'error'; message: string }>;
+  confirm: () => Promise<
+    { kind: 'paid' } | { kind: 'error'; message: string; code?: string; declineCode?: string }
+  >;
 };
 
 const PaymentConfirmer = forwardRef<ConfirmerHandle>(function PaymentConfirmer(_props, ref) {
@@ -250,15 +258,39 @@ const PaymentConfirmer = forwardRef<ConfirmerHandle>(function PaymentConfirmer(_
     () => ({
       confirm: async () => {
         if (!stripe || !elements) return { kind: 'error', message: 'NOT_READY' };
+        // Loop 34 (P93) — `redirect: 'if_required'` lets Stripe handle
+        // most 3DS challenges inline via a modal. The minority of cards
+        // (typically some EU issuers, certain bank-redirect methods)
+        // still force a full-page redirect — for those flows Stripe
+        // requires `return_url` to be set, otherwise `confirmPayment`
+        // throws before the redirect even starts. We point at the
+        // current URL so the customer lands back on the booking
+        // wizard. State restoration after the round-trip is a known
+        // gap: today the wizard would reset to step 1 because we don't
+        // persist state to localStorage. That's tolerable for now —
+        // redirect-3DS is rare for the NA card mix we serve — but
+        // a future loop should add `?step=4&prefill=...` round-tripping
+        // if redirect-3DS becomes common in production telemetry.
+        const returnUrl = typeof window !== 'undefined' ? window.location.href : undefined;
         const { error, paymentIntent } = await stripe.confirmPayment({
           elements,
-          // Stay on the page unless 3DS forces a redirect. Successful
-          // confirmation returns `paymentIntent` here; the booking-wizard
-          // submit handler then calls `bookPublicAppointment`.
+          confirmParams: returnUrl ? { return_url: returnUrl } : undefined,
           redirect: 'if_required',
         });
         if (error) {
-          return { kind: 'error', message: error.message ?? 'PAYMENT_FAILED' };
+          // Loop 34 — surface the Stripe error CODE alongside the
+          // human message. Codes like `card_declined`,
+          // `insufficient_funds`, `expired_card`, `incorrect_cvc`,
+          // `processing_error` let the caller render a localized
+          // explanation if the bare message isn't friendly enough.
+          // `error.message` is already localized by Stripe via the
+          // `locale: 'fr-CA'` option on Elements above.
+          return {
+            kind: 'error',
+            message: error.message ?? 'PAYMENT_FAILED',
+            code: error.code,
+            declineCode: error.decline_code,
+          };
         }
         if (!paymentIntent) {
           return { kind: 'error', message: 'NO_PAYMENT_INTENT' };
