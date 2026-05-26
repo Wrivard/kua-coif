@@ -978,7 +978,7 @@ function DraggableAppointmentBlock({
         {appointment.services.map((s) => s.name).join(' + ')}
       </div>
       {appointment.source === 'online' ? (
-        <Badge variant="accent" className="mt-0.5">
+        <Badge variant="info" className="mt-0.5">
           {t('online')}
         </Badge>
       ) : null}

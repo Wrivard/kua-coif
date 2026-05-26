@@ -38,13 +38,29 @@ import { getStripe } from './server';
  * Idempotency key based on appointment ID prevents duplicate intents
  * if the caller retries (e.g., network blip during booking).
  */
+/**
+ * Phase 70 audit fix — resolve the application fee from the
+ * `STRIPE_APP_FEE_BPS` env var (basis points, 100 = 1%). When unset or
+ * 0, no platform fee is collected. Callers can override per-call via
+ * `applicationFeeCents` (e.g. tier-based pricing if we ever add
+ * per-shop SaaS plans with different revenue shares).
+ *
+ * The audit noted Küa was earning $0 from card transactions despite
+ * the plumbing being in place — this turns the lever on.
+ */
+function defaultApplicationFeeCents(amountCents: number): number {
+  const bps = Number(process.env.STRIPE_APP_FEE_BPS ?? 0);
+  if (!Number.isFinite(bps) || bps <= 0) return 0;
+  return Math.round((amountCents * bps) / 10_000);
+}
+
 export async function createDepositPaymentIntent({
   connectedAccountId,
   appointmentId,
   amountCents,
   currency = 'cad',
   customerEmail,
-  applicationFeeCents = 0,
+  applicationFeeCents,
 }: {
   connectedAccountId: string;
   appointmentId: string;
@@ -54,6 +70,8 @@ export async function createDepositPaymentIntent({
   applicationFeeCents?: number;
 }): Promise<Stripe.PaymentIntent> {
   const stripe = getStripe();
+  // Caller can override; otherwise we read from STRIPE_APP_FEE_BPS.
+  const fee = applicationFeeCents ?? defaultApplicationFeeCents(amountCents);
   return stripe.paymentIntents.create(
     {
       amount: amountCents,
@@ -62,7 +80,7 @@ export async function createDepositPaymentIntent({
       // (amount - application_fee) to the connected account. Funds
       // settle on the shop's payout schedule.
       transfer_data: { destination: connectedAccountId },
-      application_fee_amount: applicationFeeCents > 0 ? applicationFeeCents : undefined,
+      application_fee_amount: fee > 0 ? fee : undefined,
       // Allow card (default) only. Future could add `apple_pay`,
       // `google_pay`, etc. via Payment Element.
       automatic_payment_methods: { enabled: true },

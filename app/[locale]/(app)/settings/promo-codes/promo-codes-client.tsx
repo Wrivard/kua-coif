@@ -86,14 +86,14 @@ export function PromoCodesClient({
       header: t('columns.firstAppt'),
       align: 'center',
       width: '160px',
-      cell: (r) => (r.first_appointment_only ? <Badge variant="accent">●</Badge> : '—'),
+      cell: (r) => (r.first_appointment_only ? <Badge variant="success">●</Badge> : '—'),
     },
     {
       id: 'one_time',
       header: t('columns.oneTime'),
       align: 'center',
       width: '110px',
-      cell: (r) => (r.one_time ? <Badge variant="accent">●</Badge> : '—'),
+      cell: (r) => (r.one_time ? <Badge variant="success">●</Badge> : '—'),
     },
     {
       id: 'expiration',

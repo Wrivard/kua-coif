@@ -149,7 +149,7 @@ export function WaitingListClient({
         <Card>
           <CardHeader>
             <CardTitle>{t('entries.title')}</CardTitle>
-            <Badge variant="accent">{waitingCount}</Badge>
+            <Badge variant="default">{waitingCount}</Badge>
           </CardHeader>
           <CardBody>
             {entries.length === 0 ? (
