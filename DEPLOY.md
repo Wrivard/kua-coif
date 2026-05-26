@@ -234,5 +234,141 @@ Recharge l'URL — tu vois maintenant la sidebar, le calendrier avec les 7 RDV d
 - Mise à jour `NEXT_PUBLIC_SITE_URL` avec le domaine custom
 - Mise à jour Site URL + Redirect URLs Supabase avec le domaine custom
 - Email templates Supabase (français + design)
-- Backups Supabase activés (Pro plan)
 - Sentry DSN + Resend pour les confirmations email (Phase 9b)
+
+---
+
+## Backup & Disaster Recovery (Loop 32, P2.106)
+
+> Cette section est le **runbook** que tu suis quand quelque chose explose en
+> prod. À tester au moins une fois sur le projet Supabase avant le launch :
+> faire un restore réel sur une branche, vérifier qu'on récupère les RDV.
+
+### 1. Ce que Supabase fait automatiquement
+
+| Plan         | Backups quotidiens | PITR (point-in-time recovery)    | Rétention |
+|--------------|--------------------|----------------------------------|-----------|
+| Free         | ✗ (manuel via CLI) | ✗                                | —         |
+| Pro          | ✓                  | ✓ (rolling 7 jours)              | 7 jours   |
+| Team         | ✓                  | ✓ (rolling 14 jours)             | 14 jours  |
+
+**Action minimale pour la prod Küa : plan Pro (25 $/mois)**. Le Free plan
+n'a aucun filet — un `DROP TABLE` accidentel est définitif. Le PITR Pro
+permet de revenir à n'importe quel instant dans les 7 derniers jours, à
+la seconde près.
+
+**Vérifier la config Supabase :**
+
+1. Dashboard Supabase → Project → **Database** → **Backups**
+2. Confirmer **Daily backups: Enabled** + **PITR: Enabled (7 days)**.
+3. Si le projet est Free → upgrader avant le launch (jamais après — un
+   incident sur un projet Free est non-récupérable).
+
+### 2. Backup manuel (à faire avant chaque déploiement risqué)
+
+Avant une migration destructive (`DROP COLUMN`, refactor de schéma,
+backfill SQL massif) :
+
+```bash
+# Depuis ton local, supabase CLI installé.
+supabase db dump --project-ref jzpfvefrjtwqfyynhczp --data-only > backup-$(date +%Y%m%d-%H%M).sql
+
+# Pour un dump complet (schema + data) :
+supabase db dump --project-ref jzpfvefrjtwqfyynhczp > full-backup-$(date +%Y%m%d-%H%M).sql
+```
+
+Stocker ces dumps **hors Supabase** (Google Drive, S3, disque local).
+Un backup sur le même serveur que la prod n'est pas un backup.
+
+### 3. Procédure de restore — PITR (recommandé)
+
+**Cas d'usage : "ma migration a tout cassé il y a 2 heures, ramène-moi
+avant"**.
+
+1. Dashboard Supabase → Project → **Database** → **Backups** → **Restore**
+2. Choisir **Point in time** + sélectionner l'instant cible (UTC).
+3. Supabase clone le projet à cet instant dans une **branche** (pas un
+   overwrite — le projet courant reste intact pendant le restore).
+4. Une fois la branche prête, vérifier les données sur l'URL de branche.
+5. Si OK → swap : Dashboard → **Settings** → **Connection pooling** →
+   pointer l'URL Vercel vers la branche restaurée.
+
+**Délai typique : 5-15 min** selon la taille de la DB. Pendant ce temps,
+mettre l'app en mode maintenance (Vercel → Pause Deployments) pour éviter
+les écritures sur le projet cassé.
+
+### 4. Procédure de restore — dump manuel (fallback)
+
+**Cas d'usage : "Supabase est down ou le PITR ne fonctionne pas"**.
+
+```bash
+# 1. Créer un nouveau projet Supabase vierge (ou utiliser le dev).
+# 2. Appliquer les migrations de base :
+supabase db push --project-ref NEW_PROJECT_REF
+
+# 3. Restaurer le dump :
+psql "postgresql://postgres:PASS@NEW_HOST:5432/postgres" -f full-backup-2026-05-26.sql
+
+# 4. Mettre à jour les env vars Vercel pour pointer sur le nouveau projet :
+#    NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+# 5. Redéployer.
+```
+
+**Délai typique : 30-60 min** + le temps de propagation DNS si le projet
+était sur un domaine custom.
+
+### 5. Backup des secrets (env vars)
+
+Les env vars Vercel ne sont **pas** sauvegardées dans le repo. Si le
+projet Vercel est supprimé, on perd toutes les clés.
+
+**Garder une copie chiffrée hors-ligne** de ces valeurs (1Password vault
+recommandé) :
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY`
+- `SIGNING_SECRET` (HMAC pour les URL signées /receipt /me /reschedule)
+- `SENTRY_AUTH_TOKEN` (source-maps upload)
+- `GOOGLE_OAUTH_CLIENT_SECRET` + `GOOGLE_CALENDAR_*` si configuré
+- `TURNSTILE_SECRET_KEY` (Cloudflare)
+
+**Re-générer** plutôt que stocker en clair quand possible (Stripe, Resend,
+Sentry exposent tous une révocation + re-création depuis leur dashboard).
+
+### 6. Test de restauration (à faire avant le launch)
+
+Un backup non-testé n'est pas un backup. Avant le go-live :
+
+1. Faire une migration destructive sur le projet **dev** (`DROP TABLE
+   appointments` par exemple).
+2. Suivre la procédure PITR ci-dessus pour restaurer.
+3. Mesurer le temps total (target : < 20 min de bout en bout).
+4. Vérifier l'intégrité : tous les RDV présents + RLS fonctionne + login
+   continue.
+5. Documenter dans ce fichier toute friction rencontrée (timeouts, perms,
+   etc.).
+
+### 7. Alertes proactives
+
+- **Sentry** : déjà configuré (DSN dans Vercel env). Les exceptions
+  serveur signalent les erreurs DB en temps réel.
+- **Supabase Database Webhooks** : configurer une alerte si la table
+  `audit_log` cesse d'enregistrer pendant > 1h (signal d'une panne
+  silencieuse de l'app).
+- **Vercel Monitoring** : `/api/health` répond 200 → uptime monitor
+  externe (UptimeRobot, gratuit) ping toutes les 5 min.
+
+### 8. Contacts d'urgence
+
+- **Supabase support** : `support@supabase.com` + Dashboard → Support
+  (24/48h sur Free, prio Pro)
+- **Stripe support** : Dashboard → Help → Contact (immédiat pour les
+  comptes Connect actifs)
+- **Vercel support** : Dashboard → Help (24/48h sur Hobby, prio Pro)
+
+---
+
+**Cadence de vérification : tous les 3 mois**. Re-lire ce runbook,
+re-faire un dry-run PITR sur le dev, vérifier que les contacts/dashboards
+sont toujours accessibles.
