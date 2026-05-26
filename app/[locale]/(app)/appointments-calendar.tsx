@@ -363,11 +363,22 @@ export function AppointmentsCalendar({
     if (!shopId) return;
     const supabase = createSupabaseBrowserClient();
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    // Loop 27 self-review — `postgres_changes` broadcasts one event
+    // PER ROW. A 52-week recurring block insert previously caused 52
+    // separate `router.refresh()` calls in rapid succession, each
+    // re-running ~9 server queries. Debounce so a burst of events
+    // (e.g. recurring inserts, bulk cancellations, scheduled-emails
+    // status flips) collapses to a single refresh ~250ms after the
+    // last event lands.
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const onChange = () => {
-      router.refresh();
-      setJustRefreshed(true);
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => setJustRefreshed(false), 1500);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        router.refresh();
+        setJustRefreshed(true);
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => setJustRefreshed(false), 1500);
+      }, 250);
     };
     const channel = supabase
       .channel(`calendar:${shopId}`)
@@ -386,6 +397,7 @@ export function AppointmentsCalendar({
       .subscribe();
     return () => {
       if (hideTimer) clearTimeout(hideTimer);
+      if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
   }, [barbers, router]);

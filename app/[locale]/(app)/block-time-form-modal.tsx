@@ -208,17 +208,37 @@ export function BlockTimeFormModal({ isoDate, barbers, onClose }: Props) {
                 <Label htmlFor="until_date" required>
                   {t('repeatUntil')}
                 </Label>
-                <Input id="until_date" type="date" {...register('until_date')} />
-                <p className="mt-1 text-[10px] text-text-muted">
-                  {t('repeatHelper', {
-                    label:
-                      recurrence === 'weekly'
-                        ? t('recurrences.weekly').toLowerCase()
-                        : recurrence === 'biweekly'
-                          ? t('recurrences.biweekly').toLowerCase()
-                          : t('recurrences.monthly').toLowerCase(),
-                  })}
-                </p>
+                <Input
+                  id="until_date"
+                  type="date"
+                  // Loop 27 self-review — min={date} stops the user
+                  // from picking an until-date before the start. The
+                  // schema also refuses it via .superRefine, but the
+                  // native date picker is the better first line of
+                  // defence.
+                  min={watch('date')}
+                  {...register('until_date')}
+                />
+                {errors.until_date ? (
+                  <p className="mt-1 text-[10px] text-danger">
+                    {errors.until_date.message === 'UNTIL_DATE_REQUIRED'
+                      ? t('errors.untilRequired')
+                      : errors.until_date.message === 'UNTIL_DATE_BEFORE_START'
+                        ? t('errors.untilBeforeStart')
+                        : t('errors.untilInvalid')}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[10px] text-text-muted">
+                    {t('repeatHelper', {
+                      label:
+                        recurrence === 'weekly'
+                          ? t('recurrences.weekly').toLowerCase()
+                          : recurrence === 'biweekly'
+                            ? t('recurrences.biweekly').toLowerCase()
+                            : t('recurrences.monthly').toLowerCase(),
+                    })}
+                  </p>
+                )}
               </div>
             </div>
           ) : null}

@@ -69,28 +69,54 @@ export type RescheduleAppointmentInput = z.infer<typeof rescheduleAppointmentSch
 export const BLOCK_TIME_RECURRENCES = ['none', 'weekly', 'biweekly', 'monthly'] as const;
 export type BlockTimeRecurrence = (typeof BLOCK_TIME_RECURRENCES)[number];
 
-export const blockTimeSchema = z.object({
-  barber_id: z.string().uuid().nullable(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE'),
-  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'INVALID_TIME'),
-  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'INVALID_TIME'),
-  reason: z
-    .string()
-    .trim()
-    .max(200)
-    .nullable()
-    .or(z.literal('').transform(() => null)),
+export const blockTimeSchema = z
+  .object({
+    barber_id: z.string().uuid().nullable(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE'),
+    start_time: z.string().regex(/^\d{2}:\d{2}$/, 'INVALID_TIME'),
+    end_time: z.string().regex(/^\d{2}:\d{2}$/, 'INVALID_TIME'),
+    reason: z
+      .string()
+      .trim()
+      .max(200)
+      .nullable()
+      .or(z.literal('').transform(() => null)),
+    /**
+     * `none` (default) → single row. `weekly`/`biweekly`/`monthly` →
+     * the action repeats from `date` up to `until_date` (required when
+     * recurrence is set).
+     */
+    recurrence: z.enum(BLOCK_TIME_RECURRENCES).optional().default('none'),
+    until_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE')
+      .nullable()
+      .optional()
+      .default(null),
+  })
   /**
-   * `none` (default) → single row. `weekly`/`biweekly`/`monthly` →
-   * the action repeats from `date` up to `until_date` (required when
-   * recurrence is set).
+   * Loop 27 self-review — block a submission that asks for recurrence
+   * without an until-date. Without this refine the action returned a
+   * generic INVALID_INPUT and the user saw a confusing "erreur
+   * inattendue" toast instead of a field-specific message. Same
+   * applies to an until-date BEFORE the start date: catch it in the
+   * form rather than letting the server enumerate 0 dates and
+   * silently no-op.
    */
-  recurrence: z.enum(BLOCK_TIME_RECURRENCES).optional().default('none'),
-  until_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE')
-    .nullable()
-    .optional()
-    .default(null),
-});
+  .superRefine((val, ctx) => {
+    if (val.recurrence !== 'none' && !val.until_date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['until_date'],
+        message: 'UNTIL_DATE_REQUIRED',
+      });
+    }
+    if (val.until_date && val.until_date < val.date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['until_date'],
+        message: 'UNTIL_DATE_BEFORE_START',
+      });
+    }
+  });
 export type BlockTimeInput = z.infer<typeof blockTimeSchema>;

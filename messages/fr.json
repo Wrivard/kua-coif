@@ -175,6 +175,11 @@
         },
         "save": "Bloquer",
         "validationError": "Vérifiez les champs en erreur.",
+        "errors": {
+          "untilRequired": "Date de fin requise pour une récurrence.",
+          "untilBeforeStart": "La date de fin doit être à partir de la date de début.",
+          "untilInvalid": "Utilisez le format AAAA-MM-JJ."
+        },
         "toasts": {
           "created": "Horaire bloqué",
           "createdRecurring": "{count} blocages créés"

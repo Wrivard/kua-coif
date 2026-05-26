@@ -173,6 +173,11 @@
         },
         "save": "Block time",
         "validationError": "Please check the highlighted fields.",
+        "errors": {
+          "untilRequired": "Until-date is required when repeating.",
+          "untilBeforeStart": "Until-date must be on or after the start date.",
+          "untilInvalid": "Use the format YYYY-MM-DD."
+        },
         "toasts": {
           "created": "Time blocked",
           "createdRecurring": "{count} blocks created"
