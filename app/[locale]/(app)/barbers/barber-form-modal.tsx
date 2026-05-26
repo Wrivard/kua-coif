@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -32,6 +33,7 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
           phone: mode.barber.phone,
           personnel_id: mode.barber.personnel_id,
           status: mode.barber.status,
+          avatar_url: mode.barber.avatar_url ?? null,
         }
       : {
           display_name: '',
@@ -39,11 +41,14 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
           phone: null,
           personnel_id: null,
           status: 'confirmed',
+          avatar_url: null,
         };
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<BarberInput>({
     resolver: zodResolver(barberSchema),
@@ -89,6 +94,31 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
         noValidate
       >
+        {/* Loop 44 (P120 follow-through) — avatar upload reuses the
+            same Storage bucket as the shop logo (`shop-assets`) with
+            `purpose=avatar`, so the path becomes
+            `shops/<id>/avatar/<uuid>.png`. The ImageUpload writes the
+            resolved public URL back into the form's `avatar_url`
+            field; the save path is the existing create/updateBarber
+            action which already persists the column. */}
+        <div className="md:col-span-2">
+          <Label>{t('form.avatar')}</Label>
+          <ImageUpload
+            value={watch('avatar_url') || null}
+            onChange={(url) => setValue('avatar_url', url ?? null, { shouldDirty: true })}
+            purpose="avatar"
+            size={64}
+            labels={{
+              upload: t('form.avatarUpload'),
+              replace: t('form.avatarReplace'),
+              remove: t('form.avatarRemove'),
+              invalidType: t('form.avatarInvalidType'),
+              tooLarge: t('form.avatarTooLarge'),
+              failed: t('form.avatarFailed'),
+            }}
+          />
+        </div>
+
         <div className="md:col-span-2">
           <Label htmlFor="display_name" required>
             {t('form.displayName')}

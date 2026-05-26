@@ -375,7 +375,14 @@
         "email": "Courriel",
         "phone": "Téléphone",
         "personnelId": "ID employé (optionnel)",
-        "status": "Statut"
+        "status": "Statut",
+        "avatar": "Photo",
+        "avatarUpload": "Téléverser",
+        "avatarReplace": "Remplacer",
+        "avatarRemove": "Retirer",
+        "avatarInvalidType": "PNG, JPEG ou WebP seulement.",
+        "avatarTooLarge": "Max 2 Mo.",
+        "avatarFailed": "Échec de l’upload. Réessaie."
       },
       "toasts": {
         "created": "Barbier ajouté",

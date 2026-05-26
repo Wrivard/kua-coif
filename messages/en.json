@@ -373,7 +373,14 @@
         "email": "Email",
         "phone": "Phone",
         "personnelId": "Personnel ID (optional)",
-        "status": "Status"
+        "status": "Status",
+        "avatar": "Avatar",
+        "avatarUpload": "Upload",
+        "avatarReplace": "Replace",
+        "avatarRemove": "Remove",
+        "avatarInvalidType": "PNG, JPEG or WebP only.",
+        "avatarTooLarge": "Max 2 MB.",
+        "avatarFailed": "Upload failed. Try again."
       },
       "toasts": {
         "created": "Barber added",

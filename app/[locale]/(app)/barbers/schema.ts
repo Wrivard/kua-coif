@@ -25,6 +25,20 @@ export const barberSchema = z.object({
     .nullable()
     .or(z.literal('').transform(() => null)),
   status: z.enum(SHOP_MEMBER_STATUSES),
+  /**
+   * Loop 44 (P120 follow-through) — avatar URL written by the
+   * `<ImageUpload>` field in the barber form. Stored as a string URL
+   * pointing at the `shop-assets` Storage bucket (or any other
+   * public URL the manager wants to use). `null` for no avatar; the
+   * sidebar / barbers list fall back to initials.
+   */
+  avatar_url: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .nullable()
+    .or(z.literal('').transform(() => null)),
 });
 export type BarberInput = z.infer<typeof barberSchema>;
 
