@@ -15,13 +15,18 @@
 -- action enforces a tighter 2 MB cap before forwarding to Storage to
 -- save bandwidth on rejected uploads.
 
+-- Loop 43 self-review — SVG removed from the allowed MIME list.
+-- The format can carry inline scripts / foreignObject payloads, so
+-- publicly serving owner-uploaded SVG is a self-XSS vector. PNG /
+-- JPEG / WebP cover every real-world logo case. A future loop can
+-- re-enable SVG behind a server-side sanitizer.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'shop-assets',
   'shop-assets',
   true,
   5 * 1024 * 1024,
-  array['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+  array['image/png', 'image/jpeg', 'image/webp']
 )
 on conflict (id) do update set
   public = excluded.public,

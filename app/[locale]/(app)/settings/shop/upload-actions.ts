@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { err, ok, type Result } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
 import { captureException } from '@/lib/observability';
@@ -24,7 +24,14 @@ import { captureException } from '@/lib/observability';
  * we don't need a migration per surface.
  */
 
-const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']);
+// Loop 43 self-review — SVG dropped from the whitelist. The format
+// can carry inline `<script>` or `<foreignObject>` payloads, so
+// publicly serving an arbitrary owner-uploaded SVG is a self-XSS
+// vector if any consumer (calendar preview, future widget, email
+// client that does render SVG) treats it as inline markup. PNG /
+// JPEG / WebP cover every real-world logo case. A future loop can
+// re-enable SVG once we wire DOMPurify or a server-side sanitizer.
+const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — the bucket caps at 5 MB
 // for raw safety, but the server action returns INVALID_INPUT at 2
 // MB so the upload doesn't waste bandwidth on rejected files.
@@ -57,10 +64,6 @@ export async function uploadShopAsset(formData: FormData): Promise<Result<Upload
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = createSupabaseServerClient() as any;
-    // Resolve current shop id from the auth.users metadata (already
-    // validated by requireShopMember above against the
-    // shop_members table). Same helper used by getCurrentShopId.
-    const { getCurrentShopId } = await import('@/lib/auth/server');
     const shopId = await getCurrentShopId();
     if (!shopId) return err('FORBIDDEN');
 
@@ -119,9 +122,11 @@ function extensionFor(mime: string): string {
       return 'jpg';
     case 'image/webp':
       return 'webp';
-    case 'image/svg+xml':
-      return 'svg';
     default:
+      // Loop 43 self-review — the whitelist above rejects everything
+      // else, so this branch is unreachable. Kept for type safety;
+      // the `bin` placeholder is intentionally non-renderable so a
+      // bypass attempt that lands here writes a dead file.
       return 'bin';
   }
 }

@@ -55,9 +55,10 @@ export function ImageUpload({ value, onChange, purpose, size = 64, labels }: Pro
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
-    // Client-side guard mirrors the server-side checks so we don't
-    // even shoot the upload when we can predict it'll be rejected.
-    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) {
+    // Client-side guard mirrors the server-side whitelist (SVG
+    // intentionally excluded — see upload-actions.ts comment on the
+    // self-XSS rationale).
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
       setError(labels.invalidType);
       e.target.value = '';
       return;
@@ -88,7 +89,7 @@ export function ImageUpload({ value, onChange, purpose, size = 64, labels }: Pro
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        accept="image/png,image/jpeg,image/webp"
         onChange={onFileChange}
         className="sr-only"
         aria-hidden
