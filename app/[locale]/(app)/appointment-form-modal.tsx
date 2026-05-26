@@ -185,7 +185,7 @@ export function AppointmentFormModal({
           <Label required>
             {t('form.services')} {totalMinutes > 0 ? `(${totalMinutes} min)` : ''}
           </Label>
-          <div className="max-h-64 overflow-y-auto rounded border border-border bg-bg-surface p-3">
+          <div className="max-h-64 overflow-y-auto rounded-lg bg-bg-surface p-3 shadow-sm">
             {[...servicesByCategory.entries()].map(([categoryId, list]) => {
               const category = categories.find((c) => c.id === categoryId);
               return (

@@ -189,7 +189,7 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
 
         <div className="md:col-span-2">
           <Label>{t('form.taxes')}</Label>
-          <div className="grid grid-cols-2 gap-2 rounded border border-border bg-bg-surface p-3">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-bg-surface p-3 shadow-sm">
             {taxes.length === 0 ? (
               <p className="text-xs text-text-muted">{t('form.noTaxes')}</p>
             ) : (
