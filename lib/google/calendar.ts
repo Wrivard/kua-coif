@@ -74,6 +74,14 @@ async function fetchWithRetry(
 /**
  * Create an event on a Google Calendar. Returns the new event ID which
  * the caller stores on `appointments.google_event_id`.
+ *
+ * Loop 36 caveat — POST + automatic retry on 5xx means a duplicate
+ * event is theoretically possible if Google committed the create then
+ * the response was dropped at the network layer. Probability is low
+ * (Google's 5xx-after-commit pattern is rare) and the cost is one
+ * extra event the user can delete manually. A stricter fix would
+ * pass a client-supplied `id` so the retry collides idempotently —
+ * deferred until production telemetry shows the dupe rate matters.
  */
 export async function createEvent({
   accessToken,
