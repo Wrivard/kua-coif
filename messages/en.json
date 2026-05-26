@@ -1018,6 +1018,21 @@
       "back": "Back",
       "continue": "Continue",
       "confirm": "Confirm appointment",
+      "payment": {
+        "depositLabel": "Deposit due",
+        "depositHelp": "A deposit is required to confirm your booking. You'll be charged now; the balance is settled at the shop.",
+        "shopNotConnected": "The shop hasn't set up online payment yet. You'll pay at the shop.",
+        "intentFailed": "Couldn't prepare the payment. Try again or contact the shop."
+      },
+      "waitlist": {
+        "cta": "Join the waitlist",
+        "title": "Waiting list",
+        "firstName": "First name",
+        "phone": "Phone",
+        "notes": "Note (optional)",
+        "submit": "Submit",
+        "thanks": "Thanks! The shop will reach out if a slot opens up."
+      },
       "steps": {
         "service": {
           "title": "Pick your services",

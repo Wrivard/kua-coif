@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -12,6 +13,8 @@ import { checkAvailability, type ExistingAppointment } from '@/lib/business/avai
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
+import { stripeConfigured } from '@/lib/stripe/server';
+import { createDepositPaymentIntent } from '@/lib/stripe/payments';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -73,6 +76,23 @@ export const publicBookingSchema = z.object({
     .max(40)
     .optional()
     .or(z.literal('').transform(() => undefined)),
+  /**
+   * Stripe PaymentIntent ID (Phase 56) — set when the booking flow
+   * collected a deposit via Stripe Elements before submitting the
+   * appointment. The wizard creates the PI first via
+   * `createBookingPaymentIntent`, confirms it client-side, then passes
+   * the ID here so we can persist the link. The webhook keeps
+   * `payment_status` in sync (pending → paid).
+   */
+  payment_intent_id: z
+    .string()
+    .trim()
+    .max(120)
+    .regex(/^pi_/, 'INVALID_PAYMENT_INTENT')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  /** Deposit amount in cents that the PI was created for (Phase 56). */
+  deposit_amount_cents: z.number().int().min(0).optional(),
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
@@ -436,6 +456,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     }
 
     // ── Insert appointment ───────────────────────────────────────────
+    // Phase 56 — if a PaymentIntent was collected client-side, persist
+    // its ID + the deposit amount. payment_status starts as 'pending'
+    // and gets moved to 'paid' by the webhook handler on
+    // payment_intent.succeeded.
+    const paymentFields = input.payment_intent_id
+      ? {
+          payment_intent_id: input.payment_intent_id,
+          payment_status: 'pending' as const,
+          deposit_amount_cents: input.deposit_amount_cents ?? 0,
+        }
+      : {};
     const insertAppt = await supabase
       .from('appointments')
       .insert({
@@ -448,6 +479,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         source: 'online',
         notes: input.notes || null,
         total_amount: totalAmount,
+        ...paymentFields,
       })
       .select('id')
       .single();
@@ -714,6 +746,145 @@ export async function addToWaitlistPublic(
     return ok({ id: entryId });
   } catch (e) {
     captureException(e, { tags: { layer: 'public-waitlist' } });
+    return err('UNEXPECTED');
+  }
+}
+
+// ── Phase 56 — Stripe Elements deposit collection ──────────────────────
+// Called by the booking wizard when step 4 mounts AND the selected
+// services aggregate a non-zero deposit AND the shop has Stripe Connect
+// active. Creates a PaymentIntent (no appointment yet) and returns the
+// client_secret so PaymentElement can render. The appointment is created
+// later by `bookPublicAppointment` with `payment_intent_id` set.
+//
+// Why not create the appointment first: if the user abandons after the
+// PI is created but before confirming payment, no ghost appointment is
+// left behind. Stripe PaymentIntents in `requires_payment_method` state
+// expire on their own (24h default) and don't charge anything.
+
+const bookingPaymentIntentSchema = z.object({
+  shop_slug: z.string().trim().min(1),
+  service_ids: z.array(z.string().uuid()).min(1),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email()
+    .optional()
+    .or(z.literal('').transform(() => '')),
+});
+
+export type CreateBookingPaymentIntentInput = z.infer<typeof bookingPaymentIntentSchema>;
+
+export type BookingPaymentIntentResult =
+  | { kind: 'no_deposit' }
+  | {
+      kind: 'intent';
+      clientSecret: string;
+      paymentIntentId: string;
+      depositCents: number;
+    }
+  | { kind: 'shop_not_connected' };
+
+export async function createBookingPaymentIntent(
+  raw: CreateBookingPaymentIntentInput,
+): Promise<Result<BookingPaymentIntentResult>> {
+  try {
+    // Rate limit — the wizard creates ONE intent per session step-4
+    // mount, so a strict cap is fine. 30/10min is loose enough for
+    // legitimate retries (back+forward navigation) and tight enough
+    // to throttle abuse (Stripe charges us per intent).
+    const ip = clientIp();
+    const rl = await checkRateLimit(`bookpay:${ip}`, {
+      max: 30,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
+
+    const parsed = bookingPaymentIntentSchema.safeParse(raw);
+    if (!parsed.success) return err('INVALID_INPUT');
+    const input = parsed.data;
+
+    if (!stripeConfigured()) {
+      // Server-side Stripe isn't set up — wizard treats this as
+      // pay-at-shop. Same UX as a shop with no Connect onboarding.
+      return ok({ kind: 'no_deposit' as const });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createSupabaseServiceRoleClient() as any;
+
+    // Resolve shop + Stripe Connect status.
+    const shopRes = await supabase
+      .from('shops')
+      .select('id, stripe_account_id, stripe_connect_status')
+      .eq('alias', input.shop_slug)
+      .limit(1);
+    const shop =
+      ((shopRes.data as Array<{
+        id: string;
+        stripe_account_id: string | null;
+        stripe_connect_status: string;
+      }> | null) ?? [])[0] ?? null;
+    if (!shop) return err('NOT_FOUND');
+
+    // Shop must be fully onboarded — Stripe rejects charges to non-active
+    // accounts with a 400, so we'd rather catch it here with a clear
+    // signal the UI can branch on.
+    if (!shop.stripe_account_id || shop.stripe_connect_status !== 'active') {
+      return ok({ kind: 'shop_not_connected' as const });
+    }
+
+    // Resolve services + sum the deposit cents. Services with a 0
+    // deposit_amount_cents (the default) contribute nothing; if every
+    // service is 0 we tell the wizard there's no deposit and it skips
+    // PaymentElement entirely.
+    const svcsRes = await supabase
+      .from('services')
+      .select('id, deposit_amount_cents, status')
+      .eq('shop_id', shop.id)
+      .in('id', input.service_ids);
+    const svcs =
+      (svcsRes.data as Array<{
+        id: string;
+        deposit_amount_cents: number | null;
+        status: 'enabled' | 'disabled';
+      }> | null) ?? [];
+    if (svcs.length !== input.service_ids.length || svcs.some((s) => s.status !== 'enabled')) {
+      return err('NOT_FOUND');
+    }
+    const depositCents = svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
+    if (depositCents <= 0) {
+      return ok({ kind: 'no_deposit' as const });
+    }
+
+    // A session UUID stands in as the "appointment_id" for the
+    // PaymentIntent metadata + idempotency key. The actual appointment
+    // gets created later by `bookPublicAppointment` with this PI ID
+    // attached — the webhook still finds the row via
+    // `appointments.payment_intent_id`, regardless of what's in metadata.
+    const sessionId = randomUUID();
+
+    const intent = await createDepositPaymentIntent({
+      connectedAccountId: shop.stripe_account_id,
+      appointmentId: sessionId,
+      amountCents: depositCents,
+      customerEmail: input.email || undefined,
+    });
+
+    if (!intent.client_secret) {
+      // Should never happen on a fresh intent, but the type allows null.
+      return err('UNEXPECTED');
+    }
+
+    return ok({
+      kind: 'intent' as const,
+      clientSecret: intent.client_secret,
+      paymentIntentId: intent.id,
+      depositCents,
+    });
+  } catch (e) {
+    captureException(e, { tags: { layer: 'booking-payment-intent' } });
     return err('UNEXPECTED');
   }
 }

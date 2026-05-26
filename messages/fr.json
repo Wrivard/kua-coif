@@ -1020,6 +1020,21 @@
       "back": "Retour",
       "continue": "Continuer",
       "confirm": "Confirmer le rendez-vous",
+      "payment": {
+        "depositLabel": "Acompte à régler",
+        "depositHelp": "Pour confirmer ta réservation, un acompte est requis. Tu seras facturé maintenant ; le solde sera réglé en salon.",
+        "shopNotConnected": "Le salon n’a pas encore configuré le paiement en ligne. Tu pourras régler sur place.",
+        "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon."
+      },
+      "waitlist": {
+        "cta": "M’inscrire à la liste d’attente",
+        "title": "Liste d’attente",
+        "firstName": "Prénom",
+        "phone": "Téléphone",
+        "notes": "Note (optionnel)",
+        "submit": "Envoyer",
+        "thanks": "Merci ! Le salon te recontactera si une place se libère."
+      },
       "steps": {
         "service": {
           "title": "Choisis tes services",

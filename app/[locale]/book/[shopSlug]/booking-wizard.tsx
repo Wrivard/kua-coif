@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   CalendarCheck,
@@ -24,7 +24,8 @@ import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
 import type { WidgetConfig } from '@/lib/business/widget-config';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import { bookPublicAppointment } from './actions';
+import { addToWaitlistPublic, bookPublicAppointment } from './actions';
+import { BookingPaymentSection, type BookingPaymentSectionRef } from './booking-payment-section';
 
 export type BookingShop = {
   id: string;
@@ -225,9 +226,33 @@ export function BookingWizard({
     return false;
   })();
 
+  // Phase 56 — ref to the payment section so submit can confirm the
+  // PaymentIntent before invoking the booking action. The section
+  // resolves to `{ kind: 'no_deposit' }` when no deposit applies, so
+  // the submit logic stays a single branch.
+  const paymentRef = useRef<BookingPaymentSectionRef>(null);
+
   function submit() {
     if (!state.startTime) return;
     startTransition(async () => {
+      // Phase 56 — confirm payment client-side FIRST. If no deposit
+      // applies the call short-circuits with `{ kind: 'no_deposit' }`.
+      // On payment failure we surface a toast and abort the booking
+      // so the user can fix their card and retry.
+      let paymentIntentId: string | undefined;
+      let depositCents: number | undefined;
+      if (paymentRef.current) {
+        const paid = await paymentRef.current.confirmPayment();
+        if (paid.kind === 'error') {
+          show({ variant: 'danger', title: paid.message });
+          return;
+        }
+        if (paid.kind === 'paid') {
+          paymentIntentId = paid.paymentIntentId;
+          depositCents = paid.depositCents;
+        }
+      }
+
       const result = await bookPublicAppointment({
         shop_slug: shopSlug,
         barber_id: state.barberId === 'any' ? null : state.barberId,
@@ -249,6 +274,9 @@ export function BookingWizard({
         cf_turnstile_response: state.turnstileToken,
         // Promo code (Phase 41). Empty string → undefined server-side.
         promo_code: state.promoCode,
+        // Phase 56 — only set when the payment section actually charged.
+        payment_intent_id: paymentIntentId,
+        deposit_amount_cents: depositCents,
       });
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
@@ -377,6 +405,13 @@ export function BookingWizard({
               slots={slots}
               selected={state.startTime}
               onSelect={(time) => setState((s) => ({ ...s, startTime: time }))}
+              waitlistInfo={{
+                shopSlug,
+                serviceIds: state.serviceIds,
+                barberId: state.barberId === 'any' ? null : state.barberId,
+                date: state.date,
+                locale: locale === 'fr' ? 'fr' : 'en',
+              }}
             />
           </section>
         )}
@@ -509,6 +544,20 @@ export function BookingWizard({
                 · {state.startTime}
               </p>
             </div>
+
+            {/* Phase 56 — Stripe Elements deposit collection. The section
+                self-determines whether to render based on the shop's
+                Stripe Connect status and the selected services'
+                deposit_amount_cents. Renders nothing when no deposit
+                applies; renders a card form otherwise. The submit
+                handler reads the ref to confirm payment before booking. */}
+            <BookingPaymentSection
+              ref={paymentRef}
+              shopSlug={shopSlug}
+              serviceIds={state.serviceIds}
+              email={state.email}
+              locale={locale === 'fr' ? 'fr' : 'en'}
+            />
           </section>
         )}
 
@@ -940,12 +989,25 @@ function SlotPicker({
   slots,
   selected,
   onSelect,
+  waitlistInfo,
 }: {
   t: TranslatorFn;
   loading: boolean;
   slots: string[] | null;
   selected: string | null;
   onSelect: (time: string) => void;
+  /**
+   * Phase 57 — when present and the slot list is empty, the picker
+   * exposes a "Join waitlist" CTA so the customer can leave their
+   * contact + preferences for the admin to follow up.
+   */
+  waitlistInfo?: {
+    shopSlug: string;
+    serviceIds: string[];
+    barberId: string | null;
+    date: string;
+    locale: 'fr' | 'en';
+  };
 }) {
   if (loading) {
     return (
@@ -963,9 +1025,12 @@ function SlotPicker({
   }
   if (!slots || slots.length === 0) {
     return (
-      <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-sm">
-        {t('steps.slot.empty')}
-      </p>
+      <div className="space-y-3">
+        <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-sm">
+          {t('steps.slot.empty')}
+        </p>
+        {waitlistInfo ? <WaitlistInlineForm t={t} info={waitlistInfo} /> : null}
+      </div>
     );
   }
   const grouped = groupSlotsByTimeOfDay(slots);
@@ -1110,6 +1175,111 @@ function DateStrip({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * §3.5 — Waitlist inline form (Phase 57). Renders below the empty-slot
+ * message when the customer's chosen date has no availability. Collects
+ * just enough to reach back out: first name + phone. Optional notes. The
+ * already-picked service IDs + barber + date are reused as the entry's
+ * window (single-day). Submits via `addToWaitlistPublic`; on success the
+ * form replaces itself with a thank-you message so the customer knows
+ * we've got them.
+ */
+function WaitlistInlineForm({
+  t,
+  info,
+}: {
+  t: TranslatorFn;
+  info: {
+    shopSlug: string;
+    serviceIds: string[];
+    barberId: string | null;
+    date: string;
+    locale: 'fr' | 'en';
+  };
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [first, setFirst] = useState('');
+  const [phone, setPhone] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (done) {
+    return (
+      <p className="border-success/30 bg-success/10 rounded-lg border p-4 text-center text-sm text-success shadow-sm">
+        {t('waitlist.thanks')}
+      </p>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <div className="flex justify-center">
+        <Button type="button" variant="secondary" size="sm" onClick={() => setExpanded(true)}>
+          {t('waitlist.cta')}
+        </Button>
+      </div>
+    );
+  }
+
+  const canSubmit = first.trim().length > 0 && phone.trim().length >= 7 && !submitting;
+
+  async function submit() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    const result = await addToWaitlistPublic({
+      shop_slug: info.shopSlug,
+      first_name: first.trim(),
+      phone: phone.trim(),
+      email: '',
+      preferred_barber_id: info.barberId ?? null,
+      service_ids: info.serviceIds,
+      date_window_start: info.date,
+      date_window_end: info.date,
+      notes: notes.trim(),
+      hp: '',
+      locale: info.locale,
+    });
+    setSubmitting(false);
+    if (result.ok) setDone(true);
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-bg-base p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+        {t('waitlist.title')}
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="wl_first">{t('waitlist.firstName')}</Label>
+          <Input
+            id="wl_first"
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
+            autoComplete="given-name"
+          />
+        </div>
+        <div>
+          <Label htmlFor="wl_phone">{t('waitlist.phone')}</Label>
+          <PhoneInput id="wl_phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="wl_notes">{t('waitlist.notes')}</Label>
+        <Textarea id="wl_notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+          {t('back')}
+        </Button>
+        <Button type="button" size="sm" onClick={submit} disabled={!canSubmit} loading={submitting}>
+          {t('waitlist.submit')}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -325,8 +325,13 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 51 — Finances date-range + per-category** : `/finances?start=YYYY-MM-DD&end=YYYY-MM-DD` (form GET, server-rendered). Per-category breakdown via appointment_services × services × service_categories.
 - ✅ **Phase 52 — Commission report** : par barbier, sur leurs commission_tiers (scope services). Réutilise `lib/business/commissions.ts` (déjà testé 13 cas). Badge mode cumulatif vs single-tier.
 - ✅ **Phase 53 — Waiting list (entries)** : migration `waiting_list_entries` (table + RLS + indexes + updated_at trigger). Server actions admin (`updateWaitlistEntryStatus`, `deleteWaitlistEntry`) + public `addToWaitlistPublic` (rate-limited, honeypot). Admin UI sur `/settings/waiting-list` liste les entrées en attente avec actions (mark notified, cancel, delete). Booking wizard CTA = V1.1.
-- ⏳ **Phase 54 — Stripe Elements UI in booking** : deferred (loop 5 top priority — backend prêt depuis Phase 38).
+- ⏳ **Phase 54 — Stripe Elements UI in booking** : deferred → livré en Phase 56.
 - ✅ **Phase 55 — Audit + roadmap loop 4** : doc `AUDIT_PHASE55.md`.
+- ✅ **Phase 56 — Stripe Elements UI dans booking** : `@stripe/stripe-js` + `@stripe/react-stripe-js` installés. `lib/stripe/client.ts` (singleton loadStripe + guard). Nouvelle server action `createBookingPaymentIntent` (resolve shop Connect status, sum `services.deposit_amount_cents`, crée PI via Phase 38 backend). `BookingPaymentSection` forwardRef component avec PaymentElement (dark Stripe theme accent #8b5cf6). `bookPublicAppointment` accepte `payment_intent_id` + `deposit_amount_cents`, persiste payment_status='pending' (webhook → 'paid'). Pas de ghost appointments — PI confirmé client-side AVANT création de l'appointment.
+- ✅ **Phase 57 — Booking wizard waitlist CTA** : `SlotPicker` étendu avec `waitlistInfo` prop. Quand slots empty, message + bouton "Join the waitlist" → inline form (first_name + phone + notes). Submit via `addToWaitlistPublic` (Phase 53). Success pill remplace le form. Window = jour sélectionné (single-day).
+- ⏳ **Phase 58 — Loyalty redemption surfacing wizard** : deferred (Loop 6 top prio — backend Phase 50 fonctionne déjà, juste le hint visuel manque).
+- ⏳ **Phase 59 — db/types.ts regen** : deferred (codebase tolère via `any` casts).
+- ✅ **Phase 58 audit doc** : `AUDIT_PHASE58.md` (état post-loop 5, P0 production blockers tous fermés, roadmap loop 6).
 
 ### Phase 29 — UI review / polish global (détail)
 
