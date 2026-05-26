@@ -256,9 +256,13 @@ export default async function FinancesPage({
           /* Loop 26 — discoverable entrypoint into the daily close-out
              page. Lives on the main /finances header as a small link
              so an owner exploring the page finds today's snapshot
-             without needing to know the route by heart. */
+             without needing to know the route by heart. Locale prefix
+             is required because a relative `today` would resolve
+             against `/en/finances` (no trailing slash) and land on
+             `/en/today` — the codebase's convention is `/${locale}/…`
+             on every internal anchor. */
           <a
-            href="today"
+            href={`/${locale}/finances/today`}
             className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {t('todayLink')}

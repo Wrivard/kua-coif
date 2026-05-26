@@ -60,10 +60,27 @@ export default async function CloseOutPage({
     getCurrentShop(),
   ]);
   const timezone = shop?.timezone ?? 'America/Toronto';
-  const cashDrawerStart = Number(
-    (shop as { default_cash_drawer_balance?: number | null } | null)?.default_cash_drawer_balance ??
-      0,
-  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServerClient() as any;
+
+  // Loop 26 self-review fix — `getCurrentShop()` returns a tight
+  // cached projection (id/name/timezone/industry only) so the cash-
+  // drawer balance has to be pulled directly. We could extend the
+  // cache, but that's a hot helper used everywhere and we don't want
+  // to pay an extra column on every page load just for this report.
+  let cashDrawerStart = 0;
+  if (shop?.id) {
+    const drawerRes = await supabase
+      .from('shops')
+      .select('default_cash_drawer_balance')
+      .eq('id', shop.id)
+      .single();
+    cashDrawerStart = Number(
+      (drawerRes.data as { default_cash_drawer_balance: number | null } | null)
+        ?.default_cash_drawer_balance ?? 0,
+    );
+  }
 
   // ── Day resolution ────────────────────────────────────────────────
   // ?date=YYYY-MM-DD overrides; otherwise today in shop tz.
@@ -74,9 +91,6 @@ export default async function CloseOutPage({
   const dayStart = parseShopIsoDate(dateIso, timezone);
   const dayEnd = shopDayEnd(dayStart, timezone);
   const isToday = dateIso === isoToday;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
 
   // Pull the full appointment set for the day — both completed (revenue
   // counts) and non-completed (outstanding bookings). We need notes too

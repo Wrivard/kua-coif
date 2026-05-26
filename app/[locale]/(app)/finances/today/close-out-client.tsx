@@ -38,19 +38,25 @@ export function CloseOutClient({
   return (
     <>
       {/* Print stylesheet — collapses the app shell to a clean printable
-          report. We target the global sidebar wrapper + FAB by their
-          `.no-print` markers, plus headless overrides on cards/tables
-          so the PDF reads like a professional close-out. */}
+          report. Loop 26 self-review: original draft hid
+          `nav[aria-label='Sidebar']` (wrong — the real attribute is
+          `Primary navigation`) and missed the FabButtons (they sit on
+          a `position:fixed` div with no role/label). The reliable
+          hammer is `position: fixed` itself — fixed positioning is
+          meaningless on paper and always belongs to floating chrome
+          (FAB, sticky action bar, mobile-sidebar overlay). We still
+          target `aside` explicitly to cover the desktop sidebar which
+          is sticky, not fixed. */}
       <style jsx global>{`
         @media print {
           body {
             background: white !important;
           }
-          .no-print {
+          .no-print,
+          .fixed {
             display: none !important;
           }
-          aside,
-          nav[aria-label='Sidebar'] {
+          aside {
             display: none !important;
           }
           main {
