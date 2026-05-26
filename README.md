@@ -85,7 +85,7 @@ npx playwright install chromium
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | ✅ | Clé publique (`sb_publishable_…`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | server-only | ✅ | Bypass RLS — booking public + admin actions |
 | `NEXT_PUBLIC_SITE_URL` | client + server | ✅ en prod | Pour sitemap / robots / OG / Sentry replays |
-| `SUPABASE_PROJECT_REF` | CLI local | ⛔ prod | Utilisé par `npm run db:*` uniquement |
+| `SUPABASE_PROJECT_REF` | CLI local | ⛔ prod | Utilisé par `pnpm db:*` uniquement |
 | `NEXT_PUBLIC_SENTRY_DSN` | client + server | ⛔ | Active Sentry browser quand renseigné |
 | `SENTRY_DSN` | server-only | ⛔ | Active Sentry server/edge (fallback sur `NEXT_PUBLIC_SENTRY_DSN`) |
 | `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | build-time | ⛔ | Activent l'upload source-maps (sinon Sentry montre du minifié) |
@@ -109,10 +109,10 @@ Deux flows possibles.
 
 ```bash
 # Docker Desktop installé et démarré
-npm run db:start         # lance Postgres + Studio + Auth en local
-npm run db:reset         # applique migrations + seed.sql
-npm run db:types:local   # codegen db/types.ts
-npm run db:test          # joue supabase/tests/*.sql (incl. rls_cross_shop)
+pnpm db:start         # lance Postgres + Studio + Auth en local
+pnpm db:reset         # applique migrations + seed.sql
+pnpm db:types:local   # codegen db/types.ts
+pnpm db:test          # joue supabase/tests/*.sql (incl. rls_cross_shop)
 ```
 
 L'URL locale s'affiche dans le terminal (par défaut `http://127.0.0.1:54321`). Renseigne-la dans `.env.local`.
@@ -122,10 +122,10 @@ L'URL locale s'affiche dans le terminal (par défaut `http://127.0.0.1:54321`). 
 Voir [`DEPLOY.md`](./DEPLOY.md) pour le flow MCP (recommandé — c'est ce qui a déployé la prod actuelle), ou le flow CLI traditionnel :
 
 ```bash
-SUPABASE_PROJECT_REF=xxxxxxx npm run db:link
-npm run db:push                  # applique les 4 migrations dans /supabase/migrations
+cross-env SUPABASE_PROJECT_REF=xxxxxxx pnpm db:link
+pnpm db:push                  # applique les 4 migrations dans /supabase/migrations
 # Puis copie-colle supabase/seed.sql dans le SQL Editor Supabase
-npm run db:types:remote          # regénère db/types.ts depuis le schéma live
+pnpm db:types:remote          # regénère db/types.ts depuis le schéma live
 ```
 
 Le seed est idempotent par run mais pas par état : pour le rejouer, supprime d'abord le shop : `delete from public.shops where alias = 'axum';` (cascade).

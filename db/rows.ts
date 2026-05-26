@@ -1,7 +1,7 @@
 /**
  * Manual row types for tables we use today.
  *
- * Source of truth = the migrations in `supabase/migrations/`. Once `npm run
+ * Source of truth = the migrations in `supabase/migrations/`. Once `pnpm
  * db:types:remote` runs against a live DB, `db/types.ts` becomes authoritative
  * and these types collapse to `Database['public']['Tables']['X']['Row']`
  * aliases. Until then, every CRUD screen imports row shapes from here.

@@ -112,7 +112,7 @@ Toutes les règles vivront dans `lib/business/*.ts`, pures et testables :
 | Sécurité | Vérif RLS exhaustive — script de test qui essaie de cross-shop access | Phase 2 |
 | Données | Backup Supabase activé (gratuit avec PITR sur plan Pro) | Phase 2 |
 | Données | Migrations versionnées (`supabase/migrations/*.sql`) | Phase 2 |
-| Données | Codegen `db/types.ts` automatique (`npm run db:types`) | Phase 2 |
+| Données | Codegen `db/types.ts` automatique (`pnpm db:types`) | Phase 2 |
 | Conformité | Loi 25 (Québec) : politique de confidentialité + bannière cookies si analytics | Phase 9 |
 | Conformité | Bilinguisme strict FR/EN partout (déjà cadré) | continu |
 | Légal | Conservation des données fiscales 6 ans | Phase 6 (rétention) |
@@ -247,8 +247,8 @@ Le seed crée 1 shop (Axum). Pour vendre à d'autres salons :
 - [ ] Indexes : `(shop_id, start_at)` sur `appointments`, `(shop_id, lower(phone))` sur `clients`, `(shop_id, sort_order)` partout où il y a sort.
 - [ ] Trigger `updated_at` automatique sur toutes les tables.
 - [ ] `audit_log` table + trigger pour `clients`, `appointments`, `discounts`, `commission_tiers`.
-- [ ] `npm run db:types` génère `db/types.ts` depuis le schéma local.
-- [ ] `npm run db:reset` recharge migrations + seed Axum.
+- [ ] `pnpm db:types` génère `db/types.ts` depuis le schéma local.
+- [ ] `pnpm db:reset` recharge migrations + seed Axum.
 - [ ] Test SQL anti-cross-shop : impossible de lire des données d'un autre shop_id depuis un user d'un shop différent (à automatiser dans `supabase/tests/`).
 
 ### Phase 3 — Auth & shell (enrichie)

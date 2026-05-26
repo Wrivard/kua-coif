@@ -9,7 +9,7 @@
 
 - **Auth Supabase** : email/password en V1. Pas de magic link, pas d'OAuth (peut être ajouté en Phase 9 si demandé).
 - **Branche par défaut git** : `main` (nouveau repo ; le repo client constructionstemarie utilise `master`, mais on part neuf).
-- **Gestionnaire de paquets** : `npm` (cohérent avec le CLAUDE.md projet qui mentionne `npm run build`).
+- **Gestionnaire de paquets** : ~~`npm` (cohérent avec le CLAUDE.md projet qui mentionne `npm run build`).~~ **Loop 41 (mai 2026)** : pivot sur `pnpm`. Le double-lockfile (npm + pnpm) qui en a résulté pendant ~5 commits a finalement cassé la CI quand seul `pnpm-lock.yaml` était mis à jour. `package-lock.json` supprimé du repo, CI passe à `pnpm install --frozen-lockfile`. Single source of truth = `pnpm-lock.yaml`.
 - **Repo git** : `git init` local dans `Desktop/kua-coiffure/`, repo isolé du `.git` parent à `C:\Users\Kolyxe\`. Remote : `https://github.com/Wrivard/kua-coif.git`.
 - **`src/` dir** : non utilisé. Structure à la racine : `app/`, `components/`, `lib/`, `db/`, `messages/` (cohérent avec le §7 Phase 0 du CLAUDE.md).
 - **Alias d'import** : `@/*` → racine projet.
@@ -42,7 +42,7 @@
 - **Indexes critiques posés tôt** : `(shop_id, start_at)` sur appointments, GiST range sur `(barber_id, tstzrange)` pour les overlap checks de dispo, trigram sur `clients` pour la recherche par nom, `(shop_id, lower(phone))` pour dedup.
 - **`audit_log` write-only** : trigger `tg_audit_log` sur 7 tables sensibles (clients, appointments, discounts, promo_codes, commission_tiers, payment_profiles, shop_members). RLS lecture pour managers du shop. Aucun INSERT/UPDATE/DELETE policy → seul le service_role peut écrire (via le trigger).
 - **Pas de hard delete** : la plupart des entités utilisent un `status` enum avec valeur `deleted`. Le `ON DELETE CASCADE` est réservé à la suppression de shop entière (cas extrême).
-- **Codegen `db/types.ts` post-application** : le fichier reste placeholder tant qu'aucune DB n'a été appliquée. `npm run db:types:local` / `db:types:remote` le régénère depuis le schéma vivant.
+- **Codegen `db/types.ts` post-application** : le fichier reste placeholder tant qu'aucune DB n'a été appliquée. `pnpm db:types:local` / `db:types:remote` le régénère depuis le schéma vivant.
 - **`db/enums.ts` source manuelle** : les enums Postgres sont mirrored à la main en TS pour avoir le runtime ET les types sans dépendre du codegen. Source de vérité = la migration SQL ; mismatch détecté en Phase 9.
 - **Test RLS cross-shop dans `supabase/tests/`** : pgtap-free, pure SQL, exécutable via `supabase test db` ou `psql`. Crée 2 shops/2 users en transaction, assert que A ne voit pas B, puis rollback.
 - **Locale shop seed à `'en'`** (au lieu de `English` du spec, qui n'est pas une valeur d'enum) : on stocke le code ISO. L'affichage continue d'utiliser le libellé localisé.
@@ -88,7 +88,7 @@
 - **`Result<T, ActionErrorCode>`** : type uniforme `{ ok: true, data } | { ok: false, errorCode, fieldErrors? }`. Codes traduits côté UI via `actionErrors.{code}`.
 - **`react-hook-form` + `zod`** : pattern `useForm<T>({ resolver: zodResolver(schema), defaultValues })`. Pour les inputs numériques, on déclare le schema avec `z.number()` (pas `z.coerce.number()` qui casse les generics RHF) et on `register('field', { valueAsNumber: true })`.
 - **React Query Provider** dans `(app)/layout.tsx` avec defaults : `staleTime 60s`, `refetchOnWindowFocus: false`, `retry: 1` (queries) / `0` (mutations). Cohérent avec un back-office (pas de polling agressif).
-- **`db/rows.ts`** : types row manuels pour les tables qu'on utilise. **Source de vérité = migrations SQL** ; ce fichier sera remplacé par les types codegen quand `npm run db:types:remote` aura tourné contre une DB live.
+- **`db/rows.ts`** : types row manuels pour les tables qu'on utilise. **Source de vérité = migrations SQL** ; ce fichier sera remplacé par les types codegen quand `pnpm db:types:remote` aura tourné contre une DB live.
 - **`lib/business/taxes.ts`** : module pur (aucune dépendance Supabase/React), testé Vitest (8 tests). Inclut la logique inclusive vs exclusive et l'arrondi cents. Patron pour `lib/business/{commissions,tips,availability,cancellation,loyalty}.ts` à venir.
 - **Vitest** : config minimaliste (jsdom, alias `@/`, scan `*.test.{ts,tsx}`). `npm test` court (1.4s sur le module taxes seul).
 - **Services screen** :

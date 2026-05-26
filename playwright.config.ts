@@ -8,8 +8,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Supabase creds; the seed must already be applied (cf. DEPLOY.md).
  *
  * Run:
- *   npm run test:e2e            # headless
- *   npm run test:e2e:ui         # interactive UI mode
+ *   pnpm test:e2e               # headless
+ *   pnpm test:e2e:ui            # interactive UI mode
  *   npx playwright test --debug # step-through
  *
  * First-time setup (per dev machine):
@@ -42,9 +42,9 @@ export default defineConfig({
 
   // Boot the Next.js dev server before tests if one isn't already running.
   // `reuseExistingServer` is true locally so iteration is fast (you keep
-  // `npm run dev` open in a side terminal).
+  // `pnpm dev` open in a side terminal).
   webServer: {
-    command: 'npm run dev',
+    command: 'pnpm dev',
     url: 'http://localhost:3000',
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
