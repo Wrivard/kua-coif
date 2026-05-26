@@ -42,10 +42,16 @@ export function CookieBanner({ locale }: { locale: string }) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const hasConsent = document.cookie
-      .split(';')
-      .some((c) => c.trim().startsWith('kua_cookie_consent='));
-    setVisible(!hasConsent);
+    const cookies = document.cookie.split(';').map((c) => c.trim());
+    const hasConsent = cookies.some((c) => c.startsWith('kua_cookie_consent='));
+    // Loop 48 self-review — signed-in users have a Supabase Auth
+    // cookie (`sb-<project-ref>-auth-token`) which only exists
+    // because they completed an explicit login. Treat that as
+    // implicit consent so the banner doesn't overlap the FAB on
+    // the auth'd calendar — and also dodges the awkward "I just
+    // signed in, why is this asking again?" moment.
+    const hasAuthSession = cookies.some((c) => c.startsWith('sb-') && c.includes('auth-token'));
+    setVisible(!hasConsent && !hasAuthSession);
   }, []);
 
   function setConsent(value: 'accepted' | 'essential_only') {
