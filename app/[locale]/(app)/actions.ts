@@ -748,6 +748,18 @@ export const bulkCancelAppointments = withAction<
     if (rows.length !== input.ids.length) return err('NOT_FOUND');
     if (rows.some((r) => r.shop_id !== ctx.shopId)) return err('NOT_FOUND');
 
+    // Loop 28 self-review — refuse to "cancel" a row that's already
+    // in a terminal state. The UI filters these out of
+    // `bulkCancelTargets` already, but a stale tab (or a malicious
+    // caller) could still ship them. Cancelling a `completed` row
+    // silently destroys the finances trail for that visit; better
+    // to bail loudly. `cancelled` / `no_show` are no-ops in the same
+    // direction — same guard.
+    const TERMINAL_STATES = new Set(['completed', 'cancelled', 'no_show']);
+    if (rows.some((r) => TERMINAL_STATES.has(r.status))) {
+      return err('INVALID_INPUT', { reason: 'terminal_status_in_batch' });
+    }
+
     // Refund pass — only "paid" rows with a stored intent. Use
     // Promise.allSettled so one Stripe error doesn't abort the
     // others; we count successes for the toast and Sentry the
