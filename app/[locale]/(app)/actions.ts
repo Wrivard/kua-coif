@@ -30,6 +30,7 @@ import { stripeConfigured } from '@/lib/stripe/server';
 import { createDepositPaymentIntent, refundPaymentIntentFull } from '@/lib/stripe/payments';
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
 import { enumerateRecurringDates } from '@/lib/business/recurrence';
+import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
 import { captureException } from '@/lib/observability';
 
 const APPOINTMENTS_PATH = '/';
@@ -548,11 +549,13 @@ export const cancelAppointment = withAction({
     // Pull the row BEFORE the cancel so we have barber_id +
     // google_event_id for the mirror-delete below. Loop 25 also reads
     // payment fields to support the `also_refund` flag — same query.
+    // Loop 42 — `start_at` added so the waitlist-notify helper can
+    // match entries against the freed slot's date window.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const preSb = rawDb() as any;
     const preRes = await preSb
       .from('appointments')
-      .select('barber_id, google_event_id, payment_intent_id, payment_status')
+      .select('barber_id, google_event_id, payment_intent_id, payment_status, start_at')
       .eq('id', input.id)
       .single();
     const pre = preRes.data as {
@@ -560,6 +563,7 @@ export const cancelAppointment = withAction({
       google_event_id: string | null;
       payment_intent_id: string | null;
       payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+      start_at: string;
     } | null;
 
     // Loop 25 — "Cancel & Refund" combo (P1.12 audit). When the
@@ -699,6 +703,30 @@ export const cancelAppointment = withAction({
       // dispatcher captures its own send errors.
     }
 
+    // ── Loop 42 (P122) — waitlist auto-notify ─────────────────────
+    // Find any waiting_list_entries whose date window covers the
+    // freed slot AND who didn't explicitly prefer a different
+    // barber. Send each a "slot just opened" email. The helper
+    // dedups against `notified_at` (24h window) and catches its own
+    // errors via Sentry, so a Resend outage doesn't block the
+    // cancel. Fire-and-forget so the action's tail latency doesn't
+    // pay for the email round-trips.
+    if (pre) {
+      // Resolve shop timezone once — the helper needs it to compute
+      // the shop-local date for window matching. We cache via
+      // `shop` row, same pattern as elsewhere.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tzSb = rawDb() as any;
+      const shopTz = await tzSb.from('shops').select('timezone').eq('id', ctx.shopId).single();
+      const timezone = (shopTz.data as { timezone: string } | null)?.timezone ?? 'America/Toronto';
+      void notifyMatchingWaitlistOnCancel({
+        shopId: ctx.shopId,
+        barberId: pre.barber_id,
+        startAtIso: pre.start_at,
+        timezone,
+      });
+    }
+
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: input.id });
   },
@@ -732,7 +760,11 @@ export const bulkCancelAppointments = withAction<
     const sb = rawDb() as any;
     const preRes = await sb
       .from('appointments')
-      .select('id, shop_id, barber_id, google_event_id, payment_intent_id, payment_status, status')
+      // Loop 42 — `start_at` pulled so the waitlist-notify helper at
+      // the tail can match entries against each freed slot's date.
+      .select(
+        'id, shop_id, barber_id, google_event_id, payment_intent_id, payment_status, status, start_at',
+      )
       .in('id', input.ids);
     const rows =
       (preRes.data as Array<{
@@ -743,6 +775,7 @@ export const bulkCancelAppointments = withAction<
         payment_intent_id: string | null;
         payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
         status: string;
+        start_at: string;
       }> | null) ?? [];
 
     // Reject early if any row belongs to a different shop. RLS would
@@ -824,6 +857,25 @@ export const bulkCancelAppointments = withAction<
           googleEventId: r.google_event_id,
         });
       }
+    }
+
+    // Loop 42 (P122) — waitlist auto-notify per freed slot. The
+    // helper dedups per-entry with a 24h window so a customer who
+    // happens to match three of the bulk-cancelled slots gets ONE
+    // email, not three. Fire-and-forget so the cancel UI revalidates
+    // before any emails leave the SMTP queue. Resolve shop tz once
+    // outside the loop.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tzSb = rawDb() as any;
+    const shopTz = await tzSb.from('shops').select('timezone').eq('id', ctx.shopId).single();
+    const timezone = (shopTz.data as { timezone: string } | null)?.timezone ?? 'America/Toronto';
+    for (const r of rows) {
+      void notifyMatchingWaitlistOnCancel({
+        shopId: ctx.shopId,
+        barberId: r.barber_id,
+        startAtIso: r.start_at,
+        timezone,
+      });
     }
 
     revalidatePath(APPOINTMENTS_PATH);

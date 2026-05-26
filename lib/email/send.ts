@@ -34,7 +34,14 @@ export type AutomationKind =
   | 'reminder_24h'
   | 'reminder_1h'
   | 'cancellation'
-  | 'birthday';
+  | 'birthday'
+  // Loop 42 (P122) — waitlist auto-notify on cancel. The automation
+  // gate is intentionally permissive: when the shop's
+  // notification_automations row for this kind is missing,
+  // `isAutomationEnabled` returns true (opt-in by default). Shops
+  // that don't want waitlist auto-emails can flip the toggle off in
+  // /settings/notifications.
+  | 'waitlist_open';
 
 export type SendEmailInput = {
   /** Shop the email belongs to. Required when you want the SMTP-per-shop
