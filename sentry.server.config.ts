@@ -12,9 +12,14 @@ import * as Sentry from '@sentry/nextjs';
 const dsn = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (dsn) {
+  const env = process.env.VERCEL_ENV ?? process.env.NODE_ENV;
   Sentry.init({
     dsn,
-    tracesSampleRate: 1.0,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    // Phase 70 audit fix: production sample rate dropped from 1.0 to
+    // 0.1. The previous 100% would burn through the free 5k events/mo
+    // tier in days on any real shop. Dev/preview stay at 1.0 so we
+    // still catch everything during testing.
+    tracesSampleRate: env === 'production' ? 0.1 : 1.0,
+    environment: env,
   });
 }

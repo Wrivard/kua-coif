@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { getCurrentShop, getCurrentUser } from '@/lib/auth/server';
 import { INDUSTRIES, isIndustryKind } from '@/lib/industries';
+import { setUser } from '@/lib/observability';
 
 export default async function AppShellLayout({
   children,
@@ -30,6 +31,15 @@ export default async function AppShellLayout({
   let hideProducts = false;
   if (shop?.industry && isIndustryKind(shop.industry)) {
     hideProducts = !INDUSTRIES[shop.industry].features.products;
+  }
+
+  // Phase 70 audit fix: tag the active Sentry scope with the user so
+  // error reports come through correlated to "who was logged in." Safe
+  // no-op when no DSN is configured. Server-side scope only — the
+  // client scope is set independently in `sentry.client.config.ts` via
+  // Sentry's user-tagging API.
+  if (user) {
+    setUser({ id: user.id, email: user.email });
   }
 
   return (
