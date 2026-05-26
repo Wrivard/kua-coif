@@ -58,9 +58,15 @@ function Content({ locale }: { locale: string }) {
         <p>{t('lawBody')}</p>
       </section>
 
-      <p className="pt-4 text-xs text-text-muted">
+      <p className="flex flex-wrap gap-x-4 gap-y-1 pt-4 text-xs text-text-muted">
         <Link href={`/${locale}/privacy`} className="text-accent hover:underline">
           {t('seePrivacy')}
+        </Link>
+        {/* Loop 38 (P117) — sibling link to the accessibility
+            statement so all three legal surfaces stay reachable
+            from each other. */}
+        <Link href={`/${locale}/accessibility`} className="text-accent hover:underline">
+          {locale === 'fr' ? 'Déclaration d’accessibilité →' : 'Accessibility statement →'}
         </Link>
       </p>
     </article>

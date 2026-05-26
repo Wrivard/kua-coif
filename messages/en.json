@@ -1278,11 +1278,11 @@
       "limitationsTitle": "Known limitations",
       "limitationsIntro": "We're transparent about where the platform doesn't yet meet our target standard:",
       "limitations": {
-        "calendarDnd": "Drag-and-drop on the appointments calendar has no keyboard equivalent yet. A keyboard-accessible reschedule action lives in the appointment detail drawer as a fallback.",
+        "calendarDnd": "Drag-and-drop on the appointments calendar has no direct keyboard equivalent yet. Keyboard users can open an appointment's detail drawer and use the 'Reschedule' button to copy a customer-facing reschedule link, then paste it to the client — a viable workaround until we add a keyboard reschedule action.",
         "thirdParty": "Embedded Stripe Elements (payment fields) inherit Stripe's a11y posture, which we don't fully control."
       },
       "reportTitle": "Report a barrier",
-      "reportBody": "Hit an accessibility wall? Tell us at <email>accessibility@kua.quebec</email> — we treat access barriers as bugs and target a 5-business-day acknowledgement."
+      "reportBody": "Hit an accessibility wall? Tell us at <email>wrivard@kua.quebec</email> — we treat access barriers as bugs and target a 5-business-day acknowledgement."
     },
     "terms": {
       "title": "Terms of Service",

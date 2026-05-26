@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const dynamic = 'force-static';
 
@@ -35,10 +36,10 @@ export async function generateMetadata({
 
 export default function AccessibilityPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
-  return <Content />;
+  return <Content locale={locale} />;
 }
 
-function Content() {
+function Content({ locale }: { locale: string }) {
   const t = useTranslations('legal.accessibility');
   return (
     <article className="prose prose-invert max-w-none space-y-4 text-sm">
@@ -71,7 +72,7 @@ function Content() {
           {t.rich('reportBody', {
             email: (chunks) => (
               <a
-                href="mailto:accessibility@kua.quebec"
+                href="mailto:wrivard@kua.quebec"
                 className="text-accent underline hover:no-underline"
               >
                 {chunks}
@@ -80,6 +81,15 @@ function Content() {
           })}
         </p>
       </section>
+
+      <p className="flex flex-wrap gap-x-4 gap-y-1 pt-4 text-xs text-text-muted">
+        <Link href={`/${locale}/privacy`} className="text-accent hover:underline">
+          {locale === 'fr' ? 'Politique de confidentialité →' : 'Privacy Policy →'}
+        </Link>
+        <Link href={`/${locale}/terms`} className="text-accent hover:underline">
+          {locale === 'fr' ? "Conditions d'utilisation →" : 'Terms of Service →'}
+        </Link>
+      </p>
     </article>
   );
 }

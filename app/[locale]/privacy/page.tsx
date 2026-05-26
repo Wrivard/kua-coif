@@ -70,9 +70,15 @@ function Content({ locale }: { locale: string }) {
         <p>{t('contactBody')}</p>
       </section>
 
-      <p className="pt-4 text-xs text-text-muted">
+      <p className="flex flex-wrap gap-x-4 gap-y-1 pt-4 text-xs text-text-muted">
         <Link href={`/${locale}/terms`} className="text-accent hover:underline">
           {t('seeTerms')}
+        </Link>
+        {/* Loop 38 (P117) — discoverable entrypoint to the
+            accessibility statement from the existing legal
+            surfaces, since there's no global footer yet. */}
+        <Link href={`/${locale}/accessibility`} className="text-accent hover:underline">
+          {locale === 'fr' ? 'Déclaration d’accessibilité →' : 'Accessibility statement →'}
         </Link>
       </p>
     </article>

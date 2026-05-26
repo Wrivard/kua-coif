@@ -1280,11 +1280,11 @@
       "limitationsTitle": "Limitations connues",
       "limitationsIntro": "On est transparents sur les zones où la plateforme n'atteint pas encore notre cible :",
       "limitations": {
-        "calendarDnd": "Le glisser-déposer sur le calendrier de rendez-vous n'a pas encore d'équivalent clavier. Une action « Replanifier » accessible au clavier est disponible dans le tiroir de détail du RDV en remplacement.",
+        "calendarDnd": "Le glisser-déposer sur le calendrier de rendez-vous n'a pas encore d'équivalent clavier direct. Les utilisateurs clavier peuvent ouvrir le tiroir de détail d'un RDV et utiliser le bouton « Replanifier » pour copier un lien de replanification destiné au client, puis le coller — un contournement valable en attendant qu'on ajoute une action de replanification au clavier.",
         "thirdParty": "Les champs Stripe Elements (paiement) héritent de la posture d'accessibilité de Stripe, qu'on ne contrôle pas entièrement."
       },
       "reportTitle": "Signaler un obstacle",
-      "reportBody": "Tu rencontres un obstacle d'accessibilité ? Écris-nous à <email>accessibility@kua.quebec</email> — on traite les obstacles d'accès comme des bogues et on s'engage à un accusé de réception sous 5 jours ouvrables."
+      "reportBody": "Tu rencontres un obstacle d'accessibilité ? Écris-nous à <email>wrivard@kua.quebec</email> — on traite les obstacles d'accès comme des bogues et on s'engage à un accusé de réception sous 5 jours ouvrables."
     },
     "terms": {
       "title": "Conditions d'utilisation",
