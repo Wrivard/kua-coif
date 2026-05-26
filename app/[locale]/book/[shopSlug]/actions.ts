@@ -192,7 +192,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // by name. Cheap — same query, one extra column.
     const servicesRes = await supabase
       .from('services')
-      .select('id, name, duration_min, price, status')
+      // Loop 29 self-review — pull deposit_amount_cents in the same
+      // query so the deposit recompute below doesn't run a second
+      // round-trip (which could miss rows in the narrow window where a
+      // service is deleted between fetches).
+      .select('id, name, duration_min, price, status, deposit_amount_cents')
       .eq('shop_id', shop.id)
       .in('id', input.service_ids);
     const services =
@@ -202,6 +206,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         duration_min: number;
         price: number;
         status: 'enabled' | 'disabled';
+        deposit_amount_cents: number | null;
       }> | null) ?? [];
     if (
       services.length !== input.service_ids.length ||
@@ -480,20 +485,12 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // server-side and discard the client value entirely (the schema
     // still accepts the field so old clients don't break, but we
     // ignore it).
-    let recomputedDepositCents = 0;
-    if (input.payment_intent_id) {
-      const depRes = await supabase
-        .from('services')
-        .select('id, deposit_amount_cents')
-        .eq('shop_id', shop.id)
-        .in('id', input.service_ids);
-      const depRows =
-        (depRes.data as Array<{ id: string; deposit_amount_cents: number | null }> | null) ?? [];
-      recomputedDepositCents = depRows.reduce(
-        (sum, s) => sum + Number(s.deposit_amount_cents ?? 0),
-        0,
-      );
-    }
+    // Re-use the already-fetched `services` array (which now carries
+    // `deposit_amount_cents` per the self-review fix above). One source
+    // of truth, no race window.
+    const recomputedDepositCents = input.payment_intent_id
+      ? services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
+      : 0;
     const paymentFields = input.payment_intent_id
       ? {
           payment_intent_id: input.payment_intent_id,
