@@ -135,6 +135,9 @@ export const deleteProduct = withAction({
 // ---------------------------------------------------------------------------
 // Brands
 // ---------------------------------------------------------------------------
+// Loop 30 (P2.104) — every brand/category mutation gets an audit log
+// entry. Brands and categories shape the product catalog, so changes
+// here matter as much as service-list edits.
 export const createBrand = withAction({
   schema: brandSchema,
   minRole: 'manager',
@@ -145,6 +148,14 @@ export const createBrand = withAction({
       .select('id')
       .single();
     if (error || !data) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'insert',
+      entity: 'product_brands',
+      entityId: data.id,
+      diff: { after: input },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: data.id });
   },
@@ -153,12 +164,20 @@ export const createBrand = withAction({
 export const updateBrand = withAction({
   schema: updateBrandSchema,
   minRole: 'manager',
-  run: async (input) => {
+  run: async (input, ctx) => {
     const { error } = await db()
       .from('product_brands')
       .update({ name: input.name })
       .eq('id', input.id);
     if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'product_brands',
+      entityId: input.id,
+      diff: { after: { name: input.name } },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: input.id });
   },
@@ -167,9 +186,17 @@ export const updateBrand = withAction({
 export const deleteBrand = withAction({
   schema: deleteBrandSchema,
   minRole: 'manager',
-  run: async (input) => {
+  run: async (input, ctx) => {
     const { error } = await db().from('product_brands').delete().eq('id', input.id);
     if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'product_brands',
+      entityId: input.id,
+      diff: { deleted: true },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: input.id });
   },
@@ -188,6 +215,14 @@ export const createCategory = withAction({
       .select('id')
       .single();
     if (error || !data) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'insert',
+      entity: 'product_categories',
+      entityId: data.id,
+      diff: { after: input },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: data.id });
   },
@@ -196,12 +231,20 @@ export const createCategory = withAction({
 export const updateCategory = withAction({
   schema: updateCategorySchema,
   minRole: 'manager',
-  run: async (input) => {
+  run: async (input, ctx) => {
     const { error } = await db()
       .from('product_categories')
       .update({ name: input.name })
       .eq('id', input.id);
     if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'product_categories',
+      entityId: input.id,
+      diff: { after: { name: input.name } },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: input.id });
   },
@@ -210,9 +253,17 @@ export const updateCategory = withAction({
 export const deleteCategory = withAction({
   schema: deleteCategorySchema,
   minRole: 'manager',
-  run: async (input) => {
+  run: async (input, ctx) => {
     const { error } = await db().from('product_categories').delete().eq('id', input.id);
     if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'product_categories',
+      entityId: input.id,
+      diff: { deleted: true },
+    });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: input.id });
   },

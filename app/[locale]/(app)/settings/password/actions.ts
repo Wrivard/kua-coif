@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { mapSupabaseAuthError } from '@/lib/auth/errors';
+import { logAuditAction } from '@/lib/audit-log';
 
 export const changePasswordSchema = z
   .object({
@@ -21,7 +22,7 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export const changePassword = withAction({
   schema: changePasswordSchema,
   minRole: 'barber',
-  run: async (input) => {
+  run: async (input, ctx) => {
     const supabase = createSupabaseServerClient();
     const {
       data: { user },
@@ -43,6 +44,18 @@ export const changePassword = withAction({
 
     const { error } = await supabase.auth.updateUser({ password: input.new_password });
     if (error) return err('UNEXPECTED');
+
+    // Loop 30 (P2.104) — password change is a security-relevant event;
+    // log it so a compromised account leaves a trail. The diff carries
+    // NO password material — just the fact that a change happened.
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'users',
+      entityId: user.id,
+      diff: { password_changed: true },
+    });
 
     return ok({ ok: true });
   },

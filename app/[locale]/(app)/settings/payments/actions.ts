@@ -163,6 +163,16 @@ export const refreshStripeStatus = withAction<never, { status: string }>({
     try {
       const { status } = await fetchAccountStatus(shop.stripe_account_id);
       await admin.from('shops').update({ stripe_connect_status: status }).eq('id', ctx.shopId);
+      // Loop 30 (P2.104) — Stripe status writes to the shop row, so it
+      // belongs in the audit log alongside the other shop edits.
+      await logAuditAction({
+        shopId: ctx.shopId,
+        actorId: ctx.userId,
+        action: 'update',
+        entity: 'shops',
+        entityId: ctx.shopId,
+        diff: { stripe_connect_status: status, source: 'stripe-refresh' },
+      });
       revalidatePath(PATH);
       return ok({ status });
     } catch (e) {
@@ -196,6 +206,18 @@ export const openStripeDashboard = withAction<never, { url: string }>({
 
     try {
       const url = await createDashboardLoginLink(shop.stripe_account_id);
+      // Loop 30 (P2.104) — opening the Stripe dashboard gives the owner
+      // direct access to money movement (payouts, refunds, disputes),
+      // so the audit trail records that a session was minted. We log
+      // the fact, never the URL itself (it's a bearer credential).
+      await logAuditAction({
+        shopId: ctx.shopId,
+        actorId: ctx.userId,
+        action: 'update',
+        entity: 'shops',
+        entityId: ctx.shopId,
+        diff: { stripe_dashboard_login_link_generated: true },
+      });
       return ok({ url });
     } catch (e) {
       captureException(e, {

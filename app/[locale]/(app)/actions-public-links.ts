@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { signToken } from '@/lib/security/signed-tokens';
+import { logAuditAction } from '@/lib/audit-log';
 
 /**
  * Phase 12 (post-loop-11) — Admin-side generators for the signed public
@@ -76,6 +77,23 @@ export const generatePublicLinks = withAction({
     // Use NEXT_PUBLIC_APP_URL when set (Vercel prod / preview), else
     // a relative path the caller will prefix with window.location.origin.
     const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+
+    // Loop 30 (P2.104) — minting a signed public URL grants someone
+    // unauth'd access to receipt + reschedule + review surfaces, so
+    // we log it. The diff records WHICH kinds were generated (the /me
+    // link is conditional on the appointment having a client_id) but
+    // never the token itself — tokens are bearer credentials.
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'appointments',
+      entityId: appt.id,
+      diff: {
+        public_links_generated: ['review', 'receipt', 'reschedule', ...(meToken ? ['me'] : [])],
+      },
+    });
+
     return ok({
       reviewUrl: `${base}/fr/review/${reviewToken}`,
       meUrl: meToken ? `${base}/fr/me/${meToken}` : null,
