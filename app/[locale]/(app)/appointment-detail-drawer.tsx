@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { Link2, Sparkles, Star } from 'lucide-react';
+import { CalendarSync, Link2, Receipt, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
@@ -46,7 +46,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
   // to clipboard. The owner can paste into SMS / email / Slack — we
   // skip wiring a "send via Resend" flow until the V1.1 automated
   // post-appointment email lands.
-  function copyPublicLink(kind: 'review' | 'me') {
+  function copyPublicLink(kind: 'review' | 'me' | 'receipt' | 'reschedule') {
     if (!appointment) return;
     startTransition(async () => {
       const result = await generatePublicLinks({ appointment_id: appointment.id });
@@ -54,15 +54,34 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
         show({ variant: 'danger', title: tErr(result.errorCode) });
         return;
       }
-      const data = result.data as { reviewUrl: string; meUrl: string };
-      const raw = kind === 'review' ? data.reviewUrl : data.meUrl;
+      const data = result.data as {
+        reviewUrl: string;
+        meUrl: string | null;
+        receiptUrl: string;
+        rescheduleUrl: string;
+      };
+      const raw =
+        kind === 'review'
+          ? data.reviewUrl
+          : kind === 'me'
+            ? data.meUrl
+            : kind === 'receipt'
+              ? data.receiptUrl
+              : data.rescheduleUrl;
+      if (!raw) {
+        show({ variant: 'danger', title: 'Walk-in (no client record)' });
+        return;
+      }
       const url = raw.startsWith('http') ? raw : `${window.location.origin}${raw}`;
+      const titles = {
+        review: 'Review link copied',
+        me: 'Self-service link copied',
+        receipt: 'Receipt link copied',
+        reschedule: 'Reschedule link copied',
+      };
       try {
         await navigator.clipboard.writeText(url);
-        show({
-          variant: 'success',
-          title: kind === 'review' ? 'Review link copied' : 'Self-service link copied',
-        });
+        show({ variant: 'success', title: titles[kind] });
       } catch {
         // Some browsers refuse clipboard.write outside HTTPS; fall back
         // to surfacing the URL in the toast so the owner can copy it
@@ -157,10 +176,28 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 type="button"
                 variant="secondary"
                 size="sm"
+                onClick={() => copyPublicLink('receipt')}
+                disabled={isPending}
+              >
+                <Receipt className="h-3.5 w-3.5" /> Receipt
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => copyPublicLink('reschedule')}
+                disabled={isPending}
+              >
+                <CalendarSync className="h-3.5 w-3.5" /> Reschedule
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => copyPublicLink('review')}
                 disabled={isPending}
               >
-                <Star className="h-3.5 w-3.5" /> Review link
+                <Star className="h-3.5 w-3.5" /> Review
               </Button>
               <Button
                 type="button"
@@ -169,7 +206,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 onClick={() => copyPublicLink('me')}
                 disabled={isPending}
               >
-                <Sparkles className="h-3.5 w-3.5" /> Self-service link
+                <Sparkles className="h-3.5 w-3.5" /> Self-service
               </Button>
             </div>
             <p className="text-[10px] text-text-muted">

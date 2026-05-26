@@ -471,12 +471,16 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           deposit_amount_cents: input.deposit_amount_cents ?? 0,
         }
       : {};
+    // Phase 72 — client_name_snapshot captured at insert time so the
+    // historical record survives a future Loi 25 anonymization.
+    const clientNameSnapshot = `${input.first_name}${input.last_name ? ` ${input.last_name}` : ''}`;
     const insertAppt = await supabase
       .from('appointments')
       .insert({
         shop_id: shop.id,
         barber_id: barberId,
         client_id: clientId,
+        client_name_snapshot: clientNameSnapshot,
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         status: 'booked',

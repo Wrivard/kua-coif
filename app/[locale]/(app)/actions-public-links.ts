@@ -45,18 +45,32 @@ export const generatePublicLinks = withAction({
     }> | null) ?? [])[0];
     if (!appt) return err('NOT_FOUND');
 
-    // 90-day review link, 365-day /me link. Review needs a tighter
-    // window so old appointments don't pile up unhandled requests; the
-    // /me link is the customer's permanent self-service handle.
+    // 90-day review link, 365-day /me link, 365-day receipt link
+    // (customer might pull it up months later for tax records),
+    // 7-day reschedule link (must be acted on quickly — long expiries
+    // invite "I'm gonna reschedule next month" forgetting).
     const reviewToken = signToken({
       kind: 'review',
       resourceId: appt.id,
       expiresInSeconds: 60 * 60 * 24 * 90,
     });
-    const meToken = signToken({
-      kind: 'me',
-      resourceId: appt.client_id,
+    // /me requires a client row — walk-ins (client_id null) skip it.
+    const meToken = appt.client_id
+      ? signToken({
+          kind: 'me',
+          resourceId: appt.client_id,
+          expiresInSeconds: 60 * 60 * 24 * 365,
+        })
+      : null;
+    const receiptToken = signToken({
+      kind: 'receipt',
+      resourceId: appt.id,
       expiresInSeconds: 60 * 60 * 24 * 365,
+    });
+    const rescheduleToken = signToken({
+      kind: 'reschedule',
+      resourceId: appt.id,
+      expiresInSeconds: 60 * 60 * 24 * 7,
     });
 
     // Use NEXT_PUBLIC_APP_URL when set (Vercel prod / preview), else
@@ -64,7 +78,9 @@ export const generatePublicLinks = withAction({
     const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
     return ok({
       reviewUrl: `${base}/fr/review/${reviewToken}`,
-      meUrl: `${base}/fr/me/${meToken}`,
+      meUrl: meToken ? `${base}/fr/me/${meToken}` : null,
+      receiptUrl: `${base}/fr/receipt/${receiptToken}`,
+      rescheduleUrl: `${base}/fr/reschedule/${rescheduleToken}`,
     });
   },
 });

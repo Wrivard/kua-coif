@@ -31,8 +31,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 type TokenPayload = {
-  kind: 'review' | 'me';
-  /** Resource ID — appointment for `review`, client for `me`. */
+  kind: 'review' | 'me' | 'receipt' | 'reschedule';
+  /**
+   * Resource ID — appointment for `review`/`receipt`/`reschedule`,
+   * client for `me`.
+   */
   resourceId: string;
   /** UNIX seconds, after which the token is invalid. */
   exp: number;
