@@ -16,6 +16,7 @@ import { verifyTurnstile } from '@/lib/security/turnstile';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { createDepositPaymentIntent } from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
+import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -418,7 +419,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     if (phoneKey.length >= 7) {
       const clientLookup = await supabase
         .from('clients')
-        .select('id, loyalty_balance_cents')
+        // Loop 35 — `loyalty_balance_expires_at` pulled too so the
+        // effective-balance helper can zero out expired credits before
+        // we apply them.
+        .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
         .eq('shop_id', shop.id)
         .ilike('phone', `%${phoneKey}%`)
         .limit(1);
@@ -426,9 +430,19 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         ((clientLookup.data as Array<{
           id: string;
           loyalty_balance_cents: number | null;
+          loyalty_balance_expires_at: string | null;
         }> | null) ?? [])[0] ?? null;
       clientId = existingClient?.id ?? null;
-      clientLoyaltyBalanceCents = existingClient?.loyalty_balance_cents ?? 0;
+      // Loop 35 — `effectiveLoyaltyBalanceCents` returns 0 + zeroes the
+      // row in the DB when the expiry has passed, so subsequent reads
+      // agree and the customer can't redeem an expired credit.
+      clientLoyaltyBalanceCents = existingClient
+        ? await effectiveLoyaltyBalanceCents({
+            clientId: existingClient.id,
+            balanceCents: existingClient.loyalty_balance_cents ?? 0,
+            expiresAt: existingClient.loyalty_balance_expires_at,
+          })
+        : 0;
     }
     if (!clientId) {
       clientIsNew = true;
@@ -884,13 +898,27 @@ export async function lookupLoyaltyByPhone(
 
     const clientRes = await supabase
       .from('clients')
-      .select('loyalty_balance_cents')
+      // Loop 35 — include `id` + `loyalty_balance_expires_at` so the
+      // effective-balance helper can zero out expired credits in the
+      // same call. The customer sees their fresh-zeroed balance the
+      // next time they revisit the booking page.
+      .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
       .eq('shop_id', shopId)
       .ilike('phone', `%${phoneKey}%`)
       .limit(1);
     const row =
-      ((clientRes.data as Array<{ loyalty_balance_cents: number | null }> | null) ?? [])[0] ?? null;
-    return ok({ balanceCents: Math.max(0, row?.loyalty_balance_cents ?? 0) });
+      ((clientRes.data as Array<{
+        id: string;
+        loyalty_balance_cents: number | null;
+        loyalty_balance_expires_at: string | null;
+      }> | null) ?? [])[0] ?? null;
+    if (!row) return ok({ balanceCents: 0 });
+    const effective = await effectiveLoyaltyBalanceCents({
+      clientId: row.id,
+      balanceCents: row.loyalty_balance_cents ?? 0,
+      expiresAt: row.loyalty_balance_expires_at,
+    });
+    return ok({ balanceCents: Math.max(0, effective) });
   } catch (e) {
     captureException(e, { tags: { layer: 'loyalty-lookup' } });
     return err('UNEXPECTED');

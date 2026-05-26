@@ -25,6 +25,51 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 
+/**
+ * Loop 35 (P1.92) — return the effective loyalty balance for a row
+ * fetched with `loyalty_balance_cents` + `loyalty_balance_expires_at`.
+ *
+ * Lazy expiry: when the row has a balance but the expiry has passed,
+ * zero the row in the DB and return 0. Callers must pass the
+ * `clientId` so the helper can patch — and the DB write is best-
+ * effort (a write failure shouldn't fail the booking, the next
+ * lookup will retry).
+ *
+ * Pass `loyalty_balance_expires_at = null` to treat as "never
+ * expires" — that's the legacy state of rows from before Loop 35.
+ * Those won't auto-expire until the next reward is granted (which
+ * sets the timestamp).
+ */
+export async function effectiveLoyaltyBalanceCents(args: {
+  clientId: string;
+  balanceCents: number;
+  expiresAt: string | null;
+}): Promise<number> {
+  if (args.balanceCents <= 0) return 0;
+  if (!args.expiresAt) return args.balanceCents;
+  const expiresAt = new Date(args.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) return args.balanceCents;
+  if (expiresAt.getTime() > Date.now()) return args.balanceCents;
+
+  // Expired — zero the row so subsequent reads agree, then return 0.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    await admin
+      .from('clients')
+      .update({ loyalty_balance_cents: 0, loyalty_balance_expires_at: null })
+      .eq('id', args.clientId);
+  } catch (e) {
+    captureException(e, {
+      tags: { layer: 'loyalty', stage: 'expire' },
+      extra: { clientId: args.clientId },
+    });
+    // Fall through — return 0 even if the patch failed, so the caller
+    // doesn't accidentally apply an expired credit.
+  }
+  return 0;
+}
+
 type LoyaltyConfig = {
   enabled: boolean;
   type: 'transaction' | 'value';
@@ -105,13 +150,21 @@ export async function awardLoyaltyOnCompletion({
     const goalReached = nextCounter >= config.goal_count;
     const rewardCents = goalReached ? Math.round(config.reward_amount * 100) : 0;
 
-    await admin
-      .from('clients')
-      .update({
-        loyalty_counter: goalReached ? 0 : nextCounter,
-        loyalty_balance_cents: client.loyalty_balance_cents + rewardCents,
-      })
-      .eq('id', clientId);
+    // Loop 35 (P1.92) — extend the balance expiry to one year out
+    // whenever a reward is granted. A regular customer's clock keeps
+    // resetting; an inactive customer's runs out. No change to the
+    // expiry timestamp when no reward is granted on this visit.
+    const patch: Record<string, unknown> = {
+      loyalty_counter: goalReached ? 0 : nextCounter,
+      loyalty_balance_cents: client.loyalty_balance_cents + rewardCents,
+    };
+    if (rewardCents > 0) {
+      const oneYearOut = new Date();
+      oneYearOut.setUTCFullYear(oneYearOut.getUTCFullYear() + 1);
+      patch.loyalty_balance_expires_at = oneYearOut.toISOString();
+    }
+
+    await admin.from('clients').update(patch).eq('id', clientId);
 
     // Lightweight breadcrumb so we can debug a "did the customer get
     // their reward?" question without trawling audit log.
