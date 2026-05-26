@@ -148,7 +148,7 @@ export function CommissionsClient({
           <Toggle checked={cumulative} onChange={setCumulative} label={t('cumulative')} />
         </div>
 
-        <div className="overflow-x-auto rounded border border-border bg-bg-surface">
+        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-bg-surface text-text-muted">

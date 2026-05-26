@@ -604,7 +604,7 @@ export function AppointmentsCalendar({
           // carries the "closed" semantic; the muted neutral palette
           // keeps it out of the way visually while the lock icon makes
           // it instantly recognizable.
-          <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-surface px-3.5 py-2.5 text-xs text-text-secondary shadow-sm">
+          <div className="flex items-center gap-2.5 rounded-lg bg-bg-surface px-3.5 py-2.5 text-xs text-text-secondary shadow-sm">
             <Lock className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
             <span>{t('shopClosedDay')}</span>
           </div>

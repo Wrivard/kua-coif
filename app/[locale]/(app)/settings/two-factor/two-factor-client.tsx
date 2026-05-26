@@ -171,7 +171,7 @@ export function TwoFactorClient() {
               {factors.map((f) => (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-bg-base px-3 py-2 shadow-sm"
+                  className="flex items-center justify-between rounded-lg bg-bg-base px-3 py-2 shadow-sm"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-text-primary">
@@ -219,7 +219,7 @@ export function TwoFactorClient() {
                   className="h-48 w-48 rounded-lg border border-border bg-white p-2"
                 />
               </div>
-              <div className="rounded-lg border border-border bg-bg-base px-3 py-2 text-center font-mono text-xs text-text-secondary shadow-sm">
+              <div className="rounded-lg bg-bg-base px-3 py-2 text-center font-mono text-xs text-text-secondary shadow-sm">
                 {enrollment.secret}
               </div>
               <div>

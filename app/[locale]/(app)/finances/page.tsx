@@ -256,7 +256,7 @@ export default async function FinancesPage({
             re-runs with the new range without any client JS. */}
         <form
           method="get"
-          className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-bg-surface p-4 shadow-sm"
+          className="flex flex-wrap items-end gap-3 rounded-lg bg-bg-surface p-4 shadow-sm"
         >
           <div className="flex flex-col gap-1">
             <label
@@ -270,7 +270,7 @@ export default async function FinancesPage({
               name="start"
               type="date"
               defaultValue={rangeStartIso}
-              className="focus:ring-accent/30 h-10 rounded-lg border border-border bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:border-accent focus:outline-none focus:ring-2"
+              className="h-10 rounded-lg bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -285,7 +285,7 @@ export default async function FinancesPage({
               name="end"
               type="date"
               defaultValue={rangeEndIso}
-              className="focus:ring-accent/30 h-10 rounded-lg border border-border bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:border-accent focus:outline-none focus:ring-2"
+              className="h-10 rounded-lg bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
           <Button type="submit" size="sm">

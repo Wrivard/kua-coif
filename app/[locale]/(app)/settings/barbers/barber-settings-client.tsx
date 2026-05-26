@@ -140,7 +140,7 @@ export function BarberSettingsClient({
       <div className="space-y-4 p-6">
         <p className="text-xs text-text-muted">{t('intro')}</p>
 
-        <div className="overflow-x-auto rounded border border-border bg-bg-surface">
+        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-sm">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-bg-surface text-text-muted">

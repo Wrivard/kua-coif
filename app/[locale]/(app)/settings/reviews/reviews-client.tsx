@@ -195,7 +195,7 @@ function Row({
   const stars = '★'.repeat(row.rating) + '☆'.repeat(5 - row.rating);
   const barberName = row.barber_id ? barberNames[row.barber_id] : null;
   return (
-    <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-bg-base p-3 text-sm shadow-sm">
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-bg-base p-3 text-sm shadow-sm">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span

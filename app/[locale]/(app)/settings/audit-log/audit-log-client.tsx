@@ -43,7 +43,7 @@ export function AuditLogClient({ locale, rows }: Props) {
       <PageHeader title={t('title')} subtitle={t('subtitle', { count: rows.length })} />
 
       <div className="p-6">
-        <div className="overflow-hidden rounded border border-border bg-bg-surface">
+        <div className="overflow-hidden rounded-lg bg-bg-surface shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-bg-surface-2 text-[10px] uppercase tracking-wide text-text-muted">
