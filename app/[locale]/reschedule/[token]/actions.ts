@@ -211,7 +211,16 @@ export async function reschedulePublicAppointment(
         end_at: newEndAt.toISOString(),
       })
       .eq('id', appt.id);
-    if (error) return err('UNEXPECTED');
+    if (error) {
+      // Phase 70 audit P2.16 — unique_violation on
+      // appointments_active_barber_slot_idx means another booking won
+      // the race to the destination slot. Surface as CONFLICT (same
+      // UX as the synchronous availability fail above).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = error as any;
+      if (e?.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: appt.shop_id,

@@ -491,7 +491,18 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       })
       .select('id')
       .single();
-    if (insertAppt.error || !insertAppt.data) return err('UNEXPECTED');
+    if (insertAppt.error || !insertAppt.data) {
+      // Phase 70 audit P2.16 — unique_violation on the partial index
+      // `appointments_active_barber_slot_idx` means another insert won
+      // the race for this barber+slot. Surface as CONFLICT so the
+      // wizard tells the customer the slot is taken, same UX as a
+      // synchronous availability fail. Postgres error code 23505 =
+      // unique_violation; Supabase exposes it via `error.code`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = insertAppt.error as any;
+      if (e?.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
     const apptId = (insertAppt.data as { id: string }).id;
 
     // Link services.

@@ -230,7 +230,16 @@ export const createAppointment = withAction({
       })
       .select('id')
       .single();
-    if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
+    if (insertRes.error || !insertRes.data) {
+      // Phase 70 audit P2.16 — partial UNIQUE index on (barber_id,
+      // start_at) WHERE status NOT IN ('cancelled','no_show') fires
+      // 23505 when a concurrent insert wins the race. Surface as
+      // CONFLICT (same code path as a synchronous availability fail).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = insertRes.error as any;
+      if (e?.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
 
     // Link services.
     const linkRes = await (
@@ -445,7 +454,16 @@ export const rescheduleAppointment = withAction({
         end_at: newEnd.toISOString(),
       })
       .eq('id', input.id);
-    if (updateRes.error) return err('UNEXPECTED');
+    if (updateRes.error) {
+      // Phase 70 audit P2.16 — partial UNIQUE index can fire on the
+      // UPDATE path too: if a concurrent booking lands at the
+      // destination slot between checkAvailability() and the UPDATE,
+      // Postgres returns 23505. Map to CONFLICT for consistent UX.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = updateRes.error as any;
+      if (e?.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,
