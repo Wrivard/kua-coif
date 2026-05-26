@@ -153,6 +153,20 @@
       "soon": "Calendar view — Phase 5.",
       "addAppointment": "Add appointment",
       "blockTimeButton": "Block time",
+      "bulkCancel": {
+        "button": "Cancel day",
+        "buttonTitle": "Cancel {count} appointments for this day",
+        "confirmTitle": "Cancel the day?",
+        "confirmDescription": "Cancel {count} appointments across {barbers} barber(s)? This cannot be undone.",
+        "alsoRefund": "Also refund {paid} paid appointment(s) via Stripe",
+        "confirmButton": "Cancel them all",
+        "cancelButton": "Keep them",
+        "toasts": {
+          "cancelled": "{count} appointment(s) cancelled",
+          "refundedSuffix": "{refunded} refunded",
+          "failed": "Couldn't cancel the day. Try again."
+        }
+      },
       "blockTime": {
         "createTitle": "Block time",
         "barber": "Barber",

@@ -22,6 +22,7 @@ import {
   CreditCard,
   Lock,
   Plus,
+  Trash2,
   XOctagon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -39,8 +40,9 @@ import {
 } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
-import { rescheduleAppointment } from './actions';
+import { bulkCancelAppointments, rescheduleAppointment } from './actions';
 import { OnboardingCard } from '@/components/features/shell/onboarding-card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // Heavy children — code-split out of the initial calendar bundle. They only
 // mount when the user opens a drawer (clicks a block) or a modal (clicks
@@ -219,6 +221,14 @@ export function AppointmentsCalendar({
   // (header button) doesn't carry a starting barber/minute pair —
   // the form picks sensible defaults itself.
   const [blockTimeOpen, setBlockTimeOpen] = useState(false);
+  // Loop 28 — confirmation modal state for the "Cancel day" button.
+  // `alsoRefund` is the optional toggle: when on, the bulk action
+  // also refunds every paid appointment in the same call. We keep it
+  // as a separate useState (not RHF) because the confirm modal is
+  // intentionally lightweight — one checkbox + two buttons.
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false);
+  const [bulkAlsoRefund, setBulkAlsoRefund] = useState(false);
+  const [bulkPending, startBulkTransition] = useTransition();
   // Brief "Updated" pill shown for ~1.5s whenever a Realtime event triggers a
   // refresh. Tells the user the view is fresh without being intrusive.
   const [justRefreshed, setJustRefreshed] = useState(false);
@@ -285,6 +295,26 @@ export function AppointmentsCalendar({
     () => barbers.filter((b) => selectedBarbers.has(b.id)),
     [barbers, selectedBarbers],
   );
+
+  // Loop 28 — IDs of appointments that the "Cancel day" button would
+  // actually cancel. Filters to the visible-barber set (so the owner
+  // can scope to one chair) and excludes anything already cancelled /
+  // no_show / completed. We also count paid rows so the confirm
+  // dialog can surface "N paid will be refunded" when the toggle is
+  // on. Memoized off the same inputs the calendar grid uses, so the
+  // count stays in sync with what's on screen.
+  const bulkCancelTargets = useMemo(() => {
+    const visibleIds = new Set(visibleBarbers.map((b) => b.id));
+    const ids: string[] = [];
+    let paidCount = 0;
+    for (const a of appointments) {
+      if (!visibleIds.has(a.barber_id)) continue;
+      if (a.status === 'cancelled' || a.status === 'no_show' || a.status === 'completed') continue;
+      ids.push(a.id);
+      if (a.payment_status === 'paid') paidCount += 1;
+    }
+    return { ids, paidCount };
+  }, [appointments, visibleBarbers]);
 
   // Apply optimistic overrides on top of the server-provided list, then
   // bucket by barber. `effectiveAppointments` is the source of truth the
@@ -521,6 +551,36 @@ export function AppointmentsCalendar({
     [startMin],
   );
 
+  // Loop 28 — confirmed handler for bulk-cancel. Captures the
+  // current `bulkCancelTargets` IDs at click time (not at render
+  // time) so a realtime event landing mid-modal can't accidentally
+  // shift the cancel set. Refund toast count comes from the server's
+  // response so we don't double-count Stripe failures.
+  const onConfirmBulkCancel = useCallback(() => {
+    const ids = bulkCancelTargets.ids;
+    if (ids.length === 0) return;
+    startBulkTransition(async () => {
+      const result = await bulkCancelAppointments({ ids, also_refund: bulkAlsoRefund });
+      if (result.ok) {
+        toast.show({
+          variant: 'success',
+          title: t('bulkCancel.toasts.cancelled', { count: result.data.count }),
+          description:
+            bulkAlsoRefund && result.data.refunded > 0
+              ? t('bulkCancel.toasts.refundedSuffix', { refunded: result.data.refunded })
+              : undefined,
+        });
+        setBulkCancelOpen(false);
+        setBulkAlsoRefund(false);
+      } else {
+        toast.show({
+          variant: 'danger',
+          title: t('bulkCancel.toasts.failed'),
+        });
+      }
+    });
+  }, [bulkCancelTargets.ids, bulkAlsoRefund, t, toast]);
+
   return (
     <>
       <PageHeader
@@ -564,6 +624,19 @@ export function AppointmentsCalendar({
         }
         actions={
           <div className="flex items-center gap-2">
+            {/* Loop 28 — "Cancel day" — emergency / sick-day bulk
+                cancel scoped to the visible barbers. Disabled when
+                there's nothing to cancel so the affordance reads as
+                "no actionable rows here today". */}
+            <Button
+              onClick={() => setBulkCancelOpen(true)}
+              size="sm"
+              variant="secondary"
+              disabled={bulkCancelTargets.ids.length === 0}
+              title={t('bulkCancel.buttonTitle', { count: bulkCancelTargets.ids.length })}
+            >
+              <Trash2 className="h-4 w-4" /> {t('bulkCancel.button')}
+            </Button>
             {/* Loop 27 — "Block time" button (spec section 5.A). Sits
                 left of "Add appointment" because it's the less common
                 action and the eye lands on Add first as the primary. */}
@@ -741,6 +814,48 @@ export function AppointmentsCalendar({
           onClose={() => setBlockTimeOpen(false)}
         />
       ) : null}
+
+      {/* Loop 28 — bulk-cancel confirm. The ConfirmDialog is light
+          enough that we render it unconditionally; `open` gates the
+          actual mount of the underlying Modal. The refund checkbox
+          only renders when there's at least one paid row in the
+          target set — no point asking the question otherwise. */}
+      <ConfirmDialog
+        open={bulkCancelOpen}
+        title={t('bulkCancel.confirmTitle')}
+        description={
+          <div className="space-y-3">
+            <p>
+              {t('bulkCancel.confirmDescription', {
+                count: bulkCancelTargets.ids.length,
+                barbers: visibleBarbers.length,
+              })}
+            </p>
+            {bulkCancelTargets.paidCount > 0 ? (
+              <label className="flex items-start gap-2 rounded-md bg-bg-surface-2 p-2.5 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={bulkAlsoRefund}
+                  onChange={(e) => setBulkAlsoRefund(e.target.checked)}
+                  disabled={bulkPending}
+                  className="mt-0.5 h-4 w-4 rounded border-border bg-bg-surface text-accent focus:ring-focus"
+                />
+                <span>{t('bulkCancel.alsoRefund', { paid: bulkCancelTargets.paidCount })}</span>
+              </label>
+            ) : null}
+          </div>
+        }
+        confirmLabel={t('bulkCancel.confirmButton')}
+        cancelLabel={t('bulkCancel.cancelButton')}
+        destructive
+        loading={bulkPending}
+        onConfirm={onConfirmBulkCancel}
+        onCancel={() => {
+          if (bulkPending) return;
+          setBulkCancelOpen(false);
+          setBulkAlsoRefund(false);
+        }}
+      />
     </>
   );
 }

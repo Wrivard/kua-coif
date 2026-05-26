@@ -16,6 +16,7 @@ import {
 import {
   appointmentSchema,
   blockTimeSchema,
+  bulkCancelAppointmentsSchema,
   cancelAppointmentSchema,
   chargeAppointmentSchema,
   refundAppointmentSchema,
@@ -696,6 +697,121 @@ export const cancelAppointment = withAction({
 
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: input.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// bulkCancelAppointments — Loop 28 (P1.87)
+//
+// Cancel N appointments in a single round trip. Used by the calendar
+// "Cancel day" button when an owner needs to clear a day (barber
+// called in sick, power outage, statutory holiday slipped through).
+// Mirrors `cancelAppointment` semantics:
+//   - refund-first when `also_refund=true` and the row is `paid`
+//   - refund failure is non-fatal — cancel still proceeds
+//   - audit log gets ONE batch entry (not N rows) to keep the log
+//     readable; the `count` in the diff is the audit trail
+//   - Google Calendar mirror deletes happen in the background
+//   - V1 does NOT send cancellation emails for bulk cancels (one
+//     spammy burst of 50 emails on a "barber sick" day is worse than
+//     a phone call from the shop owner). Per-row emails come back in
+//     V1.5 with a "notify clients" toggle on the confirm dialog.
+// ---------------------------------------------------------------------------
+export const bulkCancelAppointments = withAction<
+  typeof bulkCancelAppointmentsSchema,
+  { count: number; refunded: number }
+>({
+  schema: bulkCancelAppointmentsSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+    const preRes = await sb
+      .from('appointments')
+      .select('id, shop_id, barber_id, google_event_id, payment_intent_id, payment_status, status')
+      .in('id', input.ids);
+    const rows =
+      (preRes.data as Array<{
+        id: string;
+        shop_id: string;
+        barber_id: string;
+        google_event_id: string | null;
+        payment_intent_id: string | null;
+        payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+        status: string;
+      }> | null) ?? [];
+
+    // Reject early if any row belongs to a different shop. RLS would
+    // already block this, but a clear error beats a partial cancel
+    // that silently dropped rows. Same guard if the caller supplied
+    // an unknown UUID.
+    if (rows.length !== input.ids.length) return err('NOT_FOUND');
+    if (rows.some((r) => r.shop_id !== ctx.shopId)) return err('NOT_FOUND');
+
+    // Refund pass — only "paid" rows with a stored intent. Use
+    // Promise.allSettled so one Stripe error doesn't abort the
+    // others; we count successes for the toast and Sentry the
+    // failures.
+    let refundedCount = 0;
+    if (input.also_refund && stripeConfigured()) {
+      const refundable = rows.filter((r) => r.payment_status === 'paid' && r.payment_intent_id);
+      const settled = await Promise.allSettled(
+        refundable.map((r) => refundPaymentIntent({ paymentIntentId: r.payment_intent_id! })),
+      );
+      for (let i = 0; i < settled.length; i++) {
+        const result = settled[i]!;
+        if (result.status === 'fulfilled') {
+          refundedCount += 1;
+        } else {
+          captureException(result.reason, {
+            tags: { layer: 'stripe-payments', action: 'bulkCancelAppointments.refund' },
+          });
+        }
+      }
+    }
+
+    // Single UPDATE for the batch. RLS still applies per-row.
+    const updRes = await sb
+      .from('appointments')
+      .update({ status: 'cancelled' })
+      .in('id', input.ids);
+    if (updRes.error) return err('UNEXPECTED');
+
+    // One audit entry for the whole batch — N entries would explode
+    // the audit_log on a 50-appointment day cancel. The `entityId`
+    // points at the first row so the trail is grep-able; the `diff`
+    // carries the full ID list for forensics.
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'appointments',
+      entityId: rows[0]?.id ?? 'batch',
+      diff: {
+        status: 'cancelled',
+        count: rows.length,
+        also_refund: input.also_refund,
+        refunded_count: refundedCount,
+        ids: input.ids,
+      },
+    });
+
+    // Google Calendar mirror deletes in the background. We don't
+    // await — the cancel UI revalidates immediately, and a slow
+    // Google call shouldn't gate the toast. Each call has its own
+    // captureException inside `deleteAppointmentMirror`.
+    for (const r of rows) {
+      if (r.google_event_id) {
+        void deleteAppointmentMirror({
+          appointmentId: r.id,
+          barberId: r.barber_id,
+          googleEventId: r.google_event_id,
+        });
+      }
+    }
+
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ count: rows.length, refunded: refundedCount });
   },
 });
 

@@ -155,6 +155,20 @@
       "soon": "Vue calendrier — Phase 5.",
       "addAppointment": "Ajouter un rendez-vous",
       "blockTimeButton": "Bloquer un horaire",
+      "bulkCancel": {
+        "button": "Annuler la journée",
+        "buttonTitle": "Annuler {count} rendez-vous de la journée",
+        "confirmTitle": "Annuler la journée ?",
+        "confirmDescription": "Annuler {count} rendez-vous chez {barbers} barbier(s) ? Action irréversible.",
+        "alsoRefund": "Aussi rembourser {paid} rendez-vous payé(s) via Stripe",
+        "confirmButton": "Tout annuler",
+        "cancelButton": "Conserver",
+        "toasts": {
+          "cancelled": "{count} rendez-vous annulé(s)",
+          "refundedSuffix": "{refunded} remboursé(s)",
+          "failed": "Échec de l'annulation. Réessayez."
+        }
+      },
       "blockTime": {
         "createTitle": "Bloquer un horaire",
         "barber": "Barbier",

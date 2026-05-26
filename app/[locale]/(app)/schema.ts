@@ -45,6 +45,21 @@ export const chargeAppointmentSchema = z.object({
 export const refundAppointmentSchema = z.object({ id: z.string().uuid() });
 
 /**
+ * Loop 28 — Bulk-cancel N appointments in one action call. The list
+ * is capped at 100 (a full day for a typical 4-chair shop tops at
+ * 60). The `also_refund` flag mirrors single-cancel: when true, every
+ * row with `payment_status='paid'` and a `payment_intent_id` gets a
+ * full refund via Stripe before the cancel update lands. Refund
+ * errors are non-fatal — the cancel still proceeds, and the owner
+ * can retry refunds individually from the drawer.
+ */
+export const bulkCancelAppointmentsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, 'NO_IDS').max(100, 'TOO_MANY_IDS'),
+  also_refund: z.boolean().optional().default(false),
+});
+export type BulkCancelAppointmentsInput = z.infer<typeof bulkCancelAppointmentsSchema>;
+
+/**
  * Reschedule (drag-to-move): move an existing appointment to a new
  * barber column and/or a new start time. Duration is preserved server-side
  * (we re-derive end_at = old_end - old_start + new_start) so the client
