@@ -808,6 +808,12 @@
             "connected": "QuickBooks connected",
             "disconnected": "QuickBooks disconnected",
             "error": "QuickBooks connection failed"
+          },
+          "tokenExpires": "Token expires in {days, plural, =0 {<1 day} =1 {1 day} other {# days}}",
+          "lastRefreshed": {
+            "lessThanHour": "Refreshed less than an hour ago",
+            "hoursAgo": "Refreshed {hours}h ago",
+            "daysAgo": "Refreshed {days}d ago"
           }
         }
       },

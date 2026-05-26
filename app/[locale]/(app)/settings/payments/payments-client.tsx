@@ -413,7 +413,11 @@ function QuickbooksConnectCard({
   show,
 }: {
   quickbooks: QuickbooksConnectState;
-  t: (key: string) => string;
+  // Loop 46 — `t` accepts an optional values map so we can pass
+  // ICU-formatted countdown strings (`{days}`, `{hours}`).
+  // next-intl's hook returns this exact signature; the prop type
+  // narrows it down for QuickbooksConnectCard.
+  t: (key: string, values?: Record<string, string | number | Date>) => string;
   tErr: (key: string) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   show: (toast: any) => void;
@@ -438,6 +442,40 @@ function QuickbooksConnectCard({
     });
   }
 
+  // Loop 46 (P98) — token-expiry countdown for the connected state.
+  // We show a one-liner that surfaces both "last refreshed" + days
+  // until expiry so the owner can spot a stuck connection (e.g., the
+  // cron stopped firing) before it goes hard-expired. Days are
+  // computed client-side from the ISO timestamp — exact-to-the-day
+  // is enough; minute-precision would force the page to be dynamic.
+  const expiryInfo =
+    quickbooks.status === 'active' && quickbooks.refreshExpiresAt
+      ? (() => {
+          const ms = new Date(quickbooks.refreshExpiresAt).getTime() - Date.now();
+          const days = Math.max(0, Math.round(ms / (24 * 60 * 60 * 1000)));
+          return {
+            daysToExpiry: days,
+            // Warn-class when the cron should already have refreshed
+            // but hasn't (≤14 days = inside the refresh window). At
+            // that point either the cron is broken or the shop's
+            // refresh token was server-side revoked.
+            warn: days <= 14,
+          };
+        })()
+      : null;
+
+  const lastRefreshedLabel =
+    quickbooks.lastRefreshedAt != null
+      ? (() => {
+          const ms = Date.now() - new Date(quickbooks.lastRefreshedAt).getTime();
+          const hours = Math.round(ms / (60 * 60 * 1000));
+          if (hours < 1) return t('quickbooks.lastRefreshed.lessThanHour');
+          if (hours < 24) return t('quickbooks.lastRefreshed.hoursAgo', { hours });
+          const days = Math.round(hours / 24);
+          return t('quickbooks.lastRefreshed.daysAgo', { days });
+        })()
+      : null;
+
   return (
     <Card className="lg:col-span-3">
       <CardHeader>
@@ -445,13 +483,25 @@ function QuickbooksConnectCard({
         <Badge variant={badge.variant}>{t(badge.key)}</Badge>
       </CardHeader>
       <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-xl text-xs text-text-secondary">
-          {quickbooks.status === 'active'
-            ? t('quickbooks.description.active')
-            : quickbooks.status === 'expired'
-              ? t('quickbooks.description.expired')
-              : t('quickbooks.description.notStarted')}
-        </p>
+        <div className="max-w-xl space-y-1">
+          <p className="text-xs text-text-secondary">
+            {quickbooks.status === 'active'
+              ? t('quickbooks.description.active')
+              : quickbooks.status === 'expired'
+                ? t('quickbooks.description.expired')
+                : t('quickbooks.description.notStarted')}
+          </p>
+          {expiryInfo ? (
+            <p
+              className={
+                expiryInfo.warn ? 'text-[11px] text-warning' : 'text-[11px] text-text-muted'
+              }
+            >
+              {t('quickbooks.tokenExpires', { days: expiryInfo.daysToExpiry })}
+              {lastRefreshedLabel ? ` · ${lastRefreshedLabel}` : null}
+            </p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {(quickbooks.status === 'not_started' ||
             quickbooks.status === 'disconnected' ||

@@ -810,6 +810,12 @@
             "connected": "QuickBooks connecté",
             "disconnected": "QuickBooks déconnecté",
             "error": "Échec de la connexion QuickBooks"
+          },
+          "tokenExpires": "Token expire dans {days, plural, =0 {<1 jour} =1 {1 jour} other {# jours}}",
+          "lastRefreshed": {
+            "lessThanHour": "Rafraîchi il y a moins d'une heure",
+            "hoursAgo": "Rafraîchi il y a {hours}h",
+            "daysAgo": "Rafraîchi il y a {days}j"
           }
         }
       },

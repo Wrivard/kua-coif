@@ -34,6 +34,16 @@ export type QuickbooksConnectState = {
   configured: boolean;
   status: 'not_started' | 'active' | 'expired' | 'disconnected';
   hasRealm: boolean;
+  /**
+   * Loop 46 (P98) — surfaced for the settings panel countdown.
+   * `refreshExpiresAt` is the ISO instant the current refresh token
+   * dies (≈100 days after last refresh); `lastRefreshedAt` is the
+   * UI's "Last synced N ago" stamp. Both null on legacy
+   * connections from before the migration ran — the cron will
+   * backfill on the next refresh.
+   */
+  refreshExpiresAt: string | null;
+  lastRefreshedAt: string | null;
 };
 
 export default async function PaymentsPage({ params: { locale } }: { params: { locale: string } }) {
@@ -48,7 +58,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     supabase
       .from('shops')
       .select(
-        'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status',
+        'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status, quickbooks_refresh_token_expires_at, quickbooks_last_refreshed_at',
       )
       .limit(1),
   ]);
@@ -58,6 +68,8 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     stripe_connect_status: StripeConnectState['status'];
     quickbooks_realm_id: string | null;
     quickbooks_connect_status: QuickbooksConnectState['status'];
+    quickbooks_refresh_token_expires_at: string | null;
+    quickbooks_last_refreshed_at: string | null;
   }> | null) ?? [])[0];
 
   const stripe: StripeConnectState = {
@@ -70,6 +82,8 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     configured: quickbooksConfigured(),
     status: shopRow?.quickbooks_connect_status ?? 'not_started',
     hasRealm: Boolean(shopRow?.quickbooks_realm_id),
+    refreshExpiresAt: shopRow?.quickbooks_refresh_token_expires_at ?? null,
+    lastRefreshedAt: shopRow?.quickbooks_last_refreshed_at ?? null,
   };
 
   return (

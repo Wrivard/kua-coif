@@ -94,6 +94,15 @@ export async function GET(req: NextRequest) {
     const token = await exchangeQbCode({ code, redirectUri });
     const refreshEnc = encrypt(token.refresh_token);
 
+    // Loop 46 (P98) — capture refresh-token expiry on initial
+    // connect. Intuit returns `x_refresh_token_expires_in` (seconds)
+    // alongside the token; we project that forward to an absolute
+    // timestamp so the cron can scan an indexed timestamptz column
+    // instead of computing dates per-row.
+    const refreshExpiresAt = new Date(
+      Date.now() + token.x_refresh_token_expires_in * 1000,
+    ).toISOString();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = createSupabaseServiceRoleClient() as any;
     await admin
@@ -101,6 +110,8 @@ export async function GET(req: NextRequest) {
       .update({
         quickbooks_realm_id: realmId,
         quickbooks_refresh_token_enc: refreshEnc,
+        quickbooks_refresh_token_expires_at: refreshExpiresAt,
+        quickbooks_last_refreshed_at: new Date().toISOString(),
         quickbooks_connect_status: 'active',
       })
       .eq('id', shopId);
