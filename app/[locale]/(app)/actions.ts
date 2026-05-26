@@ -27,7 +27,7 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
 import { stripeConfigured } from '@/lib/stripe/server';
-import { createDepositPaymentIntent, refundPaymentIntent } from '@/lib/stripe/payments';
+import { createDepositPaymentIntent, refundPaymentIntentFull } from '@/lib/stripe/payments';
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
 import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { captureException } from '@/lib/observability';
@@ -577,7 +577,11 @@ export const cancelAppointment = withAction({
       stripeConfigured()
     ) {
       try {
-        await refundPaymentIntent({ paymentIntentId: pre.payment_intent_id });
+        // Loop 31 (P95) — use the Full helper so the idempotency key
+        // uses the explicit cent amount fetched from the PI (no
+        // 'full' string fallback). Stripe-side dedup now works even
+        // if a future caller passes the same amount explicitly.
+        await refundPaymentIntentFull({ paymentIntentId: pre.payment_intent_id });
         await logAuditAction({
           shopId: ctx.shopId,
           actorId: ctx.userId,
@@ -768,7 +772,7 @@ export const bulkCancelAppointments = withAction<
     if (input.also_refund && stripeConfigured()) {
       const refundable = rows.filter((r) => r.payment_status === 'paid' && r.payment_intent_id);
       const settled = await Promise.allSettled(
-        refundable.map((r) => refundPaymentIntent({ paymentIntentId: r.payment_intent_id! })),
+        refundable.map((r) => refundPaymentIntentFull({ paymentIntentId: r.payment_intent_id! })),
       );
       for (let i = 0; i < settled.length; i++) {
         const result = settled[i]!;
@@ -1033,7 +1037,7 @@ export const refundAppointment = withAction({
     }
 
     try {
-      await refundPaymentIntent({ paymentIntentId: appt.payment_intent_id });
+      await refundPaymentIntentFull({ paymentIntentId: appt.payment_intent_id });
       await logAuditAction({
         shopId: ctx.shopId,
         actorId: ctx.userId,

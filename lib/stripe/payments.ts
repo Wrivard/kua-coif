@@ -99,10 +99,21 @@ export async function createDepositPaymentIntent({
 }
 
 /**
- * Refund a paid appointment. Defaults to a full refund; callers can pass
- * `amountCents` for a partial.
+ * Refund a paid appointment. Callers always pass an explicit
+ * `amountCents` so the idempotency key is fully deterministic; the
+ * convenience case ("full refund of the PI") is handled by
+ * `refundPaymentIntentFull` below, which fetches the PI's `amount`
+ * and forwards.
  *
- * No-op if `payment_intent_id` is null (appointment was never paid).
+ * Loop 31 (P95 from AUDIT_PHASE70) — the previous signature accepted
+ * `amountCents?: number` and embedded `amountCents ?? 'full'` in the
+ * idempotency key. That meant:
+ *   - call A: `{ paymentIntentId: pi_xxx }`           → key `refund-pi_xxx-full`
+ *   - call B: `{ paymentIntentId: pi_xxx, amountCents: 2500 }` → key `refund-pi_xxx-2500`
+ * Stripe treats these as two distinct requests even though both
+ * refund the full $25. Result: double refund. Forcing explicit cents
+ * collapses the surface to a single deterministic key per refund.
+ *
  * Stripe surfaces refund failures via `charge.refunded` (success) and
  * `charge.refund.updated` (failure) webhooks.
  */
@@ -111,7 +122,7 @@ export async function refundPaymentIntent({
   amountCents,
 }: {
   paymentIntentId: string;
-  amountCents?: number;
+  amountCents: number;
 }): Promise<Stripe.Refund> {
   const stripe = getStripe();
   return stripe.refunds.create(
@@ -124,9 +135,27 @@ export async function refundPaymentIntent({
       refund_application_fee: true,
     },
     {
-      idempotencyKey: `refund-${paymentIntentId}-${amountCents ?? 'full'}`,
+      idempotencyKey: `refund-${paymentIntentId}-${amountCents}`,
     },
   );
+}
+
+/**
+ * Convenience wrapper — fetches the PaymentIntent to read its
+ * `amount`, then issues a full refund with that explicit value. All
+ * three of our refund call-sites (cancelAppointment, bulkCancel,
+ * refundAppointment) want a full refund; routing them through this
+ * helper keeps the idempotency key deterministic regardless of who
+ * triggered the refund.
+ */
+export async function refundPaymentIntentFull({
+  paymentIntentId,
+}: {
+  paymentIntentId: string;
+}): Promise<Stripe.Refund> {
+  const stripe = getStripe();
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  return refundPaymentIntent({ paymentIntentId, amountCents: intent.amount });
 }
 
 /**
