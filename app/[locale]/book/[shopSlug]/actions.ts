@@ -93,6 +93,12 @@ export const publicBookingSchema = z.object({
     .or(z.literal('').transform(() => undefined)),
   /** Deposit amount in cents that the PI was created for (Phase 56). */
   deposit_amount_cents: z.number().int().min(0).optional(),
+  /**
+   * Loop 24 — Quebec Loi 25 affirmative consent flag. Must be true.
+   * The wizard gates Confirm on the checkbox; the action re-enforces
+   * server-side so a hand-crafted POST can't bypass.
+   */
+  consent_loi25: z.boolean().refine((v) => v === true, { message: 'CONSENT_REQUIRED' }),
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
@@ -578,6 +584,9 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         promoCode: promoCodeRow ? input.promo_code : undefined,
         discountAmount: discountAmount > 0 ? discountAmount : undefined,
         loyaltyCreditCents: loyaltyCreditCents > 0 ? loyaltyCreditCents : undefined,
+        // Loop 24 — Loi 25 paper trail. Always true when the action
+        // runs (the schema's `.refine` rejects false).
+        loi25_consent: true,
       },
     });
 

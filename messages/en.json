@@ -1084,7 +1084,10 @@
           "promoCodeHint": "Enter a discount code if you have one.",
           "subtotalLabel": "Subtotal:",
           "loyaltyApplied": "Loyalty credit:",
-          "totalLabel": "Total:"
+          "totalLabel": "Total:",
+          "consent": "I agree that my information may be used to manage this appointment, in accordance with the",
+          "consentLink": "privacy policy",
+          "consentSuffix": " (Quebec Bill 25)."
         }
       },
       "summary": {

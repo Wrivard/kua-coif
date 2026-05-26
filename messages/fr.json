@@ -1086,7 +1086,10 @@
           "promoCodeHint": "Si tu as un code de réduction, entre-le ici.",
           "subtotalLabel": "Sous-total :",
           "loyaltyApplied": "Crédit fidélité :",
-          "totalLabel": "Total :"
+          "totalLabel": "Total :",
+          "consent": "J’accepte que mes informations soient utilisées pour gérer ce rendez-vous, conformément à la",
+          "consentLink": "politique de confidentialité",
+          "consentSuffix": " (Loi 25)."
         }
       },
       "summary": {

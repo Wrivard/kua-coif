@@ -67,6 +67,7 @@ type WizardState = {
   turnstileToken: string; // Phase 30 — empty until widget verifies
   promoCode: string; // Phase 41 — optional, server-validated
   loyaltyBalanceCents: number; // Phase 60 — server-confirmed balance for the typed phone
+  consentLoi25: boolean; // Loop 24 — Quebec Loi 25 affirmative consent gate
 };
 
 type Props = {
@@ -161,6 +162,7 @@ export function BookingWizard({
     turnstileToken: '',
     promoCode: '',
     loyaltyBalanceCents: 0,
+    consentLoi25: false,
   });
 
   // Phase 60 — debounced loyalty lookup on phone change. Fires ~500ms
@@ -270,7 +272,10 @@ export function BookingWizard({
       // challenge before Confirm enables. When the feature is off, the token
       // is just an empty string and we skip this gate.
       const tokenOk = !turnstileEnforced || state.turnstileToken.length > 0;
-      return hasIdentity && tokenOk;
+      // Loop 24 — Quebec Loi 25 affirmative consent gate. The customer
+      // MUST tick the "I agree to the privacy policy" box before we
+      // accept their phone/email/name. Server action also enforces this.
+      return hasIdentity && tokenOk && state.consentLoi25;
     }
     return false;
   })();
@@ -326,6 +331,8 @@ export function BookingWizard({
         // Phase 56 — only set when the payment section actually charged.
         payment_intent_id: paymentIntentId,
         deposit_amount_cents: depositCents,
+        // Loop 24 — Loi 25 affirmative consent. Server enforces too.
+        consent_loi25: state.consentLoi25,
       });
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
@@ -572,6 +579,34 @@ export function BookingWizard({
                 />
               </div>
             ) : null}
+
+            {/* Loop 24 — Quebec Loi 25 affirmative consent. The shop
+                is a private-info handler under Bill 25; we need
+                explicit opt-in before storing the customer's phone,
+                email, and notes. The submit button is gated on this
+                via `canAdvance`. Audit log on the server records
+                `loi25_consent: true` so the legal paper trail exists. */}
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-text-secondary">
+              <input
+                type="checkbox"
+                checked={state.consentLoi25}
+                onChange={(e) => setState((s) => ({ ...s, consentLoi25: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 cursor-pointer rounded border-border bg-bg-surface-2 text-accent focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1"
+                aria-required
+              />
+              <span>
+                {t('steps.contact.consent')}{' '}
+                <a
+                  href={`/${locale}/privacy`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline hover:no-underline"
+                >
+                  {t('steps.contact.consentLink')}
+                </a>
+                {t('steps.contact.consentSuffix')}
+              </span>
+            </label>
 
             {/* Summary card — Phase 60: loyalty credit line shown only
                 when the lookup returned a positive balance. The total
