@@ -345,7 +345,8 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 62b — Email branding wiring** : template `appointment-confirmation.tsx` accepte `emailLogoUrl` + `emailAccentColor` ; logo image au lieu du Küa wordmark si fourni, palette accent overridable. Booking action lit les nouveaux colonnes + passe au template.
 - ✅ **Phase 63c — Reviews moderation UI** : `/settings/reviews` admin page (3 sections pending/published/rejected) + actions `moderateReview` (publish/reject) + `deleteReview`. Star rating display, barber name lookup, audit log capture. RLS already enforced.
 - ⏳ **Phase 65b — Sidebar dropdown** : reporté (sidebar 324 lignes — refactor sortant du budget loop, switcher reste accessible via `/settings/active-shop`).
-- ⏳ **Phases 63b, 66, 67, 68, 69** : encore à venir (public review submission via signed token, image upload, 2FA, /me page, waitlist auto-notify).
+- ⏳ **Phases 63b, 66, 68, 69** : encore à venir (public review submission via signed token, image upload, /me page, waitlist auto-notify).
+- ✅ **Phase 67 — 2FA (TOTP) enrollment** : `/settings/two-factor` page + client utilisant `supabase.auth.mfa.enroll/challenge/verify/unenroll`. Trois états (none / enrolling avec QR + secret + code input / enrolled avec liste + remove + add another). Friendly name auto-tagged avec date. Recovery codes hors V1 (Supabase ne les ship pas natifs). Middleware sign-in challenge gate = V1.1.
 
 ### Phase 29 — UI review / polish global (détail)
 
