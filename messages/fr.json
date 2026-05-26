@@ -1264,6 +1264,28 @@
       "contactBody": "Pour toute demande relative à tes données, écris à wrivard@kua.quebec. Tu peux également déposer une plainte auprès de la Commission d'accès à l'information du Québec.",
       "seeTerms": "Consulter aussi les conditions d'utilisation →"
     },
+    "accessibility": {
+      "title": "Déclaration d'accessibilité",
+      "lastUpdated": "Dernière mise à jour : mai 2026",
+      "commitment": "Küa s'engage à rendre sa plateforme de gestion de salon utilisable par tout le monde, incluant les personnes qui utilisent des technologies d'assistance (lecteurs d'écran, navigation au clavier, contrôle vocal, etc.).",
+      "standardTitle": "Norme de conformité visée",
+      "standardBody": "Küa vise la conformité WCAG 2.1 niveau AA. Lorsqu'une page n'atteint pas ce niveau, la limitation est documentée plus bas.",
+      "measuresTitle": "Mesures en place",
+      "measures": {
+        "contrast": "Palette de couleurs réglée pour un contraste texte minimum de 4,5:1 et 3:1 pour les composants d'interface.",
+        "keyboard": "Tous les éléments interactifs sont accessibles via la touche Tab, avec un anneau de focus accent visible de 2 px.",
+        "aria": "Les contrôles de formulaire ont des labels associés ; les annonces de statut utilisent aria-live au besoin.",
+        "ci": "Une vérification automatisée axe-core tourne en CI sur la page de connexion, le flux de réservation publique et cette déclaration — toute régression bloque le déploiement."
+      },
+      "limitationsTitle": "Limitations connues",
+      "limitationsIntro": "On est transparents sur les zones où la plateforme n'atteint pas encore notre cible :",
+      "limitations": {
+        "calendarDnd": "Le glisser-déposer sur le calendrier de rendez-vous n'a pas encore d'équivalent clavier. Une action « Replanifier » accessible au clavier est disponible dans le tiroir de détail du RDV en remplacement.",
+        "thirdParty": "Les champs Stripe Elements (paiement) héritent de la posture d'accessibilité de Stripe, qu'on ne contrôle pas entièrement."
+      },
+      "reportTitle": "Signaler un obstacle",
+      "reportBody": "Tu rencontres un obstacle d'accessibilité ? Écris-nous à <email>accessibility@kua.quebec</email> — on traite les obstacles d'accès comme des bogues et on s'engage à un accusé de réception sous 5 jours ouvrables."
+    },
     "terms": {
       "title": "Conditions d'utilisation",
       "lastUpdated": "Dernière mise à jour : mai 2026",

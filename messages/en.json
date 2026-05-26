@@ -1262,6 +1262,28 @@
       "contactBody": "For any data-related request, email wrivard@kua.quebec. You may also file a complaint with the Commission d'accès à l'information du Québec.",
       "seeTerms": "See also the Terms of Service →"
     },
+    "accessibility": {
+      "title": "Accessibility statement",
+      "lastUpdated": "Last updated: May 2026",
+      "commitment": "Küa is committed to making its salon-management platform usable by everyone, including people relying on assistive technologies (screen readers, keyboard-only navigation, voice control, etc.).",
+      "standardTitle": "Conformance standard",
+      "standardBody": "Küa targets WCAG 2.1 Level AA conformance. Where individual pages fall short, the limitation is documented below.",
+      "measuresTitle": "Active measures",
+      "measures": {
+        "contrast": "Colour palette tuned for 4.5:1 minimum text contrast and 3:1 for UI components.",
+        "keyboard": "Every interactive element reachable via Tab, with a visible 2px accent focus ring.",
+        "aria": "Form controls have associated labels; status announcements use aria-live where relevant.",
+        "ci": "An automated axe-core check runs in CI against the login page, public booking flow, and this statement — regressions block deployment."
+      },
+      "limitationsTitle": "Known limitations",
+      "limitationsIntro": "We're transparent about where the platform doesn't yet meet our target standard:",
+      "limitations": {
+        "calendarDnd": "Drag-and-drop on the appointments calendar has no keyboard equivalent yet. A keyboard-accessible reschedule action lives in the appointment detail drawer as a fallback.",
+        "thirdParty": "Embedded Stripe Elements (payment fields) inherit Stripe's a11y posture, which we don't fully control."
+      },
+      "reportTitle": "Report a barrier",
+      "reportBody": "Hit an accessibility wall? Tell us at <email>accessibility@kua.quebec</email> — we treat access barriers as bugs and target a 5-business-day acknowledgement."
+    },
     "terms": {
       "title": "Terms of Service",
       "lastUpdated": "Last updated: May 2026",

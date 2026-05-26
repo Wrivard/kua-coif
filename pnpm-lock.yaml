@@ -100,6 +100,9 @@ dependencies:
     version: 4.4.3
 
 devDependencies:
+  '@axe-core/playwright':
+    specifier: ^4.11.3
+    version: 4.11.3(playwright-core@1.60.0)
   '@playwright/test':
     specifier: ^1.60.0
     version: 1.60.0
@@ -197,6 +200,15 @@ packages:
 
   /@asamuzakjp/nwsapi@2.3.9:
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
+    dev: true
+
+  /@axe-core/playwright@4.11.3(playwright-core@1.60.0):
+    resolution: {integrity: sha512-h/kfksv4F0cVIDlKpT4700OehdRgpvuVskuQ2nb7/JmtWUXpe9ftHAPtwyXGvVSsa6SJ64A9ER7Zrzc/sIvC4w==}
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
+    dependencies:
+      axe-core: 4.11.4
+      playwright-core: 1.60.0
     dev: true
 
   /@babel/code-frame@7.29.7:
