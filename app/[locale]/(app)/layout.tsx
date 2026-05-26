@@ -5,7 +5,13 @@ import { MobileSidebar } from '@/components/ui/mobile-sidebar';
 import { FabButtons } from '@/components/ui/fab-buttons';
 import { ToastProvider } from '@/components/ui/toast';
 import { QueryProvider } from '@/components/providers/query-provider';
-import { getCurrentShop, getCurrentUser } from '@/lib/auth/server';
+import {
+  getCurrentShop,
+  getCurrentShopId,
+  getCurrentUser,
+  getShopMemberships,
+} from '@/lib/auth/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { INDUSTRIES, isIndustryKind } from '@/lib/industries';
 import { setUser } from '@/lib/observability';
 import { SentryUserInit } from '@/components/features/shell/sentry-user-init';
@@ -21,10 +27,12 @@ export default async function AppShellLayout({
   // ordering dependency on each other. `getCurrentShop` is the single
   // request-cached read of the shops table (id, name, timezone, industry)
   // that downstream pages will re-use without re-querying.
-  const [user, tA11y, shop] = await Promise.all([
+  const [user, tA11y, shop, memberships, activeShopId] = await Promise.all([
     getCurrentUser(),
     getTranslations({ locale, namespace: 'a11y' }),
     getCurrentShop(),
+    getShopMemberships(),
+    getCurrentShopId(),
   ]);
 
   // Resolve the shop's industry → drives nav-item visibility (Phase 23).
@@ -32,6 +40,36 @@ export default async function AppShellLayout({
   let hideProducts = false;
   if (shop?.industry && isIndustryKind(shop.industry)) {
     hideProducts = !INDUSTRIES[shop.industry].features.products;
+  }
+
+  // Loop 39 (P119) — resolve the user's membership shop names so the
+  // sidebar header can show an active-shop label + a dropdown to
+  // switch when the user is a member of >1 shop. We do this in the
+  // layout (not in a client component) so the names land in the
+  // server payload with the rest of the shell — no extra round-trip.
+  // Single-membership users get an empty `shopRows` (rendered as a
+  // static label, no dropdown affordance).
+  let shopRows: Array<{ shop_id: string; name: string }> = [];
+  if (memberships.length > 1) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    const namesRes = await admin
+      .from('shops')
+      .select('id, name')
+      .in(
+        'id',
+        memberships.map((m) => m.shop_id),
+      );
+    const names = new Map<string, string>(
+      ((namesRes.data as Array<{ id: string; name: string }> | null) ?? []).map((s) => [
+        s.id,
+        s.name,
+      ]),
+    );
+    shopRows = memberships.map((m) => ({
+      shop_id: m.shop_id,
+      name: names.get(m.shop_id) ?? '?',
+    }));
   }
 
   // Phase 70 audit fix: tag the active Sentry scope with the user so
@@ -78,10 +116,30 @@ export default async function AppShellLayout({
                       : undefined) ?? null,
                 }
               : null;
+            // Loop 39 — the sidebar header now shows the active shop
+            // name. We always pass the active shop's name (even for
+            // single-shop users) so the header reads as "<Shop>" instead
+            // of generic "Küa". `shopRows` is empty for single-shop
+            // users → no dropdown affordance.
+            const activeShopName = shop?.name ?? null;
             return (
               <>
-                <Sidebar locale={locale} hideProducts={hideProducts} user={sidebarUser} />
-                <MobileSidebar locale={locale} hideProducts={hideProducts} user={sidebarUser} />
+                <Sidebar
+                  locale={locale}
+                  hideProducts={hideProducts}
+                  user={sidebarUser}
+                  activeShopId={activeShopId}
+                  activeShopName={activeShopName}
+                  shopRows={shopRows}
+                />
+                <MobileSidebar
+                  locale={locale}
+                  hideProducts={hideProducts}
+                  user={sidebarUser}
+                  activeShopId={activeShopId}
+                  activeShopName={activeShopName}
+                  shopRows={shopRows}
+                />
               </>
             );
           })()}

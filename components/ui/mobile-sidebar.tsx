@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { stripLocale } from '@/lib/nav-items';
 import { locales } from '@/i18n';
-import { SidebarNavInner, type SidebarUser } from './sidebar';
+import { ShopSwitcher, SidebarNavInner, type SidebarUser } from './sidebar';
 
 /**
  * Mobile navigation — Phase 29 round 3.
@@ -35,10 +35,19 @@ export function MobileSidebar({
   locale,
   user,
   hideProducts = false,
+  activeShopId = null,
+  activeShopName = null,
+  shopRows = [],
 }: {
   locale: string;
   user: SidebarUser | null;
   hideProducts?: boolean;
+  /** Loop 39 (P119) — mirror the desktop sidebar's shop-switcher
+   *  inputs. The mobile drawer is always "expanded" mode so the
+   *  switcher renders unconditionally when ≥1 shop name is provided. */
+  activeShopId?: string | null;
+  activeShopName?: string | null;
+  shopRows?: Array<{ shop_id: string; name: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -125,17 +134,24 @@ export function MobileSidebar({
         >
           {/* Drawer header — Küa brand + close. Mirrors the desktop sidebar's
               expanded header. */}
-          <div className="flex h-header-h items-center justify-between border-b border-border px-3">
+          <div className="flex h-header-h items-center gap-2 border-b border-border px-3">
             <Link
               href={`/${locale}/`}
-              className="flex items-center gap-2"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg"
               onClick={() => setOpen(false)}
+              aria-label="Küa"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg">
-                <span className="text-sm font-semibold">K</span>
-              </span>
-              <span className="truncate text-sm font-semibold text-text-primary">Küa</span>
+              <span className="text-sm font-semibold">K</span>
             </Link>
+            {/* Loop 39 (P119) — same shop-switcher as desktop. Single-
+                shop users see a static label; multi-shop users get a
+                dropdown that closes the drawer on selection (the route
+                refresh triggers the drawer's pathname-change effect). */}
+            <ShopSwitcher
+              activeShopId={activeShopId}
+              activeShopName={activeShopName}
+              shopRows={shopRows}
+            />
             <button
               type="button"
               onClick={() => setOpen(false)}

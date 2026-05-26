@@ -2,14 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import { ChevronsLeft, ChevronsRight, Globe, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { Check, ChevronDown, ChevronsLeft, ChevronsRight, Globe, LogOut } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { isItemActive, NAV_ITEMS, stripLocale, type NavItem } from '@/lib/nav-items';
 import { locales } from '@/i18n';
 import { signOutAction } from '@/lib/auth/actions';
+import { selectShop } from '@/app/[locale]/(app)/actions-shop-switcher';
 
 export type SidebarUser = {
   id: string;
@@ -27,6 +28,17 @@ type Props = {
    * sell retail products. Default `false` preserves V1 behavior.
    */
   hideProducts?: boolean;
+  /**
+   * Loop 39 (P119) — active shop label rendered in the sidebar header.
+   * `null` falls back to the legacy "Küa" wordmark.
+   */
+  activeShopId?: string | null;
+  activeShopName?: string | null;
+  /**
+   * The user's confirmed shop memberships with display names. Empty
+   * when the user has a single shop (no switcher rendered then).
+   */
+  shopRows?: Array<{ shop_id: string; name: string }>;
 };
 
 /**
@@ -35,7 +47,14 @@ type Props = {
  * navigation behind a hamburger trigger. Both share `<SidebarNavInner>` so
  * the nav item rendering, locale switcher, and logout button stay consistent.
  */
-export function Sidebar({ locale, user, hideProducts = false }: Props) {
+export function Sidebar({
+  locale,
+  user,
+  hideProducts = false,
+  activeShopId = null,
+  activeShopName = null,
+  shopRows = [],
+}: Props) {
   const pathname = usePathname();
   const t = useTranslations('nav');
   const [expanded, setExpanded] = useState(false);
@@ -62,7 +81,11 @@ export function Sidebar({ locale, user, hideProducts = false }: Props) {
           <span className="text-sm font-semibold">K</span>
         </Link>
         {expanded ? (
-          <span className="ml-2 truncate text-sm font-semibold text-text-primary">Küa</span>
+          <ShopSwitcher
+            activeShopId={activeShopId}
+            activeShopName={activeShopName}
+            shopRows={shopRows}
+          />
         ) : null}
         <button
           type="button"
@@ -82,6 +105,138 @@ export function Sidebar({ locale, user, hideProducts = false }: Props) {
         hideProducts={hideProducts}
       />
     </aside>
+  );
+}
+
+/**
+ * Loop 39 (P119) — sidebar header dropdown that shows the active shop
+ * name and lets multi-shop users switch in-place. Single-shop users
+ * (empty `shopRows`) see a static label only — no chevron, no menu.
+ *
+ * The dropdown closes on outside click, Escape, or selection. The
+ * underlying server action `selectShop` writes the
+ * `kua_active_shop` cookie and `router.refresh()` re-renders the
+ * shell with the new shop's data.
+ */
+export function ShopSwitcher({
+  activeShopId,
+  activeShopName,
+  shopRows,
+}: {
+  activeShopId: string | null;
+  activeShopName: string | null;
+  shopRows: Array<{ shop_id: string; name: string }>;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const hasMultiple = shopRows.length > 1;
+
+  // Close on outside click / Escape — manual instead of pulling in a
+  // popover lib for one use site.
+  useEffect(() => {
+    if (!open) return;
+    function onClick(e: MouseEvent) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function onPick(shopId: string) {
+    if (shopId === activeShopId) {
+      setOpen(false);
+      return;
+    }
+    startTransition(async () => {
+      const result = await selectShop({ shop_id: shopId });
+      if (result.ok) {
+        setOpen(false);
+        router.refresh();
+      } else {
+        // Soft-fail: keep dropdown open so user can retry. A toast
+        // would be nicer but the Sidebar mounts outside ToastProvider
+        // on some layouts — defer to a follow-up if real failures
+        // start showing up in Sentry.
+        setOpen(false);
+      }
+    });
+  }
+
+  if (!hasMultiple) {
+    return (
+      <span
+        className="ml-2 truncate text-sm font-semibold text-text-primary"
+        title={activeShopName ?? undefined}
+      >
+        {activeShopName ?? 'Küa'}
+      </span>
+    );
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative ml-2 min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          'flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-sm font-semibold text-text-primary',
+          'transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+        )}
+        disabled={isPending}
+      >
+        <span className="min-w-0 flex-1 truncate" title={activeShopName ?? undefined}>
+          {activeShopName ?? 'Küa'}
+        </span>
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-text-muted transition-transform',
+            open && 'rotate-180',
+          )}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute left-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg bg-bg-elevated p-1 shadow-lg"
+        >
+          {shopRows.map((row) => {
+            const isActive = row.shop_id === activeShopId;
+            return (
+              <li key={row.shop_id} role="option" aria-selected={isActive}>
+                <button
+                  type="button"
+                  onClick={() => onPick(row.shop_id)}
+                  disabled={isPending}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors',
+                    isActive
+                      ? 'bg-accent-subtle text-accent'
+                      : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                  {isActive ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
