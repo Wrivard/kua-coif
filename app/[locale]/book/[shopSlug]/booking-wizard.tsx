@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import {
   CalendarCheck,
@@ -25,7 +26,20 @@ import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone'
 import type { WidgetConfig } from '@/lib/business/widget-config';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { addToWaitlistPublic, bookPublicAppointment, lookupLoyaltyByPhone } from './actions';
-import { BookingPaymentSection, type BookingPaymentSectionRef } from './booking-payment-section';
+import type { BookingPaymentSectionRef } from './booking-payment-section';
+
+/**
+ * Loop 40 (P116) — `BookingPaymentSection` pulls in @stripe/stripe-js
+ * + @stripe/react-stripe-js (~150 kB combined). The wizard only
+ * mounts it on step 4 (confirmation + optional deposit), so a
+ * dynamic import keeps the script tag off the initial step-1
+ * page load. ssr:false because Stripe Elements is browser-only;
+ * the booking flow is already client-side anyway.
+ */
+const BookingPaymentSection = dynamic(
+  () => import('./booking-payment-section').then((m) => m.BookingPaymentSection),
+  { ssr: false },
+);
 
 export type BookingShop = {
   id: string;

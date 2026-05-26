@@ -1,7 +1,19 @@
 import createNextIntlPlugin from 'next-intl/plugin';
 import { withSentryConfig } from '@sentry/nextjs';
+import bundleAnalyzer from '@next/bundle-analyzer';
 
 const withNextIntl = createNextIntlPlugin('./i18n.ts');
+
+/**
+ * Loop 40 (P116) — `pnpm analyze` triggers the bundle analyzer:
+ *   ANALYZE=true pnpm build
+ * Opens an interactive treemap of every route's JS chunks so we can
+ * spot unexpectedly large deps. The wrapper is a no-op without the
+ * env var so the regular `pnpm build` is unchanged.
+ */
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const isProd = process.env.NODE_ENV === 'production';
 const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -128,4 +140,6 @@ const sentryOpts = {
   widenClientFileUpload: true,
 };
 
-export default withSentryConfig(withNextIntl(nextConfig), sentryOpts);
+// Compose: bundle-analyzer wraps Sentry wraps next-intl wraps nextConfig.
+// Analyzer outermost so it sees the final webpack config Sentry produced.
+export default withBundleAnalyzer(withSentryConfig(withNextIntl(nextConfig), sentryOpts));
