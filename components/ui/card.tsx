@@ -16,9 +16,7 @@ type DivProps = HTMLAttributes<HTMLDivElement>;
  * The shadow-as-border IS the border. Vercel rule.
  */
 export function Card({ className, ...rest }: DivProps) {
-  return (
-    <div className={cn('rounded-lg bg-bg-surface shadow-sm', className)} {...rest} />
-  );
+  return <div className={cn('rounded-lg bg-bg-surface shadow-sm', className)} {...rest} />;
 }
 
 export function CardHeader({ className, ...rest }: DivProps) {
