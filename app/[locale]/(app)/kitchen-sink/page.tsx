@@ -126,14 +126,50 @@ export default function KitchenSinkPage() {
 
         {/* Badges */}
         <Section title={sections('badges')}>
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge>Default</Badge>
-            <Badge variant="accent">Accent</Badge>
-            <Badge variant="success">Verified</Badge>
-            <Badge variant="warning">Warning</Badge>
-            <Badge variant="danger">Danger</Badge>
-            <Badge variant="info">Company</Badge>
-            <Badge variant="new">New</Badge>
+          <div className="space-y-3">
+            {/* Variants — sm size (default), no dot. The historical
+                inline pill used next to titles / table cells. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge>Default</Badge>
+              <Badge variant="accent">Accent</Badge>
+              <Badge variant="success">Verified</Badge>
+              <Badge variant="warning">Warning</Badge>
+              <Badge variant="danger">Danger</Badge>
+              <Badge variant="info">Company</Badge>
+              <Badge variant="new">New</Badge>
+            </div>
+            {/* Loop 47 (P113) — leading dot for tabular status
+                contexts where the variant's tinted background isn't
+                strong enough on its own. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge dot variant="success">
+                Confirmed
+              </Badge>
+              <Badge dot variant="warning">
+                Pending
+              </Badge>
+              <Badge dot variant="danger">
+                Cancelled
+              </Badge>
+              <Badge dot variant="info">
+                Booked
+              </Badge>
+              <Badge dot>Idle</Badge>
+            </div>
+            {/* Sizes — sm (default) / md / lg. The larger sizes are
+                used on status panel cards where the badge IS the
+                focal point rather than an inline decoration. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge size="sm" variant="accent">
+                Small (default)
+              </Badge>
+              <Badge size="md" variant="accent">
+                Medium
+              </Badge>
+              <Badge size="lg" variant="accent" dot>
+                Large with dot
+              </Badge>
+            </div>
           </div>
         </Section>
 
