@@ -138,7 +138,30 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
     {
       id: 'name',
       header: t('columns.name'),
-      cell: (r) => <span className="font-medium">{r.display_name}</span>,
+      // Loop 44 self-review — display the avatar uploaded via the
+      // form modal alongside the name so the upload result is
+      // visible from the list page (without it, the only way to
+      // know the upload landed was to re-open the form). Falls back
+      // to a 24×24 initial chip when avatar_url is null.
+      cell: (r) => (
+        <span className="inline-flex items-center gap-2">
+          {r.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={r.avatar_url}
+              alt=""
+              width={24}
+              height={24}
+              className="h-6 w-6 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent">
+              {initialsFor(r.display_name)}
+            </span>
+          )}
+          <span className="font-medium">{r.display_name}</span>
+        </span>
+      ),
       sortable: true,
       sortValue: (r) => r.display_name.toLowerCase(),
     },
@@ -336,5 +359,23 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
         onCancel={() => setConfirmDelete(null)}
       />
     </>
+  );
+}
+
+/**
+ * Loop 44 self-review — derive a 1–2 letter initial chip from the
+ * display name. Same logic as the sidebar Avatar (different file)
+ * so the two surfaces feel consistent. `?` is the fallback when the
+ * name is empty/whitespace (shouldn't happen — schema requires
+ * NAME_REQUIRED — but defensive against future schema relaxation).
+ */
+function initialsFor(displayName: string): string {
+  return (
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]!.toUpperCase())
+      .join('') || '?'
   );
 }
