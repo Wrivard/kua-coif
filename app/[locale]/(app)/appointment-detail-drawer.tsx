@@ -145,7 +145,11 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 {t('time')}
               </p>
-              <p>
+              {/* Loop 37 (P114) — time range in mono so the
+                  HH:mm – HH:mm format reads as a single timestamp
+                  block rather than slipping under the proportional
+                  Sans hyphen. */}
+              <p className="font-mono tabular-nums">
                 {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
                 {' – '}
                 {formatShopTime(appointment.end_at, timezone, 'HH:mm')}

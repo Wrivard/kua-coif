@@ -393,7 +393,9 @@ export default async function CloseOutPage({
                     <tr key={o.id} className="border-b border-border last:border-b-0">
                       <td className="py-2 font-medium text-text-primary">{o.clientName}</td>
                       <td className="py-2 text-text-secondary">{o.barberName}</td>
-                      <td className="py-2 text-text-secondary">
+                      {/* Loop 37 (P114) — time range column in mono
+                          so the HH:mm – HH:mm values line up. */}
+                      <td className="py-2 font-mono tabular-nums text-text-secondary">
                         {formatTimeRange(o.start_at, o.end_at, timezone)}
                       </td>
                       <td className="py-2 text-right">
