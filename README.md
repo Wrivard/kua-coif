@@ -345,7 +345,10 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 62b — Email branding wiring** : template `appointment-confirmation.tsx` accepte `emailLogoUrl` + `emailAccentColor` ; logo image au lieu du Küa wordmark si fourni, palette accent overridable. Booking action lit les nouveaux colonnes + passe au template.
 - ✅ **Phase 63c — Reviews moderation UI** : `/settings/reviews` admin page (3 sections pending/published/rejected) + actions `moderateReview` (publish/reject) + `deleteReview`. Star rating display, barber name lookup, audit log capture. RLS already enforced.
 - ⏳ **Phase 65b — Sidebar dropdown** : reporté (sidebar 324 lignes — refactor sortant du budget loop, switcher reste accessible via `/settings/active-shop`).
-- ⏳ **Phases 63b, 66, 68, 69** : encore à venir (public review submission via signed token, image upload, /me page, waitlist auto-notify).
+- ⏳ **Phases 66, 69** : encore à venir (image upload, waitlist auto-notify).
+- ✅ **Phase 63b — Public review submission via signed token** : `lib/security/signed-tokens.ts` (HMAC-SHA256, base64url, kind discriminator + exp). Page `/[locale]/review/[token]` valide le token, fetch appointment + barber pour context, render star rating form (1-5 + optional name + comment). Action `submitPublicReview` re-vérifie le token server-side, block duplicates. Statuts à 'pending' → admin moderates via Phase 63c UI.
+- ✅ **Phase 68 — /me self-service page** : `/[locale]/me/[token]` montre loyalty balance + visit count + Loi 25 self-export button + shop contact. Action `exportMyData` retourne le même shape JSON que l'admin export (`/clients/[id]/export`), token-gated, rate-limited 10/h/IP.
+- ⏳ **Admin token generation** : pas encore d'UI button — les tokens sont générés via `signToken({kind, resourceId, expiresInSeconds})` server-side. Phase 12+ ajoute un bouton "Send review link" + "Send /me link" dans l'appointment detail drawer.
 - ✅ **Phase 67 — 2FA (TOTP) enrollment** : `/settings/two-factor` page + client utilisant `supabase.auth.mfa.enroll/challenge/verify/unenroll`. Trois états (none / enrolling avec QR + secret + code input / enrolled avec liste + remove + add another). Friendly name auto-tagged avec date. Recovery codes hors V1 (Supabase ne les ship pas natifs). Middleware sign-in challenge gate = V1.1.
 
 ### Phase 29 — UI review / polish global (détail)
