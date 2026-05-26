@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
@@ -49,23 +50,32 @@ const config: Config = {
         'appt-blue': 'var(--appt-blue)',
       },
       borderRadius: {
-        DEFAULT: 'var(--radius)',
+        // Phase 75 — Vercel granular radius scale (2/4/6/8/12/16).
+        '2xs': 'var(--radius-2xs)',
+        xs: 'var(--radius-xs)',
         sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius)',
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
       },
       boxShadow: {
-        // ─── Elevation scale (Phase 36) ──────────────────────────────
-        // Each level is a drop shadow + inset highlight pair. The inset
-        // is what makes dark UI feel "lit from above" rather than flat.
-        sm: 'var(--shadow-sm), var(--inset-highlight)',
+        // ─── Elevation scale (Phase 75 — Vercel multi-layer stacks) ─────
+        // Each level stacks shadow-as-border (1px) + ambient depth +
+        // inner #fafafa highlight ring. Pure Vercel philosophy: shadows
+        // do the work of borders + elevation simultaneously.
+        sm: 'var(--shadow-sm)',
         md: 'var(--shadow-md), var(--inset-highlight)',
         lg: 'var(--shadow-lg), var(--inset-highlight)',
         xl: 'var(--shadow-xl), var(--inset-highlight)',
-        // Without the inset — for surfaces that don't want the top
-        // highlight (e.g., dropdowns that float free).
+        // Without the inner highlight — for surfaces that don't want
+        // it (dropdowns, popovers floating away from a card surface).
         'flat-md': 'var(--shadow-md)',
         'flat-lg': 'var(--shadow-lg)',
+        // Phase 76 — shadow-as-border utility. Replaces CSS `border` on
+        // every component (Vercel rule). Use `shadow-border` or
+        // `shadow-border-strong` instead of `border border-border`.
+        border: 'var(--shadow-border)',
+        'border-strong': 'var(--shadow-border-strong)',
         // Glow for hover on accent buttons.
         'accent-glow': 'var(--accent-glow)',
       },
@@ -87,20 +97,25 @@ const config: Config = {
         ],
       },
       fontSize: {
-        // Refine the display end of the scale (Phase 36) — h1 on key
-        // pages benefits from a heavier, tighter title than Tailwind's
-        // default text-2xl.
+        // Phase 75 — Vercel display sizes with aggressive negative
+        // letter-spacing. The curve: -0.025em at 48px → -0.020em at
+        // 32px → -0.015em at 24px. font-weight stays at 600 max (Vercel
+        // forbids 700 even at display sizes).
         'display-sm': [
-          '1.5rem',
-          { lineHeight: '1.875rem', letterSpacing: '-0.02em', fontWeight: '600' },
+          '1.5rem', // 24px
+          { lineHeight: '1.875rem', letterSpacing: '-0.015em', fontWeight: '600' },
         ],
         'display-md': [
-          '1.875rem',
+          '1.875rem', // 30px
           { lineHeight: '2.25rem', letterSpacing: '-0.02em', fontWeight: '600' },
         ],
         'display-lg': [
-          '2.25rem',
-          { lineHeight: '2.5rem', letterSpacing: '-0.025em', fontWeight: '700' },
+          '2.25rem', // 36px
+          { lineHeight: '2.5rem', letterSpacing: '-0.025em', fontWeight: '600' },
+        ],
+        'display-xl': [
+          '3rem', // 48px — true hero size
+          { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '600' },
         ],
       },
       transitionTimingFunction: {
@@ -109,9 +124,36 @@ const config: Config = {
         // the curve Apple uses for sheet presentations.
         'out-quint': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
+      ringColor: {
+        // Phase 78 — Vercel saturated blue focus ring. Replaces the
+        // soft accent ring on every interactive surface. Same-blue-on-
+        // any-bg is consistently more visible for low-vision users
+        // than a brand-tinted ring.
+        focus: 'var(--focus-ring)',
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    // Phase 76 — `shadow-border` Tailwind utility for the Vercel
+    // shadow-as-border technique. Registering as a plugin (vs the
+    // boxShadow theme key) lets us use it as `shadow-border` cleanly
+    // without conflicting with the `border-border` color utility.
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        '.shadow-border': {
+          'box-shadow': 'var(--shadow-border)',
+        },
+        '.shadow-border-strong': {
+          'box-shadow': 'var(--shadow-border-strong)',
+        },
+        // Combo: ring-border + sm elevation in one class for cards
+        // that previously did `border border-border shadow-sm`.
+        '.shadow-card': {
+          'box-shadow': 'var(--shadow-sm)',
+        },
+      });
+    }),
+  ],
 };
 
 export default config;

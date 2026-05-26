@@ -58,14 +58,21 @@ export function ReceiptClient({
   const fmt = (n: number) => formatCurrencyCAD(n, isFr ? 'fr' : 'en');
   const accent = appointment.shop.email_accent_color ?? '#8b5cf6';
 
+  // Receipt math (re-verified post-Loop-13 self-review):
+  //   - `appointments.total_amount` = subtotal − promoDiscount −
+  //     loyaltyCredit (set in bookPublicAppointment; tip NOT included).
+  //   - `appointments.tip_amount_cents` is a separate column added in
+  //     Phase 73 — converted to dollars here.
+  //   - `discount` is the implicit promo + loyalty delta — the gap
+  //     between what the services cost on paper and what we charged
+  //     before the tip.
+  //   - `grandTotal` is what the customer actually paid: post-discount
+  //     total + tip.
   const subtotal = lines.reduce((s, l) => s + l.price, 0);
   const tip = (appointment.tip_amount_cents ?? 0) / 100;
-  const total = Number(appointment.total_amount ?? 0);
-
-  // Compute the implicit "discount" line — the spread between subtotal
-  // and total minus tip is what the customer SAVED (promo + loyalty
-  // applied at booking time, server-side, in Phases 41/50).
-  const discount = Math.max(0, subtotal - (total - tip));
+  const totalBeforeTip = Number(appointment.total_amount ?? 0);
+  const discount = Math.max(0, subtotal - totalBeforeTip);
+  const grandTotal = totalBeforeTip + tip;
 
   // Auto-trigger print on initial load only when arriving from an
   // explicit `?print=1` query (set by the email "View receipt" link).
@@ -281,7 +288,7 @@ export function ReceiptClient({
               ) : null}
               {tip > 0 ? <Row label={L.tip} value={fmt(tip)} fmt={fmt} /> : null}
               <hr className="my-2 border-border print:border-gray-300" />
-              <Row label={L.total} value={fmt(total)} fmt={fmt} bold />
+              <Row label={L.total} value={fmt(grandTotal)} fmt={fmt} bold />
               {(appointment.deposit_amount_cents ?? 0) > 0 ? (
                 <>
                   <Row
@@ -291,7 +298,9 @@ export function ReceiptClient({
                   />
                   <Row
                     label={L.balance}
-                    value={fmt(Math.max(0, total - (appointment.deposit_amount_cents ?? 0) / 100))}
+                    value={fmt(
+                      Math.max(0, grandTotal - (appointment.deposit_amount_cents ?? 0) / 100),
+                    )}
                     fmt={fmt}
                     bold
                   />

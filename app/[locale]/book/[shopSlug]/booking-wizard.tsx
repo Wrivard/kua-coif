@@ -342,7 +342,7 @@ export function BookingWizard({
           surface quality on both touch-points. */}
       <header className="flex flex-col items-center gap-3 text-center">
         <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
-          <span className="text-base font-bold">K</span>
+          <span className="text-base font-semibold">K</span>
         </span>
         <div className="space-y-1">
           <h1 className="text-display-sm font-semibold tracking-tight text-text-primary">

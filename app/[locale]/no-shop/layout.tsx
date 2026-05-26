@@ -16,7 +16,7 @@ export default function NoShopLayout({ children }: { children: ReactNode }) {
         <div className="w-full max-w-md">
           <div className="mb-6 flex items-center justify-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded bg-accent text-accent-fg">
-              <span className="text-sm font-bold">K</span>
+              <span className="text-sm font-semibold">K</span>
             </span>
             <span className="text-lg font-semibold text-text-primary">Küa</span>
           </div>

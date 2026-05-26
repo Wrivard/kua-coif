@@ -59,7 +59,7 @@ export function Sidebar({ locale, user, hideProducts = false }: Props) {
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg"
           aria-label="Küa"
         >
-          <span className="text-sm font-bold">K</span>
+          <span className="text-sm font-semibold">K</span>
         </Link>
         {expanded ? (
           <span className="ml-2 truncate text-sm font-semibold text-text-primary">Küa</span>

@@ -48,7 +48,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               echoes the ambient background. */}
           <div className="mb-8 flex flex-col items-center gap-3">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
-              <span className="text-lg font-bold">K</span>
+              <span className="text-lg font-semibold">K</span>
             </span>
             <span className="text-sm font-medium tracking-wide text-text-secondary">Küa</span>
           </div>

@@ -121,7 +121,7 @@ export function PaymentsClient({ profile, currentUser, stripe, quickbooks }: Pro
           </CardHeader>
           <CardBody className="space-y-4 text-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-info text-base font-bold text-white">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-info text-base font-semibold text-white">
                 {initials}
               </span>
               <div>

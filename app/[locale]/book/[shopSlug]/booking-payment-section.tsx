@@ -190,15 +190,18 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     const options: StripeElementsOptions = {
       clientSecret: state.clientSecret,
       appearance: {
-        // Match the dark theme + accent. Stripe's "night" base is too
-        // blue; we override the principal tokens to align with Küa.
-        theme: 'night',
+        // Phase 75 — pivoted to Stripe's `stripe` (day) theme since the
+        // app moved from dark to light. The principal tokens match the
+        // Vercel-aligned Küa palette: white-ish input bg, Vercel black
+        // text, Küa purple accent, Vercel saturated blue focus ring
+        // implicit via Stripe's defaults.
+        theme: 'stripe',
         variables: {
           colorPrimary: '#8b5cf6',
-          colorBackground: '#1c1c20',
-          colorText: '#fafafa',
-          colorTextSecondary: '#a1a1aa',
-          colorDanger: '#ef4444',
+          colorBackground: '#ffffff',
+          colorText: '#171717',
+          colorTextSecondary: '#4d4d4d',
+          colorDanger: '#dc2626',
           fontFamily: 'Geist, system-ui, sans-serif',
           borderRadius: '8px',
         },

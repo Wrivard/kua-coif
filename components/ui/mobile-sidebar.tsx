@@ -132,7 +132,7 @@ export function MobileSidebar({
               onClick={() => setOpen(false)}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg">
-                <span className="text-sm font-bold">K</span>
+                <span className="text-sm font-semibold">K</span>
               </span>
               <span className="truncate text-sm font-semibold text-text-primary">Küa</span>
             </Link>

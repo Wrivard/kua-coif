@@ -69,6 +69,7 @@ export default async function ReschedulePage({
         startAt: appt.start_at,
         endAt: appt.end_at,
         durationMin,
+        barberId: appt.barber_id,
         barberName: appt.barber?.display_name ?? '—',
         clientName: appt.client_name_snapshot,
       }}

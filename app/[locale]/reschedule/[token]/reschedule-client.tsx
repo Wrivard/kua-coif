@@ -30,6 +30,7 @@ export function RescheduleClient({
     startAt: string;
     endAt: string;
     durationMin: number;
+    barberId: string;
     barberName: string;
     clientName: string | null;
   };
@@ -52,8 +53,13 @@ export function RescheduleClient({
     setStartTime(null);
     setLoadingSlots(true);
     const ctl = new AbortController();
+    // Slot fetch keyed to the SAME barber the appointment was booked
+    // with — `barber=any` would surface slots from other barbers and
+    // the server-side reschedule action would then refuse them (it
+    // preserves the original barber). Self-review fix from Loop 13
+    // double-check pass.
     fetch(
-      `/api/book/${shop.slug}/slots?date=${date}&barber=any&duration=${appointment.durationMin}`,
+      `/api/book/${shop.slug}/slots?date=${date}&barber=${appointment.barberId}&duration=${appointment.durationMin}`,
       { signal: ctl.signal },
     )
       .then((r) => r.json())
@@ -61,7 +67,7 @@ export function RescheduleClient({
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
     return () => ctl.abort();
-  }, [date, shop.slug, appointment.durationMin, isTerminal, done]);
+  }, [date, shop.slug, appointment.durationMin, appointment.barberId, isTerminal, done]);
 
   // 14-day strip starting today.
   const days = useMemo(() => {
