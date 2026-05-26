@@ -22,7 +22,7 @@ function LoginPageContent({
 }) {
   const t = useTranslations('auth.login');
   return (
-    <div className="rounded-xl border border-border bg-bg-surface p-8 shadow-xl">
+    <div className="rounded-xl bg-bg-surface p-8 shadow-xl">
       <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{t('title')}</h1>
         <p className="mt-2 text-sm text-text-secondary">{t('subtitle')}</p>

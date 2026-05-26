@@ -13,7 +13,7 @@ export default function ForgotPasswordPage({ params: { locale } }: Props) {
 function ForgotPasswordContent({ locale }: { locale: string }) {
   const t = useTranslations('auth.forgot');
   return (
-    <div className="rounded border border-border bg-bg-surface p-8 shadow-lg">
+    <div className="rounded-lg bg-bg-surface p-8 shadow-lg">
       <h1 className="text-2xl font-semibold text-text-primary">{t('title')}</h1>
       <p className="mt-1 text-sm text-text-secondary">{t('subtitle')}</p>
 
