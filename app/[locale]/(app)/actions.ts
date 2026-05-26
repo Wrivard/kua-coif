@@ -31,6 +31,7 @@ import { createDepositPaymentIntent, refundPaymentIntentFull } from '@/lib/strip
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
 import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
+import { pushAppointmentToQuickbooks } from '@/lib/quickbooks/sync';
 import { captureException } from '@/lib/observability';
 
 const APPOINTMENTS_PATH = '/';
@@ -343,6 +344,14 @@ export const updateAppointment = withAction({
         clientId: prior.client_id,
         totalAmount: prior.total_amount,
       });
+      // Loop 49 (Phase 99) — sync a SalesReceipt to QuickBooks on
+      // the SAME transition the loyalty award fires on. Helper is
+      // best-effort + idempotent via
+      // `appointments.quickbooks_sales_receipt_id`, so a QB outage
+      // doesn't fail the status update and a future cron could
+      // backfill unsynced completes. Skipped silently when the
+      // shop hasn't connected QB.
+      void pushAppointmentToQuickbooks({ appointmentId: id, shopId: ctx.shopId });
     }
 
     revalidatePath(APPOINTMENTS_PATH);
