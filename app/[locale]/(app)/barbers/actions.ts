@@ -161,6 +161,37 @@ export const disconnectGoogleCalendar = withAction({
   run: async (input, ctx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = createSupabaseServiceRoleClient() as any;
+
+    // Loop 36 (P96) — orphan cleanup. Before we forget the
+    // `google_event_id`s, ask Google to delete the mirrored events
+    // so they don't linger on the barber's personal calendar as
+    // ghost slots. Best-effort: a Google outage doesn't block the
+    // disconnect — we still want the local connection torn down
+    // because the user asked for it. Each delete has its own
+    // captureException + retry-with-backoff inside
+    // `deleteAppointmentMirror`.
+    const apptsRes = await admin
+      .from('appointments')
+      .select('id, google_event_id')
+      .eq('barber_id', input.barber_id)
+      .not('google_event_id', 'is', null);
+    const mirrored = (apptsRes.data as Array<{ id: string; google_event_id: string }> | null) ?? [];
+    if (mirrored.length > 0) {
+      const { deleteAppointmentMirror } = await import('@/lib/google/sync');
+      // Fire in parallel — N events × ~300ms sequential would feel
+      // sluggish to the manager. Promise.allSettled so one Google
+      // error doesn't abort the rest.
+      await Promise.allSettled(
+        mirrored.map((m) =>
+          deleteAppointmentMirror({
+            appointmentId: m.id,
+            barberId: input.barber_id,
+            googleEventId: m.google_event_id,
+          }),
+        ),
+      );
+    }
+
     const delRes = await admin
       .from('barber_google_calendar')
       .delete()
@@ -177,6 +208,7 @@ export const disconnectGoogleCalendar = withAction({
       action: 'delete',
       entity: 'barber_google_calendar',
       entityId: input.barber_id,
+      diff: { orphan_events_cleaned: mirrored.length },
     });
     revalidatePath(BARBERS_PATH);
     return ok({ ok: true });

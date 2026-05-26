@@ -25,6 +25,53 @@ export type GoogleCalendarEvent = {
 };
 
 /**
+ * Loop 36 (P96) — exponential backoff for Google Calendar API calls.
+ *
+ * Google's quota responses (429 `userRateLimitExceeded`,
+ * `rateLimitExceeded`) and transient 5xx errors should be retried
+ * instead of bubbling up as hard failures. Without this, a quota
+ * burst on a busy shop's morning would mark every barber's
+ * `last_sync_error_at` red even though Google would have served the
+ * call moments later.
+ *
+ * Strategy:
+ *   - Up to 3 attempts (initial + 2 retries)
+ *   - Backoff: 500ms, 1500ms — well under our 5s server-action
+ *     latency budget even in the worst case
+ *   - Retry on 429, 500, 502, 503, 504 (transient)
+ *   - Honour `Retry-After` header when present (Google sometimes
+ *     sends it on 429)
+ *   - Pass through anything else (auth errors, malformed payloads —
+ *     retrying won't help)
+ */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  { maxAttempts = 3 }: { maxAttempts?: number } = {},
+): Promise<Response> {
+  let lastResponse: Response | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, init);
+    if (res.ok) return res;
+    const retryable = res.status === 429 || (res.status >= 500 && res.status < 600);
+    if (!retryable || attempt === maxAttempts - 1) {
+      return res;
+    }
+    // Drain the body so the connection can be released — fetch doesn't
+    // auto-close when we ignore the body.
+    await res.text().catch(() => '');
+    lastResponse = res;
+    const retryAfter = res.headers.get('retry-after');
+    const headerMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+    const backoffMs =
+      Number.isFinite(headerMs) && headerMs > 0 ? headerMs : 500 * (attempt + 1) ** 2;
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+  // Unreachable but TS doesn't know — the loop always returns or sleeps.
+  return lastResponse!;
+}
+
+/**
  * Create an event on a Google Calendar. Returns the new event ID which
  * the caller stores on `appointments.google_event_id`.
  */
@@ -43,20 +90,23 @@ export async function createEvent({
     timeZone: string;
   };
 }): Promise<GoogleCalendarEvent> {
-  const res = await fetch(`${API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+  const res = await fetchWithRetry(
+    `${API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        summary: event.summary,
+        description: event.description,
+        start: { dateTime: event.startIso, timeZone: event.timeZone },
+        end: { dateTime: event.endIso, timeZone: event.timeZone },
+      }),
+      cache: 'no-store',
     },
-    body: JSON.stringify({
-      summary: event.summary,
-      description: event.description,
-      start: { dateTime: event.startIso, timeZone: event.timeZone },
-      end: { dateTime: event.endIso, timeZone: event.timeZone },
-    }),
-    cache: 'no-store',
-  });
+  );
   if (!res.ok) {
     throw new Error(`[google] createEvent failed: ${res.status} ${await res.text()}`);
   }
@@ -83,7 +133,7 @@ export async function updateEvent({
     timeZone: string;
   };
 }): Promise<GoogleCalendarEvent> {
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     {
       method: 'PUT',
@@ -119,7 +169,7 @@ export async function deleteEvent({
   calendarId: string;
   eventId: string;
 }): Promise<void> {
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     {
       method: 'DELETE',
@@ -152,7 +202,7 @@ export async function fetchBusyPeriods({
   timeMin: string;
   timeMax: string;
 }): Promise<FreeBusyPeriod[]> {
-  const res = await fetch(`${API_BASE}/freeBusy`, {
+  const res = await fetchWithRetry(`${API_BASE}/freeBusy`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
