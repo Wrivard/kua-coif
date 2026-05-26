@@ -2,12 +2,14 @@
 
 import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link2, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
 import { useToast } from '@/components/ui/toast';
 import { formatShopTime } from '@/lib/business/timezone';
 import { cancelAppointment } from './actions';
+import { generatePublicLinks } from './actions-public-links';
 import type { CalendarAppointment } from './appointments-calendar';
 
 type Props = {
@@ -35,6 +37,40 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
         onClose();
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  // Phase 12 (post-loop-11) — generate a signed public link, prefix
+  // with the live origin if the env-set base is empty (dev), then copy
+  // to clipboard. The owner can paste into SMS / email / Slack — we
+  // skip wiring a "send via Resend" flow until the V1.1 automated
+  // post-appointment email lands.
+  function copyPublicLink(kind: 'review' | 'me') {
+    if (!appointment) return;
+    startTransition(async () => {
+      const result = await generatePublicLinks({ appointment_id: appointment.id });
+      if (!result.ok) {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+        return;
+      }
+      const data = result.data as { reviewUrl: string; meUrl: string };
+      const raw = kind === 'review' ? data.reviewUrl : data.meUrl;
+      const url = raw.startsWith('http') ? raw : `${window.location.origin}${raw}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        show({
+          variant: 'success',
+          title: kind === 'review' ? 'Review link copied' : 'Self-service link copied',
+        });
+      } catch {
+        // Some browsers refuse clipboard.write outside HTTPS; fall back
+        // to surfacing the URL in the toast so the owner can copy it
+        // manually. Truncated to fit a small toast.
+        show({
+          variant: 'success',
+          title: url.length > 60 ? `${url.slice(0, 57)}…` : url,
+        });
       }
     });
   }
@@ -108,6 +144,38 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
             <span className="text-base font-semibold">
               {formatAmount(appointment.total_amount)}
             </span>
+          </div>
+          {/* Phase 12 — public link generators. The owner copies a
+              signed URL and pastes it into their preferred channel
+              (SMS, email, Slack). Auto-send via Resend ships V1.1. */}
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Customer links
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => copyPublicLink('review')}
+                disabled={isPending}
+              >
+                <Star className="h-3.5 w-3.5" /> Review link
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => copyPublicLink('me')}
+                disabled={isPending}
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Self-service link
+              </Button>
+            </div>
+            <p className="text-[10px] text-text-muted">
+              <Link2 className="mr-1 inline h-3 w-3" /> Generates a signed URL valid 90 days
+              (review) / 365 days (/me), copied to your clipboard.
+            </p>
           </div>
           <p className="text-[10px] text-text-muted">{tCommon('actions.edit')} — V1.1</p>
         </div>
