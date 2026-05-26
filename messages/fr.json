@@ -476,13 +476,20 @@
           "location": "Emplacement",
           "options": "Options",
           "schedule": "Horaires",
-          "marketing": "Marketing"
+          "marketing": "Marketing",
+          "emailBranding": "Branding des courriels"
         },
         "marketing": {
           "enabled": "Afficher une bannière sur la page de réservation publique",
           "text": "Message",
           "placeholder": "Ex. Promotion d’ouverture : 20 % de rabais sur tous les services jusqu’au 31 décembre.",
           "hint": "Texte court (280 caractères max), affiché en haut de /book/[ton-alias]."
+        },
+        "emailBranding": {
+          "logoUrl": "URL du logo (courriels)",
+          "logoHint": "Image PNG/SVG hébergée publiquement. Apparaît en haut des courriels de confirmation.",
+          "accentColor": "Couleur d’accent (#hex)",
+          "colorHint": "Format #rrggbb. Utilisée pour les boutons et titres dans les courriels."
         },
         "form": {
           "name": "Nom du salon",

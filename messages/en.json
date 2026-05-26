@@ -474,13 +474,20 @@
           "location": "Location",
           "options": "Options",
           "schedule": "Schedule",
-          "marketing": "Marketing"
+          "marketing": "Marketing",
+          "emailBranding": "Email branding"
         },
         "marketing": {
           "enabled": "Show a banner on the public booking page",
           "text": "Message",
           "placeholder": "E.g. Grand opening: 20% off all services until December 31.",
           "hint": "Short text (max 280 chars), shown at the top of /book/[your-alias]."
+        },
+        "emailBranding": {
+          "logoUrl": "Logo URL (emails)",
+          "logoHint": "Publicly hosted PNG/SVG. Shows at the top of confirmation emails.",
+          "accentColor": "Accent color (#hex)",
+          "colorHint": "Format #rrggbb. Used for buttons and headers in emails."
         },
         "form": {
           "name": "Shop name",

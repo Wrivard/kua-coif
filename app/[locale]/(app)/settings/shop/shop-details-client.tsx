@@ -89,6 +89,9 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
       // Phase 64 — marketing banner.
       marketing_banner_enabled: shop.marketing_banner_enabled,
       marketing_banner_text: shop.marketing_banner_text,
+      // Phase 62 — email branding.
+      email_logo_url: shop.email_logo_url,
+      email_accent_color: shop.email_accent_color,
     },
   });
 
@@ -331,6 +334,41 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                   {...detailsForm.register('marketing_banner_text')}
                 />
                 <FieldHint>{t('marketing.hint')}</FieldHint>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Phase 62 — Transactional email branding. When set, the
+              shop's logo + accent color appear in confirmation /
+              reminder emails so they feel like they came from the
+              salon, not the platform. Both nullable — empty falls back
+              to the Küa default. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.emailBranding')}</CardTitle>
+            </CardHeader>
+            <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="email_logo_url">{t('emailBranding.logoUrl')}</Label>
+                <Input
+                  id="email_logo_url"
+                  type="url"
+                  placeholder="https://…/logo.png"
+                  {...detailsForm.register('email_logo_url')}
+                />
+                <FieldHint>{t('emailBranding.logoHint')}</FieldHint>
+              </div>
+              <div>
+                <Label htmlFor="email_accent_color">{t('emailBranding.accentColor')}</Label>
+                <Input
+                  id="email_accent_color"
+                  type="text"
+                  placeholder="#8b5cf6"
+                  pattern="^#[0-9a-fA-F]{6}$"
+                  invalid={Boolean(detailsErrors.email_accent_color)}
+                  {...detailsForm.register('email_accent_color')}
+                />
+                <FieldHint>{t('emailBranding.colorHint')}</FieldHint>
               </div>
             </CardBody>
           </Card>

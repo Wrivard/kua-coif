@@ -53,6 +53,15 @@ export const shopDetailsSchema = z.object({
     .max(280)
     .nullable()
     .or(z.literal('').transform(() => null)),
+
+  // Phase 62 — per-shop transactional email branding.
+  email_logo_url: optionalText,
+  email_accent_color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'INVALID_HEX_COLOR')
+    .nullable()
+    .or(z.literal('').transform(() => null)),
 });
 export type ShopDetailsInput = z.infer<typeof shopDetailsSchema>;
 

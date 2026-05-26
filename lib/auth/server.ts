@@ -1,10 +1,19 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import type { UserRole } from '@/db/enums';
 import { defaultLocale } from '@/i18n';
+
+/**
+ * Phase 65 — cookie name that holds the user's currently-selected shop.
+ * The shop switcher in the sidebar writes this via the `selectShop`
+ * server action. `getCurrentShopId` reads it and validates against the
+ * user's memberships before trusting the value.
+ */
+export const SHOP_COOKIE = 'kua_active_shop';
 
 /**
  * Server-side auth helpers. All are pure async functions usable from Server
@@ -107,12 +116,24 @@ export async function requireShopMember(opts?: { locale?: string }) {
 }
 
 /**
- * Resolve the "current shop" — for V1 we pick the first confirmed membership.
- * Phase 6 (User Settings / shop switcher) will let multi-shop users pick.
+ * Resolve the "current shop" — Phase 65 cookie-aware version.
+ *
+ * Reads `SHOP_COOKIE` from the request cookies. If the cookie names a
+ * shop the user is still a confirmed member of, that's the active shop.
+ * If the cookie is missing or names a shop they no longer belong to
+ * (membership revoked, account deleted, etc.), fall back to the first
+ * membership — same behavior as before Phase 65.
+ *
+ * The cookie is set by the `selectShop` server action and cleared on
+ * sign-out by the existing Supabase Auth cookie reset.
  */
 export async function getCurrentShopId(): Promise<string | null> {
   const memberships = await getShopMemberships();
   if (memberships.length === 0) return null;
+  const cookieShopId = cookies().get(SHOP_COOKIE)?.value;
+  if (cookieShopId && memberships.some((m) => m.shop_id === cookieShopId)) {
+    return cookieShopId;
+  }
   return memberships[0]!.shop_id;
 }
 

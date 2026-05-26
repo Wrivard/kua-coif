@@ -337,6 +337,11 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 60 audit doc** : `AUDIT_PHASE60.md` (loop 6 wrap, P0 toujours tous fermés, roadmap loop 7).
 - ✅ **Phase 64 — Marketing banner** : migration `shops.marketing_banner_text` + `marketing_banner_enabled`. Admin UI nouvelle section "Marketing" sur `/settings/shop` (Toggle + Textarea 280 char). Public render au-dessus du booking wizard quand toggle ON + texte non-vide. `revalidatePublicShopSurfaces` déjà câblé. Translations ×2 locales.
 - ✅ **Phase 64 audit doc** : `AUDIT_PHASE64.md` (loop 7 wrap, P0 toujours tous fermés, roadmap loop 8).
+- ✅ **Phase 65 — Multi-shop switcher MVP** : `SHOP_COOKIE` + `getCurrentShopId()` cookie-aware avec fallback à la première membership. Server action `selectShop` (verify membership avant cookie set, httpOnly + sameSite=lax + secure-in-prod, maxAge 1y). Page `/settings/active-shop` avec card picker (Current pill + Switch button). Sidebar dropdown = V1.1.
+- ✅ **Phase 62 — Email per-shop branding (data layer)** : migration `shops.email_logo_url` + `email_accent_color` (CHECK hex). Schema + admin UI section "Email branding" sur `/settings/shop`. Intégration dans email templates = V1.1 (Phase 62b).
+- ✅ **Phase 63 — Reviews schema** : migration `reviews` (rating 1-5, status pending/published/rejected, indexes + RLS shop_members + public SELECT sur published). Submission flow public via signed token + admin moderation UI = V1.1 (63b/63c).
+- ⏳ **Phases 66, 67, 68, 69** : deferred (chacune mérite son loop — Storage bucket setup, MFA enrollment flow, phone-OTP infra, cron/matcher algo).
+- ✅ **Phase 65 audit doc** : `AUDIT_PHASE65.md` (loop 8 wrap, MVPs + clear deferrals, roadmap loop 9).
 
 ### Phase 29 — UI review / polish global (détail)
 
