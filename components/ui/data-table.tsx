@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { EmptyState } from './empty-state';
@@ -41,6 +42,26 @@ type Props<Row> = {
   pagination?: PaginationState & { onPageChange: (page: number) => void };
   className?: string;
   loading?: boolean;
+  /**
+   * Loop 45 (P115 from AUDIT_PHASE70) — opt-in row virtualization.
+   * When true AND `data.length > 100`, the desktop table renders
+   * only the visible rows + a few overscan items via
+   * `@tanstack/react-virtual`. Useful when pagination is OFF and
+   * the page wants infinite-scroll over a large dataset (1000+
+   * rows). At small data sizes the full render is faster than the
+   * virtualizer overhead, so we skip the path.
+   *
+   * Default false — every existing table call-site stays on the
+   * regular full render until it explicitly asks for virtualization.
+   */
+  virtualize?: boolean;
+  /** Pixel height per row. Defaults to 48 — matches the
+   *  `px-4 py-3 text-sm` row padding used by every table. Override
+   *  if the table renders taller rows (e.g., avatar chips). */
+  estimatedRowHeight?: number;
+  /** Viewport height when virtualization is on. Defaults to 600px;
+   *  the scrollable region inside the card. */
+  virtualizedMaxHeight?: number;
 };
 
 export function DataTable<Row>({
@@ -53,9 +74,16 @@ export function DataTable<Row>({
   pagination,
   className,
   loading,
+  virtualize = false,
+  estimatedRowHeight = 48,
+  virtualizedMaxHeight = 600,
 }: Props<Row>) {
   const t = useTranslations('common.table');
   const [sort, setSort] = useState<{ id: string; dir: SortDirection } | null>(null);
+  // Loop 45 — scroll container ref consumed by react-virtual. Only
+  // used on the virtualized desktop path; the parent div otherwise
+  // ignores it.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const sortedData = useMemo(() => {
     if (!sort) return data;
@@ -82,11 +110,30 @@ export function DataTable<Row>({
 
   const isEmpty = !loading && sortedData.length === 0;
 
+  // Loop 45 — virtualize only when explicitly opted-in AND the row
+  // count justifies it (overhead vs full-render isn't worth it for
+  // small tables). The threshold of 100 is chosen so that
+  // /clients-style screens (500 rows when cap is lifted) trigger
+  // virtualization, while /barbers (4 rows) keeps its current
+  // full-render path with sticky thead etc.
+  const virtualizationActive = virtualize && !loading && sortedData.length > 100;
+
+  const virtualizer = useVirtualizer({
+    count: virtualizationActive ? sortedData.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 8,
+  });
+
   return (
     <div className={cn('flex flex-col rounded-lg bg-bg-surface shadow-sm', className)}>
       {/* Desktop: full table. Hidden on mobile where the dense grid would
           require horizontal scrolling and lose readability. */}
-      <div className="hidden overflow-x-auto md:block">
+      <div
+        ref={virtualizationActive ? scrollRef : undefined}
+        className={cn('hidden overflow-x-auto md:block', virtualizationActive && 'overflow-y-auto')}
+        style={virtualizationActive ? { maxHeight: `${virtualizedMaxHeight}px` } : undefined}
+      >
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-bg-surface">
             <tr className="border-b border-border">
@@ -173,6 +220,16 @@ export function DataTable<Row>({
                   />
                 </td>
               </tr>
+            ) : virtualizationActive ? (
+              <VirtualizedRows
+                virtualItems={virtualizer.getVirtualItems()}
+                totalSize={virtualizer.getTotalSize()}
+                data={sortedData}
+                columns={columns}
+                reorderable={!!reorderable}
+                onRowClick={onRowClick}
+                getRowKey={getRowKey}
+              />
             ) : (
               sortedData.map((row, idx) => (
                 <tr
@@ -337,5 +394,98 @@ export function DataTable<Row>({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Loop 45 (P115) — virtualized tbody body. The standard
+ * react-virtual recipe for tables: render a spacer row whose
+ * height equals the total scroll surface, then absolutely-position
+ * each visible row by `transform: translateY(start)`. The spacer
+ * row keeps the scrollbar size accurate even when only a window of
+ * rows is in the DOM.
+ *
+ * Caveats / known limitations:
+ *   - The translated rows break native `<tr>` zebra striping
+ *     (each row is at offset 0 visually). We don't use zebra
+ *     striping anyway (the design system uses hover-bg only).
+ *   - Sticky `thead` continues to work because the scroll
+ *     container is the parent <div>, not the tbody.
+ *   - Drag-reorder (reorderable=true) is not supported in
+ *     virtualized mode — the grip column renders but @dnd-kit's
+ *     position math doesn't play with translateY-based virtual
+ *     rows. Reorderable + virtualize is unlikely to be a real
+ *     use-case (drag is for small ordered sets like services).
+ */
+function VirtualizedRows<Row>({
+  virtualItems,
+  totalSize,
+  data,
+  columns,
+  reorderable,
+  onRowClick,
+  getRowKey,
+}: {
+  virtualItems: ReturnType<ReturnType<typeof useVirtualizer>['getVirtualItems']>;
+  totalSize: number;
+  data: ReadonlyArray<Row>;
+  columns: ReadonlyArray<ColumnDef<Row>>;
+  reorderable: boolean;
+  onRowClick?: (row: Row) => void;
+  getRowKey: (row: Row, index: number) => string;
+}) {
+  // The spacer row enforces total scroll height. Subtract the height
+  // of the last visible row's bottom offset so the scrollbar lands
+  // exactly at the end of the dataset.
+  const firstStart = virtualItems[0]?.start ?? 0;
+  const lastEnd = virtualItems[virtualItems.length - 1]?.end ?? 0;
+  const paddingTop = firstStart;
+  const paddingBottom = totalSize - lastEnd;
+
+  return (
+    <>
+      {paddingTop > 0 ? (
+        <tr aria-hidden>
+          <td colSpan={columns.length + (reorderable ? 1 : 0)} style={{ height: paddingTop }} />
+        </tr>
+      ) : null}
+      {virtualItems.map((vRow) => {
+        const row = data[vRow.index]!;
+        return (
+          <tr
+            key={getRowKey(row, vRow.index)}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            className={cn(
+              'border-b border-border transition-colors last:border-b-0',
+              onRowClick && 'cursor-pointer hover:bg-bg-surface-2',
+            )}
+          >
+            {reorderable && (
+              <td className="w-8 px-2 text-text-muted">
+                <GripVertical className="h-4 w-4 cursor-grab" aria-hidden />
+              </td>
+            )}
+            {columns.map((col) => (
+              <td
+                key={col.id}
+                className={cn(
+                  'px-4 py-3 text-sm text-text-primary',
+                  col.align === 'right' && 'text-right',
+                  col.align === 'center' && 'text-center',
+                  col.className,
+                )}
+              >
+                {col.cell(row)}
+              </td>
+            ))}
+          </tr>
+        );
+      })}
+      {paddingBottom > 0 ? (
+        <tr aria-hidden>
+          <td colSpan={columns.length + (reorderable ? 1 : 0)} style={{ height: paddingBottom }} />
+        </tr>
+      ) : null}
+    </>
   );
 }
