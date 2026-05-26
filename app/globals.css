@@ -25,8 +25,13 @@
   --bg-base: #ffffff; /* page background — pure white */
   --bg-surface: #fafafa; /* cards, sticky headers, sidebar — Gray 50 */
   --bg-surface-2: #f5f5f5; /* hover states, table-row alt, inputs */
-  --bg-elevated: #ffffff; /* dropdowns, popovers, modals — float white */
-  --bg-overlay: hsla(0, 0%, 98%, 0.6); /* modal backdrop — barely tinted */
+  --bg-elevated: #ffffff; /* dropdowns, popovers, modals — float white (shadow does the lift) */
+  /* Modal backdrop — Phase 75 self-review fix. Initial Vercel-style
+   * near-white (hsla(0,0%,98%,0.6)) had no visible contrast vs. the
+   * white page underneath, leaving modals looking like they floated
+   * on nothing. A subtle dark dim is the standard pattern on light
+   * themes and gives the modal its expected separation. */
+  --bg-overlay: rgba(0, 0, 0, 0.3);
 
   /* ─── Borders (alpha black — Vercel's shadow-as-border tone) ─────────
    * Same four-step scale as before, but now keyed off black instead of
@@ -112,10 +117,13 @@
     rgba(0, 0, 0, 0.08) 0 0 0 1px, rgba(0, 0, 0, 0.08) 0 8px 16px,
     rgba(0, 0, 0, 0.06) 0 20px 32px -12px;
 
-  /* Inner highlight — Vercel's #fafafa inner ring on cards. Applied
-   * via box-shadow `inset` to create the subtle "lit from within"
-   * effect that makes the system feel premium. */
-  --inset-highlight: inset 0 0 0 1px #fafafa;
+  /* Inner highlight — subtle "lit from within" effect. Phase 75
+   * self-review: was `#fafafa` (matching --bg-surface) which made
+   * the highlight invisible against the same-color card. Bumped to
+   * pure white so it shows up as a faint inner glow against the
+   * fafafa card surface. On bg-base (#ffffff) cards the highlight is
+   * tone-on-tone — still adds the subtle bevel via the 1px ring. */
+  --inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
 
   /* Shadow-as-border utility — used directly via the `shadow-border`
    * Tailwind utility (registered in Phase 76 as a custom plugin). */

@@ -4,24 +4,20 @@ import { cn } from '@/lib/utils';
 type DivProps = HTMLAttributes<HTMLDivElement>;
 
 /**
- * Card — Phase 36 elevated surface.
+ * Card — Phase 75 (Vercel-light pivot) elevated surface.
  *
- * The visual recipe:
- *   - rounded-lg (12px corners — softer than the 8px V1 default)
- *   - shadow-sm (drop shadow + 1px inset highlight at the top edge)
- *   - bg-bg-surface (subtle lift from the page background)
- *   - border-border (alpha-based, barely-visible outline)
+ * Phase 75 dropped the `border border-border` because `shadow-sm` now
+ * stacks ring-border + ambient drop. Doubling them produced a 2px-thick
+ * "frame" effect. The new recipe is two ingredients:
+ *   - rounded-lg (12px corners — Vercel "comfortable" radius)
+ *   - shadow-sm (1px black-0.08 ring + 2px ambient drop)
+ *   - bg-bg-surface (5% lift from #ffffff page → #fafafa)
  *
- * That four-ingredient stack is what high-end dark SaaS surfaces
- * (Linear, Vercel) use for "this is a card, it's catching light from
- * above." Changing one weakens the effect — keep them together.
+ * The shadow-as-border IS the border. Vercel rule.
  */
 export function Card({ className, ...rest }: DivProps) {
   return (
-    <div
-      className={cn('rounded-lg border border-border bg-bg-surface shadow-sm', className)}
-      {...rest}
-    />
+    <div className={cn('rounded-lg bg-bg-surface shadow-sm', className)} {...rest} />
   );
 }
 

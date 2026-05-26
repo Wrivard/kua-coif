@@ -73,7 +73,10 @@ export function Modal({
         // `dialog[open]::backdrop`. Phase 36: rounded-lg + shadow-xl
         // (drop + inset highlight) for the elevated-surface look.
         className={cn(
-          'flex w-full flex-col rounded-lg border border-border bg-bg-elevated text-text-primary shadow-xl',
+          // Phase 75 — shadow-xl includes ring-border + multi-layer
+          // ambient + inset highlight. Removing `border border-border`
+          // avoids the double-frame effect.
+          'flex w-full flex-col rounded-lg bg-bg-elevated text-text-primary shadow-xl',
           'animate-modal-content',
           className,
         )}

@@ -43,7 +43,12 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-bg-surface px-6 py-16 text-center shadow-sm',
+        // Phase 75 — dashed border was a wireframe vibe that clashed
+        // with Vercel's "shadow does the border" philosophy. Switched
+        // to the standard shadow-sm card recipe (ring-border + ambient
+        // drop). The icon halo still carries the "empty-but-designed"
+        // intent.
+        'flex flex-col items-center justify-center gap-4 rounded-lg bg-bg-surface px-6 py-16 text-center shadow-sm',
         className,
       )}
     >

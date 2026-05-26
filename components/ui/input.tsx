@@ -24,14 +24,24 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
 // in the app reads as one family. Invalid state uses ring-danger/30 (was
 // solid ring-danger) for a softer error glow consistent with the accent
 // ring it replaces.
+// Phase 75 — dropped `border border-border` (shadow-sm now stacks
+// ring-border + ambient, so the CSS border was duplicating the ring).
+// Focus state uses `focus:ring-2 ring-focus` per Phase 78 (Vercel
+// saturated blue) — replaces the soft accent ring.
 const baseField =
   'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted ' +
-  'border border-border rounded-lg px-3 shadow-sm ' +
+  'rounded-lg px-3 shadow-sm ' +
   'transition-colors duration-150 ease-out-quint ' +
-  'focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 ' +
+  'focus:outline-none focus:ring-2 focus:ring-focus ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
-const invalidField = 'border-danger focus:border-danger focus:ring-danger/30';
+// Invalid state uses shadow-border-strong tinted danger via inline
+// boxShadow override + a danger focus ring. Since the field has no
+// CSS border anymore, `border-danger` does nothing — we replace it
+// with a custom ring-danger that's visible in the static (non-focus)
+// state too.
+const invalidField =
+  'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus:ring-danger/40 focus:ring-2';
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, prefix, suffix, invalid, ...rest },
@@ -45,10 +55,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div
       className={cn(
-        'flex h-10 w-full items-center rounded-lg border border-border bg-bg-surface-2 shadow-sm',
+        // Phase 75 — same dropping-of-border treatment as `baseField`.
+        // The prefix/suffix dividers (border-r / border-l on the inner
+        // spans) stay — those are INTERNAL dividers, not the outer
+        // frame.
+        'flex h-10 w-full items-center rounded-lg bg-bg-surface-2 shadow-sm',
         'transition-colors duration-150 ease-out-quint',
-        'focus-within:ring-accent/30 focus-within:border-accent focus-within:ring-2',
-        invalid && 'focus-within:ring-danger/30 border-danger focus-within:border-danger',
+        'focus-within:ring-2 focus-within:ring-focus',
+        invalid && 'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus-within:ring-danger/40',
         className,
       )}
     >
@@ -84,9 +98,9 @@ export const Textarea = forwardRef<
       rows={rows}
       className={cn(
         'w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted',
-        'rounded-lg border border-border px-3 py-2 shadow-sm',
+        'rounded-lg px-3 py-2 shadow-sm',
         'transition-colors duration-150 ease-out-quint',
-        'focus:ring-accent/30 focus:border-accent focus:outline-none focus:ring-2',
+        'focus:outline-none focus:ring-2 focus:ring-focus',
         'disabled:cursor-not-allowed disabled:opacity-50',
         invalid && invalidField,
         className,

@@ -15,12 +15,15 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
       <select
         ref={ref}
         className={cn(
-          'h-10 w-full appearance-none rounded-lg border border-border bg-bg-surface-2 pl-3 pr-9 shadow-sm',
+          // Phase 75 — shadow-sm provides the ring-border; `border
+          // border-border` removed to avoid double-rings. Focus ring
+          // switched to Vercel saturated blue via `ring-focus`.
+          'h-10 w-full appearance-none rounded-lg bg-bg-surface-2 pl-3 pr-9 shadow-sm',
           'text-sm text-text-primary',
           'transition-colors duration-150 ease-out-quint',
-          'focus:ring-accent/30 focus:border-accent focus:outline-none focus:ring-2',
+          'focus:outline-none focus:ring-2 focus:ring-focus',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          invalid && 'focus:ring-danger/30 border-danger focus:border-danger',
+          invalid && 'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus:ring-danger/40',
           className,
         )}
         {...rest}

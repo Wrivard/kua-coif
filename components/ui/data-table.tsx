@@ -83,7 +83,7 @@ export function DataTable<Row>({
   const isEmpty = !loading && sortedData.length === 0;
 
   return (
-    <div className={cn('flex flex-col rounded border border-border bg-bg-surface', className)}>
+    <div className={cn('flex flex-col rounded-lg bg-bg-surface shadow-sm', className)}>
       {/* Desktop: full table. Hidden on mobile where the dense grid would
           require horizontal scrolling and lose readability. */}
       <div className="hidden overflow-x-auto md:block">
@@ -321,7 +321,7 @@ export function DataTable<Row>({
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => pagination.onPageChange(pagination.page - 1)}
-              className="rounded border border-border px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md px-3 py-1 shadow-sm transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('prev')}
             </button>
@@ -329,7 +329,7 @@ export function DataTable<Row>({
               type="button"
               disabled={pagination.page * pagination.pageSize >= pagination.total}
               onClick={() => pagination.onPageChange(pagination.page + 1)}
-              className="rounded border border-border px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md px-3 py-1 shadow-sm transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('next')}
             </button>
