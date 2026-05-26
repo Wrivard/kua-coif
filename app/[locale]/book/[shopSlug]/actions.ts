@@ -750,6 +750,67 @@ export async function addToWaitlistPublic(
   }
 }
 
+// ── Phase 60 — Loyalty balance lookup ─────────────────────────────────
+// Customer-facing surfacing of the auto-apply credit the server has
+// computed since Phase 50. The wizard fires this on phone-input blur;
+// if the response includes a non-zero balance the summary card shows
+// "Loyalty credit applied: -$X.XX" so the customer knows the lower
+// total isn't a mistake.
+//
+// Anti-enumeration: rate-limited (60/10min/IP — covers a typing user
+// who pauses on each digit), no honeypot (the wizard fires this only
+// when phone passes a minimal length gate). The action never returns
+// whether a match was found — only the balance if it's > 0, otherwise 0.
+// A scraper that POSTs random phone numbers can't tell "no match" from
+// "match with zero balance".
+
+const loyaltyLookupSchema = z.object({
+  shop_slug: z.string().trim().min(1),
+  phone: z.string().trim().regex(phoneRegex),
+});
+
+export type LoyaltyLookupInput = z.infer<typeof loyaltyLookupSchema>;
+
+export async function lookupLoyaltyByPhone(
+  raw: LoyaltyLookupInput,
+): Promise<Result<{ balanceCents: number }>> {
+  try {
+    const ip = clientIp();
+    const rl = await checkRateLimit(`loyalty:${ip}`, {
+      max: 60,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
+
+    const parsed = loyaltyLookupSchema.safeParse(raw);
+    if (!parsed.success) return err('INVALID_INPUT');
+    const input = parsed.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createSupabaseServiceRoleClient() as any;
+
+    const shopRes = await supabase.from('shops').select('id').eq('alias', input.shop_slug).limit(1);
+    const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+    if (!shopId) return err('NOT_FOUND');
+
+    const phoneKey = input.phone.replace(/\D/g, '');
+    if (phoneKey.length < 7) return ok({ balanceCents: 0 });
+
+    const clientRes = await supabase
+      .from('clients')
+      .select('loyalty_balance_cents')
+      .eq('shop_id', shopId)
+      .ilike('phone', `%${phoneKey}%`)
+      .limit(1);
+    const row =
+      ((clientRes.data as Array<{ loyalty_balance_cents: number | null }> | null) ?? [])[0] ?? null;
+    return ok({ balanceCents: Math.max(0, row?.loyalty_balance_cents ?? 0) });
+  } catch (e) {
+    captureException(e, { tags: { layer: 'loyalty-lookup' } });
+    return err('UNEXPECTED');
+  }
+}
+
 // ── Phase 56 — Stripe Elements deposit collection ──────────────────────
 // Called by the booking wizard when step 4 mounts AND the selected
 // services aggregate a non-zero deposit AND the shop has Stripe Connect

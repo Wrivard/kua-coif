@@ -24,7 +24,7 @@ import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
 import type { WidgetConfig } from '@/lib/business/widget-config';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import { addToWaitlistPublic, bookPublicAppointment } from './actions';
+import { addToWaitlistPublic, bookPublicAppointment, lookupLoyaltyByPhone } from './actions';
 import { BookingPaymentSection, type BookingPaymentSectionRef } from './booking-payment-section';
 
 export type BookingShop = {
@@ -63,6 +63,7 @@ type WizardState = {
   hp: string; // honeypot
   turnstileToken: string; // Phase 30 — empty until widget verifies
   promoCode: string; // Phase 41 — optional, server-validated
+  loyaltyBalanceCents: number; // Phase 60 — server-confirmed balance for the typed phone
 };
 
 type Props = {
@@ -156,7 +157,41 @@ export function BookingWizard({
     hp: '',
     turnstileToken: '',
     promoCode: '',
+    loyaltyBalanceCents: 0,
   });
+
+  // Phase 60 — debounced loyalty lookup on phone change. Fires ~500ms
+  // after the user stops typing, only when the digit count looks like a
+  // real number (≥7). Aborts in-flight when the phone changes again.
+  useEffect(() => {
+    const digits = state.phone.replace(/\D/g, '');
+    if (digits.length < 7) {
+      // Reset so a backspace clears the hint.
+      if (state.loyaltyBalanceCents !== 0) {
+        setState((s) => ({ ...s, loyaltyBalanceCents: 0 }));
+      }
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      lookupLoyaltyByPhone({ shop_slug: shopSlug, phone: state.phone }).then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          const balance = res.data?.balanceCents ?? 0;
+          setState((s) => ({ ...s, loyaltyBalanceCents: balance }));
+        }
+      });
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // We deliberately omit `state.loyaltyBalanceCents` from the deps —
+    // it's a derived field set INSIDE this effect, including it would
+    // cause an infinite loop. shopSlug is stable per session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phone, shopSlug]);
+
   // Cached check — `turnstileSiteKeyConfigured()` reads `process.env` which
   // Next.js inlines at build time for `NEXT_PUBLIC_*` vars, but caching it
   // here keeps the JSX readable.
@@ -170,6 +205,17 @@ export function BookingWizard({
       ? barbers.find((b) => b.id === state.barberId)
       : null;
   const allowMultiService = widgetConfig?.allow_multi_service ?? true;
+
+  // Phase 60 — client-side mirror of the server-side cap: loyalty credit
+  // is at most the running total (in cents to avoid float drift). The
+  // server runs the same math on submit; this is purely display so the
+  // customer sees what they'll be charged BEFORE clicking confirm.
+  const loyaltyCreditCents = (() => {
+    if (state.loyaltyBalanceCents <= 0 || totalPrice <= 0) return 0;
+    const runningCents = Math.round(totalPrice * 100);
+    return Math.min(state.loyaltyBalanceCents, runningCents);
+  })();
+  const totalAfterLoyalty = Math.max(0, totalPrice - loyaltyCreditCents / 100);
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -524,7 +570,11 @@ export function BookingWizard({
               </div>
             ) : null}
 
-            {/* Summary card */}
+            {/* Summary card — Phase 60: loyalty credit line shown only
+                when the lookup returned a positive balance. The total
+                line collapses to a single value when the customer pays
+                full price; splits into "subtotal / credit / total" when
+                a balance is auto-applied. */}
             <div className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-sm">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                 {t('summary.title')}
@@ -532,9 +582,27 @@ export function BookingWizard({
               <p className="font-medium text-text-primary">
                 {selectedServices.map((s) => s.name).join(' + ')}
               </p>
-              <p className="text-xs text-text-secondary">
-                {totalDuration} min · {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
-              </p>
+              <p className="text-xs text-text-muted">{totalDuration} min</p>
+              {loyaltyCreditCents > 0 ? (
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <p className="text-text-secondary">
+                    {t('steps.contact.subtotalLabel')}{' '}
+                    {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
+                  </p>
+                  <p className="text-success">
+                    {t('steps.contact.loyaltyApplied')} −
+                    {formatCurrencyCAD(loyaltyCreditCents / 100, locale === 'fr' ? 'fr' : 'en')}
+                  </p>
+                  <p className="font-semibold text-text-primary">
+                    {t('steps.contact.totalLabel')}{' '}
+                    {formatCurrencyCAD(totalAfterLoyalty, locale === 'fr' ? 'fr' : 'en')}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-text-secondary">
+                  {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
+                </p>
+              )}
               <p className="text-xs text-text-secondary">
                 {formatHeaderDate(
                   new Date(`${state.date}T12:00:00Z`),

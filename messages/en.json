@@ -1067,7 +1067,10 @@
           "notes": "Notes (optional)",
           "notesHint": "Mention a special request, allergy, etc.",
           "promoCode": "Promo code (optional)",
-          "promoCodeHint": "Enter a discount code if you have one."
+          "promoCodeHint": "Enter a discount code if you have one.",
+          "subtotalLabel": "Subtotal:",
+          "loyaltyApplied": "Loyalty credit:",
+          "totalLabel": "Total:"
         }
       },
       "summary": {

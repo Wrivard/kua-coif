@@ -332,6 +332,9 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ⏳ **Phase 58 — Loyalty redemption surfacing wizard** : deferred (Loop 6 top prio — backend Phase 50 fonctionne déjà, juste le hint visuel manque).
 - ⏳ **Phase 59 — db/types.ts regen** : deferred (codebase tolère via `any` casts).
 - ✅ **Phase 58 audit doc** : `AUDIT_PHASE58.md` (état post-loop 5, P0 production blockers tous fermés, roadmap loop 6).
+- ✅ **Phase 60 — Loyalty hint dans wizard summary** : nouvelle server action `lookupLoyaltyByPhone` (anonyme, rate-limited 60/10min, anti-enumeration). Debounce 500ms sur phone input → store dans state. Summary card affiche subtotal/credit/total quand crédit > 0 (single-line sinon). Client-side mirror exact de la math serveur. Translations subtotalLabel/loyaltyApplied/totalLabel ×2 locales.
+- ⏳ **Phase 61 — db/types.ts regen** : task utilisateur (`pnpm exec supabase gen types typescript --project-id jzpfvefrjtwqfyynhczp > db/types.ts`). Le codebase fonctionne via `any` casts en attendant.
+- ✅ **Phase 60 audit doc** : `AUDIT_PHASE60.md` (loop 6 wrap, P0 toujours tous fermés, roadmap loop 7).
 
 ### Phase 29 — UI review / polish global (détail)
 

@@ -1069,7 +1069,10 @@
           "notes": "Notes (optionnel)",
           "notesHint": "Précise une demande spéciale, allergie, etc.",
           "promoCode": "Code promo (optionnel)",
-          "promoCodeHint": "Si tu as un code de réduction, entre-le ici."
+          "promoCodeHint": "Si tu as un code de réduction, entre-le ici.",
+          "subtotalLabel": "Sous-total :",
+          "loyaltyApplied": "Crédit fidélité :",
+          "totalLabel": "Total :"
         }
       },
       "summary": {
