@@ -420,6 +420,56 @@
     "finances": {
       "title": "Finances",
       "soon": "Reports, revenue, payouts — Phase 7.",
+      "todayLink": "Daily close-out →",
+      "today": {
+        "title": "Daily close-out",
+        "subtitleToday": "Today — {date}",
+        "kpis": {
+          "gross": "Gross revenue",
+          "tips": "Tips collected",
+          "completed": "Completed appts",
+          "outstanding": "Still open"
+        },
+        "drawer": {
+          "title": "Cash drawer",
+          "startBalance": "Start balance",
+          "unpaidCash": "Unpaid (in-shop)",
+          "cashTips": "Cash tips",
+          "expectedTotal": "Expected drawer total",
+          "helper": "Count the drawer at close. Difference from the expected total goes in your own ledger."
+        },
+        "byBarber": {
+          "title": "Per barber",
+          "empty": "No completed appointments yet.",
+          "columns": {
+            "barber": "Barber",
+            "visits": "Visits",
+            "revenue": "Revenue",
+            "tips": "Tips",
+            "total": "Total"
+          }
+        },
+        "payment": {
+          "title": "Payment status",
+          "paid": "Paid (online)",
+          "unpaid": "Unpaid (in-shop)",
+          "refunded": "Refunded"
+        },
+        "outstanding": {
+          "title": "Still open",
+          "columns": {
+            "client": "Client",
+            "barber": "Barber",
+            "time": "Time",
+            "status": "Status"
+          },
+          "statuses": {
+            "booked": "Booked",
+            "confirmed": "Confirmed",
+            "arrived": "Arrived"
+          }
+        }
+      },
       "rangeForm": {
         "start": "From",
         "end": "To",

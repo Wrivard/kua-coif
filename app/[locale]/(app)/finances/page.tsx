@@ -249,7 +249,22 @@ export default async function FinancesPage({
 
   return (
     <>
-      <PageHeader title={t('title')} subtitle={subtitle} />
+      <PageHeader
+        title={t('title')}
+        subtitle={subtitle}
+        actions={
+          /* Loop 26 — discoverable entrypoint into the daily close-out
+             page. Lives on the main /finances header as a small link
+             so an owner exploring the page finds today's snapshot
+             without needing to know the route by heart. */
+          <a
+            href="today"
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            {t('todayLink')}
+          </a>
+        }
+      />
       <div className="space-y-6 p-6">
         {/* Date-range filter — Phase 51. Plain GET form so the URL is
             shareable / bookmarkable, and the server-side render

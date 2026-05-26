@@ -1,0 +1,86 @@
+'use client';
+
+import { useEffect, type ReactNode } from 'react';
+import { Printer } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+/**
+ * CloseOutClient — wraps the daily close-out page with print-styled CSS,
+ * a "Print / Save as PDF" action button, and an auto-print trigger on
+ * `?print=1` (used by a future email link "Open and print today's
+ * close-out").
+ *
+ * Pattern mirrored from `app/[locale]/receipt/[token]/receipt-client.tsx`:
+ * inline `<style jsx global>` with `@media print` rules to collapse the
+ * page to clean black-on-white, hide `.no-print` chrome (sidebar, FAB,
+ * the action bar), and force a sensible `@page` margin.
+ */
+export function CloseOutClient({
+  locale,
+  autoPrint,
+  children,
+}: {
+  locale: string;
+  autoPrint: boolean;
+  children: ReactNode;
+}) {
+  const isFr = locale === 'fr';
+  const printLabel = isFr ? 'Imprimer' : 'Print';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (autoPrint) {
+      // Slight delay so React paint completes first.
+      window.setTimeout(() => window.print(), 400);
+    }
+  }, [autoPrint]);
+
+  return (
+    <>
+      {/* Print stylesheet — collapses the app shell to a clean printable
+          report. We target the global sidebar wrapper + FAB by their
+          `.no-print` markers, plus headless overrides on cards/tables
+          so the PDF reads like a professional close-out. */}
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          aside,
+          nav[aria-label='Sidebar'] {
+            display: none !important;
+          }
+          main {
+            margin-left: 0 !important;
+            padding: 0 !important;
+          }
+          .rounded-lg,
+          .rounded-md,
+          .shadow-sm,
+          .shadow-md,
+          .shadow-lg {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+          table {
+            page-break-inside: avoid;
+          }
+          @page {
+            margin: 12mm;
+          }
+        }
+      `}</style>
+
+      <div className="no-print bg-bg-base/95 sticky top-[--header-h] z-10 flex justify-end gap-2 border-b border-border px-6 py-3 backdrop-blur">
+        <Button type="button" size="sm" variant="secondary" onClick={() => window.print()}>
+          <Printer className="h-3.5 w-3.5" /> {printLabel}
+        </Button>
+      </div>
+
+      {children}
+    </>
+  );
+}

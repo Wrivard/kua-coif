@@ -422,6 +422,56 @@
     "finances": {
       "title": "Finances",
       "soon": "Rapports, revenus, payouts — Phase 7.",
+      "todayLink": "Bilan quotidien →",
+      "today": {
+        "title": "Bilan quotidien",
+        "subtitleToday": "Aujourd'hui — {date}",
+        "kpis": {
+          "gross": "Revenu brut",
+          "tips": "Pourboires perçus",
+          "completed": "RDV complétés",
+          "outstanding": "Encore ouverts"
+        },
+        "drawer": {
+          "title": "Tiroir-caisse",
+          "startBalance": "Solde d'ouverture",
+          "unpaidCash": "Non payé (au salon)",
+          "cashTips": "Pourboires comptant",
+          "expectedTotal": "Total attendu en caisse",
+          "helper": "Comptez le tiroir à la fermeture. L'écart avec le total attendu va dans votre propre registre."
+        },
+        "byBarber": {
+          "title": "Par barbier",
+          "empty": "Aucun rendez-vous complété pour l'instant.",
+          "columns": {
+            "barber": "Barbier",
+            "visits": "RDV",
+            "revenue": "Revenu",
+            "tips": "Pourboires",
+            "total": "Total"
+          }
+        },
+        "payment": {
+          "title": "Statut de paiement",
+          "paid": "Payé (en ligne)",
+          "unpaid": "Non payé (au salon)",
+          "refunded": "Remboursé"
+        },
+        "outstanding": {
+          "title": "Encore ouverts",
+          "columns": {
+            "client": "Client",
+            "barber": "Barbier",
+            "time": "Heure",
+            "status": "Statut"
+          },
+          "statuses": {
+            "booked": "Réservé",
+            "confirmed": "Confirmé",
+            "arrived": "Arrivé"
+          }
+        }
+      },
       "rangeForm": {
         "start": "Du",
         "end": "Au",
