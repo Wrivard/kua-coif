@@ -177,7 +177,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setMode({ kind: 'edit', client: r });
             }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -190,7 +190,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               onExport(r);
             }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <FileDown className="h-4 w-4" />
           </button>
@@ -202,7 +202,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               onAnonymize(r);
             }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <UserX className="h-4 w-4" />
           </button>
@@ -213,7 +213,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -267,7 +267,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               setLetterFilter(null);
               setPage(1);
             }}
-            className={`rounded-sm border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
+            className={`rounded-sm border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
               letterFilter === null
                 ? 'border-accent bg-accent-subtle text-accent'
                 : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
@@ -286,7 +286,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
                   setPage(1);
                 }}
                 aria-pressed={active}
-                className={`h-7 w-7 rounded-sm border text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
+                className={`h-7 w-7 rounded-sm border text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
                   active
                     ? 'border-accent bg-accent text-accent-fg'
                     : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'

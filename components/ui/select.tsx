@@ -23,7 +23,7 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
           'transition-colors duration-150 ease-out-quint',
           'focus:outline-none focus:ring-2 focus:ring-focus',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          invalid && 'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus:ring-danger/40',
+          invalid && 'ring-1 ring-danger focus:ring-2',
           className,
         )}
         {...rest}

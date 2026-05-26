@@ -75,7 +75,7 @@ export function ReviewsClient({
                     type="button"
                     onClick={() => moderate(r.id, 'published')}
                     disabled={isPending}
-                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-success focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-success focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Publish"
                   >
                     <Check className="h-4 w-4" />
@@ -84,7 +84,7 @@ export function ReviewsClient({
                     type="button"
                     onClick={() => moderate(r.id, 'rejected')}
                     disabled={isPending}
-                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Reject"
                   >
                     <X className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function ReviewsClient({
                     type="button"
                     onClick={() => remove(r.id)}
                     disabled={isPending}
-                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -115,7 +115,7 @@ export function ReviewsClient({
                   type="button"
                   onClick={() => remove(r.id)}
                   disabled={isPending}
-                  className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -136,7 +136,7 @@ export function ReviewsClient({
                   type="button"
                   onClick={() => remove(r.id)}
                   disabled={isPending}
-                  className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Delete"
                 >
                   <Trash2 className="h-4 w-4" />

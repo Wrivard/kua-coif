@@ -35,13 +35,13 @@ const baseField =
   'focus:outline-none focus:ring-2 focus:ring-focus ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
-// Invalid state uses shadow-border-strong tinted danger via inline
-// boxShadow override + a danger focus ring. Since the field has no
-// CSS border anymore, `border-danger` does nothing — we replace it
-// with a custom ring-danger that's visible in the static (non-focus)
-// state too.
-const invalidField =
-  'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus:ring-danger/40 focus:ring-2';
+// Invalid state — Phase 75 self-review fix. The previous arbitrary
+// `shadow-[...]` was a box-shadow override that REPLACED the
+// shadow-sm of the base recipe, leaving invalid fields flat without
+// the ambient drop. Switched to `ring-1 ring-danger` which uses
+// Tailwind's ring system (separate `--tw-ring-shadow` var) and
+// stacks cleanly on top of `--tw-shadow`.
+const invalidField = 'ring-1 ring-danger focus:ring-2';
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, prefix, suffix, invalid, ...rest },
@@ -62,7 +62,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         'flex h-10 w-full items-center rounded-lg bg-bg-surface-2 shadow-sm',
         'transition-colors duration-150 ease-out-quint',
         'focus-within:ring-2 focus-within:ring-focus',
-        invalid && 'shadow-[rgba(220,38,38,0.45)_0_0_0_1px] focus-within:ring-danger/40',
+        invalid && 'ring-1 ring-danger focus-within:ring-2',
         className,
       )}
     >

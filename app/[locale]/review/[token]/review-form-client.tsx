@@ -125,7 +125,7 @@ export function ReviewFormClient({
                     aria-checked={rating === star}
                     role="radio"
                     aria-label={`${star} / 5`}
-                    className="rounded-md p-1 transition-transform duration-150 ease-out-quint hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="rounded-md p-1 transition-transform duration-150 ease-out-quint hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     <Star
                       className={

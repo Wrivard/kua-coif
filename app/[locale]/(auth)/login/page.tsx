@@ -51,7 +51,7 @@ function LoginPageContent({
       <p className="mt-5 text-center text-xs">
         <Link
           href={`/${locale}/forgot-password`}
-          className="rounded text-text-muted transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded text-text-muted transition-colors hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {t('forgotLink')}
         </Link>

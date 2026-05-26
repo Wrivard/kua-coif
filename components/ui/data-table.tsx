@@ -110,7 +110,7 @@ export function DataTable<Row>({
                         onClick={() => toggleSort(col.id)}
                         className={cn(
                           'inline-flex items-center gap-1 rounded-sm transition-colors hover:text-text-primary',
-                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface',
                           isSorted && 'text-text-primary',
                         )}
                       >
@@ -256,7 +256,7 @@ export function DataTable<Row>({
                 className={cn(
                   'block border-b border-border px-4 py-3 transition-colors last:border-b-0',
                   clickable &&
-                    'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+                    'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
                 )}
               >
                 {columns.map((col, colIdx) => {
@@ -321,7 +321,7 @@ export function DataTable<Row>({
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => pagination.onPageChange(pagination.page - 1)}
-              className="rounded-md px-3 py-1 shadow-sm transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('prev')}
             </button>
@@ -329,7 +329,7 @@ export function DataTable<Row>({
               type="button"
               disabled={pagination.page * pagination.pageSize >= pagination.total}
               onClick={() => pagination.onPageChange(pagination.page + 1)}
-              className="rounded-md px-3 py-1 shadow-sm transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md px-3 py-1 transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('next')}
             </button>

@@ -68,7 +68,7 @@ export function Sidebar({ locale, user, hideProducts = false }: Props) {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-label={expanded ? t('collapseSidebar') : t('expandSidebar')}
-          className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {expanded ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
         </button>
@@ -173,7 +173,7 @@ export function SidebarNavInner({
             className={cn(
               'flex h-10 w-full items-center gap-3 rounded px-2 transition-colors',
               'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
             )}
             title={expanded ? undefined : t('logout')}
             aria-label={t('logout')}
@@ -219,7 +219,7 @@ function LocaleSwitcher({
       className={cn(
         'flex h-10 w-full items-center gap-3 rounded px-2 transition-colors',
         'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
       )}
     >
       <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center">
@@ -258,7 +258,7 @@ function SidebarLink({
       onClick={onClick}
       className={cn(
         'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         active
           ? // Phase 36 — refined active state: subtle bg + accent text +
             // a soft glow ring (4px) instead of the V1 left bar marker.

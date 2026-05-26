@@ -63,7 +63,7 @@ export function ActiveShopClient({
                 type="button"
                 onClick={() => setPicked(r.shop_id)}
                 className={
-                  'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ' +
+                  'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ' +
                   (isPicked
                     ? 'border-accent bg-accent-subtle'
                     : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-md')

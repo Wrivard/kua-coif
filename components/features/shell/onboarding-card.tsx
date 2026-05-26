@@ -99,7 +99,7 @@ export function OnboardingCard({
                     'group flex items-center gap-3 rounded px-2 py-1.5 text-sm transition-colors',
                     step.done
                       ? 'text-text-muted'
-                      : 'hover:bg-bg-surface-2/60 text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                      : 'hover:bg-bg-surface-2/60 text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                   )}
                 >
                   <span

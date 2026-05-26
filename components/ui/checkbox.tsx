@@ -20,7 +20,7 @@ export const Checkbox = forwardRef<HTMLInputElement, Props>(function Checkbox(
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-bg-surface-2 transition-colors duration-150 ease-out-quint checked:border-accent checked:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
+        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-bg-surface-2 transition-colors duration-150 ease-out-quint checked:border-accent checked:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
         {...rest}
       />
       <Check

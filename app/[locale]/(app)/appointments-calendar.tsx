@@ -508,7 +508,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(-1)}
               aria-label={t('prevDay')}
-              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -519,7 +519,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(1)}
               aria-label={t('nextDay')}
-              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -587,7 +587,7 @@ export function AppointmentsCalendar({
                   // active row reads as "lit up" instead of just "purple",
                   // and shadow-sm when inactive for subtle depth.
                   'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-all duration-150 ease-out-quint',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
                   isActive
                     ? 'bg-accent text-accent-fg shadow-accent-glow'
                     : 'border border-border bg-bg-surface text-text-secondary shadow-sm hover:bg-bg-surface-2 hover:text-text-primary',

@@ -184,7 +184,7 @@ export function RescheduleClient({
                     type="button"
                     onClick={() => setDate(d)}
                     className={cn(
-                      'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                      'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                       active
                         ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
                         : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:shadow-md',
@@ -229,7 +229,7 @@ export function RescheduleClient({
                       type="button"
                       onClick={() => setStartTime(time)}
                       className={cn(
-                        'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                        'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                         active
                           ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
                           : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',

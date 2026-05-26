@@ -13,7 +13,7 @@ export default function LocaleNotFound() {
       <p className="max-w-md text-sm text-text-secondary">{t('description')}</p>
       <Link
         href="/"
-        className="mt-2 inline-flex h-10 items-center justify-center rounded bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+        className="mt-2 inline-flex h-10 items-center justify-center rounded bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
       >
         {t('home')}
       </Link>

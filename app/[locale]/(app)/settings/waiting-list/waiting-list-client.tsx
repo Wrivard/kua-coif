@@ -211,7 +211,7 @@ export function WaitingListClient({
                                 onClick={() => onMarkNotified(e.id)}
                                 disabled={isTerminal || e.status === 'notified' || isPending}
                                 aria-label={t('entries.actions.notify')}
-                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <BellRing className="h-4 w-4" />
                               </button>
@@ -220,7 +220,7 @@ export function WaitingListClient({
                                 onClick={() => onCancel(e.id)}
                                 disabled={isTerminal || isPending}
                                 aria-label={t('entries.actions.cancel')}
-                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -229,7 +229,7 @@ export function WaitingListClient({
                                 onClick={() => onDelete(e.id)}
                                 disabled={isPending}
                                 aria-label={t('entries.actions.delete')}
-                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>

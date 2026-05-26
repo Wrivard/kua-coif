@@ -795,7 +795,7 @@ function ServiceStep({
                   type="button"
                   aria-label={t('steps.service.removeAria', { name: s.name })}
                   onClick={() => onRemove(s.id)}
-                  className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -830,7 +830,7 @@ function ServiceStep({
                       key={s.id}
                       type="button"
                       onClick={() => onToggle(s.id)}
-                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span
@@ -934,7 +934,7 @@ function BarberCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         selected
           ? 'border-accent bg-accent-subtle shadow-accent-glow'
           : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-md',
@@ -1161,7 +1161,7 @@ function SlotGroup({
               type="button"
               onClick={() => onSelect(time)}
               className={cn(
-                'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                 active
                   ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
                   : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
@@ -1216,7 +1216,7 @@ function DateStrip({
             disabled={d.closed}
             onClick={() => onChange(d.iso)}
             className={cn(
-              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
               active
                 ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
                 : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',

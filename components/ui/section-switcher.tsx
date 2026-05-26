@@ -56,7 +56,7 @@ export function SectionSwitcher<V extends string>({
         aria-expanded={open}
         className={cn(
           'inline-flex h-10 items-center gap-2 rounded border border-border bg-bg-surface px-3 text-sm text-text-primary',
-          'hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+          'hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         )}
       >
         {trigger ? <span className="text-xs text-text-muted">{trigger}</span> : null}
@@ -83,7 +83,7 @@ export function SectionSwitcher<V extends string>({
                   }}
                   className={cn(
                     'flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2.5 text-left text-sm transition-colors last:border-b-0',
-                    'focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-1 focus-visible:ring-accent',
+                    'focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-1 focus-visible:ring-focus',
                     active
                       ? 'bg-bg-surface-2 text-text-primary'
                       : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
