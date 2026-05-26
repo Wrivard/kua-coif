@@ -161,7 +161,14 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     {
       id: 'phone',
       header: t('columns.phone'),
-      cell: (r) => r.phone ?? <span className="text-text-muted">—</span>,
+      // Loop 37 (P114) — phone numbers are technical labels; mono font
+      // makes the +1 ### ### #### blocks line up across the table.
+      cell: (r) =>
+        r.phone ? (
+          <span className="font-mono tabular-nums">{r.phone}</span>
+        ) : (
+          <span className="text-text-muted">—</span>
+        ),
     },
     {
       id: 'actions',

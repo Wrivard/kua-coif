@@ -150,7 +150,14 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
     {
       id: 'phone',
       header: t('columns.phone'),
-      cell: (r) => r.phone ?? <span className="text-text-muted">—</span>,
+      // Loop 37 (P114) — phone numbers in mono so the +1 ### ### ####
+      // blocks line up column-wise across all rows.
+      cell: (r) =>
+        r.phone ? (
+          <span className="font-mono tabular-nums">{r.phone}</span>
+        ) : (
+          <span className="text-text-muted">—</span>
+        ),
     },
     {
       id: 'personnel',

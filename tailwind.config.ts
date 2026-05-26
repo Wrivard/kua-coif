@@ -85,8 +85,14 @@ const config: Config = {
         'header-h': 'var(--header-h)',
       },
       fontFamily: {
+        // Loop 37 (P114) — Geist Sans + Mono loaded via next/font in
+        // app/[locale]/layout.tsx expose two CSS variables. The
+        // fallbacks stay in place so SSR HTML pre-hydration still
+        // renders with a reasonable system font (Geist's fallback is
+        // baked into the font itself but the chain helps when the
+        // font asset hasn't loaded yet).
         sans: [
-          'Geist',
+          'var(--font-geist-sans)',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
@@ -94,6 +100,17 @@ const config: Config = {
           'Segoe UI',
           'Roboto',
           'sans-serif',
+        ],
+        mono: [
+          'var(--font-geist-mono)',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          'Liberation Mono',
+          'Courier New',
+          'monospace',
         ],
       },
       fontSize: {

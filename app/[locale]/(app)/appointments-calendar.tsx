@@ -746,7 +746,10 @@ export function AppointmentsCalendar({
                     return (
                       <div
                         key={min}
-                        className="absolute right-3 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wider text-text-muted"
+                        // Loop 37 (P114) — hour ticks on the calendar axis
+                        // are numeric labels; mono font gives them clean
+                        // vertical alignment and a more "pro tool" feel.
+                        className="absolute right-3 -translate-y-1/2 font-mono text-[10px] font-medium uppercase tabular-nums tracking-wider text-text-muted"
                         style={{ top: `${top}px` }}
                       >
                         {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
@@ -1131,7 +1134,9 @@ function DraggableAppointmentBlock({
     >
       <div className="flex items-start justify-between gap-1">
         <span className="truncate font-semibold text-text-primary">{appointment.client_name}</span>
-        <span className="shrink-0 text-[10px] text-text-secondary">
+        {/* Loop 37 (P114) — block timestamp in mono for column-aligned
+            readability across the day's appointments. */}
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-secondary">
           {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
         </span>
       </div>

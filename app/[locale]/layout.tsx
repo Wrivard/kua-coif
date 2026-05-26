@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import { locales, type Locale } from '@/i18n';
 
 export const metadata: Metadata = {
@@ -28,8 +30,14 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="dark">
-      <body className="min-h-screen bg-bg-base text-text-primary antialiased">
+    // Loop 37 (P114) — Geist Sans + Mono loaded via next/font so the
+    // font files actually ship (the previous `font-family: 'Geist'`
+    // in globals.css was a string with no font-face — most users
+    // were seeing the fallback ui-sans-serif). The two CSS variables
+    // (`--font-geist-sans`, `--font-geist-mono`) are referenced by
+    // tailwind's `font-sans` and `font-mono` utilities.
+    <html lang={locale} className={`${GeistSans.variable} ${GeistMono.variable} dark`}>
+      <body className="min-h-screen bg-bg-base font-sans text-text-primary antialiased">
         {/* Skip-to-content link — visible only when focused with Tab. */}
         <a
           href="#main"

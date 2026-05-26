@@ -151,8 +151,12 @@ html,
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
+  /* Loop 37 (P114) — font-family driven by the CSS variable set by
+     next/font (GeistSans.variable). The fallback chain stays in
+     place for pre-hydration paint + degraded environments where the
+     font asset is blocked. */
   font-family:
-    'Geist',
+    var(--font-geist-sans),
     ui-sans-serif,
     system-ui,
     -apple-system,

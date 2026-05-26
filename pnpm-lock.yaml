@@ -59,6 +59,9 @@ dependencies:
   date-fns-tz:
     specifier: ^3.2.0
     version: 3.2.0(date-fns@4.3.0)
+  geist:
+    specifier: ^1.7.1
+    version: 1.7.1(next@14.2.35)
   lucide-react:
     specifier: ^1.16.0
     version: 1.16.0(react@18.3.1)
@@ -3931,6 +3934,14 @@ packages:
   /functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
     dev: true
+
+  /geist@1.7.1(next@14.2.35):
+    resolution: {integrity: sha512-XF8DM30ODhDu0Ng5S2kOS8j4ZkG/6z2fKWAiFJA7wG0Hc92ZXgjYLrwbD9bVU4nGVzwboPtG+QtaPGsfgnXLaA==}
+    peerDependencies:
+      next: '>=13.2.0'
+    dependencies:
+      next: 14.2.35(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@18.3.1)(react@18.3.1)
+    dev: false
 
   /generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
