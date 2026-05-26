@@ -473,7 +473,14 @@
           "identity": "Identity",
           "location": "Location",
           "options": "Options",
-          "schedule": "Schedule"
+          "schedule": "Schedule",
+          "marketing": "Marketing"
+        },
+        "marketing": {
+          "enabled": "Show a banner on the public booking page",
+          "text": "Message",
+          "placeholder": "E.g. Grand opening: 20% off all services until December 31.",
+          "hint": "Short text (max 280 chars), shown at the top of /book/[your-alias]."
         },
         "form": {
           "name": "Shop name",

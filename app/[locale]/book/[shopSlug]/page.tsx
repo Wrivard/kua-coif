@@ -49,7 +49,7 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
   const shopRes = await supabase
     .from('shops')
     .select(
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code',
+      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, marketing_banner_enabled, marketing_banner_text',
     )
     .eq('alias', shopSlug)
     .limit(1);
@@ -135,6 +135,18 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }}
       />
+      {/* Phase 64 — owner-controlled marketing banner. Renders only
+          when the shop has flipped the toggle in /settings/shop AND
+          has set a non-empty message. Uses the accent-subtle palette
+          so it feels brand-aligned without competing with the wizard. */}
+      {shop.marketing_banner_enabled && shop.marketing_banner_text ? (
+        <div
+          role="status"
+          className="border-accent/30 mb-6 rounded-xl border bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-sm"
+        >
+          {shop.marketing_banner_text}
+        </div>
+      ) : null}
       <BookingWizard
         locale={locale}
         shopSlug={shopSlug}

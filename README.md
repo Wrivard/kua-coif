@@ -335,6 +335,8 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 60 — Loyalty hint dans wizard summary** : nouvelle server action `lookupLoyaltyByPhone` (anonyme, rate-limited 60/10min, anti-enumeration). Debounce 500ms sur phone input → store dans state. Summary card affiche subtotal/credit/total quand crédit > 0 (single-line sinon). Client-side mirror exact de la math serveur. Translations subtotalLabel/loyaltyApplied/totalLabel ×2 locales.
 - ⏳ **Phase 61 — db/types.ts regen** : task utilisateur (`pnpm exec supabase gen types typescript --project-id jzpfvefrjtwqfyynhczp > db/types.ts`). Le codebase fonctionne via `any` casts en attendant.
 - ✅ **Phase 60 audit doc** : `AUDIT_PHASE60.md` (loop 6 wrap, P0 toujours tous fermés, roadmap loop 7).
+- ✅ **Phase 64 — Marketing banner** : migration `shops.marketing_banner_text` + `marketing_banner_enabled`. Admin UI nouvelle section "Marketing" sur `/settings/shop` (Toggle + Textarea 280 char). Public render au-dessus du booking wizard quand toggle ON + texte non-vide. `revalidatePublicShopSurfaces` déjà câblé. Translations ×2 locales.
+- ✅ **Phase 64 audit doc** : `AUDIT_PHASE64.md` (loop 7 wrap, P0 toujours tous fermés, roadmap loop 8).
 
 ### Phase 29 — UI review / polish global (détail)
 

@@ -40,6 +40,9 @@ export type BookingShop = {
   municipality: string | null;
   province: string | null;
   postal_code: string | null;
+  // Phase 64 — marketing banner.
+  marketing_banner_enabled?: boolean | null;
+  marketing_banner_text?: string | null;
 };
 
 export type BookingHours = {

@@ -44,6 +44,15 @@ export const shopDetailsSchema = z.object({
   use_taxes_in_tips: z.boolean(),
   client_reviews: z.boolean(),
   payout_discount_mode: z.enum(PAYOUT_DISCOUNT_MODES),
+
+  // Phase 64 — marketing banner on the public booking page.
+  marketing_banner_enabled: z.boolean(),
+  marketing_banner_text: z
+    .string()
+    .trim()
+    .max(280)
+    .nullable()
+    .or(z.literal('').transform(() => null)),
 });
 export type ShopDetailsInput = z.infer<typeof shopDetailsSchema>;
 

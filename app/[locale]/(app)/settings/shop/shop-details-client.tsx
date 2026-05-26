@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { MoneyInput } from '@/components/ui/money-input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -86,6 +86,9 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
       use_taxes_in_tips: shop.use_taxes_in_tips,
       client_reviews: shop.client_reviews,
       payout_discount_mode: shop.payout_discount_mode,
+      // Phase 64 — marketing banner.
+      marketing_banner_enabled: shop.marketing_banner_enabled,
+      marketing_banner_text: shop.marketing_banner_text,
     },
   });
 
@@ -298,6 +301,36 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                     </option>
                   ))}
                 </Select>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Phase 64 — Marketing banner on /book/[shopSlug]. Toggle +
+              280-char short message shown above the public booking
+              wizard. Keeps shop owners in control of their messaging
+              without us needing a CMS. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.marketing')}</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <Toggle
+                checked={detailsForm.watch('marketing_banner_enabled')}
+                onChange={(v) =>
+                  detailsForm.setValue('marketing_banner_enabled', v, { shouldDirty: true })
+                }
+                label={t('marketing.enabled')}
+              />
+              <div>
+                <Label htmlFor="marketing_banner_text">{t('marketing.text')}</Label>
+                <Textarea
+                  id="marketing_banner_text"
+                  rows={2}
+                  maxLength={280}
+                  placeholder={t('marketing.placeholder')}
+                  {...detailsForm.register('marketing_banner_text')}
+                />
+                <FieldHint>{t('marketing.hint')}</FieldHint>
               </div>
             </CardBody>
           </Card>

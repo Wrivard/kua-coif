@@ -475,7 +475,14 @@
           "identity": "Identité",
           "location": "Emplacement",
           "options": "Options",
-          "schedule": "Horaires"
+          "schedule": "Horaires",
+          "marketing": "Marketing"
+        },
+        "marketing": {
+          "enabled": "Afficher une bannière sur la page de réservation publique",
+          "text": "Message",
+          "placeholder": "Ex. Promotion d’ouverture : 20 % de rabais sur tous les services jusqu’au 31 décembre.",
+          "hint": "Texte court (280 caractères max), affiché en haut de /book/[ton-alias]."
         },
         "form": {
           "name": "Nom du salon",
