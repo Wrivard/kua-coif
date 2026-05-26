@@ -81,6 +81,40 @@ export function activeTierIndex(revenue: number, tiers: ReadonlyArray<Commission
   return idx;
 }
 
+/**
+ * Project a raw `commission_tiers` DB row (with `tier1_threshold..tier5_pct`
+ * columns) into the canonical `CommissionTiers` shape. Phase 52 lift so the
+ * page code doesn't have to repeat the field-name plumbing. The tier rows
+ * are emitted in declared order — `normalizeTiers` (called inside
+ * `computeCommission`) handles sorting and pruning all-zero rows.
+ */
+export type CommissionTierDbRow = {
+  cumulative: boolean;
+  tier1_threshold: number;
+  tier1_pct: number;
+  tier2_threshold: number;
+  tier2_pct: number;
+  tier3_threshold: number;
+  tier3_pct: number;
+  tier4_threshold: number;
+  tier4_pct: number;
+  tier5_threshold: number;
+  tier5_pct: number;
+};
+
+export function tierConfigFromRow(row: CommissionTierDbRow): CommissionTiers {
+  return {
+    cumulative: row.cumulative,
+    tiers: [
+      { threshold: Number(row.tier1_threshold), pct: Number(row.tier1_pct) },
+      { threshold: Number(row.tier2_threshold), pct: Number(row.tier2_pct) },
+      { threshold: Number(row.tier3_threshold), pct: Number(row.tier3_pct) },
+      { threshold: Number(row.tier4_threshold), pct: Number(row.tier4_pct) },
+      { threshold: Number(row.tier5_threshold), pct: Number(row.tier5_pct) },
+    ],
+  };
+}
+
 function roundCents(x: number): number {
   return Math.round(x * 100) / 100;
 }

@@ -418,6 +418,12 @@
     "finances": {
       "title": "Finances",
       "soon": "Reports, revenue, payouts — Phase 7.",
+      "rangeForm": {
+        "start": "From",
+        "end": "To",
+        "apply": "Apply",
+        "thisMonth": "This month"
+      },
       "kpis": {
         "grossRevenue": "Gross revenue",
         "completedAppointments": "Completed appointments",
@@ -426,12 +432,37 @@
       },
       "byBarber": {
         "title": "Sales by barber",
-        "empty": "No completed appointments this month.",
+        "empty": "No completed appointments in this range.",
         "columns": {
           "barber": "Barber",
           "appointments": "Visits",
           "revenue": "Revenue"
         }
+      },
+      "byCategory": {
+        "title": "Sales by category",
+        "empty": "No sales in this range.",
+        "uncategorized": "Uncategorized",
+        "columns": {
+          "category": "Category",
+          "appointments": "Visits",
+          "revenue": "Revenue"
+        }
+      },
+      "commissions": {
+        "title": "Commissions",
+        "empty": "No barbers with configured tiers for this range.",
+        "subtitleSingle": "Single-tier mode",
+        "subtitleCumulative": "Cumulative mode",
+        "columns": {
+          "barber": "Barber",
+          "revenue": "Revenue",
+          "rate": "Rate",
+          "mode": "Mode",
+          "commission": "Commission"
+        },
+        "modeCumulative": "Cumulative",
+        "modeSingle": "Single tier"
       }
     },
     "settings": {
@@ -736,13 +767,42 @@
       },
       "waitingList": {
         "title": "Waiting List",
+        "configTitle": "Configuration",
         "form": {
           "enabled": "Enable the waiting list",
           "threshold": "Threshold",
           "hours": "hours"
         },
+        "confirmDelete": "Delete this entry?",
         "toasts": {
-          "saved": "Waiting list saved"
+          "saved": "Waiting list saved",
+          "notified": "Marked as notified",
+          "cancelled": "Cancelled",
+          "deleted": "Deleted"
+        },
+        "entries": {
+          "title": "Pending entries",
+          "empty": "No pending entries. When a client tries to book and no slot is available, they can join the waiting list.",
+          "anyBarber": "Any barber",
+          "columns": {
+            "client": "Client",
+            "contact": "Contact",
+            "window": "Window",
+            "barber": "Preferred barber",
+            "status": "Status",
+            "actions": "Actions"
+          },
+          "statuses": {
+            "waiting": "Waiting",
+            "notified": "Notified",
+            "booked": "Booked",
+            "cancelled": "Cancelled"
+          },
+          "actions": {
+            "notify": "Mark as notified",
+            "cancel": "Cancel",
+            "delete": "Delete"
+          }
         }
       },
       "promoCodes": {

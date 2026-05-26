@@ -34,3 +34,69 @@ export const upsertWaitingList = withAction({
     return ok({ ok: true });
   },
 });
+
+// ── Phase 53 — entry lifecycle ────────────────────────────────────────
+// Admin-side updates: mark notified, mark cancelled, mark booked. Public
+// inserts are handled by `addToWaitlistPublic` in
+// `app/[locale]/book/[shopSlug]/actions.ts` (it bypasses RLS via the
+// service-role client so anonymous visitors can self-serve).
+
+const updateEntryStatusSchema = z.object({
+  entry_id: z.string().uuid(),
+  status: z.enum(['waiting', 'notified', 'booked', 'cancelled']),
+});
+
+export const updateWaitlistEntryStatus = withAction({
+  schema: updateEntryStatusSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const patch: Record<string, unknown> = { status: input.status };
+    if (input.status === 'notified') patch.notified_at = new Date().toISOString();
+    const { error } = await sb
+      .from('waiting_list_entries')
+      .update(patch)
+      .eq('id', input.entry_id)
+      .eq('shop_id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'waiting_list_entries',
+      entityId: input.entry_id,
+      diff: { status: input.status },
+    });
+    revalidatePath('/settings/waiting-list');
+    return ok({ ok: true });
+  },
+});
+
+const deleteEntrySchema = z.object({
+  entry_id: z.string().uuid(),
+});
+
+export const deleteWaitlistEntry = withAction({
+  schema: deleteEntrySchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const { error } = await sb
+      .from('waiting_list_entries')
+      .delete()
+      .eq('id', input.entry_id)
+      .eq('shop_id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'waiting_list_entries',
+      entityId: input.entry_id,
+    });
+    revalidatePath('/settings/waiting-list');
+    return ok({ ok: true });
+  },
+});

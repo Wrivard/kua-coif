@@ -420,6 +420,12 @@
     "finances": {
       "title": "Finances",
       "soon": "Rapports, revenus, payouts — Phase 7.",
+      "rangeForm": {
+        "start": "Du",
+        "end": "Au",
+        "apply": "Appliquer",
+        "thisMonth": "Ce mois-ci"
+      },
       "kpis": {
         "grossRevenue": "Revenu brut",
         "completedAppointments": "RDV complétés",
@@ -428,12 +434,37 @@
       },
       "byBarber": {
         "title": "Ventes par barbier",
-        "empty": "Aucun RDV complété ce mois-ci.",
+        "empty": "Aucun RDV complété sur cette période.",
         "columns": {
           "barber": "Barbier",
           "appointments": "RDV",
           "revenue": "Revenu"
         }
+      },
+      "byCategory": {
+        "title": "Ventes par catégorie",
+        "empty": "Aucune vente sur cette période.",
+        "uncategorized": "Sans catégorie",
+        "columns": {
+          "category": "Catégorie",
+          "appointments": "RDV",
+          "revenue": "Revenu"
+        }
+      },
+      "commissions": {
+        "title": "Commissions",
+        "empty": "Aucun barbier avec des tiers configurés pour cette période.",
+        "subtitleSingle": "Mode tier unique",
+        "subtitleCumulative": "Mode cumulatif",
+        "columns": {
+          "barber": "Barbier",
+          "revenue": "Revenu",
+          "rate": "Taux",
+          "mode": "Mode",
+          "commission": "Commission"
+        },
+        "modeCumulative": "Cumulatif",
+        "modeSingle": "Tier unique"
       }
     },
     "settings": {
@@ -738,13 +769,42 @@
       },
       "waitingList": {
         "title": "Liste d’attente",
+        "configTitle": "Configuration",
         "form": {
           "enabled": "Activer la liste d’attente",
           "threshold": "Seuil",
           "hours": "heures"
         },
+        "confirmDelete": "Supprimer cette entrée ?",
         "toasts": {
-          "saved": "Liste d’attente enregistrée"
+          "saved": "Liste d’attente enregistrée",
+          "notified": "Marqué comme notifié",
+          "cancelled": "Annulé",
+          "deleted": "Supprimé"
+        },
+        "entries": {
+          "title": "Entrées en attente",
+          "empty": "Aucune entrée en attente. Quand un client tente une réservation sans créneau disponible, il peut rejoindre la liste d’attente.",
+          "anyBarber": "N’importe quel barbier",
+          "columns": {
+            "client": "Client",
+            "contact": "Contact",
+            "window": "Fenêtre",
+            "barber": "Barbier préféré",
+            "status": "Statut",
+            "actions": "Actions"
+          },
+          "statuses": {
+            "waiting": "En attente",
+            "notified": "Notifié",
+            "booked": "Réservé",
+            "cancelled": "Annulé"
+          },
+          "actions": {
+            "notify": "Marquer comme notifié",
+            "cancel": "Annuler",
+            "delete": "Supprimer"
+          }
         }
       },
       "promoCodes": {

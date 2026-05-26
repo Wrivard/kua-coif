@@ -321,6 +321,12 @@ Suit l'ordre dans lequel les phases sont livrées (les ✅ sont en main, les ⏳
 - ✅ **Phase 47 — Premium UX polish** : auth shell (ambient gradient + brand mark), booking wizard (header, progress chips, service cards, barber cards, sticky subtotal), EmptyState (icon halo accent/danger), forms (Input/Select/Textarea/Toggle/Checkbox harmonisés ring-2 ring-accent/30 + shadow-sm).
 - ✅ **Phase 48 — Calendar grid white-stroke root-cause fix** : découverte que `border-border/X` est un no-op silencieux depuis Phase 33 (Tailwind 3 ne strip pas l'alpha d'un `rgba()` token). Introduction de `--border-soft` (0.04) et `--border-faint` (0.025) bakés. Calendar overlays (blocked, Google busy, appointment blocks) au standard rounded-md + shadow-sm + hover-lift.
 - ✅ **Phase 49 — Audit + roadmap loop 3** : doc `AUDIT_PHASE49.md` (état post-47/48, V1 remnants identifiés, roadmap loop 4).
+- ✅ **Phase 50 — Loyalty auto-apply on booking** : `bookPublicAppointment` fetch `loyalty_balance_cents` au find-or-create, applique le crédit après promo (cap au running total, cents pour éviter le float drift), décrément best-effort post-insert. Audit log capture `loyaltyCreditCents`. UI surfacing dans wizard = V1.1.
+- ✅ **Phase 51 — Finances date-range + per-category** : `/finances?start=YYYY-MM-DD&end=YYYY-MM-DD` (form GET, server-rendered). Per-category breakdown via appointment_services × services × service_categories.
+- ✅ **Phase 52 — Commission report** : par barbier, sur leurs commission_tiers (scope services). Réutilise `lib/business/commissions.ts` (déjà testé 13 cas). Badge mode cumulatif vs single-tier.
+- ✅ **Phase 53 — Waiting list (entries)** : migration `waiting_list_entries` (table + RLS + indexes + updated_at trigger). Server actions admin (`updateWaitlistEntryStatus`, `deleteWaitlistEntry`) + public `addToWaitlistPublic` (rate-limited, honeypot). Admin UI sur `/settings/waiting-list` liste les entrées en attente avec actions (mark notified, cancel, delete). Booking wizard CTA = V1.1.
+- ⏳ **Phase 54 — Stripe Elements UI in booking** : deferred (loop 5 top priority — backend prêt depuis Phase 38).
+- ✅ **Phase 55 — Audit + roadmap loop 4** : doc `AUDIT_PHASE55.md`.
 
 ### Phase 29 — UI review / polish global (détail)
 

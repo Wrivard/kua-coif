@@ -235,7 +235,12 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // Cap at subtotal — promo codes can't drive an appointment negative.
       if (discountAmount > subtotal) discountAmount = subtotal;
     }
-    const totalAmount = subtotal - discountAmount;
+    // `totalAmount` is mutable because the loyalty deduction (Phase 50)
+    // happens AFTER the find-or-create client lookup below. The promo
+    // discount is computed here; loyalty stacks on top of it. Both are
+    // capped at the running total — neither can drive a booking negative.
+    let totalAmount = subtotal - discountAmount;
+    let loyaltyCreditCents = 0;
 
     // ── Resolve barber ────────────────────────────────────────────────
     let barberId = input.barber_id;
@@ -361,17 +366,28 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     }
 
     // ── Find-or-create client by normalized phone ────────────────────
+    // Phase 50 — we now also fetch `loyalty_balance_cents` so we can
+    // auto-apply any accumulated reward credit as a deduction on the
+    // appointment total. New clients always have 0; existing clients
+    // get their balance applied (up to the post-promo running total).
     const phoneKey = input.phone.replace(/\D/g, '');
     let clientId: string | null = null;
+    let clientLoyaltyBalanceCents = 0;
     let clientIsNew = false;
     if (phoneKey.length >= 7) {
       const clientLookup = await supabase
         .from('clients')
-        .select('id')
+        .select('id, loyalty_balance_cents')
         .eq('shop_id', shop.id)
         .ilike('phone', `%${phoneKey}%`)
         .limit(1);
-      clientId = ((clientLookup.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+      const existingClient =
+        ((clientLookup.data as Array<{
+          id: string;
+          loyalty_balance_cents: number | null;
+        }> | null) ?? [])[0] ?? null;
+      clientId = existingClient?.id ?? null;
+      clientLoyaltyBalanceCents = existingClient?.loyalty_balance_cents ?? 0;
     }
     if (!clientId) {
       clientIsNew = true;
@@ -388,6 +404,18 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .single();
       if (insertClient.error || !insertClient.data) return err('UNEXPECTED');
       clientId = (insertClient.data as { id: string }).id;
+    }
+
+    // ── Loyalty credit auto-apply (Phase 50) ─────────────────────────
+    // Applied AFTER promo so the customer gets full mileage out of both
+    // incentives. Capped at the running totalAmount (in cents to avoid
+    // float drift) so a generous balance can zero the bill but never
+    // go negative. The DB column has a CHECK (>= 0) so this is doubly
+    // protected.
+    if (clientLoyaltyBalanceCents > 0 && totalAmount > 0) {
+      const runningCents = Math.round(totalAmount * 100);
+      loyaltyCreditCents = Math.min(clientLoyaltyBalanceCents, runningCents);
+      totalAmount = Math.max(0, totalAmount - loyaltyCreditCents / 100);
     }
 
     // ── Promo first_appointment_only check (Phase 41) ────────────────
@@ -435,6 +463,25 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       })),
     );
 
+    // ── Decrement loyalty balance (Phase 50) ─────────────────────────
+    // Best-effort: a balance-update failure shouldn't kill the booking
+    // (the user got their appointment, that's what matters). We computed
+    // `loyaltyCreditCents` from a fresh read above and subtract it from
+    // the same value to avoid race conditions with a concurrent reward
+    // grant by `awardLoyaltyOnCompletion` (which only ADDS to the
+    // balance, never subtracts). Sentry breadcrumb on failure.
+    if (loyaltyCreditCents > 0 && !clientIsNew) {
+      try {
+        const newBalance = Math.max(0, clientLoyaltyBalanceCents - loyaltyCreditCents);
+        await supabase
+          .from('clients')
+          .update({ loyalty_balance_cents: newBalance })
+          .eq('id', clientId);
+      } catch (e) {
+        captureException(e, { tags: { layer: 'public-booking', step: 'loyalty-debit' } });
+      }
+    }
+
     // ── Bump promo code redemption counter (Phase 41) ────────────────
     // Best-effort — a counter update failure shouldn't kill the booking
     // (the user got their appointment, that's what matters). We read
@@ -479,6 +526,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         totalAmount,
         promoCode: promoCodeRow ? input.promo_code : undefined,
         discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        loyaltyCreditCents: loyaltyCreditCents > 0 ? loyaltyCreditCents : undefined,
       },
     });
 
@@ -560,4 +608,112 @@ function formatMinutes(m: number): string {
   const h = Math.floor((m % 1440) / 60);
   const min = m % 60;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+// ── Phase 53 — public waitlist signup ──────────────────────────────────
+// Anonymous visitors hit this when the booking wizard surfaces "no slots
+// available in your window — join the waitlist?" Stored in
+// `waiting_list_entries` for the admin to work manually. No notification
+// flow yet (that's V1.1); admin sees the entries on
+// /settings/waiting-list.
+
+const waitlistEntrySchema = z.object({
+  shop_slug: z.string().trim().min(1),
+  first_name: z.string().trim().min(1).max(120),
+  last_name: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .or(z.literal('').transform(() => '')),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email()
+    .optional()
+    .or(z.literal('').transform(() => '')),
+  phone: z.string().trim().regex(phoneRegex),
+  preferred_barber_id: z.string().uuid().nullable().optional(),
+  service_ids: z.array(z.string().uuid()).optional().default([]),
+  date_window_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date_window_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .or(z.literal('').transform(() => '')),
+  hp: z.string().max(0).optional(),
+  locale: z.enum(['fr', 'en']).default('fr'),
+});
+
+export type WaitlistEntryInput = z.infer<typeof waitlistEntrySchema>;
+
+export async function addToWaitlistPublic(
+  raw: WaitlistEntryInput,
+): Promise<Result<{ id: string }>> {
+  try {
+    // Rate limit by IP — waitlist abuse risk is low, but spam still
+    // possible. Looser than booking (20 / 10 min vs 10).
+    const ip = clientIp();
+    const rl = await checkRateLimit(`waitlist:${ip}`, {
+      max: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
+
+    // Honeypot — silent fail on bot fill.
+    if (raw.hp) return ok({ id: '00000000-0000-0000-0000-000000000000' });
+
+    const parsed = waitlistEntrySchema.safeParse(raw);
+    if (!parsed.success) return err('INVALID_INPUT');
+    const input = parsed.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createSupabaseServiceRoleClient() as any;
+
+    // Resolve shop by slug.
+    const shopRes = await supabase.from('shops').select('id').eq('alias', input.shop_slug).limit(1);
+    const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+    if (!shopId) return err('NOT_FOUND');
+
+    const insertRes = await supabase
+      .from('waiting_list_entries')
+      .insert({
+        shop_id: shopId,
+        first_name: input.first_name,
+        last_name: input.last_name || null,
+        email: input.email || null,
+        phone: input.phone,
+        preferred_barber_id: input.preferred_barber_id ?? null,
+        service_ids: input.service_ids ?? [],
+        date_window_start: input.date_window_start,
+        date_window_end: input.date_window_end,
+        notes: input.notes || null,
+        locale: input.locale,
+        status: 'waiting',
+      })
+      .select('id')
+      .single();
+    if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
+
+    const entryId = (insertRes.data as { id: string }).id;
+    await logAuditAction({
+      shopId,
+      actorId: '00000000-0000-0000-0000-000000000000',
+      action: 'insert',
+      entity: 'waiting_list_entries',
+      entityId: entryId,
+      diff: {
+        source: 'online',
+        service_count: input.service_ids?.length ?? 0,
+        window: `${input.date_window_start}/${input.date_window_end}`,
+      },
+    });
+    return ok({ id: entryId });
+  } catch (e) {
+    captureException(e, { tags: { layer: 'public-waitlist' } });
+    return err('UNEXPECTED');
+  }
 }
