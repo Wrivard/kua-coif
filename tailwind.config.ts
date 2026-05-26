@@ -13,6 +13,8 @@ const config: Config = {
         'bg-overlay': 'var(--bg-overlay)',
         border: 'var(--border)',
         'border-strong': 'var(--border-strong)',
+        'border-soft': 'var(--border-soft)',
+        'border-faint': 'var(--border-faint)',
 
         // ─── Text ────────────────────────────────────────────────────
         'text-primary': 'var(--text-primary)',

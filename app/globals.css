@@ -26,11 +26,20 @@
   --bg-overlay: rgba(0, 0, 0, 0.65); /* modal backdrop */
 
   /* ─── Borders (alpha-based — same visual weight on any bg) ──────────
-   * Default is barely there; -strong is for when a divider needs to
-   * carry visual weight (e.g., a section separator that ANCHORS the
-   * eye rather than just suggesting structure). */
+   * Four-step scale. `default` for cards/inputs/buttons. `-strong` when
+   * a divider needs to carry visual weight. `-soft` for repeating grid
+   * lines (calendar hour rules, table-cell dividers) where the line is
+   * structural but should fade into the surface. `-faint` for tertiary
+   * separators that only need to exist on high-contrast monitors.
+   *
+   * Tailwind 3 cannot apply opacity modifiers to `rgba()` CSS variables
+   * (it has no way to strip the alpha and re-mix), so all four steps
+   * have their alpha baked into the token. Use the named step, not
+   * `border-border/X`. */
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-faint: rgba(255, 255, 255, 0.025);
 
   /* ─── Text (4-step scale + disabled) ────────────────────────────────── */
   --text-primary: #fafafa; /* almost-white */

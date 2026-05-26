@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Lock,
   Plus,
   XOctagon,
 } from 'lucide-react';
@@ -507,7 +508,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(-1)}
               aria-label={t('prevDay')}
-              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -518,7 +519,7 @@ export function AppointmentsCalendar({
               type="button"
               onClick={() => shiftDate(1)}
               aria-label={t('nextDay')}
-              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -528,7 +529,7 @@ export function AppointmentsCalendar({
             <span
               aria-live="polite"
               className={cn(
-                'border-success/30 bg-success/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-success transition-opacity duration-300',
+                'border-success/30 bg-success/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
                 justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >
@@ -582,11 +583,14 @@ export function AppointmentsCalendar({
                 }}
                 aria-pressed={isActive}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors',
+                  // Phase 48 — chips get accent-glow when active so the
+                  // active row reads as "lit up" instead of just "purple",
+                  // and shadow-sm when inactive for subtle depth.
+                  'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-all duration-150 ease-out-quint',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
                   isActive
-                    ? 'bg-accent text-accent-fg'
-                    : 'border border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+                    ? 'bg-accent text-accent-fg shadow-accent-glow'
+                    : 'border border-border bg-bg-surface text-text-secondary shadow-sm hover:bg-bg-surface-2 hover:text-text-primary',
                 )}
               >
                 {b.display_name}
@@ -596,8 +600,13 @@ export function AppointmentsCalendar({
         </div>
 
         {isClosed && (
-          <div className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning">
-            {t('shopClosedDay')}
+          // Phase 48 — informational, not alarming. The padlock icon
+          // carries the "closed" semantic; the muted neutral palette
+          // keeps it out of the way visually while the lock icon makes
+          // it instantly recognizable.
+          <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-surface px-3.5 py-2.5 text-xs text-text-secondary shadow-sm">
+            <Lock className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
+            <span>{t('shopClosedDay')}</span>
           </div>
         )}
 
@@ -608,14 +617,19 @@ export function AppointmentsCalendar({
             (the gray-tinted surface). Appointments pop now because the
             grid recedes. */}
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="border-border/40 overflow-x-auto rounded-lg border bg-bg-base">
+          {/* Phase 48 — calendar grid is now a "ghost" of itself. The
+              previous /20-/40 borders read as visible white strokes
+              against bg-base. We replaced them with /8-/15 ranges + a
+              shadow-sm to lift the surface. The grid still segments the
+              day visually but doesn't compete with the appointments. */}
+          <div className="overflow-x-auto rounded-lg border border-border bg-bg-base shadow-sm">
             <div className="flex min-w-[600px]">
               {/* Time axis — labels centered on the hour line
                   (-translate-y-1/2) so the visual rhythm is
                   "label-on-line, label-on-line" rather than
                   "label, blank, line, label". */}
-              <div className="border-border/25 w-16 shrink-0 border-r bg-bg-base">
-                <div className="border-border/25 h-12 border-b" />
+              <div className="w-16 shrink-0 border-r border-border-soft bg-bg-base">
+                <div className="h-12 border-b border-border-soft" />
                 <div className="relative" style={{ height: `${gridHeightPx}px` }}>
                   {hourLabels.map((min) => {
                     if (min < startMin || min > endMin) return null;
@@ -755,12 +769,18 @@ function BarberColumn({
   // — otherwise it'd dangle off-screen and confuse depth perception.
   const showNow = nowMin !== null && nowMin >= startMin && nowMin <= endMin;
   return (
-    <div className="border-border/25 min-w-[180px] flex-1 border-r last:border-r-0">
-      {/* Header — slightly elevated bg + larger padding + uppercase letterform
-          for a cleaner visual rhythm vs the previous flat row. Border-b
-          at 25% to match the column dividers' tone. */}
-      <div className="border-border/25 bg-bg-surface-2/40 flex h-12 items-center gap-2 border-b px-4">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
+    <div className="min-w-[180px] flex-1 border-r border-border-faint last:border-r-0">
+      {/* Header — Phase 48: solid bg-bg-surface-2 (no opacity) is the
+          real separator from the body. The bg-shift between header
+          (surface-2) and body (base) carries the divider; the drawn
+          border-b is just a whisper of definition. The pastille uses
+          shadow-accent-glow so it reads as the barber's identity marker,
+          not a decorative dot. */}
+      <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-4">
+        <span
+          className="inline-block h-2 w-2 rounded-full bg-accent shadow-accent-glow"
+          aria-hidden
+        />
         <span className="truncate text-sm font-semibold text-text-primary">
           {barber.display_name}
         </span>
@@ -768,7 +788,7 @@ function BarberColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'relative cursor-cell bg-bg-base transition-colors',
+          'relative cursor-cell bg-bg-base transition-colors duration-150 ease-out-quint',
           // Subtle accent tint when a draggable is hovering this column —
           // tells the user "drop here goes to {barber}".
           isOver && 'bg-accent-subtle',
@@ -776,18 +796,19 @@ function BarberColumn({
         style={{ height: `${gridHeightPx}px` }}
         onClick={(e) => onSlotClick(barber.id, e)}
       >
-        {/* Hour rules — soft 20% opacity so the grid is a "ghost"
-            structure, not a checkered pattern. Removed the alternating
-            hour-band stripes from the previous iteration; the reference
-            calendar shows a uniform background and the bands added
-            visual noise without helping scan-ability. */}
+        {/* Hour rules — Phase 48: dropped to /8 opacity. At full grid
+            height these lines were drawing visible white strokes even
+            at /20. The hour rhythm is now barely perceptible — the
+            left-rail labels carry the temporal cues; the rules just
+            anchor the eye to a row. Removed alternating bands in Phase
+            33; not bringing them back. */}
         {hourLabels.map((min) => {
           if (min < startMin || min > endMin) return null;
           const top = (min - startMin) * PX_PER_MIN;
           return (
             <div
               key={min}
-              className="border-border/20 absolute left-0 right-0 border-t"
+              className="absolute left-0 right-0 border-t border-border-faint"
               style={{ top: `${top}px` }}
               aria-hidden
             />
@@ -795,19 +816,25 @@ function BarberColumn({
         })}
 
         {/* "Now" indicator — accent-colored line + dot on the left edge.
-            Sits above the hour rules (z-10) so it's clearly the time. */}
+            Phase 48: dot is slightly larger (h-2.5 w-2.5) with a softer
+            shadow halo for premium visibility. The horizontal line keeps
+            its full accent color so it punches through the now-softer
+            grid behind it. Sits above the hour rules (z-10). */}
         {showNow ? (
           <div
             className="pointer-events-none absolute left-0 right-0 z-10"
             style={{ top: `${(nowMin! - startMin) * PX_PER_MIN}px` }}
             aria-hidden
           >
-            <div className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_3px_rgba(139,92,246,0.25)]" />
-            <div className="border-t border-accent" />
+            <div className="absolute -left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_4px_rgba(139,92,246,0.2)]" />
+            <div className="border-accent/70 border-t" />
           </div>
         ) : null}
 
-        {/* Blocked time overlays */}
+        {/* Blocked time overlays — Phase 48: rounded-md (was rounded-sm)
+            and slightly thicker left margins for clearer separation from
+            the column edges. Still uses danger color tone since these
+            are owner-enforced "do not book". */}
         {barberBlocks.map((b) => {
           const top = (minutesFromShopMidnight(b.start_at, timezone) - startMin) * PX_PER_MIN;
           const height =
@@ -817,7 +844,7 @@ function BarberColumn({
           return (
             <div
               key={b.id}
-              className="border-danger/20 bg-danger/10 absolute left-1 right-1 flex items-center justify-center rounded-sm border text-[11px] font-medium text-danger"
+              className="border-danger/20 bg-danger/10 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border text-[11px] font-medium text-danger"
               style={{ top: `${top}px`, height: `${height}px` }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -840,12 +867,12 @@ function BarberColumn({
           return (
             <div
               key={`gbusy-${idx}-${g.start}`}
-              className="border-border/40 bg-bg-surface-2/70 absolute left-1 right-1 flex items-center justify-center rounded-sm border text-[10px] font-medium uppercase tracking-wide text-text-muted"
+              className="bg-bg-surface-2/60 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-border-soft text-[10px] font-medium uppercase tracking-wide text-text-muted"
               style={{
                 top: `${top}px`,
                 height: `${height}px`,
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)',
+                  'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,0.035) 6px, rgba(255,255,255,0.035) 12px)',
               }}
               onClick={(e) => e.stopPropagation()}
               title={t('googlePersonalBusy')}
@@ -930,7 +957,11 @@ function DraggableAppointmentBlock({
         onClick(appointment);
       }}
       className={cn(
-        'absolute left-1 right-1 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left text-[11px] transition-shadow hover:opacity-90',
+        // Phase 48 — rounded-md (was rounded-sm), wider margin (left-1.5)
+        // to match the new blocked/Google overlay spacing, shadow-sm
+        // for elevation off the now-flatter grid. Hover lifts the
+        // shadow to shadow-md so the block reads as "clickable card".
+        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-md',
         isDragging && 'shadow-lg ring-2 ring-accent',
         cls,
       )}

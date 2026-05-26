@@ -662,7 +662,7 @@ function ServiceStep({
             {selectedServices.map((s) => (
               <li
                 key={s.id}
-                className="border-border/60 flex items-center justify-between gap-2 rounded-lg border bg-bg-base px-3 py-2.5 text-sm shadow-sm"
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-bg-base px-3 py-2.5 text-sm shadow-sm"
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-text-primary">{s.name}</p>
