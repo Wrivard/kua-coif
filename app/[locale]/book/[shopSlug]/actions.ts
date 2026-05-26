@@ -617,28 +617,37 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       },
     });
 
+    // Loop 33 self-review — hoisted the barber-name lookup out of
+    // the email branch so the Slack branch below doesn't re-query
+    // the same row. Computed once when both downstream surfaces
+    // (email + Slack) need it, and skipped entirely when neither
+    // fires. For the "any barber" path we leave the value null and
+    // the email template / Slack helper fall back to their localized
+    // "first available" strings.
+    const willEmail = Boolean(input.email);
+    const willSlack = Boolean(shop.slack_webhook_url);
+    let professionalName: string | null = null;
+    if (barberId && (willEmail || willSlack)) {
+      const barberRes = await supabase
+        .from('barbers')
+        .select('display_name')
+        .eq('id', barberId)
+        .limit(1);
+      professionalName =
+        ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ?? null;
+    }
+
     // ── Send branded confirmation email (Phase 24) ────────────────────
     // No-op when Resend env vars aren't set (lib/email/send.ts handles
     // that) or when the customer didn't leave an email. We deliberately
     // do NOT block on the send — a Resend outage shouldn't surface as a
     // booking error to the user. `sendEmail` catches its own errors and
     // routes them through Sentry.
+    //
+    // Type narrowing note: we check `input.email` directly (rather than
+    // the `willEmail` boolean above) so TS narrows away the `undefined`
+    // case for the `to:` field below.
     if (input.email) {
-      // Look up the barber's display name only when a specific one was
-      // picked. For the "any barber" path we leave the field null and the
-      // template falls back to its localized "first available" string.
-      let professionalName: string | null = null;
-      if (barberId) {
-        const barberRes = await supabase
-          .from('barbers')
-          .select('display_name')
-          .eq('id', barberId)
-          .limit(1);
-        professionalName =
-          ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ??
-          null;
-      }
-
       const addressLine = [shop.street, shop.municipality, shop.province]
         .filter(Boolean)
         .join(', ');
@@ -688,23 +697,13 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // booking response. The helper catches its own errors and routes
     // them through Sentry, so we don't even need a try/catch here —
     // but `void` makes the intent explicit. Skipped when no URL is
-    // configured (shop opted out).
-    if (shop.slack_webhook_url) {
-      let slackBarberName = 'First available';
-      if (barberId) {
-        const bRes = await supabase
-          .from('barbers')
-          .select('display_name')
-          .eq('id', barberId)
-          .limit(1);
-        slackBarberName =
-          ((bRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ??
-          'First available';
-      }
+    // configured (shop opted out). `professionalName` was resolved
+    // once above to avoid a duplicate barbers lookup.
+    if (willSlack && shop.slack_webhook_url) {
       void sendSlackBookingNotification(shop.slack_webhook_url, {
         shopName: shop.name,
         clientName: `${input.first_name}${input.last_name ? ` ${input.last_name}` : ''}`,
-        barberName: slackBarberName,
+        barberName: professionalName ?? 'First available',
         startAtIso: startAt.toISOString(),
         serviceNames: services.map((s) => s.name),
         totalAmount,
