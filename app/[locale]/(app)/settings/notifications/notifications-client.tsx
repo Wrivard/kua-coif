@@ -41,6 +41,7 @@ const AUTOMATION_ORDER: AutomationRow['kind'][] = [
   'reminder_24h',
   'reminder_1h',
   'cancellation',
+  'waitlist_open',
   'birthday',
 ];
 

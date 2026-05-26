@@ -246,7 +246,16 @@ export type SenderConfigSnapshot = {
 
 export type AutomationRow = {
   id: string;
-  kind: 'booking_confirmation' | 'reminder_24h' | 'reminder_1h' | 'cancellation' | 'birthday';
+  // Loop 42 — `waitlist_open` added so the kind matches AutomationKind
+  // in lib/email/send.ts. UI exposes it in AUTOMATION_ORDER between
+  // cancellation and birthday so the owner can toggle it off.
+  kind:
+    | 'booking_confirmation'
+    | 'reminder_24h'
+    | 'reminder_1h'
+    | 'cancellation'
+    | 'waitlist_open'
+    | 'birthday';
   channel: 'email' | 'sms';
   enabled: boolean;
 };

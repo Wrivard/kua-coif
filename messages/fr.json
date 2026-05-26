@@ -1024,6 +1024,10 @@
               "label": "Avis d'annulation",
               "hint": "Envoyé quand un rendez-vous est annulé."
             },
+            "waitlist_open": {
+              "label": "Notif. auto liste d'attente",
+              "hint": "Email les inscrits dont les préférences matchent quand une place s'ouvre (dedup 24h)."
+            },
             "birthday": {
               "label": "Souhaits d'anniversaire (V1.5)",
               "hint": "Bientôt — nécessite de stocker l'anniversaire du client."

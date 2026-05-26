@@ -1022,6 +1022,10 @@
               "label": "Cancellation notice",
               "hint": "Sent when an appointment is cancelled by anyone."
             },
+            "waitlist_open": {
+              "label": "Waitlist auto-notify",
+              "hint": "Emails matching waitlist entries when a slot opens up (dedup'd 24h)."
+            },
             "birthday": {
               "label": "Birthday greeting (V1.5)",
               "hint": "Coming soon — requires storing client birthday."
