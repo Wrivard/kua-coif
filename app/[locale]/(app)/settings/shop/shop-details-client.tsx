@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { MoneyInput } from '@/components/ui/money-input';
 import { PageHeader } from '@/components/ui/page-header';
@@ -350,10 +351,33 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
             <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="email_logo_url">{t('emailBranding.logoUrl')}</Label>
+                {/* Loop 43 (P120) — file-picker uploads to
+                    `shop-assets` Storage bucket, then writes the
+                    public URL back into the form value. The plain
+                    URL input below is kept for the "paste a hosted
+                    logo URL" path (Squarespace, Wix, etc) but the
+                    primary affordance is now the file picker. */}
+                <ImageUpload
+                  value={detailsForm.watch('email_logo_url') || null}
+                  onChange={(url) =>
+                    detailsForm.setValue('email_logo_url', url ?? '', { shouldDirty: true })
+                  }
+                  purpose="logo"
+                  size={56}
+                  labels={{
+                    upload: t('emailBranding.logoUpload'),
+                    replace: t('emailBranding.logoReplace'),
+                    remove: t('emailBranding.logoRemove'),
+                    invalidType: t('emailBranding.logoInvalidType'),
+                    tooLarge: t('emailBranding.logoTooLarge'),
+                    failed: t('emailBranding.logoFailed'),
+                  }}
+                />
                 <Input
                   id="email_logo_url"
                   type="url"
                   placeholder="https://…/logo.png"
+                  className="mt-2"
                   {...detailsForm.register('email_logo_url')}
                 />
                 <FieldHint>{t('emailBranding.logoHint')}</FieldHint>

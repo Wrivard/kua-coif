@@ -583,8 +583,14 @@
           "hint": "Texte court (280 caractères max), affiché en haut de /book/[ton-alias]."
         },
         "emailBranding": {
-          "logoUrl": "URL du logo (courriels)",
-          "logoHint": "Image PNG/SVG hébergée publiquement. Apparaît en haut des courriels de confirmation.",
+          "logoUrl": "Logo (courriels)",
+          "logoHint": "Téléverse une image PNG/SVG (max 2 Mo) ou colle une URL hébergée ci-dessous. Apparaît en haut des courriels de confirmation.",
+          "logoUpload": "Téléverser",
+          "logoReplace": "Remplacer",
+          "logoRemove": "Retirer",
+          "logoInvalidType": "PNG, JPEG, WebP ou SVG seulement.",
+          "logoTooLarge": "Max 2 Mo.",
+          "logoFailed": "Échec de l’upload. Réessaie.",
           "accentColor": "Couleur d’accent (#hex)",
           "colorHint": "Format #rrggbb. Utilisée pour les boutons et titres dans les courriels."
         },

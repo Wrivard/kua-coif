@@ -581,8 +581,14 @@
           "hint": "Short text (max 280 chars), shown at the top of /book/[your-alias]."
         },
         "emailBranding": {
-          "logoUrl": "Logo URL (emails)",
-          "logoHint": "Publicly hosted PNG/SVG. Shows at the top of confirmation emails.",
+          "logoUrl": "Logo (emails)",
+          "logoHint": "Upload a PNG/SVG (max 2 MB) or paste a hosted URL below. Shows at the top of confirmation emails.",
+          "logoUpload": "Upload",
+          "logoReplace": "Replace",
+          "logoRemove": "Remove",
+          "logoInvalidType": "PNG, JPEG, WebP or SVG only.",
+          "logoTooLarge": "Max 2 MB.",
+          "logoFailed": "Upload failed. Try again.",
           "accentColor": "Accent color (#hex)",
           "colorHint": "Format #rrggbb. Used for buttons and headers in emails."
         },
