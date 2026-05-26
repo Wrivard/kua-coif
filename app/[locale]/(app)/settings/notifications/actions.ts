@@ -10,7 +10,12 @@ import { encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { verifyShopSmtp } from '@/lib/email/smtp';
 // Schemas live in `./schema` because Next.js `'use server'` files can only
 // export async functions — Zod schemas are object values.
-import { senderConfigSchema, testConnectionSchema, toggleAutomationSchema } from './schema';
+import {
+  senderConfigSchema,
+  slackWebhookSchema,
+  testConnectionSchema,
+  toggleAutomationSchema,
+} from './schema';
 
 const PATH = '/settings/notifications';
 
@@ -160,6 +165,41 @@ export async function testSmtpConnection(raw: unknown): Promise<TestConnectionRe
 }
 
 // ---------------------------------------------------------------------------
+// Loop 33 (Phase 90) — Slack webhook URL for owner notifications
+// ---------------------------------------------------------------------------
+//
+// The URL is a bearer credential — column-level GRANT was REVOKEd
+// from authenticated/anon in the migration, so RLS can't surface it
+// even if the client tried to read directly. The audit log records
+// the FACT of a change, never the URL value.
+
+export const upsertSlackWebhook = withAction({
+  schema: slackWebhookSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const next = input.slack_webhook_url.trim();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const { error } = await sb
+      .from('shops')
+      .update({ slack_webhook_url: next === '' ? null : next })
+      .eq('id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'shops',
+      entityId: ctx.shopId,
+      diff: { slack_webhook_url_set: next !== '' },
+    });
+    revalidatePath(PATH);
+    return ok({ ok: true });
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Automation toggles
 // ---------------------------------------------------------------------------
 
@@ -213,6 +253,7 @@ export type AutomationRow = {
 
 export async function loadNotificationsState(shopId: string): Promise<{
   config: SenderConfigSnapshot;
+  slackWebhookConfigured: boolean;
   automations: AutomationRow[];
   encryptionReady: boolean;
 }> {
@@ -221,8 +262,11 @@ export async function loadNotificationsState(shopId: string): Promise<{
   const [shopRes, autoRes] = await Promise.all([
     admin
       .from('shops')
+      // Loop 33 — `slack_webhook_url` selected so we can surface a
+      // "Connected" badge without ever sending the URL to the client.
+      // The page passes only a boolean down to the form.
       .select(
-        'notification_from_email, notification_from_name, notification_smtp_host, notification_smtp_port, notification_smtp_user, notification_smtp_password_enc',
+        'notification_from_email, notification_from_name, notification_smtp_host, notification_smtp_port, notification_smtp_user, notification_smtp_password_enc, slack_webhook_url',
       )
       .eq('id', shopId)
       .single(),
@@ -241,6 +285,7 @@ export async function loadNotificationsState(shopId: string): Promise<{
     notification_smtp_port: number | null;
     notification_smtp_user: string | null;
     notification_smtp_password_enc: string | null;
+    slack_webhook_url: string | null;
   } | null) ?? {
     notification_from_email: null,
     notification_from_name: null,
@@ -248,6 +293,7 @@ export async function loadNotificationsState(shopId: string): Promise<{
     notification_smtp_port: null,
     notification_smtp_user: null,
     notification_smtp_password_enc: null,
+    slack_webhook_url: null,
   };
 
   return {
@@ -259,6 +305,7 @@ export async function loadNotificationsState(shopId: string): Promise<{
       smtpUser: shop.notification_smtp_user ?? '',
       hasPassword: Boolean(shop.notification_smtp_password_enc),
     },
+    slackWebhookConfigured: Boolean(shop.slack_webhook_url),
     automations: (autoRes.data as AutomationRow[] | null) ?? [],
     encryptionReady: encryptionConfigured(),
   };

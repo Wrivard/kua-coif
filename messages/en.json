@@ -1033,9 +1033,19 @@
           "testFieldsRequired": "Fill in From email, host, port, user, and password before testing."
         },
         "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
+        "slack": {
+          "title": "Slack notifications",
+          "connected": "Connected",
+          "description": "Receive a Slack message when a customer books online. Works with any Slack-compatible incoming webhook (Slack, Discord, Mattermost).",
+          "urlLabel": "Incoming webhook URL",
+          "urlHint": "Server-only. We never echo this back — clear and re-enter to update.",
+          "disconnect": "Disconnect"
+        },
         "toasts": {
           "configSaved": "Sender configuration saved",
-          "disconnected": "SMTP disconnected. Emails now use Küa fallback."
+          "disconnected": "SMTP disconnected. Emails now use Küa fallback.",
+          "slackSaved": "Slack webhook saved",
+          "slackCleared": "Slack notifications disabled"
         }
       },
       "auditLog": {

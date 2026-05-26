@@ -15,6 +15,7 @@ import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confi
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { createDepositPaymentIntent } from '@/lib/stripe/payments';
+import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -168,8 +169,12 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // round-trip.
     const shopRes = await supabase
       .from('shops')
+      // Loop 33 — `slack_webhook_url` pulled here so the booking
+      // confirmation can fire a Slack notification to the owner
+      // without a second round-trip. Service-role client bypasses
+      // the column-level REVOKE we put on authenticated/anon.
       .select(
-        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color',
+        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color, slack_webhook_url',
       )
       .eq('alias', input.shop_slug)
       .limit(1);
@@ -184,6 +189,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       phone: string | null;
       email_logo_url: string | null;
       email_accent_color: string | null;
+      slack_webhook_url: string | null;
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
 
@@ -674,6 +680,35 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           { name: 'kind', value: 'booking_confirmation' },
           { name: 'shop', value: input.shop_slug },
         ],
+      });
+    }
+
+    // ── Loop 33 (Phase 90) — owner Slack notification ──────────────
+    // Fire-and-forget: a Slack outage MUST NOT block the customer's
+    // booking response. The helper catches its own errors and routes
+    // them through Sentry, so we don't even need a try/catch here —
+    // but `void` makes the intent explicit. Skipped when no URL is
+    // configured (shop opted out).
+    if (shop.slack_webhook_url) {
+      let slackBarberName = 'First available';
+      if (barberId) {
+        const bRes = await supabase
+          .from('barbers')
+          .select('display_name')
+          .eq('id', barberId)
+          .limit(1);
+        slackBarberName =
+          ((bRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ??
+          'First available';
+      }
+      void sendSlackBookingNotification(shop.slack_webhook_url, {
+        shopName: shop.name,
+        clientName: `${input.first_name}${input.last_name ? ` ${input.last_name}` : ''}`,
+        barberName: slackBarberName,
+        startAtIso: startAt.toISOString(),
+        serviceNames: services.map((s) => s.name),
+        totalAmount,
+        source: 'online',
       });
     }
 

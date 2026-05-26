@@ -15,6 +15,7 @@ import {
   testSmtpConnection,
   toggleAutomation,
   upsertSenderConfig,
+  upsertSlackWebhook,
   type AutomationRow,
   type SenderConfigSnapshot,
 } from './actions';
@@ -23,6 +24,13 @@ type Props = {
   locale: string;
   state: {
     config: SenderConfigSnapshot;
+    /**
+     * Loop 33 — boolean snapshot ("is a webhook URL on file") rather
+     * than the URL itself. The URL is a bearer credential; we never
+     * round-trip it to the browser. Form starts blank, owner re-enters
+     * if they want to change it, "Disconnect" clears the column.
+     */
+    slackWebhookConfigured: boolean;
     automations: AutomationRow[];
     encryptionReady: boolean;
   };
@@ -58,6 +66,26 @@ export function NotificationsClient({ state }: Props) {
     smtpPassword: '',
   });
   const [hasPassword, setHasPassword] = useState(state.config.hasPassword);
+  // Loop 33 — Slack webhook input. Starts blank (write-only).
+  const [slackUrl, setSlackUrl] = useState('');
+  const [slackConfigured, setSlackConfigured] = useState(state.slackWebhookConfigured);
+
+  function onSaveSlack(action: 'save' | 'clear') {
+    startSave(async () => {
+      const url = action === 'clear' ? '' : slackUrl.trim();
+      const result = await upsertSlackWebhook({ slack_webhook_url: url });
+      if (result.ok) {
+        show({
+          variant: 'success',
+          title: action === 'clear' ? t('toasts.slackCleared') : t('toasts.slackSaved'),
+        });
+        setSlackConfigured(url !== '');
+        setSlackUrl('');
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
 
   function setField<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -286,6 +314,54 @@ export function NotificationsClient({ state }: Props) {
                 ) : null}
               </div>
               <Button type="button" onClick={onSaveConfig} loading={saving}>
+                {tCommon('actions.save')}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* ── Loop 33 (P90) — Slack webhook for owner notifications ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('slack.title')}</CardTitle>
+            {slackConfigured ? (
+              <span className="bg-success/15 ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                <CheckCircle2 className="h-3 w-3" /> {t('slack.connected')}
+              </span>
+            ) : null}
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <p className="text-sm text-text-secondary">{t('slack.description')}</p>
+            <div>
+              <Label htmlFor="slack_webhook_url">{t('slack.urlLabel')}</Label>
+              <Input
+                id="slack_webhook_url"
+                type="url"
+                inputMode="url"
+                placeholder="https://hooks.slack.com/services/T0000/B0000/XXXX"
+                value={slackUrl}
+                onChange={(e) => setSlackUrl(e.target.value)}
+                autoComplete="off"
+              />
+              <p className="mt-1 text-[11px] text-text-muted">{t('slack.urlHint')}</p>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              {slackConfigured ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onSaveSlack('clear')}
+                  disabled={saving}
+                >
+                  {t('slack.disconnect')}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => onSaveSlack('save')}
+                loading={saving}
+                disabled={!slackUrl.trim()}
+              >
                 {tCommon('actions.save')}
               </Button>
             </div>

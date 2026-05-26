@@ -36,3 +36,21 @@ export const toggleAutomationSchema = z.object({
   id: z.string().uuid(),
   enabled: z.boolean(),
 });
+
+/**
+ * Loop 33 (Phase 90) — owner-facing Slack webhook URL. Empty string
+ * clears the value (we explicitly write null), any other string must
+ * be a valid HTTPS URL. Slack's incoming-webhooks live under
+ * hooks.slack.com but we don't enforce that — Discord and Mattermost
+ * expose Slack-compatible endpoints and shops should be free to use
+ * those.
+ */
+export const slackWebhookSchema = z.object({
+  slack_webhook_url: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || /^https:\/\/.+/.test(v), 'INVALID_URL'),
+});
+
+export type SlackWebhookInput = z.infer<typeof slackWebhookSchema>;

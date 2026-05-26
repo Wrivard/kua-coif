@@ -1035,9 +1035,19 @@
           "testFieldsRequired": "Remplis Courriel, hôte, port, utilisateur et mot de passe avant de tester."
         },
         "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
+        "slack": {
+          "title": "Notifications Slack",
+          "connected": "Connecté",
+          "description": "Reçois un message Slack quand un client réserve en ligne. Compatible avec tout webhook entrant style Slack (Slack, Discord, Mattermost).",
+          "urlLabel": "URL du webhook entrant",
+          "urlHint": "Côté serveur seulement. On ne te le renvoie jamais — efface et ré-entre pour mettre à jour.",
+          "disconnect": "Déconnecter"
+        },
         "toasts": {
           "configSaved": "Configuration enregistrée",
-          "disconnected": "SMTP déconnecté. Les courriels passent par Küa par défaut."
+          "disconnected": "SMTP déconnecté. Les courriels passent par Küa par défaut.",
+          "slackSaved": "Webhook Slack enregistré",
+          "slackCleared": "Notifications Slack désactivées"
         }
       },
       "auditLog": {
