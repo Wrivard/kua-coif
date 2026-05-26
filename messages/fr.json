@@ -1287,6 +1287,12 @@
       "contactBody": "Pour toute demande relative à tes données, écris à wrivard@kua.quebec. Tu peux également déposer une plainte auprès de la Commission d'accès à l'information du Québec.",
       "seeTerms": "Consulter aussi les conditions d'utilisation →"
     },
+    "cookieBanner": {
+      "aria": "Consentement aux témoins",
+      "body": "On utilise un petit ensemble de témoins strictement nécessaires pour te garder connecté et mémoriser le salon actif. Aucun témoin de suivi ou de publicité. <link>Lire la politique complète</link>.",
+      "accept": "Accepter",
+      "reject": "Essentiels seulement"
+    },
     "accessibility": {
       "title": "Déclaration d'accessibilité",
       "lastUpdated": "Dernière mise à jour : mai 2026",

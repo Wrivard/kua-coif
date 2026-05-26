@@ -6,6 +6,7 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { CookieBanner } from '@/components/ui/cookie-banner';
 import { locales, type Locale } from '@/i18n';
 
 export const metadata: Metadata = {
@@ -47,6 +48,12 @@ export default async function LocaleLayout({
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
+          {/* Loop 48 (P118) — universal cookie banner. Mounted at the
+              root so it covers public (booking, legal, login) AND
+              authenticated shells. The component reads the consent
+              cookie on mount; once set, it renders nothing on every
+              subsequent page. */}
+          <CookieBanner locale={locale} />
         </NextIntlClientProvider>
       </body>
     </html>

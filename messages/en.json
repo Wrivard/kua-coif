@@ -1285,6 +1285,12 @@
       "contactBody": "For any data-related request, email wrivard@kua.quebec. You may also file a complaint with the Commission d'accès à l'information du Québec.",
       "seeTerms": "See also the Terms of Service →"
     },
+    "cookieBanner": {
+      "aria": "Cookie consent",
+      "body": "We use a small set of strictly necessary cookies to keep you signed in and remember your active shop. We don't use tracking or advertising cookies. <link>Read the full policy</link>.",
+      "accept": "Accept",
+      "reject": "Essential only"
+    },
     "accessibility": {
       "title": "Accessibility statement",
       "lastUpdated": "Last updated: May 2026",
