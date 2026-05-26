@@ -208,9 +208,14 @@ export function ShopSwitcher({
         />
       </button>
       {open ? (
+        // Loop 39 self-review — z-50 so the dropdown sits above
+        // sticky page headers, the FAB (z-40), and toasts on dismiss.
+        // Below the MobileSidebar overlay (also z-50) the dropdown
+        // already mounts INSIDE the drawer so it inherits its
+        // stacking context — no z-conflict between the two.
         <ul
           role="listbox"
-          className="absolute left-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg bg-bg-elevated p-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg bg-bg-elevated p-1 shadow-lg"
         >
           {shopRows.map((row) => {
             const isActive = row.shop_id === activeShopId;
