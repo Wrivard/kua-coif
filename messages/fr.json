@@ -154,6 +154,32 @@
       "title": "Rendez-vous",
       "soon": "Vue calendrier — Phase 5.",
       "addAppointment": "Ajouter un rendez-vous",
+      "blockTimeButton": "Bloquer un horaire",
+      "blockTime": {
+        "createTitle": "Bloquer un horaire",
+        "barber": "Barbier",
+        "barberShopWide": "Tous les barbiers (salon entier)",
+        "date": "Date",
+        "startTime": "Début",
+        "endTime": "Fin",
+        "reason": "Raison (facultatif)",
+        "reasonPlaceholder": "ex. Dîner, vacances, formation",
+        "repeatToggle": "Répéter ce blocage",
+        "repeatEvery": "Fréquence",
+        "repeatUntil": "Jusqu'au",
+        "repeatHelper": "Crée un blocage par occurrence {label} (jusqu'à 53 lignes).",
+        "recurrences": {
+          "weekly": "Chaque semaine",
+          "biweekly": "Aux 2 semaines",
+          "monthly": "Chaque mois"
+        },
+        "save": "Bloquer",
+        "validationError": "Vérifiez les champs en erreur.",
+        "toasts": {
+          "created": "Horaire bloqué",
+          "createdRecurring": "{count} blocages créés"
+        }
+      },
       "today": "Aujourd'hui",
       "prevDay": "Jour précédent",
       "nextDay": "Jour suivant",

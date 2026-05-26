@@ -55,6 +55,10 @@ const AppointmentFormModal = dynamic(
   () => import('./appointment-form-modal').then((m) => ({ default: m.AppointmentFormModal })),
   { ssr: false },
 );
+const BlockTimeFormModal = dynamic(
+  () => import('./block-time-form-modal').then((m) => ({ default: m.BlockTimeFormModal })),
+  { ssr: false },
+);
 
 export type CalendarAppointment = {
   id: string;
@@ -210,6 +214,11 @@ export function AppointmentsCalendar({
   );
   const [drawer, setDrawer] = useState<CalendarAppointment | null>(null);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
+  // Loop 27 — separate state for the Block Time modal. It doesn't
+  // share the create-appointment modal state because the trigger
+  // (header button) doesn't carry a starting barber/minute pair —
+  // the form picks sensible defaults itself.
+  const [blockTimeOpen, setBlockTimeOpen] = useState(false);
   // Brief "Updated" pill shown for ~1.5s whenever a Realtime event triggers a
   // refresh. Tells the user the view is fresh without being intrusive.
   const [justRefreshed, setJustRefreshed] = useState(false);
@@ -542,14 +551,26 @@ export function AppointmentsCalendar({
           </div>
         }
         actions={
-          <Button
-            onClick={() =>
-              setModal({ kind: 'create', barberId: visibleBarbers[0]?.id ?? '', minutes: startMin })
-            }
-            size="sm"
-          >
-            <Plus className="h-4 w-4" /> {t('addAppointment')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Loop 27 — "Block time" button (spec section 5.A). Sits
+                left of "Add appointment" because it's the less common
+                action and the eye lands on Add first as the primary. */}
+            <Button onClick={() => setBlockTimeOpen(true)} size="sm" variant="secondary">
+              <XOctagon className="h-4 w-4" /> {t('blockTimeButton')}
+            </Button>
+            <Button
+              onClick={() =>
+                setModal({
+                  kind: 'create',
+                  barberId: visibleBarbers[0]?.id ?? '',
+                  minutes: startMin,
+                })
+              }
+              size="sm"
+            >
+              <Plus className="h-4 w-4" /> {t('addAppointment')}
+            </Button>
+          </div>
         }
       />
 
@@ -698,6 +719,16 @@ export function AppointmentsCalendar({
           onClose={() => setModal({ kind: 'closed' })}
         />
       )}
+
+      {/* Loop 27 — block-time modal. Lazily code-split (see dynamic
+          import above) so the JS only ships when the owner opens it. */}
+      {blockTimeOpen ? (
+        <BlockTimeFormModal
+          isoDate={isoDate}
+          barbers={barbers}
+          onClose={() => setBlockTimeOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

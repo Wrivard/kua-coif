@@ -58,6 +58,17 @@ export const rescheduleAppointmentSchema = z.object({
 });
 export type RescheduleAppointmentInput = z.infer<typeof rescheduleAppointmentSchema>;
 
+/**
+ * Loop 27 — recurrence options for block-time. `none` (default) keeps
+ * the single-occurrence behaviour; `weekly`/`biweekly`/`monthly`
+ * fan out to N rows server-side up to `until_date`. We cap at 1 year
+ * out in the action to keep payloads bounded (a barber who blocks
+ * every Sunday for 5 years would otherwise insert 260 rows in one
+ * call).
+ */
+export const BLOCK_TIME_RECURRENCES = ['none', 'weekly', 'biweekly', 'monthly'] as const;
+export type BlockTimeRecurrence = (typeof BLOCK_TIME_RECURRENCES)[number];
+
 export const blockTimeSchema = z.object({
   barber_id: z.string().uuid().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE'),
@@ -69,5 +80,17 @@ export const blockTimeSchema = z.object({
     .max(200)
     .nullable()
     .or(z.literal('').transform(() => null)),
+  /**
+   * `none` (default) → single row. `weekly`/`biweekly`/`monthly` →
+   * the action repeats from `date` up to `until_date` (required when
+   * recurrence is set).
+   */
+  recurrence: z.enum(BLOCK_TIME_RECURRENCES).optional().default('none'),
+  until_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE')
+    .nullable()
+    .optional()
+    .default(null),
 });
 export type BlockTimeInput = z.infer<typeof blockTimeSchema>;

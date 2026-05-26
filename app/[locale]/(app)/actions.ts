@@ -28,6 +28,7 @@ import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { createDepositPaymentIntent, refundPaymentIntent } from '@/lib/stripe/payments';
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
+import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { captureException } from '@/lib/observability';
 
 const APPOINTMENTS_PATH = '/';
@@ -701,56 +702,66 @@ export const cancelAppointment = withAction({
 // ---------------------------------------------------------------------------
 // blockTime
 // ---------------------------------------------------------------------------
-export const blockTime = withAction({
+export const blockTime = withAction<typeof blockTimeSchema, { ids: string[]; count: number }>({
   schema: blockTimeSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const sb = rawDb() as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (k: string, v: string) => Promise<{ data: unknown; error: unknown }>;
-        };
-        insert: (row: Record<string, unknown>) => {
-          select: (cols: string) => {
-            single: () => Promise<{
-              data: { id: string } | null;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
-    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
     const shopRes = await sb.from('shops').select('timezone').eq('id', ctx.shopId);
     const timezone =
       (shopRes.data as Array<{ timezone: string }> | null)?.[0]?.timezone ?? 'America/Toronto';
 
-    const startAt = combineShopDateTime(input.date, input.start_time, timezone);
-    const endAt = combineShopDateTime(input.date, input.end_time, timezone);
-    if (endAt.getTime() <= startAt.getTime()) return err('INVALID_INPUT');
+    // Loop 27 — expand the input into one or more concrete day-strings.
+    // Single block when `recurrence === 'none'`; otherwise enumerate
+    // dates from `input.date` to `input.until_date` by the recurrence
+    // step. We cap at 53 occurrences (one year of weekly) to keep
+    // payloads bounded — a longer horizon is almost certainly a typo
+    // and the owner can re-run the action for the next year.
+    const dates = enumerateRecurringDates({
+      startIso: input.date,
+      recurrence: input.recurrence,
+      untilIso: input.until_date ?? null,
+    });
+    if (dates.length === 0) return err('INVALID_INPUT', { reason: 'recurrence_until_required' });
 
-    const insertRes = await sb
-      .from('blocked_time')
-      .insert({
-        shop_id: ctx.shopId,
-        barber_id: input.barber_id,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        reason: input.reason,
-      })
-      .select('id')
-      .single();
+    // Pre-compute the (start, end) pairs in UTC and reject inverted
+    // ranges before any insert. We check the FIRST date only — the
+    // start/end_time pair is the same on every occurrence so if it's
+    // valid once, it's valid for all.
+    const firstStart = combineShopDateTime(dates[0]!, input.start_time, timezone);
+    const firstEnd = combineShopDateTime(dates[0]!, input.end_time, timezone);
+    if (firstEnd.getTime() <= firstStart.getTime()) return err('INVALID_INPUT');
+
+    const rows = dates.map((d) => ({
+      shop_id: ctx.shopId,
+      barber_id: input.barber_id,
+      start_at: combineShopDateTime(d, input.start_time, timezone).toISOString(),
+      end_at: combineShopDateTime(d, input.end_time, timezone).toISOString(),
+      reason: input.reason,
+    }));
+
+    const insertRes = await sb.from('blocked_time').insert(rows).select('id');
     if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
+    const inserted = insertRes.data as Array<{ id: string }>;
 
+    // Log a single audit entry that records the recurrence shape +
+    // the row-count fan-out. Per-row audit lines would explode the
+    // log on a 52-week block — the parent entry is enough trail.
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'insert',
       entity: 'blocked_time',
-      entityId: insertRes.data.id,
-      diff: { after: input },
+      entityId: inserted[0]?.id ?? 'unknown',
+      diff: {
+        after: input,
+        recurrence_count: inserted.length,
+        recurrence_kind: input.recurrence,
+      },
     });
     revalidatePath(APPOINTMENTS_PATH);
-    return ok({ id: insertRes.data.id });
+    return ok({ ids: inserted.map((r) => r.id), count: inserted.length });
   },
 });
 

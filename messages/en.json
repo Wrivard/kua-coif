@@ -152,6 +152,32 @@
       "title": "Appointments",
       "soon": "Calendar view — Phase 5.",
       "addAppointment": "Add appointment",
+      "blockTimeButton": "Block time",
+      "blockTime": {
+        "createTitle": "Block time",
+        "barber": "Barber",
+        "barberShopWide": "All barbers (shop-wide)",
+        "date": "Date",
+        "startTime": "Start",
+        "endTime": "End",
+        "reason": "Reason (optional)",
+        "reasonPlaceholder": "e.g. Lunch, vacation, training",
+        "repeatToggle": "Repeat this block",
+        "repeatEvery": "Repeats",
+        "repeatUntil": "Until",
+        "repeatHelper": "Creates one block per {label} occurrence (up to 53 rows).",
+        "recurrences": {
+          "weekly": "Every week",
+          "biweekly": "Every 2 weeks",
+          "monthly": "Every month"
+        },
+        "save": "Block time",
+        "validationError": "Please check the highlighted fields.",
+        "toasts": {
+          "created": "Time blocked",
+          "createdRecurring": "{count} blocks created"
+        }
+      },
       "today": "Today",
       "prevDay": "Previous day",
       "nextDay": "Next day",
