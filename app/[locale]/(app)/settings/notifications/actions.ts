@@ -15,7 +15,10 @@ import {
   slackWebhookSchema,
   testConnectionSchema,
   toggleAutomationSchema,
+  twilioConfigSchema,
+  twilioTestSchema,
 } from './schema';
+import { sendSms } from '@/lib/sms/twilio';
 
 const PATH = '/settings/notifications';
 
@@ -200,6 +203,130 @@ export const upsertSlackWebhook = withAction({
 });
 
 // ---------------------------------------------------------------------------
+// Loop 56 (P100 slice 4) — Twilio SMS credentials
+// ---------------------------------------------------------------------------
+//
+// Mirrors the SMTP pattern: write-only auth_token (blank preserves
+// existing ciphertext), encrypted via the same NOTIFICATION_ENCRYPTION_KEY,
+// audit log records the FACT of rotation never the value. account_sid +
+// from_number stay plaintext columns (not secrets — public on Twilio's
+// console and required for the REST URL anyway).
+
+export const upsertTwilioConfig = withAction({
+  schema: twilioConfigSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    if (input.twilio_auth_token && !encryptionConfigured()) {
+      return err('UNEXPECTED');
+    }
+
+    const patch: Record<string, unknown> = {
+      twilio_account_sid: input.twilio_account_sid || null,
+      twilio_from_number: input.twilio_from_number || null,
+    };
+    if (input.twilio_auth_token) {
+      patch.twilio_auth_token_enc = encrypt(input.twilio_auth_token);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const { error } = await sb.from('shops').update(patch).eq('id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'shops',
+      entityId: ctx.shopId,
+      diff: {
+        after: {
+          twilio_account_sid: patch.twilio_account_sid,
+          twilio_from_number: patch.twilio_from_number,
+          authTokenRotated: Boolean(input.twilio_auth_token),
+        },
+      },
+    });
+    revalidatePath(PATH);
+    return ok({ ok: true });
+  },
+});
+
+export const clearTwilioConfig = withAction({
+  minRole: 'manager',
+  run: async (_input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const { error } = await sb
+      .from('shops')
+      .update({
+        twilio_account_sid: null,
+        twilio_auth_token_enc: null,
+        twilio_from_number: null,
+      })
+      .eq('id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'shops',
+      entityId: ctx.shopId,
+      diff: { twilioCleared: true },
+    });
+    revalidatePath(PATH);
+    return ok({ ok: true });
+  },
+});
+
+export type TestTwilioResult =
+  | { ok: true; sid: string }
+  | {
+      ok: false;
+      errorCode: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'INVALID_INPUT' | 'SEND_FAILED';
+      message?: string;
+    };
+
+/**
+ * Send a real SMS to the operator's own phone to validate Twilio creds
+ * end-to-end. Doesn't persist anything — if validation passes the operator
+ * still hits "Save" to write the creds. Not wrapped in `withAction` because
+ * we want to surface Twilio's actual error message (bad SID, unverified
+ * number, etc.) which `withAction`'s typed error codes can't carry.
+ */
+export async function testTwilioConfig(raw: unknown): Promise<TestTwilioResult> {
+  const parsed = twilioTestSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, errorCode: 'INVALID_INPUT' };
+
+  const { requireRoleInCurrentShop, requireShopMember } = await import('@/lib/auth/server');
+  try {
+    await requireShopMember();
+    await requireRoleInCurrentShop('manager');
+  } catch (e) {
+    const code = e instanceof Error && e.message === 'NO_SHOP' ? 'FORBIDDEN' : 'UNAUTHENTICATED';
+    return { ok: false, errorCode: code };
+  }
+
+  const result = await sendSms(
+    {
+      accountSid: parsed.data.twilio_account_sid,
+      authToken: parsed.data.twilio_auth_token,
+      fromNumber: parsed.data.twilio_from_number,
+    },
+    {
+      to: parsed.data.test_to_number,
+      // Fixed bilingual body — the test is for the OPERATOR, who set up
+      // the shop and reads both languages on the settings page. Cheap to
+      // ship in one segment for most carriers.
+      body: 'Küa — test SMS / SMS de test. Twilio is configured correctly. ✓',
+    },
+  );
+  if (result.sent) return { ok: true, sid: result.sid };
+  return { ok: false, errorCode: 'SEND_FAILED', message: result.message };
+}
+
+// ---------------------------------------------------------------------------
 // Automation toggles
 // ---------------------------------------------------------------------------
 
@@ -244,6 +371,14 @@ export type SenderConfigSnapshot = {
   hasPassword: boolean;
 };
 
+export type TwilioConfigSnapshot = {
+  accountSid: string;
+  fromNumber: string;
+  // hasAuthToken stays a boolean — we never echo the encrypted value back
+  // to the browser. Same write-only pattern as the SMTP password.
+  hasAuthToken: boolean;
+};
+
 export type AutomationRow = {
   id: string;
   // Loop 42 — `waitlist_open` added so the kind matches AutomationKind
@@ -262,6 +397,7 @@ export type AutomationRow = {
 
 export async function loadNotificationsState(shopId: string): Promise<{
   config: SenderConfigSnapshot;
+  twilio: TwilioConfigSnapshot;
   slackWebhookConfigured: boolean;
   automations: AutomationRow[];
   encryptionReady: boolean;
@@ -275,7 +411,11 @@ export async function loadNotificationsState(shopId: string): Promise<{
       // "Connected" badge without ever sending the URL to the client.
       // The page passes only a boolean down to the form.
       .select(
-        'notification_from_email, notification_from_name, notification_smtp_host, notification_smtp_port, notification_smtp_user, notification_smtp_password_enc, slack_webhook_url',
+        // Loop 56 — `twilio_*` columns added so the page can render the
+        // SMS-creds section without a second roundtrip. The auth token
+        // ciphertext is fetched only to set the `hasAuthToken` boolean;
+        // never sent down to the browser.
+        'notification_from_email, notification_from_name, notification_smtp_host, notification_smtp_port, notification_smtp_user, notification_smtp_password_enc, slack_webhook_url, twilio_account_sid, twilio_auth_token_enc, twilio_from_number',
       )
       .eq('id', shopId)
       .single(),
@@ -295,6 +435,9 @@ export async function loadNotificationsState(shopId: string): Promise<{
     notification_smtp_user: string | null;
     notification_smtp_password_enc: string | null;
     slack_webhook_url: string | null;
+    twilio_account_sid: string | null;
+    twilio_auth_token_enc: string | null;
+    twilio_from_number: string | null;
   } | null) ?? {
     notification_from_email: null,
     notification_from_name: null,
@@ -303,6 +446,9 @@ export async function loadNotificationsState(shopId: string): Promise<{
     notification_smtp_user: null,
     notification_smtp_password_enc: null,
     slack_webhook_url: null,
+    twilio_account_sid: null,
+    twilio_auth_token_enc: null,
+    twilio_from_number: null,
   };
 
   return {
@@ -313,6 +459,11 @@ export async function loadNotificationsState(shopId: string): Promise<{
       smtpPort: shop.notification_smtp_port,
       smtpUser: shop.notification_smtp_user ?? '',
       hasPassword: Boolean(shop.notification_smtp_password_enc),
+    },
+    twilio: {
+      accountSid: shop.twilio_account_sid ?? '',
+      fromNumber: shop.twilio_from_number ?? '',
+      hasAuthToken: Boolean(shop.twilio_auth_token_enc),
     },
     slackWebhookConfigured: Boolean(shop.slack_webhook_url),
     automations: (autoRes.data as AutomationRow[] | null) ?? [],

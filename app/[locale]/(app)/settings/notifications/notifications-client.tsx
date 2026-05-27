@@ -12,18 +12,28 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import {
   clearSenderConfig,
+  clearTwilioConfig,
   testSmtpConnection,
+  testTwilioConfig,
   toggleAutomation,
   upsertSenderConfig,
   upsertSlackWebhook,
+  upsertTwilioConfig,
   type AutomationRow,
   type SenderConfigSnapshot,
+  type TwilioConfigSnapshot,
 } from './actions';
 
 type Props = {
   locale: string;
   state: {
     config: SenderConfigSnapshot;
+    /**
+     * Loop 56 — snapshot of the Twilio creds on file. `hasAuthToken`
+     * is a boolean for the same write-only reasoning as `hasPassword`
+     * on the SMTP config; the ciphertext never reaches the browser.
+     */
+    twilio: TwilioConfigSnapshot;
     /**
      * Loop 33 — boolean snapshot ("is a webhook URL on file") rather
      * than the URL itself. The URL is a bearer credential; we never
@@ -70,6 +80,26 @@ export function NotificationsClient({ state }: Props) {
   // Loop 33 — Slack webhook input. Starts blank (write-only).
   const [slackUrl, setSlackUrl] = useState('');
   const [slackConfigured, setSlackConfigured] = useState(state.slackWebhookConfigured);
+
+  // Loop 56 — Twilio form. Auth token is write-only (same pattern as
+  // SMTP password). The test-recipient field is local-only; we don't
+  // persist it because it's the operator's personal phone, not shop data.
+  const [twilioForm, setTwilioForm] = useState({
+    accountSid: state.twilio.accountSid,
+    authToken: '',
+    fromNumber: state.twilio.fromNumber,
+    testTo: '',
+  });
+  const [hasAuthToken, setHasAuthToken] = useState(state.twilio.hasAuthToken);
+  const [testingTwilio, setTestingTwilio] = useState(false);
+  const [twilioTestResult, setTwilioTestResult] = useState<
+    { kind: 'idle' } | { kind: 'ok'; sid: string } | { kind: 'error'; message?: string }
+  >({ kind: 'idle' });
+  // A shop is "Twilio-configured enough to actually send" only when all
+  // three persisted pieces are present. We drive both the Connected badge
+  // and the SMS-toggle gating off this.
+  const twilioConfigured =
+    Boolean(state.twilio.accountSid) && Boolean(state.twilio.fromNumber) && hasAuthToken;
 
   function onSaveSlack(action: 'save' | 'clear') {
     startSave(async () => {
@@ -176,11 +206,83 @@ export function NotificationsClient({ state }: Props) {
     });
   }
 
+  // ── Loop 56 — Twilio handlers ─────────────────────────────────────
+  function setTwilioField<K extends keyof typeof twilioForm>(k: K, v: (typeof twilioForm)[K]) {
+    setTwilioForm((f) => ({ ...f, [k]: v }));
+  }
+
+  function onSaveTwilio() {
+    if (!state.encryptionReady && twilioForm.authToken) {
+      show({ variant: 'danger', title: t('errors.encryptionMissing') });
+      return;
+    }
+    startSave(async () => {
+      const result = await upsertTwilioConfig({
+        twilio_account_sid: twilioForm.accountSid,
+        twilio_auth_token: twilioForm.authToken,
+        twilio_from_number: twilioForm.fromNumber,
+      });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.twilioSaved') });
+        if (twilioForm.authToken) setHasAuthToken(true);
+        // Clear the auth token input — write-only from now on.
+        setTwilioField('authToken', '');
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  function onDisconnectTwilio() {
+    if (!confirm(t('twilio.confirmDisconnect'))) return;
+    startSave(async () => {
+      const result = await clearTwilioConfig({});
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.twilioCleared') });
+        setTwilioForm({ accountSid: '', authToken: '', fromNumber: '', testTo: '' });
+        setHasAuthToken(false);
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  async function onTestTwilio() {
+    if (
+      !twilioForm.accountSid ||
+      !twilioForm.authToken ||
+      !twilioForm.fromNumber ||
+      !twilioForm.testTo
+    ) {
+      setTwilioTestResult({ kind: 'error', message: t('testTwilio.fieldsRequired') });
+      return;
+    }
+    setTestingTwilio(true);
+    setTwilioTestResult({ kind: 'idle' });
+    const res = await testTwilioConfig({
+      twilio_account_sid: twilioForm.accountSid,
+      twilio_auth_token: twilioForm.authToken,
+      twilio_from_number: twilioForm.fromNumber,
+      test_to_number: twilioForm.testTo,
+    });
+    setTestingTwilio(false);
+    if (res.ok) {
+      setTwilioTestResult({ kind: 'ok', sid: res.sid });
+    } else {
+      setTwilioTestResult({ kind: 'error', message: res.message });
+    }
+  }
+
   // Index the email automations by kind for O(1) lookup in the matrix
-  // render. SMS rows live in the DB but we don't pre-load them — the V1.5
-  // gate keeps them visually disabled, so no state binding needed.
+  // render.
   const emailAutomations = AUTOMATION_ORDER.map(
     (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'email')!,
+  ).filter(Boolean);
+  // Loop 56 — SMS automations now toggleable (Twilio pipeline shipped
+  // in Loops 53-55). Rows that aren't seeded for a given (shop,kind)
+  // render as a dash, same as the email column.
+  const smsAutomations = AUTOMATION_ORDER.map(
+    (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'sms')!,
   ).filter(Boolean);
 
   return (
@@ -321,6 +423,126 @@ export function NotificationsClient({ state }: Props) {
           </CardBody>
         </Card>
 
+        {/* ── Loop 56 (P100 slice 4) — Twilio SMS credentials ─────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('twilio.title')}</CardTitle>
+            {twilioConfigured ? (
+              <span className="bg-success/15 ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                <CheckCircle2 className="h-3 w-3" /> {t('twilio.connected')}
+              </span>
+            ) : null}
+          </CardHeader>
+          <CardBody className="space-y-5">
+            <p className="text-sm text-text-secondary">{t('twilio.description')}</p>
+
+            {!state.encryptionReady ? (
+              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded border px-3 py-2 text-xs text-warning">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <span>{t('errors.encryptionMissing')}</span>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="twilio_account_sid" required>
+                  {t('twilio.accountSid')}
+                </Label>
+                <Input
+                  id="twilio_account_sid"
+                  value={twilioForm.accountSid}
+                  onChange={(e) => setTwilioField('accountSid', e.target.value.trim())}
+                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-text-muted">{t('twilio.accountSidHint')}</p>
+              </div>
+              <div>
+                <Label htmlFor="twilio_auth_token" required={!hasAuthToken}>
+                  {t('twilio.authToken')}
+                </Label>
+                <Input
+                  id="twilio_auth_token"
+                  type="password"
+                  value={twilioForm.authToken}
+                  onChange={(e) => setTwilioField('authToken', e.target.value)}
+                  placeholder={hasAuthToken ? t('twilio.authTokenKept') : ''}
+                  autoComplete="new-password"
+                />
+                <p className="mt-1 text-xs text-text-muted">{t('twilio.authTokenHint')}</p>
+              </div>
+              <div>
+                <Label htmlFor="twilio_from_number" required>
+                  {t('twilio.fromNumber')}
+                </Label>
+                <Input
+                  id="twilio_from_number"
+                  value={twilioForm.fromNumber}
+                  onChange={(e) => setTwilioField('fromNumber', e.target.value.trim())}
+                  placeholder="+15145551212"
+                  inputMode="tel"
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-text-muted">{t('twilio.fromNumberHint')}</p>
+              </div>
+              <div>
+                <Label htmlFor="twilio_test_to">{t('twilio.testRecipient')}</Label>
+                <Input
+                  id="twilio_test_to"
+                  value={twilioForm.testTo}
+                  onChange={(e) => setTwilioField('testTo', e.target.value.trim())}
+                  placeholder="+15145551212"
+                  inputMode="tel"
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-text-muted">{t('twilio.testRecipientHint')}</p>
+              </div>
+            </div>
+
+            {twilioTestResult.kind === 'ok' ? (
+              <div className="border-success/40 bg-success/10 flex items-start gap-2 rounded border px-3 py-2 text-xs text-success">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <span>{t('testTwilio.success', { sid: twilioTestResult.sid })}</span>
+              </div>
+            ) : null}
+            {twilioTestResult.kind === 'error' ? (
+              <div className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger">
+                <p className="font-medium">{t('testTwilio.failure')}</p>
+                {twilioTestResult.message ? (
+                  <p className="mt-1 font-mono">{twilioTestResult.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onTestTwilio}
+                  loading={testingTwilio}
+                  disabled={saving}
+                >
+                  <Send className="h-4 w-4" /> {t('testTwilio.button')}
+                </Button>
+                {twilioConfigured ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onDisconnectTwilio}
+                    disabled={saving || testingTwilio}
+                  >
+                    {t('twilio.disconnect')}
+                  </Button>
+                ) : null}
+              </div>
+              <Button type="button" onClick={onSaveTwilio} loading={saving}>
+                {tCommon('actions.save')}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+
         {/* ── Loop 33 (P90) — Slack webhook for owner notifications ── */}
         <Card>
           <CardHeader>
@@ -381,21 +603,17 @@ export function NotificationsClient({ state }: Props) {
                 <tr className="border-b border-border text-[10px] uppercase tracking-wide text-text-muted">
                   <th className="py-2 text-left">{t('automations.columns.kind')}</th>
                   <th className="w-24 py-2 text-center">{t('automations.columns.email')}</th>
-                  <th className="w-32 py-2 text-center">
-                    {t('automations.columns.sms')}{' '}
-                    <span className="ml-1 inline-block rounded bg-bg-surface-2 px-1.5 py-0.5 text-[9px] font-normal text-text-muted">
-                      V1.5
-                    </span>
-                  </th>
+                  <th className="w-32 py-2 text-center">{t('automations.columns.sms')}</th>
                 </tr>
               </thead>
               <tbody>
                 {AUTOMATION_ORDER.map((kind) => {
                   const emailRow = emailAutomations.find((a) => a.kind === kind);
-                  // SMS rows are pre-seeded too but never toggleable in V1
-                  // (cf. the disabled placeholder rendered below), so we
-                  // don't bind their state — the visual is uniform across
-                  // all kinds.
+                  // Loop 56 — SMS row is now controllable, gated on the
+                  // shop having Twilio creds saved. Without creds the
+                  // toggle visually disables and surfaces the tooltip
+                  // pointing the owner at the Twilio section above.
+                  const smsRow = smsAutomations.find((a) => a.kind === kind);
                   return (
                     <tr key={kind} className="border-b border-border last:border-b-0">
                       <td className="py-3">
@@ -416,13 +634,25 @@ export function NotificationsClient({ state }: Props) {
                         )}
                       </td>
                       <td className="py-3 text-center">
-                        <span
-                          className={cn(
-                            'inline-flex h-6 w-11 items-center rounded-full border border-border bg-bg-surface-2 opacity-50',
-                          )}
-                          aria-label="SMS disabled"
-                          title={t('automations.smsTooltip')}
-                        />
+                        {smsRow ? (
+                          twilioConfigured ? (
+                            <Toggle
+                              checked={smsRow.enabled}
+                              onChange={(v) => onToggle(smsRow, v)}
+                              disabled={saving}
+                            />
+                          ) : (
+                            <span
+                              className={cn(
+                                'inline-flex h-6 w-11 items-center rounded-full border border-border bg-bg-surface-2 opacity-50',
+                              )}
+                              aria-label="SMS disabled — configure Twilio above"
+                              title={t('automations.smsTooltip')}
+                            />
+                          )
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
+                        )}
                       </td>
                     </tr>
                   );

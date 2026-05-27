@@ -1017,15 +1017,37 @@
           "success": "Identifiants SMTP validés — ton serveur a accepté la connexion.",
           "failure": "Connexion échouée. Vérifie hôte, port, utilisateur, mot de passe (app password pour Gmail/Outlook avec 2FA)."
         },
+        "twilio": {
+          "title": "SMS Twilio",
+          "connected": "Connecté",
+          "description": "Branche ton propre compte Twilio pour envoyer des rappels SMS aux clients. Chaque salon utilise SON compte (pas de numéro Küa partagé — règles A2P 10DLC). Stocké chiffré (AES-256-GCM).",
+          "accountSid": "Account SID",
+          "accountSidHint": "Commence par « AC », visible dans la Console Twilio (Account Info).",
+          "authToken": "Auth Token",
+          "authTokenHint": "Le secret de l'API Twilio. Stocké chiffré — jamais renvoyé au navigateur.",
+          "authTokenKept": "Conserver l'actuel — laisse vide",
+          "fromNumber": "Numéro émetteur",
+          "fromNumberHint": "Format E.164 (ex. +15145551212). Doit être un numéro acheté/vérifié sur ton compte Twilio.",
+          "testRecipient": "Numéro pour le test",
+          "testRecipientHint": "Ton propre cellulaire — pour valider l'envoi bout-en-bout avant de sauvegarder.",
+          "disconnect": "Déconnecter Twilio",
+          "confirmDisconnect": "Déconnecter Twilio ? Les SMS de ce salon vont arrêter de partir."
+        },
+        "testTwilio": {
+          "button": "Envoyer un SMS de test",
+          "success": "SMS envoyé. Vérifie ton téléphone (sid : {sid}).",
+          "failure": "Envoi échoué. Vérifie le SID, l'Auth Token, et que le numéro émetteur soit bien acheté sur ton compte Twilio.",
+          "fieldsRequired": "Remplis Account SID, Auth Token, numéro émetteur et numéro de test avant d'envoyer."
+        },
         "automations": {
           "title": "Automatisations",
-          "description": "Chaque automatisation peut être activée par canal. Le SMS arrive en V1.5 (nécessitera un compte Twilio par salon).",
+          "description": "Chaque automatisation peut être activée par canal. Les SMS passent par ton compte Twilio — configure-le ci-dessus avant d'activer la colonne SMS.",
           "columns": {
             "kind": "Automatisation",
             "email": "Courriel",
             "sms": "SMS"
           },
-          "smsTooltip": "SMS arrive en V1.5 — nécessite un compte Twilio par salon.",
+          "smsTooltip": "Configure Twilio dans la section ci-dessus pour activer les SMS.",
           "kinds": {
             "booking_confirmation": {
               "label": "Confirmation de réservation",
@@ -1055,7 +1077,9 @@
         },
         "errors": {
           "encryptionMissing": "Clé de chiffrement pas configurée sur le serveur. Demande à Küa de set NOTIFICATION_ENCRYPTION_KEY avant de sauvegarder les identifiants SMTP.",
-          "testFieldsRequired": "Remplis Courriel, hôte, port, utilisateur et mot de passe avant de tester."
+          "testFieldsRequired": "Remplis Courriel, hôte, port, utilisateur et mot de passe avant de tester.",
+          "twilioInvalidSid": "Account SID invalide. Format attendu : « AC » + 32 caractères.",
+          "twilioInvalidPhone": "Numéro invalide. Format attendu : E.164 (ex. +15145551212)."
         },
         "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
         "slack": {
@@ -1070,7 +1094,9 @@
           "configSaved": "Configuration enregistrée",
           "disconnected": "SMTP déconnecté. Les courriels passent par Küa par défaut.",
           "slackSaved": "Webhook Slack enregistré",
-          "slackCleared": "Notifications Slack désactivées"
+          "slackCleared": "Notifications Slack désactivées",
+          "twilioSaved": "Configuration Twilio enregistrée",
+          "twilioCleared": "Twilio déconnecté. Les SMS ne partiront plus de ce salon."
         }
       },
       "auditLog": {

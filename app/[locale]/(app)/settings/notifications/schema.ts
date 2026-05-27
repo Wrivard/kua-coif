@@ -54,3 +54,42 @@ export const slackWebhookSchema = z.object({
 });
 
 export type SlackWebhookInput = z.infer<typeof slackWebhookSchema>;
+
+// ---------------------------------------------------------------------------
+// Loop 56 (P100 slice 4) — Twilio SMS credentials.
+//
+// account_sid is "AC" + 32 hex chars per Twilio docs. We enforce the format
+// upfront so a typo (or pasting the wrong column from the Twilio console)
+// fails validation rather than reaching the API and burning a tick.
+// auth_token is the write-only secret (same pattern as smtp_password):
+// blank = keep the existing ciphertext, non-blank = encrypt + replace.
+// from_number must be E.164 (Twilio rejects anything else).
+// ---------------------------------------------------------------------------
+
+const accountSidRegex = /^AC[a-zA-Z0-9]{32}$/;
+const e164Regex = /^\+[1-9]\d{6,14}$/;
+
+export const twilioConfigSchema = z.object({
+  twilio_account_sid: z
+    .string()
+    .trim()
+    .regex(accountSidRegex, 'INVALID_ACCOUNT_SID')
+    .or(z.literal('')),
+  twilio_auth_token: z.string().trim().max(500).optional().or(z.literal('')),
+  twilio_from_number: z.string().trim().regex(e164Regex, 'INVALID_PHONE_E164').or(z.literal('')),
+});
+
+export type TwilioConfigInput = z.infer<typeof twilioConfigSchema>;
+
+/**
+ * Send a real SMS to the operator's own phone to validate creds end-to-end.
+ * All four fields are required (unlike upsert, where blanks have meaning):
+ * we need the plaintext auth_token to call Twilio, and the test number to
+ * deliver to.
+ */
+export const twilioTestSchema = z.object({
+  twilio_account_sid: z.string().trim().regex(accountSidRegex, 'INVALID_ACCOUNT_SID'),
+  twilio_auth_token: z.string().trim().min(1).max(500),
+  twilio_from_number: z.string().trim().regex(e164Regex, 'INVALID_PHONE_E164'),
+  test_to_number: z.string().trim().regex(e164Regex, 'INVALID_PHONE_E164'),
+});

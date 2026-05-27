@@ -1015,15 +1015,37 @@
           "success": "SMTP credentials verified — your server accepted the connection.",
           "failure": "Connection failed. Double-check host, port, user, and password (app password for Gmail/Outlook with 2FA)."
         },
+        "twilio": {
+          "title": "Twilio SMS",
+          "connected": "Connected",
+          "description": "Wire up your own Twilio account to send SMS reminders to clients. Each shop uses ITS own account (no shared Küa number — A2P 10DLC rules). Stored encrypted (AES-256-GCM).",
+          "accountSid": "Account SID",
+          "accountSidHint": "Starts with 'AC', visible in your Twilio Console (Account Info).",
+          "authToken": "Auth Token",
+          "authTokenHint": "Your Twilio API secret. Stored encrypted — never sent back to the browser.",
+          "authTokenKept": "Keep existing — leave empty",
+          "fromNumber": "From number",
+          "fromNumberHint": "E.164 format (e.g. +15145551212). Must be a number purchased/verified on your Twilio account.",
+          "testRecipient": "Test recipient",
+          "testRecipientHint": "Your own cellphone — to validate the send end-to-end before saving.",
+          "disconnect": "Disconnect Twilio",
+          "confirmDisconnect": "Disconnect Twilio? SMS will stop being sent from this shop."
+        },
+        "testTwilio": {
+          "button": "Send test SMS",
+          "success": "Test SMS sent. Check your phone (sid: {sid}).",
+          "failure": "Send failed. Double-check the SID, Auth Token, and that the From number is purchased on your Twilio account.",
+          "fieldsRequired": "Fill in Account SID, Auth Token, From number, and a test recipient before sending."
+        },
         "automations": {
           "title": "Automations",
-          "description": "Each automation can be toggled per channel. SMS support is coming in V1.5 (will require a per-shop Twilio account).",
+          "description": "Each automation can be toggled per channel. SMS routes through your Twilio account — configure it above before enabling the SMS column.",
           "columns": {
             "kind": "Automation",
             "email": "Email",
             "sms": "SMS"
           },
-          "smsTooltip": "SMS coming in V1.5 — requires a per-shop Twilio account.",
+          "smsTooltip": "Configure Twilio in the section above to enable SMS.",
           "kinds": {
             "booking_confirmation": {
               "label": "Booking confirmation",
@@ -1053,7 +1075,9 @@
         },
         "errors": {
           "encryptionMissing": "Encryption key not configured on the server. Ask Küa to set NOTIFICATION_ENCRYPTION_KEY before saving SMTP credentials.",
-          "testFieldsRequired": "Fill in From email, host, port, user, and password before testing."
+          "testFieldsRequired": "Fill in From email, host, port, user, and password before testing.",
+          "twilioInvalidSid": "Invalid Account SID. Expected format: 'AC' + 32 characters.",
+          "twilioInvalidPhone": "Invalid phone number. Expected format: E.164 (e.g. +15145551212)."
         },
         "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
         "slack": {
@@ -1068,7 +1092,9 @@
           "configSaved": "Sender configuration saved",
           "disconnected": "SMTP disconnected. Emails now use Küa fallback.",
           "slackSaved": "Slack webhook saved",
-          "slackCleared": "Slack notifications disabled"
+          "slackCleared": "Slack notifications disabled",
+          "twilioSaved": "Twilio configuration saved",
+          "twilioCleared": "Twilio disconnected. SMS will stop sending from this shop."
         }
       },
       "auditLog": {
