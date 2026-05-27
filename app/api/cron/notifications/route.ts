@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { AppointmentReminder } from '@/lib/email/templates/appointment-reminder';
+import { dispatchSms } from '@/lib/sms/dispatch';
+import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
 import { captureException } from '@/lib/observability';
 
 /**
@@ -39,7 +41,10 @@ type ApptRow = {
   status: string;
   barber_id: string;
   client_id: string;
-  client: { first_name: string; email: string | null } | null;
+  // Loop 54 (P100) — `phone` added so the SMS branch can route to
+  // the customer. Null phone = SMS-skip even if the shop has Twilio
+  // wired up.
+  client: { first_name: string; email: string | null; phone: string | null } | null;
   shop: {
     name: string;
     timezone: string;
@@ -97,8 +102,9 @@ export async function GET(req: NextRequest) {
       const apptsRes = await sb
         .from('appointments')
         .select(
+          // Loop 54 — `client.phone` pulled for the SMS branch below.
           `id, shop_id, start_at, status, barber_id, client_id,
-           client:clients(first_name, email),
+           client:clients(first_name, email, phone),
            shop:shops(name, timezone, street, municipality, province, phone, default_language),
            appointment_services(services(name)),
            barber:barbers(display_name)`,
@@ -128,83 +134,157 @@ export async function GET(req: NextRequest) {
         ),
       );
 
+      // Loop 54 — parallel lookup for SMS sends. Email and SMS each
+      // get their own row in `notification_sends` (UNIQUE on
+      // appointment_id, kind, channel), so we track them
+      // independently — an appointment might get an email but not an
+      // SMS (shop has no Twilio configured) or vice versa (client
+      // has no email but a phone).
+      const alreadySmsRes = await sb
+        .from('notification_sends')
+        .select('appointment_id')
+        .eq('kind', kind)
+        .eq('channel', 'sms')
+        .in('appointment_id', candidateIds);
+      const alreadySetSms = new Set(
+        ((alreadySmsRes.data as Array<{ appointment_id: string }> | null) ?? []).map(
+          (r) => r.appointment_id,
+        ),
+      );
+
       for (const appt of candidates) {
-        if (alreadySet.has(appt.id)) {
+        if (!appt.client || !appt.shop) {
+          // Missing the joined client/shop row — nothing we can
+          // render for either channel. Count once and move on.
           skipped += 1;
           continue;
         }
-        if (!appt.client?.email || !appt.shop) {
-          skipped += 1;
-          continue;
-        }
-
-        const addressLine = [appt.shop.street, appt.shop.municipality, appt.shop.province]
-          .filter(Boolean)
-          .join(', ');
-
-        const services = (appt.appointment_services ?? [])
-          .map((r) => r.services?.name)
-          .filter((n): n is string => Boolean(n))
-          .map((name) => ({ name }));
 
         const locale: 'fr' | 'en' = appt.shop.default_language === 'en' ? 'en' : 'fr';
 
-        const result = await sendEmail({
-          shopId: appt.shop_id,
-          kind: kind satisfies AutomationKind,
-          to: appt.client.email,
-          subject:
-            kind === 'reminder_24h'
-              ? locale === 'fr'
-                ? `Rappel : ton rendez-vous demain chez ${appt.shop.name}`
-                : `Reminder: your appointment tomorrow at ${appt.shop.name}`
-              : locale === 'fr'
-                ? `Rappel : ton rendez-vous dans 1 heure chez ${appt.shop.name}`
-                : `Reminder: your appointment in 1 hour at ${appt.shop.name}`,
-          template: AppointmentReminder({
-            locale,
-            kind,
-            shop: {
-              name: appt.shop.name,
-              addressLine: addressLine || null,
-              phone: appt.shop.phone,
-              timezone: appt.shop.timezone,
-            },
-            client: { firstName: appt.client.first_name },
-            appointment: {
-              startAt: appt.start_at,
-              services,
-              professionalName: appt.barber?.display_name ?? null,
-            },
-          }),
-          tags: [
-            { name: 'kind', value: kind },
-            { name: 'shop', value: appt.shop_id },
-          ],
-        });
-
-        if (result.sent) {
-          sent += 1;
-          // Record the send for idempotence on the next tick. The unique
-          // constraint guards against the rare double-tick scenario.
-          // Loop 53 — explicit `channel: 'email'` (column has the same
-          // default but defensive against any future schema flip).
-          await sb
-            .from('notification_sends')
-            .insert({
-              appointment_id: appt.id,
-              kind,
-              channel: 'email',
-              via: result.via,
-            })
-            .select('id');
-        } else if (result.reason === 'disabled') {
-          // Automation toggle is off — that's a soft skip, not a failure.
-          // Don't write to notification_sends so flipping the toggle on
-          // mid-cycle picks up the appointment on the next tick.
+        // ── Email branch ────────────────────────────────────────
+        if (alreadySet.has(appt.id) || !appt.client.email) {
           skipped += 1;
         } else {
-          failed += 1;
+          const addressLine = [appt.shop.street, appt.shop.municipality, appt.shop.province]
+            .filter(Boolean)
+            .join(', ');
+
+          const services = (appt.appointment_services ?? [])
+            .map((r) => r.services?.name)
+            .filter((n): n is string => Boolean(n))
+            .map((name) => ({ name }));
+
+          const result = await sendEmail({
+            shopId: appt.shop_id,
+            kind: kind satisfies AutomationKind,
+            to: appt.client.email,
+            subject:
+              kind === 'reminder_24h'
+                ? locale === 'fr'
+                  ? `Rappel : ton rendez-vous demain chez ${appt.shop.name}`
+                  : `Reminder: your appointment tomorrow at ${appt.shop.name}`
+                : locale === 'fr'
+                  ? `Rappel : ton rendez-vous dans 1 heure chez ${appt.shop.name}`
+                  : `Reminder: your appointment in 1 hour at ${appt.shop.name}`,
+            template: AppointmentReminder({
+              locale,
+              kind,
+              shop: {
+                name: appt.shop.name,
+                addressLine: addressLine || null,
+                phone: appt.shop.phone,
+                timezone: appt.shop.timezone,
+              },
+              client: { firstName: appt.client.first_name },
+              appointment: {
+                startAt: appt.start_at,
+                services,
+                professionalName: appt.barber?.display_name ?? null,
+              },
+            }),
+            tags: [
+              { name: 'kind', value: kind },
+              { name: 'shop', value: appt.shop_id },
+            ],
+          });
+
+          if (result.sent) {
+            sent += 1;
+            // Record the send for idempotence on the next tick. The unique
+            // constraint guards against the rare double-tick scenario.
+            // Loop 53 — explicit `channel: 'email'` (column has the same
+            // default but defensive against any future schema flip).
+            await sb
+              .from('notification_sends')
+              .insert({
+                appointment_id: appt.id,
+                kind,
+                channel: 'email',
+                via: result.via,
+              })
+              .select('id');
+          } else if (result.reason === 'disabled') {
+            // Automation toggle is off — that's a soft skip, not a failure.
+            // Don't write to notification_sends so flipping the toggle on
+            // mid-cycle picks up the appointment on the next tick.
+            skipped += 1;
+          } else {
+            failed += 1;
+          }
+        }
+
+        // ── SMS branch (Loop 54) ────────────────────────────────
+        // Mirrors the email branch but routes through `dispatchSms`,
+        // which encapsulates the per-shop Twilio config lookup +
+        // automation-toggle check + notification_sends write. If
+        // the shop hasn't configured Twilio in /settings yet, the
+        // dispatch returns reason='no-config' (silent skip).
+        if (alreadySetSms.has(appt.id) || !appt.client.phone) {
+          skipped += 1;
+        } else {
+          const smsBody =
+            kind === 'reminder_24h'
+              ? reminder24hSms({
+                  locale,
+                  shopName: appt.shop.name,
+                  startAtIso: appt.start_at,
+                  timezone: appt.shop.timezone,
+                  shopPhone: appt.shop.phone,
+                })
+              : reminder1hSms({
+                  locale,
+                  shopName: appt.shop.name,
+                  startAtIso: appt.start_at,
+                  timezone: appt.shop.timezone,
+                  shopPhone: appt.shop.phone,
+                });
+
+          const smsResult = await dispatchSms({
+            shopId: appt.shop_id,
+            appointmentId: appt.id,
+            kind,
+            to: appt.client.phone,
+            body: smsBody,
+            // Loop 55 (slice 3) will wire the status callback URL
+            // — until then, notification_sends.status stays at
+            // whatever Twilio returns from the initial create
+            // (typically 'queued' or 'sending').
+          });
+
+          if (smsResult.sent) {
+            sent += 1;
+          } else if (
+            smsResult.reason === 'disabled' ||
+            smsResult.reason === 'no-config' ||
+            smsResult.reason === 'no-encryption'
+          ) {
+            // Soft skips — shop hasn't activated Twilio or the
+            // platform encryption key isn't set in this env.
+            skipped += 1;
+          } else {
+            failed += 1;
+          }
         }
       }
     } catch (err) {
