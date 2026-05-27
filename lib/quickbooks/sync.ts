@@ -69,7 +69,11 @@ export async function pushAppointmentToQuickbooks(args: {
         .single(),
       admin
         .from('appointments')
-        .select('id, start_at, total_amount, quickbooks_sales_receipt_id')
+        // Loop 52 (P99 follow-up) — `client_id` pulled so we can
+        // route the SalesReceipt under the real customer rather
+        // than the shop's default Walk-in. Null client_id = true
+        // walk-in (no client row) → Walk-in fallback below.
+        .select('id, start_at, total_amount, quickbooks_sales_receipt_id, client_id')
         .eq('id', args.appointmentId)
         .single(),
       admin
@@ -92,6 +96,7 @@ export async function pushAppointmentToQuickbooks(args: {
       start_at: string;
       total_amount: number;
       quickbooks_sales_receipt_id: string | null;
+      client_id: string | null;
     } | null;
 
     if (!shop || !appt) return;
@@ -117,23 +122,74 @@ export async function pushAppointmentToQuickbooks(args: {
     const refreshed = await refreshQbToken(decrypt(shop.quickbooks_refresh_token_enc));
     const accessToken = refreshed.access_token;
 
-    // Step 2 — find-or-create the shop's default "Walk-in"
-    // customer in QB. We cache the ID on the shops row so
-    // subsequent syncs skip the find call.
-    let customerId = shop.quickbooks_default_customer_id;
-    if (!customerId) {
-      const customer = await findOrCreateQbCustomer({
-        realmId: shop.quickbooks_realm_id,
+    // Step 2 — resolve the QB Customer to attach. Two paths:
+    //
+    //   (a) The appointment has a `client_id` → look up the client
+    //       row. If `quickbooks_customer_id` is cached, use it.
+    //       Otherwise find-or-create in QB by DisplayName matching
+    //       (`<first> <last>`) and cache the result.
+    //
+    //   (b) Null `client_id` (legitimate walk-in with no client
+    //       row) → fall back to the shop's cached "Walk-in"
+    //       customer, creating it lazily on first such receipt.
+    //
+    // Loop 49 routed everything through (b); Loop 52 (P99 follow-
+    // up) adds (a) so receipts carry meaningful customer names.
+    let customerId: string;
+    if (appt.client_id) {
+      const clientRes = await admin
+        .from('clients')
+        .select('id, first_name, last_name, quickbooks_customer_id')
+        .eq('id', appt.client_id)
+        .single();
+      const client = clientRes.data as {
+        id: string;
+        first_name: string;
+        last_name: string | null;
+        quickbooks_customer_id: string | null;
+      } | null;
+      if (client?.quickbooks_customer_id) {
+        customerId = client.quickbooks_customer_id;
+      } else if (client) {
+        // Build a DisplayName that QB will accept. Empty `last_name`
+        // → use `first_name` alone; collisions with existing QB
+        // customers of the same name will resolve to the EXISTING
+        // record (find-step succeeds), which is the right user-
+        // visible behaviour even if it sometimes merges two
+        // Küa-distinct clients into one QB row. A V1.5 loop can
+        // disambiguate via phone number when QB exposes the
+        // PrimaryPhone in queries.
+        const displayName = client.last_name
+          ? `${client.first_name} ${client.last_name}`
+          : client.first_name;
+        const customer = await findOrCreateQbCustomer({
+          realmId: shop.quickbooks_realm_id,
+          accessToken,
+          displayName,
+        });
+        customerId = customer.id;
+        // Cache the ID back on the client row so subsequent
+        // receipts for this client skip the QB query.
+        await admin
+          .from('clients')
+          .update({ quickbooks_customer_id: customerId })
+          .eq('id', client.id);
+      } else {
+        // client_id pointed at a row that doesn't exist anymore
+        // (shouldn't happen, but defend-in-depth) — fall through
+        // to Walk-in.
+        customerId = await resolveWalkinCustomer({
+          admin,
+          shop,
+          accessToken,
+        });
+      }
+    } else {
+      customerId = await resolveWalkinCustomer({
+        admin,
+        shop,
         accessToken,
-        // Per-shop "Walk-in" prefix so a shop owner with multiple
-        // companies in QB can tell them apart.
-        displayName: `${shop.name} — Walk-in`,
       });
-      customerId = customer.id;
-      await admin
-        .from('shops')
-        .update({ quickbooks_default_customer_id: customerId })
-        .eq('id', shop.id);
     }
 
     // Step 3 — build SalesReceipt line items. Empty service list
@@ -183,4 +239,40 @@ export async function pushAppointmentToQuickbooks(args: {
       extra: { appointmentId: args.appointmentId, shopId: args.shopId },
     });
   }
+}
+
+/**
+ * Loop 52 — resolve (find-or-create + cache) the shop's default
+ * "Walk-in" customer. Pulled out of the inline path so both the
+ * null-client_id branch and the "client_id pointed at a deleted
+ * row" fallback can share it without duplicating the cache write.
+ */
+async function resolveWalkinCustomer({
+  admin,
+  shop,
+  accessToken,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any;
+  shop: {
+    id: string;
+    name: string;
+    quickbooks_realm_id: string | null;
+    quickbooks_default_customer_id: string | null;
+  };
+  accessToken: string;
+}): Promise<string> {
+  if (shop.quickbooks_default_customer_id) return shop.quickbooks_default_customer_id;
+  const customer = await findOrCreateQbCustomer({
+    realmId: shop.quickbooks_realm_id!,
+    accessToken,
+    // Per-shop prefix so an owner with multiple companies in QB
+    // can tell them apart.
+    displayName: `${shop.name} — Walk-in`,
+  });
+  await admin
+    .from('shops')
+    .update({ quickbooks_default_customer_id: customer.id })
+    .eq('id', shop.id);
+  return customer.id;
 }
