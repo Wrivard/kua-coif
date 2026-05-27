@@ -120,9 +120,9 @@ export function frameAncestorsFor(cfg: WidgetConfig): string {
  * HSL pass would be better, but for hover/active states this is
  * good enough.
  */
-function darkenHex(hex: string, amount: number): string {
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex);
-  if (!m) return hex;
+  if (!m) return null;
   const raw = m[1]!;
   const full =
     raw.length === 3
@@ -131,15 +131,22 @@ function darkenHex(hex: string, amount: number): string {
           .map((c) => c + c)
           .join('')
       : raw;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
+  return {
+    r: parseInt(full.slice(0, 2), 16),
+    g: parseInt(full.slice(2, 4), 16),
+    b: parseInt(full.slice(4, 6), 16),
+  };
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
   const factor = Math.max(0, 1 - amount);
-  const dr = Math.round(r * factor);
-  const dg = Math.round(g * factor);
-  const db = Math.round(b * factor);
-  const toHex = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`;
+  const toHex = (n: number) =>
+    Math.round(n * factor)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
 }
 
 /**
@@ -157,6 +164,22 @@ export function widgetThemeCss(cfg: WidgetConfig): string {
     // purple → purple-hover pair), 16% for active.
     rules.push(`--accent-hover: ${darkenHex(cfg.accent_color, 0.08)};`);
     rules.push(`--accent-active: ${darkenHex(cfg.accent_color, 0.16)};`);
+    // Loop 65 SR-of-SR — the OTHER accent-derived tokens (subtle
+    // backgrounds, focus glow, focus ring). Without these, a
+    // custom red accent gave red buttons but PURPLE focus rings +
+    // PURPLE hover tints. Alpha values match the light-theme
+    // defaults from globals.css; on `.widget-root` they take
+    // precedence over the dark-theme ones via direct-rule
+    // application (variables on the wrapper override anything
+    // inherited from `:root`).
+    const rgb = hexToRgb(cfg.accent_color);
+    if (rgb) {
+      const rgbStr = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+      rules.push(`--accent-subtle: rgba(${rgbStr}, 0.08);`);
+      rules.push(`--accent-subtle-strong: rgba(${rgbStr}, 0.14);`);
+      rules.push(`--accent-glow: 0 0 0 4px rgba(${rgbStr}, 0.16);`);
+      rules.push(`--accent-ring: rgba(${rgbStr}, 0.45);`);
+    }
   }
   if (cfg.font_family === 'geist') {
     rules.push("font-family: 'Geist', system-ui, -apple-system, sans-serif;");

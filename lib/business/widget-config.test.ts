@@ -94,10 +94,23 @@ describe('widgetThemeCss', () => {
     expect(css).toContain('--accent-active: #d60000');
   });
 
+  it('auto-derives --accent-subtle, glow, ring from a custom accent (Loop 65 SR-of-SR)', () => {
+    // Same root cause as the hover derivation: without these, a yellow
+    // accent leaves the FOCUS RING + button hover tints at the
+    // default purple. Alpha values match globals.css light-theme tokens.
+    const css = widgetThemeCss({ ...defaultWidgetConfig, accent_color: '#ff0000' });
+    expect(css).toContain('--accent-subtle: rgba(255, 0, 0, 0.08)');
+    expect(css).toContain('--accent-subtle-strong: rgba(255, 0, 0, 0.14)');
+    expect(css).toContain('--accent-glow: 0 0 0 4px rgba(255, 0, 0, 0.16)');
+    expect(css).toContain('--accent-ring: rgba(255, 0, 0, 0.45)');
+  });
+
   it('handles 3-digit hex by expanding to 6-digit', () => {
     const css = widgetThemeCss({ ...defaultWidgetConfig, accent_color: '#f00' });
     expect(css).toContain('--accent: #f00');
     expect(css).toContain('--accent-hover: #eb0000');
+    // 3-digit hex expansion flows through to the rgba derivations too.
+    expect(css).toContain('rgba(255, 0, 0,');
   });
 
   it('emits font-family for non-system fonts only', () => {
