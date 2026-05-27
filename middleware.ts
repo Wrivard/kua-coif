@@ -97,13 +97,16 @@ function buildEmbedCsp(frameAncestors: string): string {
   const stripeJs = 'https://js.stripe.com';
   const stripeApi = 'https://api.stripe.com';
   const stripeHooks = 'https://hooks.stripe.com';
+  // Sentry — same reasoning as next.config.mjs: client SDK events go to
+  // `*.ingest.sentry.io`; blocked silently if connect-src omits it.
+  const sentryIngest = 'https://*.sentry.io';
   return [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost} ${stripeJs}${isProdRuntime ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHost} https://*.stripe.com`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi} ${sentryIngest}`,
     `frame-src ${turnstileHost} ${stripeJs} ${stripeHooks}`,
     `frame-ancestors ${frameAncestors}`,
     "base-uri 'self'",

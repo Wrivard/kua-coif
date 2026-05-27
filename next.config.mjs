@@ -62,13 +62,21 @@ function buildStrictCsp() {
   const stripeApi = 'https://api.stripe.com';
   const stripeHooks = 'https://hooks.stripe.com';
 
+  // Sentry browser SDK (Phase 81 / Loop 17) POSTs error + performance events
+  // to the `*.ingest.sentry.io` endpoint derived from the DSN. Without this
+  // connect-src entry the SDK initializes fine but every event gets blocked
+  // by CSP — symptoms are silent (no console errors visible to the user,
+  // but zero events land in Sentry). Wildcard covers all ingest regions
+  // (us/eu/relay) without forcing region-specific entries.
+  const sentryIngest = 'https://*.sentry.io';
+
   return [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost} ${stripeJs}${isProd ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHost} https://*.stripe.com`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi} ${sentryIngest}`,
     // `'self'` is required so admin surfaces can iframe their own
     // `/embed/[shopSlug]` route for the live preview pane in
     // /settings/widget. Stripe Elements iframes (`js.stripe.com`,
