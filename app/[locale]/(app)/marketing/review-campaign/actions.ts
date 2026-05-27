@@ -179,13 +179,15 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
         const smsResult = await dispatchSms({
           shopId: shop.id,
           appointmentId: null, // we manage our own ledger
-          // dispatchSms's `kind` field types as AutomationKind. We pass
-          // 'birthday' as a benign placeholder — the dispatcher's only
-          // use of `kind` is the notification_automations gate (which
-          // we want to bypass via appointmentId=null + the automation
-          // gate writes; we let it through here). V2 should add a
-          // 'review_request' kind to AutomationKind.
+          // `kind` is required by the type but unused when
+          // bypassAutomationGate=true. 'birthday' is a benign
+          // placeholder — dispatchSms only reads `kind` for the
+          // matrix-toggle lookup which we're now skipping.
           kind: 'birthday' satisfies AutomationKind,
+          // Loop 63 SR — operator-initiated bulk send. Skip the
+          // notification_automations gate so the campaign fires
+          // regardless of which kinds the shop has toggled off.
+          bypassAutomationGate: true,
           to: appt.client.phone,
           body: smsBody,
           statusCallbackUrl: twilioWebhookUrl(shop.id) ?? undefined,

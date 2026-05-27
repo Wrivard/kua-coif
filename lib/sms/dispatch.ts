@@ -37,6 +37,22 @@ export type DispatchSmsInput = {
    * (Loop 55) reads it back to update `notification_sends.status`.
    */
   statusCallbackUrl?: string;
+  /**
+   * Loop 63 SR — set true for OPERATOR-INITIATED sends (bulk review
+   * campaign, manual lapsed-client outreach, etc.) to bypass the
+   * `notification_automations` toggle. That gate is for AUTOMATED
+   * sends — birthday cron, reminders, etc. — where the shop owner
+   * has a per-shop-kind enable/disable preference. A manager
+   * clicking "Send" in a campaign UI has already expressed intent;
+   * applying the matrix toggle on top would silently swallow their
+   * send if e.g. birthday-SMS was disabled (the previous bug —
+   * review-campaign reused `kind: 'birthday'` as a placeholder and
+   * inherited the gate).
+   *
+   * Default false: automated callers (reminder cron, birthday cron)
+   * still respect the matrix.
+   */
+  bypassAutomationGate?: boolean;
 };
 
 export type DispatchSmsResult =
@@ -69,16 +85,22 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
   // email but scoped to channel='sms'. Falls back to a `true`
   // default when no row exists (opt-in by default, owner can flip
   // off in /settings/notifications once the UI ships).
-  const autoRes = await admin
-    .from('notification_automations')
-    .select('enabled')
-    .eq('shop_id', input.shopId)
-    .eq('kind', input.kind)
-    .eq('channel', 'sms')
-    .limit(1);
-  const automation = ((autoRes.data as Array<{ enabled: boolean }> | null) ?? [])[0];
-  if (automation && !automation.enabled) {
-    return { sent: false, reason: 'disabled' };
+  //
+  // Loop 63 SR — skip the gate entirely for operator-initiated
+  // sends. Bulk campaigns aren't automations; gating them by the
+  // matrix toggle would silently swallow manual clicks.
+  if (!input.bypassAutomationGate) {
+    const autoRes = await admin
+      .from('notification_automations')
+      .select('enabled')
+      .eq('shop_id', input.shopId)
+      .eq('kind', input.kind)
+      .eq('channel', 'sms')
+      .limit(1);
+    const automation = ((autoRes.data as Array<{ enabled: boolean }> | null) ?? [])[0];
+    if (automation && !automation.enabled) {
+      return { sent: false, reason: 'disabled' };
+    }
   }
 
   // Twilio call — decrypt creds, fire, capture errors.
