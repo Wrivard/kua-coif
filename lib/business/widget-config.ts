@@ -107,18 +107,13 @@ export function frameAncestorsFor(cfg: WidgetConfig): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Loop 65 SR — darken a hex color by a fixed amount in linear-RGB space.
+ * Loop 65 SR — parse a CSS hex color (`#rgb` or `#rrggbb`) into RGB.
+ * Returns null on garbage; callers default to the passthrough behavior.
  *
- * Used to auto-derive `--accent-hover` from the owner's chosen
- * `accent_color`. Without this, a yellow accent ends up with a
- * purple hover (the original Küa default left in globals.css),
- * which looks like a bug in production.
- *
- * Linear-RGB darkening is the right approximation for short hops
- * (8-12%) — perceptually close to an HSL `-= 8%` lightness shift
- * without pulling in an HSL conversion lib. For wider hops a true
- * HSL pass would be better, but for hover/active states this is
- * good enough.
+ * Used by both `darkenHex` (hover/active states) and the rgba derivations
+ * in `widgetThemeCss` (subtle/glow/ring tokens). Centralizing the 3-digit
+ * expansion + parse here means a future tweak (e.g. accept 4/8-digit
+ * RGBA hex) only touches one place.
  */
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex);
@@ -138,6 +133,16 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
+/**
+ * Loop 65 SR — darken a hex color by `amount` (0-1) in linear-RGB space.
+ *
+ * Used to derive `--accent-hover` (8%) and `--accent-active` (16%) from
+ * the owner's chosen `accent_color`. Linear-RGB darkening is a
+ * perceptually-close approximation of an HSL lightness shift for short
+ * hops (≤16%) without needing an HSL conversion lib. For wider hops a
+ * true HSL pass would be better, but hover/active states fall in the
+ * sweet spot.
+ */
 function darkenHex(hex: string, amount: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
