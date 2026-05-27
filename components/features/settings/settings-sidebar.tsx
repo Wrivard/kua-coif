@@ -33,25 +33,43 @@ export function SettingsSidebar({ locale }: { locale: string }) {
         <label htmlFor="settings-section" className="sr-only">
           {t('title')}
         </label>
+        {/* Loop 57 SR — <optgroup> preserves the group context (Shop /
+         *  Operations / Pricing / …) that the desktop rail shows as
+         *  headers. Without it, mobile users see a 16-item flat list
+         *  with no visual hierarchy. */}
         <select
           id="settings-section"
           value={current}
           onChange={(e) => router.push(`/${locale}${e.target.value}`)}
           className="focus:ring-accent/30 h-10 w-full rounded-md border border-border bg-bg-surface px-3 text-sm text-text-primary focus:outline-none focus:ring-2"
         >
-          {SETTINGS_NAV.flatMap((group) =>
-            group.items.map((item) => (
-              <option key={item.href} value={item.href}>
-                {t(`items.${item.labelKey}`)}
-              </option>
-            )),
-          )}
+          {SETTINGS_NAV.map((group) => (
+            <optgroup key={group.labelKey} label={t(`groups.${group.labelKey}`)}>
+              {group.items.map((item) => (
+                <option key={item.href} value={item.href}>
+                  {t(`items.${item.labelKey}`)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </div>
 
-      {/* Desktop: persistent left rail. */}
-      <nav aria-label={t('title')} className="hidden w-56 shrink-0 border-r border-border md:block">
-        <div className="sticky top-[var(--header-h)] max-h-[calc(100vh-var(--header-h))] overflow-y-auto px-3 py-4">
+      {/* Desktop: persistent left rail.
+       *
+       *  Loop 57 SR — moved `sticky top-0` to the OUTER nav (was on
+       *  the inner div). The inner-div approach broke once the outer
+       *  scrolled out of view (sticky has nothing to anchor to after
+       *  its parent leaves the viewport). `self-start` is critical:
+       *  flex items stretch to row-height by default, which would
+       *  pin the sub-sidebar to content height and defeat sticky.
+       *  PageHeader inside the content column is also `sticky top-0
+       *  z-30` so the two stick side-by-side without overlapping. */}
+      <nav
+        aria-label={t('title')}
+        className="hidden w-56 shrink-0 self-start border-r border-border md:sticky md:top-0 md:block md:max-h-screen md:overflow-y-auto"
+      >
+        <div className="px-3 py-4">
           <ul className="space-y-6">
             {SETTINGS_NAV.map((group) => (
               <li key={group.labelKey}>
