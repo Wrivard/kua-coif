@@ -112,11 +112,15 @@ export async function GET(req: NextRequest) {
 
       // Filter out appointments we've already notified for this kind. One
       // batched lookup against `notification_sends` rather than N queries.
+      // Loop 53 — scope to `channel='email'` because the table is now
+      // shared with the SMS pipeline; without this filter, an SMS row
+      // would block an EMAIL send for the same appointment+kind.
       const candidateIds = candidates.map((c) => c.id);
       const alreadyRes = await sb
         .from('notification_sends')
         .select('appointment_id')
         .eq('kind', kind)
+        .eq('channel', 'email')
         .in('appointment_id', candidateIds);
       const alreadySet = new Set(
         ((alreadyRes.data as Array<{ appointment_id: string }> | null) ?? []).map(
@@ -183,11 +187,14 @@ export async function GET(req: NextRequest) {
           sent += 1;
           // Record the send for idempotence on the next tick. The unique
           // constraint guards against the rare double-tick scenario.
+          // Loop 53 — explicit `channel: 'email'` (column has the same
+          // default but defensive against any future schema flip).
           await sb
             .from('notification_sends')
             .insert({
               appointment_id: appt.id,
               kind,
+              channel: 'email',
               via: result.via,
             })
             .select('id');
