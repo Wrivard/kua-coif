@@ -477,6 +477,11 @@
           "description": "Send an email + SMS to recent clients who haven't left a review yet. Signed, per-client links.",
           "cta": "Start a campaign"
         },
+        "winback": {
+          "title": "Win-back lapsed clients",
+          "description": "Re-engage clients you haven't seen in 90+ days. Email + SMS with a direct link to your booking page.",
+          "cta": "See lapsed clients"
+        },
         "reviewQr": {
           "title": "Review QR code",
           "description": "Generate a QR code to display in your shop. Clients scan it and leave a Google/Yelp/etc. review.",
@@ -501,6 +506,25 @@
       "comingSoon": {
         "title": "Coming to this page",
         "description": "Bulk campaigns (lapsed-client win-back, mass review request, birthday wishes), segment lists, conversion stats."
+      },
+      "winback": {
+        "title": "Win-back lapsed clients",
+        "subtitle": "Clients with no appointment in {days}+ days who have completed at least one visit. One nudge per client per year.",
+        "emptyTitle": "No lapsed clients",
+        "emptyDescription": "Everyone is either active or has already received a winback this year.",
+        "columns": {
+          "client": "Client",
+          "lastVisit": "Last visit",
+          "contact": "Contact"
+        },
+        "selectAll": "Select all",
+        "send": "Send",
+        "sending": "Sending…",
+        "selectedSummary": "{selected} selected of {total} candidates.",
+        "sentToast": "{sent} message(s) sent.",
+        "partialToast": "{sent} sent out of {attempted}, {failed} failure(s).",
+        "failedToast": "Send failed. Retry or check your email/SMS configuration.",
+        "confirm": "Send a win-back nudge to {count} client(s)?"
       },
       "reviewCampaign": {
         "title": "Review campaign",

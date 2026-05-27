@@ -83,3 +83,21 @@ export function reviewRequestSms(input: {
   }
   return `${input.firstName}, how was your visit at ${input.shopName}? Leave a review: ${input.reviewUrl}`;
 }
+
+/**
+ * Loop 64 — lapsed-client win-back SMS. Sent from /marketing/winback
+ * to clients who completed an appointment 90+ days ago and haven't
+ * been back since. Warm tone, no urgency — pushy SMS to lapsed
+ * clients reads as harassment and burns the channel.
+ */
+export function winbackSms(input: {
+  locale: 'fr' | 'en';
+  shopName: string;
+  firstName: string;
+  bookingUrl: string;
+}): string {
+  if (input.locale === 'fr') {
+    return `${input.firstName}, tu nous manques chez ${input.shopName}. Réserve quand tu veux : ${input.bookingUrl}`;
+  }
+  return `${input.firstName}, we miss you at ${input.shopName}. Book whenever you're ready: ${input.bookingUrl}`;
+}

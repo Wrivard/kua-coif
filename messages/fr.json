@@ -479,6 +479,11 @@
           "description": "Envoie un courriel + SMS à tes clients récents qui n'ont pas encore laissé d'avis. Liens signés et personnalisés.",
           "cta": "Lancer une campagne"
         },
+        "winback": {
+          "title": "Rappel client (lapsed)",
+          "description": "Relance les clients qu'on n'a pas vus depuis 90+ jours. Courriel + SMS avec lien direct vers la page de réservation.",
+          "cta": "Voir les clients absents"
+        },
         "reviewQr": {
           "title": "Code QR pour avis",
           "description": "Génère un code QR à afficher en salon. Les clients le scannent et laissent un avis Google/Yelp/etc.",
@@ -503,6 +508,25 @@
       "comingSoon": {
         "title": "Bientôt sur cette page",
         "description": "Campagnes par lots (relance clients absents, demande d'avis groupée, vœux d'anniversaire), segmentation par liste, statistiques de conversion."
+      },
+      "winback": {
+        "title": "Rappel clients absents",
+        "subtitle": "Clients sans rendez-vous depuis {days}+ jours, ayant déjà complété un rendez-vous. Une relance par client par année.",
+        "emptyTitle": "Aucun client absent",
+        "emptyDescription": "Tous tes clients sont récents ou ont déjà reçu une relance cette année.",
+        "columns": {
+          "client": "Client",
+          "lastVisit": "Dernière visite",
+          "contact": "Contact"
+        },
+        "selectAll": "Tout sélectionner",
+        "send": "Envoyer",
+        "sending": "Envoi…",
+        "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
+        "sentToast": "{sent} message(s) envoyé(s).",
+        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
+        "confirm": "Envoyer un rappel à {count} client(s) ?"
       },
       "reviewCampaign": {
         "title": "Campagne d'avis",
