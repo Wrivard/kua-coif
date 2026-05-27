@@ -2,10 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/notifications",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/quickbooks-refresh",
       "schedule": "15 2 * * *"
     },

@@ -1,0 +1,58 @@
+name: Cron · notifications (every 15 min)
+
+# Vercel Hobby plan only allows daily schedules + max 2 crons, so the
+# */15-minute reminder cron can't live in `vercel.json` (see commit
+# 8f1d2b… for the diagnosis). GitHub Actions handles it for free: it
+# accepts any cron schedule and we already have CI on the repo.
+#
+# Workflow just pings the deployed /api/cron/notifications endpoint with
+# the shared bearer secret. The route itself does all the real work
+# (reminder dispatch via SMTP + Twilio, idempotency via
+# notification_sends). Keeping the workflow this thin means a failure
+# here is a connectivity problem, not a logic bug.
+
+on:
+  schedule:
+    # GitHub Actions cron tip: scheduled jobs can be delayed by 5-30 min
+    # under load, so the actual cadence is closer to "at least every 30
+    # min" in practice. The notifications route windows are ±15 min
+    # already, so a slightly-late tick still catches its appointments —
+    # the existing reminder logic was designed with this slack in mind.
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {} # manual fire from the Actions UI for testing
+
+# If a previous tick is still running when the next fires, cancel the
+# old one — no point queuing up multiple in-flight reminder runs.
+concurrency:
+  group: cron-notifications
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Trigger /api/cron/notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: POST to cron endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Guard against the secrets not being set yet — fail loudly
+          # rather than hitting the endpoint without auth.
+          if [ -z "${APP_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::error::APP_URL or CRON_SECRET secret is missing on the repo. Set both in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # The route is GET-only (Vercel cron and curl-style triggers).
+          # `--fail-with-body` makes curl exit non-zero on 4xx/5xx AND
+          # print the response body, so a 401 from a bad secret or a
+          # 500 from a bug both surface in the workflow log.
+          curl --fail-with-body \
+               --silent \
+               --show-error \
+               --max-time 60 \
+               --header "Authorization: Bearer ${CRON_SECRET}" \
+               "${APP_URL}/api/cron/notifications"
