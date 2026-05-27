@@ -72,10 +72,14 @@ export async function subscribeCalendarWatch({
     expiration?: string; // ms since epoch as a string
   };
   // Google returns `expiration` as a stringified ms timestamp. If
-  // absent (rare — some calendars), default to 7 days out so the
-  // renewal cron still picks it up at a sensible time.
-  const expirationAt = data.expiration
-    ? new Date(Number(data.expiration)).toISOString()
+  // absent (rare — some calendars) OR malformed, default to 7 days
+  // out so the renewal cron still picks it up at a sensible time.
+  // Loop 50 self-review — the old ternary checked truthiness of the
+  // string but didn't guard against `Number()` returning NaN, which
+  // would have thrown at `new Date(NaN).toISOString()`.
+  const parsedMs = data.expiration ? Number(data.expiration) : NaN;
+  const expirationAt = Number.isFinite(parsedMs)
+    ? new Date(parsedMs).toISOString()
     : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   return {
     channelId: data.id,
