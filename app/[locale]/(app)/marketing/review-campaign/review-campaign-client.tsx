@@ -75,21 +75,33 @@ export function ReviewCampaignClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
 
+  // Loop 64 SR — cap the bulk-select at 50 (matches schema cap, which
+  // matches Vercel Hobby's 10s server-action timeout). Without this,
+  // "Select all" on a 100-candidate list would queue 100 → action
+  // rejects with INVALID_INPUT and the operator gets a confusing toast.
+  const BATCH_CAP = 50;
+
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < BATCH_CAP) {
+        next.add(id);
+      }
+      // At cap → silently ignore the toggle-on. Checkbox stays
+      // unchecked. UI hint below tells operator about the limit.
       return next;
     });
   }
-
   function toggleAll() {
-    if (selected.size === candidates.length) setSelected(new Set());
-    else setSelected(new Set(candidates.map((c) => c.appointmentId)));
+    const effective = Math.min(candidates.length, BATCH_CAP);
+    if (selected.size === effective) setSelected(new Set());
+    else setSelected(new Set(candidates.slice(0, effective).map((c) => c.appointmentId)));
   }
 
-  const allSelected = selected.size > 0 && selected.size === candidates.length;
+  const effectiveTotal = Math.min(candidates.length, BATCH_CAP);
+  const allSelected = selected.size > 0 && selected.size === effectiveTotal;
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
   function onSend() {

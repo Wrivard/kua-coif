@@ -74,19 +74,29 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
 
+  // Loop 64 SR — bulk-select cap matches the schema cap (50), which
+  // matches Vercel Hobby's 10s server-action timeout. Above 50 the
+  // action would silently drop the tail.
+  const BATCH_CAP = 50;
+
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < BATCH_CAP) {
+        next.add(id);
+      }
       return next;
     });
   }
   function toggleAll() {
-    if (selected.size === candidates.length) setSelected(new Set());
-    else setSelected(new Set(candidates.map((c) => c.clientId)));
+    const effective = Math.min(candidates.length, BATCH_CAP);
+    if (selected.size === effective) setSelected(new Set());
+    else setSelected(new Set(candidates.slice(0, effective).map((c) => c.clientId)));
   }
-  const allSelected = selected.size > 0 && selected.size === candidates.length;
+  const effectiveTotal = Math.min(candidates.length, BATCH_CAP);
+  const allSelected = selected.size > 0 && selected.size === effectiveTotal;
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
   const fmtLocale: 'fr' | 'en' = locale === 'en' ? 'en' : 'fr';
 
