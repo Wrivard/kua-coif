@@ -85,6 +85,18 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     // ends up wired all the way through Elements.
     const confirmerRef = useRef<ConfirmerHandle | null>(null);
 
+    // Loop 60 SR — read the current theme on mount so Stripe Elements
+    // can render with the matching palette. The init script in
+    // app/[locale]/layout.tsx has already set `data-theme` by the time
+    // this effect runs, so we just read the attribute. Re-reading on
+    // theme toggle isn't worth the complexity — Stripe Elements'
+    // iframe doesn't gracefully re-apply appearance config after mount.
+    const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
+    useEffect(() => {
+      const t = document.documentElement.getAttribute('data-theme');
+      setCurrentTheme(t === 'dark' ? 'dark' : 'light');
+    }, []);
+
     // Stable key over the service set so we don't re-fire the intent
     // creation on every wizard re-render. Pulled out of the effect deps
     // to keep the eslint exhaustive-deps rule happy.
@@ -193,24 +205,43 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     }
 
     // state.kind === 'ready' — render Elements with the clientSecret.
+    //
+    // Loop 60 SR — Stripe Elements is an iframe with its own theming,
+    // so it doesn't inherit `:root[data-theme="dark"]` from the parent
+    // page. We read the current theme on mount and pass Stripe's
+    // `night` theme + dark-palette variables when applicable. If the
+    // user toggles theme mid-flow the iframe doesn't re-render, but
+    // that's an acceptable V1 trade-off — they'd see the previous
+    // theme for the rest of the booking and the next visit picks up
+    // the change correctly.
+    const isDark = currentTheme === 'dark';
     const options: StripeElementsOptions = {
       clientSecret: state.clientSecret,
       appearance: {
-        // Phase 75 — pivoted to Stripe's `stripe` (day) theme since the
-        // app moved from dark to light. The principal tokens match the
-        // Vercel-aligned Küa palette: white-ish input bg, Vercel black
-        // text, Küa purple accent, Vercel saturated blue focus ring
-        // implicit via Stripe's defaults.
-        theme: 'stripe',
-        variables: {
-          colorPrimary: '#8b5cf6',
-          colorBackground: '#ffffff',
-          colorText: '#171717',
-          colorTextSecondary: '#4d4d4d',
-          colorDanger: '#dc2626',
-          fontFamily: 'Geist, system-ui, sans-serif',
-          borderRadius: '8px',
-        },
+        theme: isDark ? 'night' : 'stripe',
+        variables: isDark
+          ? {
+              // Dark variables — keep tokens in lockstep with
+              // globals.css `:root[data-theme='dark']`. The accent
+              // shifts lighter (#a78bfa vs #8b5cf6) for legibility
+              // against the near-black backgrounds.
+              colorPrimary: '#a78bfa',
+              colorBackground: '#1a1a1a',
+              colorText: '#f5f5f5',
+              colorTextSecondary: '#a3a3a3',
+              colorDanger: '#ef4444',
+              fontFamily: 'Geist, system-ui, sans-serif',
+              borderRadius: '8px',
+            }
+          : {
+              colorPrimary: '#8b5cf6',
+              colorBackground: '#ffffff',
+              colorText: '#171717',
+              colorTextSecondary: '#4d4d4d',
+              colorDanger: '#dc2626',
+              fontFamily: 'Geist, system-ui, sans-serif',
+              borderRadius: '8px',
+            },
       },
       locale: locale === 'fr' ? 'fr-CA' : 'en-CA',
     };
