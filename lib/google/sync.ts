@@ -35,6 +35,7 @@ import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
 import { refreshAccessToken } from './server';
 import { createEvent, deleteEvent, fetchBusyPeriods, updateEvent } from './calendar';
+import { stopCalendarWatch, subscribeCalendarWatch } from './webhook';
 
 type ConnectionRow = {
   refresh_token_enc: string;
@@ -269,5 +270,104 @@ export async function deleteAppointmentMirror({
       tags: { layer: 'google-sync', stage: 'delete' },
       extra: { appointmentId },
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Loop 50 (Phase 97) — webhook subscription orchestrators
+// ---------------------------------------------------------------------------
+//
+// `subscribeBarberCalendar` is called either by the OAuth callback
+// (right after a fresh connection) or by a future renewal cron.
+// `unsubscribeBarberCalendar` is called from the disconnect action
+// to politely close the channel on Google's side.
+//
+// Both are best-effort: a failure leaves the row's webhook columns
+// in their previous state and logs to Sentry. The push/pull paths
+// continue to work via the 60s FreeBusy polling.
+
+function webhookUrl(): string | null {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  // Google rejects HTTP and IP-literal hosts — short-circuit when
+  // the base URL is missing or local.
+  if (!base || !base.startsWith('https://')) return null;
+  return `${base}/api/google/calendar-webhook`;
+}
+
+export async function subscribeBarberCalendar(barberId: string): Promise<void> {
+  const url = webhookUrl();
+  if (!url) return; // dev / missing config — skip silently
+  const conn = await resolveConnection(barberId);
+  if (!conn) return;
+  try {
+    const refreshToken = decrypt(conn.refresh_token_enc);
+    const token = await refreshAccessToken(refreshToken);
+    const sub = await subscribeCalendarWatch({
+      accessToken: token.access_token,
+      calendarId: conn.calendar_id,
+      webhookUrl: url,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    await admin
+      .from('barber_google_calendar')
+      .update({
+        webhook_channel_id: sub.channelId,
+        webhook_resource_id: sub.resourceId,
+        webhook_token: sub.channelToken,
+        webhook_expires_at: sub.expirationAt,
+      })
+      .eq('barber_id', barberId);
+  } catch (e) {
+    captureException(e, {
+      tags: { layer: 'google-sync', stage: 'subscribe' },
+      extra: { barberId },
+    });
+  }
+}
+
+export async function unsubscribeBarberCalendar(barberId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  const res = await admin
+    .from('barber_google_calendar')
+    .select('refresh_token_enc, webhook_channel_id, webhook_resource_id')
+    .eq('barber_id', barberId)
+    .maybeSingle();
+  const row = res.data as {
+    refresh_token_enc: string;
+    webhook_channel_id: string | null;
+    webhook_resource_id: string | null;
+  } | null;
+  if (!row || !row.webhook_channel_id || !row.webhook_resource_id) return;
+  try {
+    const refreshToken = decrypt(row.refresh_token_enc);
+    const token = await refreshAccessToken(refreshToken);
+    await stopCalendarWatch({
+      accessToken: token.access_token,
+      channelId: row.webhook_channel_id,
+      resourceId: row.webhook_resource_id,
+    });
+  } catch (e) {
+    captureException(e, {
+      tags: { layer: 'google-sync', stage: 'unsubscribe' },
+      extra: { barberId },
+    });
+  } finally {
+    // Whether the Google-side stop succeeded or not, clear the
+    // columns locally so we don't try to renew a dead channel.
+    try {
+      await admin
+        .from('barber_google_calendar')
+        .update({
+          webhook_channel_id: null,
+          webhook_resource_id: null,
+          webhook_token: null,
+          webhook_expires_at: null,
+        })
+        .eq('barber_id', barberId);
+    } catch {
+      // Swallow — best-effort cleanup.
+    }
   }
 }

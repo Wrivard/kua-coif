@@ -192,6 +192,15 @@ export const disconnectGoogleCalendar = withAction({
       );
     }
 
+    // Loop 50 (Phase 97) — stop the webhook channel BEFORE deleting
+    // the row. The helper reads `refresh_token_enc` +
+    // `webhook_channel_id` etc. off the row to call channels.stop;
+    // once the row is gone we can't unsubscribe politely. The
+    // helper is best-effort + Sentry-captured, so a Google outage
+    // doesn't block the disconnect.
+    const { unsubscribeBarberCalendar } = await import('@/lib/google/sync');
+    await unsubscribeBarberCalendar(input.barber_id);
+
     const delRes = await admin
       .from('barber_google_calendar')
       .delete()

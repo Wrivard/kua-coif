@@ -136,6 +136,16 @@ export async function GET(req: NextRequest) {
       { onConflict: 'barber_id' },
     );
 
+    // Loop 50 (Phase 97) — subscribe the barber's calendar to the
+    // events.watch webhook so changes from outside Küa (event added
+    // directly in Google Calendar, mobile app, another system)
+    // bust our FreeBusy cache instantly. Best-effort: a subscribe
+    // failure just leaves us on the 60s polling fallback. The
+    // subscribe call needs the row we just upserted, hence the
+    // sequential `await` before this point.
+    const { subscribeBarberCalendar } = await import('@/lib/google/sync');
+    void subscribeBarberCalendar(barberId);
+
     return safeRedirect(origin, { google: 'connected' });
   } catch (e) {
     captureException(e, { tags: { layer: 'google-oauth', stage: 'callback' } });
