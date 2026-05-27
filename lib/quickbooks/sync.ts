@@ -29,13 +29,14 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
-import { decrypt, encrypt, encryptionConfigured } from '@/lib/crypto/aes';
+import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import {
   createQbSalesReceipt,
   findOrCreateQbCustomer,
   quickbooksConfigured,
   refreshQbToken,
 } from '@/lib/quickbooks/server';
+import { shopIsoDate } from '@/lib/business/timezone';
 import { captureException } from '@/lib/observability';
 
 export async function pushAppointmentToQuickbooks(args: {
@@ -58,8 +59,11 @@ export async function pushAppointmentToQuickbooks(args: {
     const [shopRes, apptRes, servicesRes] = await Promise.all([
       admin
         .from('shops')
+        // Loop 49 self-review — pull timezone too so the SalesReceipt
+        // TxnDate is computed in the shop's local time. UTC-slicing
+        // an 11pm-ET appointment would land on the NEXT day in QB.
         .select(
-          'id, name, quickbooks_realm_id, quickbooks_refresh_token_enc, quickbooks_connect_status, quickbooks_default_customer_id',
+          'id, name, timezone, quickbooks_realm_id, quickbooks_refresh_token_enc, quickbooks_connect_status, quickbooks_default_customer_id',
         )
         .eq('id', args.shopId)
         .single(),
@@ -77,6 +81,7 @@ export async function pushAppointmentToQuickbooks(args: {
     const shop = shopRes.data as {
       id: string;
       name: string;
+      timezone: string;
       quickbooks_realm_id: string | null;
       quickbooks_refresh_token_enc: string | null;
       quickbooks_connect_status: 'not_started' | 'active' | 'expired' | 'disconnected';
@@ -151,13 +156,14 @@ export async function pushAppointmentToQuickbooks(args: {
           ];
 
     // Step 4 — POST SalesReceipt. `TxnDate` is the appointment's
-    // start (shop-local would be nicer but UTC date is acceptable
-    // for a posting date — QB displays it in the company's tz).
+    // shop-local date (NOT UTC-sliced — a 23h ET appointment would
+    // have a UTC date of next-day, which puts the receipt on the
+    // wrong day in QB).
     const receipt = await createQbSalesReceipt({
       realmId: shop.quickbooks_realm_id,
       accessToken,
       customerId,
-      txnDate: appt.start_at.slice(0, 10),
+      txnDate: shopIsoDate(new Date(appt.start_at), shop.timezone),
       lines,
       privateNote: `Küa appointment ${appt.id}`,
     });
@@ -171,11 +177,6 @@ export async function pushAppointmentToQuickbooks(args: {
       .from('appointments')
       .update({ quickbooks_sales_receipt_id: receipt.id })
       .eq('id', appt.id);
-    // Silence the unused-binding warning when the encrypt import
-    // is only used for the cron path. We keep the import here for
-    // future write-back of the rotated refresh token (the sync
-    // path doesn't persist it today — see comment above).
-    void encrypt;
   } catch (e) {
     captureException(e, {
       tags: { layer: 'qb-sync', stage: 'push-appointment' },
