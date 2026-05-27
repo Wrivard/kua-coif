@@ -326,6 +326,89 @@ export async function subscribeBarberCalendar(barberId: string): Promise<void> {
   }
 }
 
+/**
+ * Loop 51 — channel renewal. Subscribe a new channel + stop the old
+ * one in a single orchestration. Used by the daily renewal cron
+ * (`/api/cron/google-channel-renew`) to rotate channels before the
+ * ~30-day expiry kills them.
+ *
+ * Order matters: we subscribe NEW first, persist its columns,
+ * THEN stop the old. If we stopped first and the new subscribe
+ * failed, the barber's overlay would drop to 60s polling for a
+ * window — by going new-first the worst case is two live channels
+ * for a few seconds (both deliver the same notifications; the
+ * handler dedupes by channel ID lookup).
+ */
+export async function renewBarberCalendarSubscription(barberId: string): Promise<void> {
+  const url = webhookUrl();
+  if (!url) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  const res = await admin
+    .from('barber_google_calendar')
+    .select('refresh_token_enc, calendar_id, webhook_channel_id, webhook_resource_id, sync_status')
+    .eq('barber_id', barberId)
+    .maybeSingle();
+  const row = res.data as {
+    refresh_token_enc: string;
+    calendar_id: string;
+    webhook_channel_id: string | null;
+    webhook_resource_id: string | null;
+    sync_status: 'active' | 'paused' | 'error';
+  } | null;
+  if (!row || row.sync_status === 'paused') return;
+
+  try {
+    const refreshToken = decrypt(row.refresh_token_enc);
+    const token = await refreshAccessToken(refreshToken);
+
+    // Step 1 — new channel.
+    const sub = await subscribeCalendarWatch({
+      accessToken: token.access_token,
+      calendarId: row.calendar_id,
+      webhookUrl: url,
+    });
+
+    // Step 2 — persist new columns. Once this write lands, future
+    // notifications route to the new channel ID; any in-flight
+    // notification on the old channel still validates because the
+    // OLD token is gone — but the handler silently drops mismatches
+    // with 200, so no Google-side retry storm.
+    await admin
+      .from('barber_google_calendar')
+      .update({
+        webhook_channel_id: sub.channelId,
+        webhook_resource_id: sub.resourceId,
+        webhook_token: sub.channelToken,
+        webhook_expires_at: sub.expirationAt,
+      })
+      .eq('barber_id', barberId);
+
+    // Step 3 — politely stop the old channel. Best-effort: a
+    // failure here just leaves an orphan channel on Google's side
+    // that'll naturally expire within the original ~30-day window.
+    if (row.webhook_channel_id && row.webhook_resource_id) {
+      try {
+        await stopCalendarWatch({
+          accessToken: token.access_token,
+          channelId: row.webhook_channel_id,
+          resourceId: row.webhook_resource_id,
+        });
+      } catch (stopError) {
+        captureException(stopError, {
+          tags: { layer: 'google-sync', stage: 'renew-stop-old' },
+          extra: { barberId, oldChannelId: row.webhook_channel_id },
+        });
+      }
+    }
+  } catch (e) {
+    captureException(e, {
+      tags: { layer: 'google-sync', stage: 'renew' },
+      extra: { barberId },
+    });
+  }
+}
+
 export async function unsubscribeBarberCalendar(barberId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createSupabaseServiceRoleClient() as any;

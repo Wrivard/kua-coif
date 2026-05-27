@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/quickbooks-refresh",
       "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/cron/google-channel-renew",
+      "schedule": "30 2 * * *"
     }
   ]
 }
