@@ -51,18 +51,29 @@ function buildStrictCsp() {
   // Turnstile env vars are absent (the widget never loads), but the CSP rule
   // is static so we include them unconditionally.
   const turnstileHost = 'https://challenges.cloudflare.com';
+
+  // Stripe Elements (Phase 56 / Loop 5) injects an iframe from js.stripe.com
+  // for the card-input UI and posts tokenization requests to api.stripe.com.
+  // Without these entries the booking wizard's payment step renders a blank
+  // PaymentElement and Stripe.js silently fails. Card-brand icons load from
+  // *.stripe.com so img-src needs them too. Static includes — when Stripe
+  // env vars are absent the SDK never initializes and the rules are no-ops.
+  const stripeJs = 'https://js.stripe.com';
+  const stripeApi = 'https://api.stripe.com';
+  const stripeHooks = 'https://hooks.stripe.com';
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost}${isProd ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost} ${stripeJs}${isProd ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: https://${supabaseHost}`,
+    `img-src 'self' data: blob: https://${supabaseHost} https://*.stripe.com`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi}`,
     // `'self'` is required so admin surfaces can iframe their own
     // `/embed/[shopSlug]` route for the live preview pane in
-    // /settings/widget. Without it the browser blocks the iframe and
-    // shows its broken-iframe placeholder.
-    `frame-src 'self' ${turnstileHost}`,
+    // /settings/widget. Stripe Elements iframes (`js.stripe.com`,
+    // `hooks.stripe.com` for 3DS) gate the booking payment step.
+    `frame-src 'self' ${turnstileHost} ${stripeJs} ${stripeHooks}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

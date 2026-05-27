@@ -90,14 +90,21 @@ function buildEmbedCsp(frameAncestors: string): string {
   // next.config.mjs. The embed iframe also runs the booking wizard, so it
   // needs Turnstile entries too if the env vars are configured.
   const turnstileHost = 'https://challenges.cloudflare.com';
+  // Stripe Elements is rendered inside the embed booking wizard too — without
+  // these the payment step's PaymentElement renders blank. Keep aligned with
+  // the next.config.mjs equivalents; drift between the two CSPs is exactly
+  // the kind of bug Loop 59 SR caught.
+  const stripeJs = 'https://js.stripe.com';
+  const stripeApi = 'https://api.stripe.com';
+  const stripeHooks = 'https://hooks.stripe.com';
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost}${isProdRuntime ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${turnstileHost} ${stripeJs}${isProdRuntime ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: https://${supabaseHost}`,
+    `img-src 'self' data: blob: https://${supabaseHost} https://*.stripe.com`,
     "font-src 'self' data:",
-    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost}`,
-    `frame-src ${turnstileHost}`,
+    `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost} ${stripeApi}`,
+    `frame-src ${turnstileHost} ${stripeJs} ${stripeHooks}`,
     `frame-ancestors ${frameAncestors}`,
     "base-uri 'self'",
     "form-action 'self'",
