@@ -573,6 +573,38 @@
     },
     "settings": {
       "title": "Réglages",
+      "nav": {
+        "title": "Section des réglages",
+        "groups": {
+          "shop": "Salon",
+          "operations": "Opérations",
+          "pricing": "Tarification",
+          "integrations": "Intégrations",
+          "security": "Sécurité",
+          "audit": "Vérification"
+        },
+        "items": {
+          "shopDetails": "Détails du salon",
+          "users": "Utilisateurs",
+          "barberSettings": "Réglages barbiers",
+          "commissions": "Commissions et pourboires",
+          "waitingList": "Liste d'attente",
+          "taxes": "Taxes",
+          "discounts": "Rabais",
+          "loyalty": "Programme de fidélité",
+          "promoCodes": "Codes promo",
+          "notifications": "Notifications",
+          "payments": "Paiements (Stripe + QuickBooks)",
+          "widget": "Widget de réservation",
+          "reviewsModeration": "Modération des avis",
+          "password": "Mot de passe",
+          "twoFactor": "Double authentification",
+          "auditLog": "Journal d'audit"
+        },
+        "badges": {
+          "new": "Nouveau"
+        }
+      },
       "shop": {
         "title": "Détails du salon",
         "sections": {

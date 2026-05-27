@@ -571,6 +571,38 @@
     },
     "settings": {
       "title": "Settings",
+      "nav": {
+        "title": "Settings section",
+        "groups": {
+          "shop": "Shop",
+          "operations": "Operations",
+          "pricing": "Pricing",
+          "integrations": "Integrations",
+          "security": "Security",
+          "audit": "Audit"
+        },
+        "items": {
+          "shopDetails": "Shop details",
+          "users": "Users",
+          "barberSettings": "Barber settings",
+          "commissions": "Commissions & tips",
+          "waitingList": "Waiting list",
+          "taxes": "Taxes",
+          "discounts": "Discounts",
+          "loyalty": "Loyalty program",
+          "promoCodes": "Promo codes",
+          "notifications": "Notifications",
+          "payments": "Payments (Stripe + QuickBooks)",
+          "widget": "Booking widget",
+          "reviewsModeration": "Reviews moderation",
+          "password": "Password",
+          "twoFactor": "Two-factor auth",
+          "auditLog": "Audit log"
+        },
+        "badges": {
+          "new": "New"
+        }
+      },
       "shop": {
         "title": "Shop details",
         "sections": {
