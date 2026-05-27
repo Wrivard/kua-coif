@@ -147,6 +147,98 @@
   color-scheme: light;
 }
 
+/* =========================================================================
+ * DARK THEME — Loop 60.
+ *
+ * Overrides every token defined under `:root`. The whole component tree
+ * reads its colors through `var(--*)` so a single attribute swap on the
+ * <html> element flips the entire app — no `dark:` Tailwind variants
+ * needed anywhere downstream.
+ *
+ * Triggered by `<html data-theme="dark">` (or `class="dark"` as a
+ * compatibility selector — the Phase 36 → Vercel pivot left the class on
+ * the layout but with light CSS vars; we honor it now so behavior is
+ * intuitive). The `lib/theme.ts` helper + `<ThemeToggle>` component manage
+ * the attribute and persist the user's choice to localStorage.
+ *
+ * Palette mirrors the original Phase 36 dark system (#1b1b1b family) but
+ * tuned to match the Vercel-style 4-layer shadow + alpha-border system —
+ * white alphas replace black alphas, accent purple shifts lighter for
+ * legibility on the dark canvas.
+ * ========================================================================= */
+:root[data-theme='dark'],
+:root.dark {
+  /* ─── Surfaces ──────────────────────────────────────────────────────── */
+  --bg-base: #0a0a0a; /* near-black canvas (warmer than #000) */
+  --bg-surface: #141414; /* cards, sticky headers, sidebar */
+  --bg-surface-2: #1f1f1f; /* hover states, inputs */
+  --bg-elevated: #1a1a1a; /* dropdowns, popovers, modals */
+  --bg-overlay: rgba(0, 0, 0, 0.7); /* modal backdrop — stronger on dark */
+
+  /* ─── Borders — white alphas (mirror of light theme's black alphas) ── */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-faint: rgba(255, 255, 255, 0.04);
+
+  /* ─── Text (inverted gray scale) ────────────────────────────────────── */
+  --text-primary: #f5f5f5; /* near-white headings */
+  --text-secondary: #a3a3a3; /* Gray 400 — body */
+  --text-muted: #737373; /* Gray 500 — captions */
+  --text-disabled: #525252; /* Gray 600 — disabled */
+
+  /* ─── Accent — purple shifted lighter for dark-canvas legibility ───── */
+  --accent: #a78bfa; /* purple-400 — was 500 on light */
+  --accent-hover: #c4b5fd; /* purple-300 on hover */
+  --accent-active: #ddd6fe; /* purple-200 on active */
+  --accent-fg: #18181b; /* dark text on accent (high contrast) */
+  --accent-subtle: rgba(167, 139, 250, 0.12);
+  --accent-subtle-strong: rgba(167, 139, 250, 0.2);
+  --accent-glow: 0 0 0 4px rgba(167, 139, 250, 0.2);
+  --accent-ring: rgba(167, 139, 250, 0.55);
+
+  /* ─── Focus ring (Vercel blue, brightened for dark) ─────────────────── */
+  --focus-ring: hsla(212, 100%, 60%, 1);
+  --focus-ring-bg: rgba(96, 165, 250, 0.5);
+
+  /* ─── Status colors (slightly brighter + higher-alpha subtle bg) ────── */
+  --success: #22c55e;
+  --success-subtle: rgba(34, 197, 94, 0.16);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.16);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.16);
+  --info: #3b82f6;
+  --info-subtle: rgba(59, 130, 246, 0.16);
+
+  /* ─── Calendar appointment blocks ───────────────────────────────────── */
+  --appt-green: #14532d; /* green-900 — confirmed/completed */
+  --appt-purple: #4c1d95; /* purple-900 — default */
+  --appt-blue: #1e3a8a; /* blue-900 — booked */
+
+  /* ─── Elevation — darker rgba alphas so shadows still register ──────── */
+  --shadow-sm: rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.3) 0 2px 2px;
+  --shadow-md:
+    rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.3) 0 2px 4px, rgba(0, 0, 0, 0.4) 0 8px 8px -8px;
+  --shadow-lg:
+    rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.4) 0 4px 8px, rgba(0, 0, 0, 0.3) 0 12px 16px -8px;
+  --shadow-xl:
+    rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.5) 0 8px 16px,
+    rgba(0, 0, 0, 0.4) 0 20px 32px -12px;
+
+  /* Inner highlight — subtle white at top of cards for "lit from within"
+   * effect (mirror of the light theme's white-on-white tone-on-tone). */
+  --inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+
+  /* Shadow-as-border — white alphas (mirror of light) */
+  --shadow-border: rgba(255, 255, 255, 0.1) 0 0 0 1px;
+  --shadow-border-strong: rgba(255, 255, 255, 0.16) 0 0 0 1px;
+
+  /* Force dark color-scheme so native UI (scrollbars, form controls)
+   * uses the OS dark variant. */
+  color-scheme: dark;
+}
+
 html,
 body {
   background-color: var(--bg-base);

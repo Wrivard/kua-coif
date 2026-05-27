@@ -1355,6 +1355,11 @@
       "prev": "Prev",
       "next": "Next",
       "pageOf": "Page {page} of {total} · {rows} rows"
+    },
+    "theme": {
+      "label": "Theme",
+      "switchToDark": "Dark mode",
+      "switchToLight": "Light mode"
     }
   },
   "legal": {

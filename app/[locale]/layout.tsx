@@ -8,6 +8,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { CookieBanner } from '@/components/ui/cookie-banner';
 import { locales, type Locale } from '@/i18n';
+import { THEME_INIT_SCRIPT } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'Küa — Salon Management',
@@ -37,7 +38,20 @@ export default async function LocaleLayout({
     // were seeing the fallback ui-sans-serif). The two CSS variables
     // (`--font-geist-sans`, `--font-geist-mono`) are referenced by
     // tailwind's `font-sans` and `font-mono` utilities.
-    <html lang={locale} className={`${GeistSans.variable} ${GeistMono.variable} dark`}>
+    //
+    // Loop 60 — `dark` class no longer hardcoded. The inline script
+    // below (in <head>) runs synchronously before paint and sets the
+    // `data-theme` attribute based on localStorage + prefers-color-
+    // scheme. No FOUC on either theme.
+    <html lang={locale} className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <head>
+        {/* Loop 60 — FOUC-safe theme init. Must execute synchronously
+         *  in <head> BEFORE the body renders, otherwise the first paint
+         *  flashes the wrong theme. The script is hand-inlined (vs a
+         *  React component) so React's hydration isn't a prerequisite.
+         *  Source of truth: `lib/theme.ts`. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-bg-base font-sans text-text-primary antialiased">
         {/* Skip-to-content link — visible only when focused with Tab. */}
         <a

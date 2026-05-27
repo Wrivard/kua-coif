@@ -11,6 +11,7 @@ import { isItemActive, NAV_ITEMS, stripLocale, type NavItem } from '@/lib/nav-it
 import { locales } from '@/i18n';
 import { signOutAction } from '@/lib/auth/actions';
 import { selectShop } from '@/app/[locale]/(app)/actions-shop-switcher';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export type SidebarUser = {
   id: string;
@@ -325,6 +326,11 @@ export function SidebarNavInner({
           label={t('switchLanguage')}
           onClick={onNavigate}
         />
+
+        {/* Loop 60 — dark/light theme toggle sits between the locale
+         *  switcher and the sign-out button so the three "global
+         *  controls" rows cluster visually at the foot of the rail. */}
+        <ThemeToggle expanded={expanded} onClick={onNavigate} />
 
         <form action={signOutAction}>
           <input type="hidden" name="locale" value={locale} />

@@ -1357,6 +1357,11 @@
       "prev": "Précédent",
       "next": "Suivant",
       "pageOf": "Page {page} sur {total} · {rows} entrées"
+    },
+    "theme": {
+      "label": "Thème",
+      "switchToDark": "Mode sombre",
+      "switchToLight": "Mode clair"
     }
   },
   "legal": {
