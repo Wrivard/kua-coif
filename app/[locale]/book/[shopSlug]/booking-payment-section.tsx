@@ -93,8 +93,12 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     // iframe doesn't gracefully re-apply appearance config after mount.
     const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
     useEffect(() => {
-      const t = document.documentElement.getAttribute('data-theme');
-      setCurrentTheme(t === 'dark' ? 'dark' : 'light');
+      // Local `themeAttr` rather than `t` because the outer scope
+      // already has `const t = useTranslations(...)` — shadowing
+      // with a string would silently break anyone who later tries
+      // to call `t(...)` inside this effect.
+      const themeAttr = document.documentElement.getAttribute('data-theme');
+      setCurrentTheme(themeAttr === 'dark' ? 'dark' : 'light');
     }, []);
 
     // Stable key over the service set so we don't re-fire the intent

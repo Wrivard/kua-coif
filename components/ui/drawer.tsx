@@ -70,9 +70,10 @@ export function Drawer({
           // Mobile: bottom sheet — full-width, anchored to bottom, rounded
           // top corners only, slide up from below when closed.
           'absolute inset-x-0 bottom-0 flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-bg-elevated text-text-primary shadow-xl transition-transform duration-200 ease-out-quint',
-          // Desktop: side panel — back to inset-y-0 full height, rounded
-          // corners reset, slides horizontally from the chosen side.
-          'md:inset-x-auto md:bottom-auto md:top-0 md:max-h-none md:rounded-none md:rounded-t-none',
+          // Desktop: side panel — back to inset-y-0 full height, square
+          // corners (the mobile `rounded-t-2xl` is overridden by
+          // `md:rounded-none`), slides horizontally from the chosen side.
+          'md:inset-x-auto md:bottom-auto md:top-0 md:max-h-none md:rounded-none',
           'md:h-full',
           // Width applies only on md+ where the side panel makes sense;
           // on mobile we always go full width. `width` already carries
