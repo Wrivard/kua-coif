@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { setRequestLocale, getTranslations } from 'next-intl/server';
-import { Megaphone, QrCode, Star, Tag, MessageSquare } from 'lucide-react';
+import { Megaphone, QrCode, Star, Tag, MessageSquare, Send } from 'lucide-react';
 import { requireShopMember } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardBody } from '@/components/ui/card';
@@ -36,12 +36,19 @@ export default async function MarketingPage({
 
   const cards = [
     {
+      icon: Send,
+      title: t('cards.reviewCampaign.title'),
+      description: t('cards.reviewCampaign.description'),
+      href: `/${locale}/marketing/review-campaign`,
+      cta: t('cards.reviewCampaign.cta'),
+      featured: true,
+    },
+    {
       icon: QrCode,
       title: t('cards.reviewQr.title'),
       description: t('cards.reviewQr.description'),
       href: `/${locale}/marketing/reviews-qr`,
       cta: t('cards.reviewQr.cta'),
-      featured: true,
     },
     {
       icon: Tag,

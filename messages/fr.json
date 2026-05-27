@@ -474,6 +474,11 @@
       "subtitle": "Outils pour attirer, retenir et inciter les clients à laisser des avis.",
       "soon": "Campagnes, promos — Phase 8.",
       "cards": {
+        "reviewCampaign": {
+          "title": "Campagne d'avis (par lots)",
+          "description": "Envoie un courriel + SMS à tes clients récents qui n'ont pas encore laissé d'avis. Liens signés et personnalisés.",
+          "cta": "Lancer une campagne"
+        },
         "reviewQr": {
           "title": "Code QR pour avis",
           "description": "Génère un code QR à afficher en salon. Les clients le scannent et laissent un avis Google/Yelp/etc.",
@@ -498,6 +503,26 @@
       "comingSoon": {
         "title": "Bientôt sur cette page",
         "description": "Campagnes par lots (relance clients absents, demande d'avis groupée, vœux d'anniversaire), segmentation par liste, statistiques de conversion."
+      },
+      "reviewCampaign": {
+        "title": "Campagne d'avis",
+        "subtitle": "Clients ayant complété un rendez-vous dans les {days} derniers jours, sans avis et sans demande déjà envoyée.",
+        "emptyTitle": "Aucun candidat",
+        "emptyDescription": "Tous les clients récents ont déjà reçu une demande ou ont laissé un avis. Reviens dans quelques jours.",
+        "columns": {
+          "client": "Client",
+          "lastVisit": "Dernière visite",
+          "services": "Services",
+          "contact": "Contact"
+        },
+        "selectAll": "Tout sélectionner",
+        "send": "Envoyer",
+        "sending": "Envoi…",
+        "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
+        "sentToast": "{sent} message(s) envoyé(s).",
+        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
+        "confirm": "Envoyer une demande d'avis à {count} client(s) ?"
       },
       "reviewQr": {
         "title": "Code QR pour avis",

@@ -472,6 +472,11 @@
       "subtitle": "Tools to attract, retain, and ask clients for reviews.",
       "soon": "Campaigns, promos — Phase 8.",
       "cards": {
+        "reviewCampaign": {
+          "title": "Review campaign (bulk)",
+          "description": "Send an email + SMS to recent clients who haven't left a review yet. Signed, per-client links.",
+          "cta": "Start a campaign"
+        },
         "reviewQr": {
           "title": "Review QR code",
           "description": "Generate a QR code to display in your shop. Clients scan it and leave a Google/Yelp/etc. review.",
@@ -496,6 +501,26 @@
       "comingSoon": {
         "title": "Coming to this page",
         "description": "Bulk campaigns (lapsed-client win-back, mass review request, birthday wishes), segment lists, conversion stats."
+      },
+      "reviewCampaign": {
+        "title": "Review campaign",
+        "subtitle": "Clients with a completed appointment in the last {days} days, no review yet, no request already sent.",
+        "emptyTitle": "No candidates",
+        "emptyDescription": "Every recent client has either left a review or already received a request. Check back in a few days.",
+        "columns": {
+          "client": "Client",
+          "lastVisit": "Last visit",
+          "services": "Services",
+          "contact": "Contact"
+        },
+        "selectAll": "Select all",
+        "send": "Send",
+        "sending": "Sending…",
+        "selectedSummary": "{selected} selected of {total} candidates.",
+        "sentToast": "{sent} message(s) sent.",
+        "partialToast": "{sent} sent out of {attempted}, {failed} failure(s).",
+        "failedToast": "Send failed. Retry or check your email/SMS configuration.",
+        "confirm": "Send a review request to {count} client(s)?"
       },
       "reviewQr": {
         "title": "Review QR code",

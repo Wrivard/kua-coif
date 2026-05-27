@@ -61,3 +61,25 @@ export function birthdayGreetingSms(input: {
   }
   return `Happy birthday ${input.firstName}! Have a great day from ${input.shopName} 🎂`;
 }
+
+/**
+ * Loop 63 — bulk review-request SMS. Sent from /marketing/review-campaign
+ * to clients with a recent completed appointment but no review yet.
+ * The `reviewUrl` is the signed-token /review/[token] link; SMS link
+ * shorteners are NOT used (a shortened URL on an unsolicited message
+ * tends to look like phishing — full URL is friendlier even if longer).
+ *
+ * The base body is ~80-90 chars before the URL; signed tokens are
+ * ~140 chars. Total stays under the 2-segment cap on most messages.
+ */
+export function reviewRequestSms(input: {
+  locale: 'fr' | 'en';
+  shopName: string;
+  firstName: string;
+  reviewUrl: string;
+}): string {
+  if (input.locale === 'fr') {
+    return `${input.firstName}, comment s'est passée ta visite chez ${input.shopName} ? Laisse un avis : ${input.reviewUrl}`;
+  }
+  return `${input.firstName}, how was your visit at ${input.shopName}? Leave a review: ${input.reviewUrl}`;
+}
