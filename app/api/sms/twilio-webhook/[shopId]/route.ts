@@ -103,21 +103,37 @@ export async function POST(req: NextRequest, { params }: { params: { shopId: str
   //    so an unrelated email row with the same provider_message_id
   //    can't be touched (shouldn't happen — emails use Resend ids
   //    — but cheap belt-and-braces).
-  const update: Record<string, string> = { status: messageStatus.toLowerCase() };
-  const { error } = await admin
+  //
+  //    Loop 55 SR — `.select('id')` so we can detect the "0 rows
+  //    matched" case. There's a narrow race window where Twilio's
+  //    callback can arrive before dispatch.ts has finished
+  //    INSERTing the row (sendSms returns → Twilio fires before
+  //    our INSERT roundtrip completes). In practice this is <50ms
+  //    vs Twilio's typical 500ms+ to first callback, but if it
+  //    EVER fires in prod we want to know — the status update is
+  //    silently lost otherwise.
+  const { data: updated, error } = await admin
     .from('notification_sends')
-    .update(update)
+    .update({ status: messageStatus.toLowerCase() })
     .eq('provider_message_id', messageSid)
-    .eq('channel', 'sms');
+    .eq('channel', 'sms')
+    .select('id');
   if (error) {
     captureException(new Error(`[twilio-webhook] update failed: ${error.message ?? 'unknown'}`), {
       tags: { layer: 'twilio-webhook' },
       extra: { shopId: params.shopId, messageSid },
     });
-    // Return 200 anyway so Twilio doesn't retry — the row may
-    // simply not exist (e.g. the cron crashed after Twilio
-    // accepted the send but before we wrote the row). Logging it
-    // is enough.
+    // Return 204 anyway so Twilio doesn't retry — logging is
+    // enough to investigate.
+  } else if (!updated || (updated as Array<{ id: string }>).length === 0) {
+    // Race: Twilio called us back before dispatch.ts wrote the
+    // row, OR the row was hard-deleted, OR we're seeing a
+    // replay for a SID we never issued. Tag distinctly so a
+    // spike vs background noise is obvious in Sentry.
+    captureException(new Error(`[twilio-webhook] no notification_sends row for sid`), {
+      tags: { layer: 'twilio-webhook', kind: 'orphan-status' },
+      extra: { shopId: params.shopId, messageSid, messageStatus },
+    });
   }
 
   // Twilio expects a 2xx — anything else triggers their retry
