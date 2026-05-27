@@ -125,6 +125,10 @@ type ExportedClient = {
     last_name: string | null;
     email: string | null;
     phone: string | null;
+    // Loop 62 SR — Loi 25 Art. 27 right-to-portability requires
+    // exporting every personal data point we hold. DOB joined the
+    // schema in Loop 62; gap closed here.
+    date_of_birth: string | null;
     notes: string | null;
     created_at: string;
     anonymized_at: string | null;
@@ -153,7 +157,11 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
 
     const clientRes = await admin
       .from('clients')
-      .select('id, shop_id, first_name, last_name, email, phone, notes, created_at, anonymized_at')
+      .select(
+        // Loop 62 SR — `date_of_birth` added to the SELECT so the
+        // exported JSON carries it (Loi 25 Art. 27).
+        'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at',
+      )
       .eq('id', input.id)
       .single();
     const client = clientRes.data as (ExportedClient['client'] & { shop_id: string }) | null;
@@ -252,6 +260,12 @@ export const anonymizeClient = withAction({
         last_name: null,
         email: ANON_EMAIL,
         phone: ANON_PHONE,
+        // Loop 62 SR — DOB is PII under Loi 25. Anonymization must
+        // wipe it alongside name/email/phone. The cron's
+        // `anonymized_at IS NULL` guard already stops birthday
+        // messages, but the column would still leak the date if
+        // anyone queried it after anonymization. Null it out.
+        date_of_birth: null,
         notes: ANON_NOTES,
         anonymized_at: new Date().toISOString(),
       })
