@@ -220,16 +220,24 @@ export async function createShopAction(
     //    a populated list on first open. Best-effort; a failure here just
     //    means the dispatcher's automation gate will fail-open (send by
     //    default until the row exists).
+    //
+    //    Loop 56 SR — `waitlist_open` rows added for both channels. They
+    //    were missing from the original Phase 25 seed; the AutomationKind
+    //    union (added in Loop 42) and the UI's AUTOMATION_ORDER expect
+    //    them. The schema-side widen + backfill ships in the
+    //    20260527030000 migration.
     const automationSeed = [
       { kind: 'booking_confirmation', channel: 'email', enabled: true },
       { kind: 'reminder_24h', channel: 'email', enabled: false },
       { kind: 'reminder_1h', channel: 'email', enabled: false },
       { kind: 'cancellation', channel: 'email', enabled: true },
+      { kind: 'waitlist_open', channel: 'email', enabled: false },
       { kind: 'birthday', channel: 'email', enabled: false },
       { kind: 'booking_confirmation', channel: 'sms', enabled: false },
       { kind: 'reminder_24h', channel: 'sms', enabled: false },
       { kind: 'reminder_1h', channel: 'sms', enabled: false },
       { kind: 'cancellation', channel: 'sms', enabled: false },
+      { kind: 'waitlist_open', channel: 'sms', enabled: false },
       { kind: 'birthday', channel: 'sms', enabled: false },
     ].map((r) => ({ shop_id: shopId, ...r }));
     const autoRes = await sb.from('notification_automations').insert(automationSeed);
