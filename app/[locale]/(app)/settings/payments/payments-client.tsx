@@ -183,18 +183,12 @@ export function PaymentsClient({ profile, currentUser, stripe, quickbooks }: Pro
           </CardBody>
         </Card>
 
-        {/* ─── Rapid Transfer promo (V1 placeholder) ─────────────────── */}
-        <Card className="lg:col-span-3">
-          <CardBody className="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-text-primary">{t('rapidTransfer.title')}</p>
-              <p className="mt-1 text-xs text-text-secondary">{t('rapidTransfer.body')}</p>
-            </div>
-            <Button variant="secondary" size="sm" disabled>
-              {t('rapidTransfer.cta')}
-            </Button>
-          </CardBody>
-        </Card>
+        {/* Loop 59 hotfix — the "Rapid Transfer" promo card was a
+         *  SPEC mockup with a permanently-disabled "Activate Rapid
+         *  Transfer" button. Removed because it implied a feature
+         *  that doesn't exist; the strings remain in messages/* so
+         *  we can resurrect it if/when Stripe Instant Payouts ship.
+         */}
       </div>
 
       {/* ─── Edit business modal ─────────────────────────────────────── */}

@@ -279,15 +279,18 @@ begin
   );
 
   ---------------------------------------------------------------------------
-  -- PAYMENT PROFILE (annexe Image 10)
+  -- PAYMENT PROFILE
   ---------------------------------------------------------------------------
-  insert into public.payment_profiles (
-    shop_id, legal_name, business_type, tax_id_provided, sin_provided,
-    dob, verified, destination_bank_name, destination_last4
-  ) values (
-    v_shop_id, 'Salon Axum inc.', 'company', true, false,
-    '1994-08-02', true, 'ROYAL BANK OF CANADA', '7277'
-  );
+  -- Loop 59 hotfix — we no longer seed a fake business profile. The
+  -- Axum row showed up at /settings/payments out of the box (legal
+  -- name "Salon Axum inc.", RBC •••• 7277, Yossa-olivier as profile
+  -- owner, etc.) which is confusing for a real operator opening the
+  -- page for the first time. The /settings/payments edit flow now
+  -- starts from a blank slate; the upsert action creates the row on
+  -- first save.
+  --
+  -- If you need the seeded fixture data back for screenshots or
+  -- demo, restore the insert from git history (commit 6e99003^).
 
   ---------------------------------------------------------------------------
   -- NOTIFICATION PREFS (annexe Image 15)
