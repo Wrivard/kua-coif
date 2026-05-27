@@ -1258,7 +1258,7 @@
           "showAddress": "Afficher l'adresse du salon dans l'entête du widget",
           "showPhone": "Afficher le téléphone du salon dans l'entête du widget",
           "mode": "Mode couleur",
-          "modeHint": "Modes clair & auto arrivent en V1.1.",
+          "modeHint": "« Auto » suit la préférence système du client (clair/sombre).",
           "accentColor": "Couleur d'accent (hex)",
           "accentColorHint": "Surcharge le mauve par défaut. Format : #RRGGBB.",
           "font": "Police",

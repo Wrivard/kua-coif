@@ -130,6 +130,40 @@ function groupSlotsByTimeOfDay(slots: string[]): {
   return { morning, afternoon, evening };
 }
 
+/**
+ * Loop 65 SR — header brand mark.
+ *
+ * Renders the shop's `logo_url` as a 40x40 thumbnail. When the URL
+ * returns 404 / network-errors / fails to decode (CDN purge, deleted
+ * Storage object, etc.) the `onError` flips state to render the "K"
+ * Küa fallback. Without this, a broken image URL produced the
+ * browser's broken-image-icon glyph — the worst-of-both-worlds
+ * outcome (looks like the page itself is broken).
+ *
+ * If `logoUrl` is null from the start, we skip the <img> entirely
+ * and render the K straight away — no flash of a loading-img element.
+ */
+function BrandMark({ logoUrl, shopName }: { logoUrl: string | null; shopName: string }) {
+  const [broken, setBroken] = useState(false);
+  const showImage = logoUrl && !broken;
+  if (showImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={shopName}
+        onError={() => setBroken(true)}
+        className="h-10 w-10 rounded-xl object-cover shadow-accent-glow"
+      />
+    );
+  }
+  return (
+    <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
+      <span className="text-base font-semibold">K</span>
+    </span>
+  );
+}
+
 export function BookingWizard({
   locale,
   shopSlug,
@@ -381,18 +415,7 @@ export function BookingWizard({
           image's intrinsic dimensions (object-cover handles the
           crop). */}
       <header className="flex flex-col items-center gap-3 text-center">
-        {shop.logo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={shop.logo_url}
-            alt={shop.name}
-            className="h-10 w-10 rounded-xl object-cover shadow-accent-glow"
-          />
-        ) : (
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
-            <span className="text-base font-semibold">K</span>
-          </span>
-        )}
+        <BrandMark logoUrl={shop.logo_url ?? null} shopName={shop.name} />
         <div className="space-y-1">
           <h1 className="text-display-sm font-semibold tracking-tight text-text-primary">
             {shop.name}

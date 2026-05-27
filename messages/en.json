@@ -1256,7 +1256,7 @@
           "showAddress": "Show shop address in widget header",
           "showPhone": "Show shop phone in widget header",
           "mode": "Color mode",
-          "modeHint": "Light & auto modes are coming in V1.1.",
+          "modeHint": "\"Auto\" follows the customer's OS preference (light/dark).",
           "accentColor": "Accent color (hex)",
           "accentColorHint": "Override the default purple. Format: #RRGGBB.",
           "font": "Font family",
