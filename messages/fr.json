@@ -469,7 +469,51 @@
     },
     "marketing": {
       "title": "Marketing",
-      "soon": "Campagnes, promos — Phase 8."
+      "subtitle": "Outils pour attirer, retenir et inciter les clients à laisser des avis.",
+      "soon": "Campagnes, promos — Phase 8.",
+      "cards": {
+        "reviewQr": {
+          "title": "Code QR pour avis",
+          "description": "Génère un code QR à afficher en salon. Les clients le scannent et laissent un avis Google/Yelp/etc.",
+          "cta": "Générer le QR"
+        },
+        "promoCodes": {
+          "title": "Codes promo",
+          "description": "Crée et gère les codes promo affichés sur la page de réservation publique.",
+          "cta": "Gérer les codes promo"
+        },
+        "automations": {
+          "title": "Automatisations courriel et SMS",
+          "description": "Active/désactive les confirmations, rappels et avis d'annulation par canal et par type.",
+          "cta": "Régler les automatisations"
+        },
+        "reviewsModeration": {
+          "title": "Modération des avis",
+          "description": "Approuve, rejette ou supprime les avis avant qu'ils soient publiés sur la page publique.",
+          "cta": "Voir la file d'attente"
+        }
+      },
+      "comingSoon": {
+        "title": "Bientôt sur cette page",
+        "description": "Campagnes par lots (relance clients absents, demande d'avis groupée, vœux d'anniversaire), segmentation par liste, statistiques de conversion."
+      },
+      "reviewQr": {
+        "title": "Code QR pour avis",
+        "subtitle": "Affiche un code QR au comptoir; les clients le scannent pour laisser un avis.",
+        "formLabel": "URL des avis (Google, Yelp, etc.)",
+        "formPlaceholder": "https://g.page/r/...",
+        "formHint": "Doit commencer par https://. On accepte n'importe quelle URL publique — page Google Business, Yelp, Instagram ou même /review/[token] de l'app.",
+        "save": "Enregistrer l'URL",
+        "download": "Télécharger PNG",
+        "print": "Imprimer affichette",
+        "emptyTitle": "Pas encore d'URL",
+        "emptyDescription": "Colle ton URL d'avis ci-contre pour générer le code QR.",
+        "savedToast": "URL des avis enregistrée",
+        "invalidUrl": "URL invalide. Format attendu : https://...",
+        "unexpected": "Erreur inattendue. Réessaie.",
+        "printHeading": "Laisse-nous un avis !",
+        "printSubheading": "Scanne le code et partage ton expérience."
+      }
     },
     "finances": {
       "title": "Finances",

@@ -467,7 +467,51 @@
     },
     "marketing": {
       "title": "Marketing",
-      "soon": "Campaigns, promos — Phase 8."
+      "subtitle": "Tools to attract, retain, and ask clients for reviews.",
+      "soon": "Campaigns, promos — Phase 8.",
+      "cards": {
+        "reviewQr": {
+          "title": "Review QR code",
+          "description": "Generate a QR code to display in your shop. Clients scan it and leave a Google/Yelp/etc. review.",
+          "cta": "Generate the QR"
+        },
+        "promoCodes": {
+          "title": "Promo codes",
+          "description": "Create and manage the promo codes shown on the public booking page.",
+          "cta": "Manage promo codes"
+        },
+        "automations": {
+          "title": "Email & SMS automations",
+          "description": "Toggle confirmations, reminders and cancellation notices on/off by channel and kind.",
+          "cta": "Configure automations"
+        },
+        "reviewsModeration": {
+          "title": "Reviews moderation",
+          "description": "Approve, reject, or delete reviews before they show up on the public page.",
+          "cta": "Open queue"
+        }
+      },
+      "comingSoon": {
+        "title": "Coming to this page",
+        "description": "Bulk campaigns (lapsed-client win-back, mass review request, birthday wishes), segment lists, conversion stats."
+      },
+      "reviewQr": {
+        "title": "Review QR code",
+        "subtitle": "Display a QR code at the counter; clients scan to leave a review.",
+        "formLabel": "Review URL (Google, Yelp, etc.)",
+        "formPlaceholder": "https://g.page/r/...",
+        "formHint": "Must start with https://. Any public URL works — Google Business profile, Yelp, Instagram, or the app's own /review/[token] flow.",
+        "save": "Save URL",
+        "download": "Download PNG",
+        "print": "Print poster",
+        "emptyTitle": "No URL yet",
+        "emptyDescription": "Paste your review URL on the left to generate the QR code.",
+        "savedToast": "Review URL saved",
+        "invalidUrl": "Invalid URL. Expected format: https://...",
+        "unexpected": "Unexpected error. Try again.",
+        "printHeading": "Leave us a review!",
+        "printSubheading": "Scan the code and share your experience."
+      }
     },
     "finances": {
       "title": "Finances",
