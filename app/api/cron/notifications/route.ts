@@ -4,6 +4,7 @@ import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { AppointmentReminder } from '@/lib/email/templates/appointment-reminder';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
+import { twilioWebhookUrl } from '@/lib/sms/webhook';
 import { captureException } from '@/lib/observability';
 
 /**
@@ -260,16 +261,18 @@ export async function GET(req: NextRequest) {
                   shopPhone: appt.shop.phone,
                 });
 
+          // Loop 55 — register the per-shop status callback. Null
+          // in dev / when NEXT_PUBLIC_APP_URL isn't an HTTPS host;
+          // Twilio rejects http: callbacks anyway, so we just skip
+          // the registration rather than fail the send.
+          const statusCallbackUrl = twilioWebhookUrl(appt.shop_id) ?? undefined;
           const smsResult = await dispatchSms({
             shopId: appt.shop_id,
             appointmentId: appt.id,
             kind,
             to: appt.client.phone,
             body: smsBody,
-            // Loop 55 (slice 3) will wire the status callback URL
-            // — until then, notification_sends.status stays at
-            // whatever Twilio returns from the initial create
-            // (typically 'queued' or 'sending').
+            statusCallbackUrl,
           });
 
           if (smsResult.sent) {
