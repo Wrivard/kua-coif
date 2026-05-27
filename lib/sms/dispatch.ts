@@ -93,6 +93,33 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
         tags: { layer: 'sms-dispatch', status: String(result.status ?? '') },
         extra: { shopId: input.shopId, appointmentId: input.appointmentId },
       });
+
+      // Loop 54 SR — a Twilio 4xx other than 401 is *permanent*:
+      // a bad phone number (`To` malformed), a body length /
+      // content rejection, a number-not-on-account error, etc.
+      // Without a notification_sends row, the cron retries every
+      // 15 min forever — flooding Sentry + Twilio's rate limiter.
+      // We treat 401 as transient (operator can fix bad creds in
+      // /settings/notifications) and 5xx as transient (Twilio
+      // brownouts retry naturally on the next tick).
+      const httpStatus = result.status;
+      const isPermanent =
+        typeof httpStatus === 'number' &&
+        httpStatus >= 400 &&
+        httpStatus < 500 &&
+        httpStatus !== 401;
+      if (isPermanent) {
+        await admin
+          .from('notification_sends')
+          .insert({
+            appointment_id: input.appointmentId,
+            kind: input.kind,
+            channel: 'sms',
+            via: 'twilio',
+            status: 'failed',
+          })
+          .select('id');
+      }
       return { sent: false, reason: 'twilio-error' };
     }
 
