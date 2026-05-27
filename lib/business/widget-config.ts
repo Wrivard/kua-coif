@@ -107,6 +107,42 @@ export function frameAncestorsFor(cfg: WidgetConfig): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Loop 65 SR — darken a hex color by a fixed amount in linear-RGB space.
+ *
+ * Used to auto-derive `--accent-hover` from the owner's chosen
+ * `accent_color`. Without this, a yellow accent ends up with a
+ * purple hover (the original Küa default left in globals.css),
+ * which looks like a bug in production.
+ *
+ * Linear-RGB darkening is the right approximation for short hops
+ * (8-12%) — perceptually close to an HSL `-= 8%` lightness shift
+ * without pulling in an HSL conversion lib. For wider hops a true
+ * HSL pass would be better, but for hover/active states this is
+ * good enough.
+ */
+function darkenHex(hex: string, amount: number): string {
+  const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return hex;
+  const raw = m[1]!;
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const factor = Math.max(0, 1 - amount);
+  const dr = Math.round(r * factor);
+  const dg = Math.round(g * factor);
+  const db = Math.round(b * factor);
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`;
+}
+
+/**
  * Emit inline CSS that overrides theme tokens for the widget shell. Read by
  * the embed page and injected as a `<style>` block. Keeping this pure (no
  * React) means we can also use it in `widget.js` if needed later.
@@ -115,8 +151,12 @@ export function widgetThemeCss(cfg: WidgetConfig): string {
   const rules: string[] = [];
   if (cfg.accent_color) {
     rules.push(`--accent: ${cfg.accent_color};`);
-    // We don't auto-compute --accent-hover; designers can iterate if they
-    // need a specific hover. The default kept below is the original purple.
+    // Loop 65 SR — auto-derive hover + active states so a custom
+    // accent doesn't end up with a default-purple hover. 8% darker
+    // for hover (matches the perceptual feel of the original
+    // purple → purple-hover pair), 16% for active.
+    rules.push(`--accent-hover: ${darkenHex(cfg.accent_color, 0.08)};`);
+    rules.push(`--accent-active: ${darkenHex(cfg.accent_color, 0.16)};`);
   }
   if (cfg.font_family === 'geist') {
     rules.push("font-family: 'Geist', system-ui, -apple-system, sans-serif;");

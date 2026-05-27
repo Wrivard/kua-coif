@@ -85,6 +85,21 @@ describe('widgetThemeCss', () => {
     expect(css).toContain('--accent: #abcdef');
   });
 
+  it('auto-derives --accent-hover + --accent-active from a custom accent (Loop 65 SR)', () => {
+    // Pure red (#ff0000) → hover at 92% intensity = #eb0000, active at 84% = #d60000.
+    // Without these auto-derives a yellow accent would have a default-purple
+    // hover (because globals.css's --accent-hover is the original purple).
+    const css = widgetThemeCss({ ...defaultWidgetConfig, accent_color: '#ff0000' });
+    expect(css).toContain('--accent-hover: #eb0000');
+    expect(css).toContain('--accent-active: #d60000');
+  });
+
+  it('handles 3-digit hex by expanding to 6-digit', () => {
+    const css = widgetThemeCss({ ...defaultWidgetConfig, accent_color: '#f00' });
+    expect(css).toContain('--accent: #f00');
+    expect(css).toContain('--accent-hover: #eb0000');
+  });
+
   it('emits font-family for non-system fonts only', () => {
     expect(widgetThemeCss({ ...defaultWidgetConfig, font_family: 'system' })).toBe('');
     expect(widgetThemeCss({ ...defaultWidgetConfig, font_family: 'geist' })).toContain(
