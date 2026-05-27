@@ -282,6 +282,8 @@
         "lastName": "Nom",
         "email": "Courriel",
         "phone": "Téléphone",
+        "dateOfBirth": "Date de naissance",
+        "dateOfBirthHint": "Optionnel. Active l'envoi automatique d'un vœu d'anniversaire (courriel + SMS) une fois par an.",
         "notes": "Notes"
       },
       "toasts": {

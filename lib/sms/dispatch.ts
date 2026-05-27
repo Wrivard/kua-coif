@@ -20,7 +20,14 @@ import type { AutomationKind } from '@/lib/email/send';
 
 export type DispatchSmsInput = {
   shopId: string;
-  appointmentId: string;
+  /**
+   * Loop 62 — `null` means "I'll manage my own ledger" (used by the
+   * birthday + future marketing-campaign crons, which write to
+   * `client_marketing_sends` instead of `notification_sends`).
+   * Non-null means "write the notification_sends row for me" — the
+   * usual appointment-scoped reminder/confirmation flow.
+   */
+  appointmentId: string | null;
   kind: AutomationKind;
   to: string;
   body: string;
@@ -102,13 +109,17 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
       // We treat 401 as transient (operator can fix bad creds in
       // /settings/notifications) and 5xx as transient (Twilio
       // brownouts retry naturally on the next tick).
+      //
+      // Loop 62 — only write the failure row when appointmentId is
+      // non-null. Marketing-campaign callers manage their own ledger
+      // (client_marketing_sends).
       const httpStatus = result.status;
       const isPermanent =
         typeof httpStatus === 'number' &&
         httpStatus >= 400 &&
         httpStatus < 500 &&
         httpStatus !== 401;
-      if (isPermanent) {
+      if (isPermanent && input.appointmentId !== null) {
         await admin
           .from('notification_sends')
           .insert({
@@ -127,17 +138,22 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
     // on (appointment_id, kind, channel) guards against the rare
     // double-tick scenario. `provider_message_id` lets the Loop 55
     // status webhook find this row from the Twilio callback.
-    await admin
-      .from('notification_sends')
-      .insert({
-        appointment_id: input.appointmentId,
-        kind: input.kind,
-        channel: 'sms',
-        via: 'twilio',
-        provider_message_id: result.sid,
-        status: result.status,
-      })
-      .select('id');
+    //
+    // Loop 62 — skip the ledger write when appointmentId is null
+    // (marketing-campaign callers write to client_marketing_sends).
+    if (input.appointmentId !== null) {
+      await admin
+        .from('notification_sends')
+        .insert({
+          appointment_id: input.appointmentId,
+          kind: input.kind,
+          channel: 'sms',
+          via: 'twilio',
+          provider_message_id: result.sid,
+          status: result.status,
+        })
+        .select('id');
+    }
 
     return { sent: true, sid: result.sid };
   } catch (e) {

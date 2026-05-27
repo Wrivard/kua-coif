@@ -43,3 +43,21 @@ export function reminder1hSms(input: ReminderInput): string {
   }
   return `Your appointment at ${input.shopName} starts in 1 hour. See you soon!`;
 }
+
+/**
+ * Loop 62 — birthday greeting SMS. Fires once per year per client via
+ * the daily birthday cron. Body length ~60-80 chars; with the cake
+ * emoji + French accents the message goes UCS-2 (70 chars/segment cap)
+ * so common first names usually fit a single segment. Longer names
+ * spill to a 2-segment SMS — accepted cost (still ~$0.016 in CA).
+ */
+export function birthdayGreetingSms(input: {
+  locale: 'fr' | 'en';
+  shopName: string;
+  firstName: string;
+}): string {
+  if (input.locale === 'fr') {
+    return `Joyeux anniversaire ${input.firstName} ! Bonne journée de la part de ${input.shopName} 🎂`;
+  }
+  return `Happy birthday ${input.firstName}! Have a great day from ${input.shopName} 🎂`;
+}

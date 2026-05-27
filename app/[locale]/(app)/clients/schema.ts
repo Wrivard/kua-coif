@@ -17,6 +17,19 @@ const optionalPhone = z
   .nullable()
   .or(z.literal('').transform(() => null));
 
+// Loop 62 — optional birthday in YYYY-MM-DD form. Empty string maps to
+// null so the form doesn't have to special-case "no value". Refusing
+// future dates would be tempting but ages are weird (a client born
+// 1900-01-01 is fine; "client born tomorrow" is obviously a typo but
+// we don't enforce it server-side — the UI can flag it as a soft
+// warning if we feel like it later).
+const optionalDob = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'DOB_INVALID')
+  .nullable()
+  .or(z.literal('').transform(() => null));
+
 export const clientSchema = z.object({
   first_name: z.string().trim().min(1, 'NAME_REQUIRED').max(120),
   last_name: z
@@ -27,6 +40,7 @@ export const clientSchema = z.object({
     .or(z.literal('').transform(() => null)),
   email: optionalEmail,
   phone: optionalPhone,
+  date_of_birth: optionalDob,
   notes: z
     .string()
     .trim()

@@ -74,6 +74,9 @@ export type ClientRow = {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  // Loop 62 — optional ISO date `YYYY-MM-DD`. Drives the daily
+  // birthday-greetings cron.
+  date_of_birth: string | null;
   notes: string | null;
   created_at: string;
 };

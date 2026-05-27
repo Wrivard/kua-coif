@@ -29,9 +29,19 @@ export function ClientFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
           last_name: mode.client.last_name,
           email: mode.client.email,
           phone: mode.client.phone,
+          // Loop 62 — date_of_birth ships as ISO `YYYY-MM-DD`. The
+          // <input type="date"> consumes that format directly.
+          date_of_birth: mode.client.date_of_birth,
           notes: mode.client.notes,
         }
-      : { first_name: '', last_name: null, email: null, phone: null, notes: null };
+      : {
+          first_name: '',
+          last_name: null,
+          email: null,
+          phone: null,
+          date_of_birth: null,
+          notes: null,
+        };
 
   const {
     register,
@@ -102,6 +112,19 @@ export function ClientFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
         <div>
           <Label htmlFor="phone">{t('form.phone')}</Label>
           <PhoneInput id="phone" {...register('phone')} />
+        </div>
+
+        {/* Loop 62 — optional birthday for the daily greetings cron.
+         *  Empty/blank disables birthday email + SMS for this client. */}
+        <div>
+          <Label htmlFor="date_of_birth">{t('form.dateOfBirth')}</Label>
+          <Input
+            id="date_of_birth"
+            type="date"
+            invalid={Boolean(errors.date_of_birth)}
+            {...register('date_of_birth')}
+          />
+          <FieldHint>{t('form.dateOfBirthHint')}</FieldHint>
         </div>
 
         <div className="md:col-span-2">

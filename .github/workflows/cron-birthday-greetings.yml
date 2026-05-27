@@ -1,0 +1,49 @@
+name: Cron · birthday greetings (daily)
+
+# Loop 62 — daily birthday-greeting cron. Vercel Hobby is at its 2-cron
+# limit (quickbooks-refresh + google-channel-renew), so this lives in
+# GitHub Actions like the */15 notifications workflow.
+#
+# Fires once per day at 12:00 UTC. For Quebec / Atlantic Canada this is
+# 7:00-8:00 AM local — clients get their greeting near morning coffee.
+# For other regions the cron iterates all shops and uses each shop's
+# timezone to compute "today" (month, day) before matching birthdays;
+# the UTC fire time just sets the latest moment a shop's daily greeting
+# could land.
+#
+# The route at /api/cron/birthday-greetings is shop-tz-aware and
+# idempotent (UNIQUE on client_marketing_sends), so manual re-fires
+# from the Actions UI are safe.
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # 12:00 UTC daily
+  workflow_dispatch: {} # manual fire from the Actions UI
+
+concurrency:
+  group: cron-birthday-greetings
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Trigger /api/cron/birthday-greetings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: POST to cron endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "${APP_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::error::APP_URL or CRON_SECRET secret is missing on the repo. Set both in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          curl --fail-with-body \
+               --silent \
+               --show-error \
+               --max-time 120 \
+               --header "Authorization: Bearer ${CRON_SECRET}" \
+               "${APP_URL}/api/cron/birthday-greetings"

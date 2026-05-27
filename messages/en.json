@@ -280,6 +280,8 @@
         "lastName": "Last name",
         "email": "Email",
         "phone": "Phone",
+        "dateOfBirth": "Date of birth",
+        "dateOfBirthHint": "Optional. Enables an automatic birthday greeting (email + SMS) once per year.",
         "notes": "Notes"
       },
       "toasts": {
