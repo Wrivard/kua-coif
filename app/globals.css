@@ -332,6 +332,21 @@ h3 {
   }
 }
 
+/* Loop 61 — mobile bottom-sheet slide-in. Phones reach modals by
+   reaching with their thumb, so anchoring to the bottom edge feels
+   more natural than a centered scale-in. The media-query swap lives
+   on the `.animate-modal-content` rule below. */
+@keyframes kua-modal-sheet-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Skeleton shimmer — re-paletted for light theme. The gradient now
    uses subtle dark stripes on the lighter bg instead of light stripes
    on dark. */
@@ -348,11 +363,20 @@ h3 {
   animation: kua-slide-in-from-right 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Loop 61 — bottom-sheet on mobile, centered scale-in on md+ desktop.
+   The same `.animate-modal-content` class drives both; the Modal
+   component flips its container layout from items-end → items-center
+   at md too so the wrapper stays in sync with the animation origin. */
 dialog[open] > .animate-modal-content {
-  animation: kua-modal-content-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: kua-modal-sheet-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 768px) {
+  dialog[open] > .animate-modal-content {
+    animation: kua-modal-content-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 dialog[open]::backdrop {
-  animation: kua-fade-in 160ms ease-out;
+  animation: kua-fade-in 200ms ease-out;
 }
 
 .kua-shimmer-bg {
