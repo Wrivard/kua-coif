@@ -6,12 +6,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
-
-export const waitingListSchema = z.object({
-  enabled: z.boolean(),
-  threshold_hours: z.number().int().min(0).max(72),
-});
-export type WaitingListInput = z.infer<typeof waitingListSchema>;
+// Loop 59 hotfix — schema moved to `./schema` because `'use server'`
+// files only export async functions; non-function exports get stripped
+// from the client bundle and crash the form at `zodResolver(undefined)`.
+import { waitingListSchema } from './schema';
 
 export const upsertWaitingList = withAction({
   schema: waitingListSchema,

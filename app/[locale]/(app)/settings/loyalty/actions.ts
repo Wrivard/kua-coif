@@ -1,23 +1,16 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
-import { LOYALTY_TYPES } from '@/db/enums';
-
-export const loyaltySchema = z.object({
-  enabled: z.boolean(),
-  type: z.enum(LOYALTY_TYPES),
-  goal_count: z.number().int().min(0).max(99999),
-  min_transaction_amount: z.number().min(0).max(99999.99),
-  reward_amount: z.number().min(0).max(99999.99),
-  include_product_sales: z.boolean(),
-  include_tips: z.boolean(),
-});
-export type LoyaltyInput = z.infer<typeof loyaltySchema>;
+// Schema lives in `./schema` because `'use server'` files can only
+// export async functions — Zod schemas are object values. Without
+// this split the client crashes at `zodResolver(undefined)`. The
+// client imports `LoyaltyInput` + `loyaltySchema` directly from
+// `./schema` — actions.ts no longer re-exports them.
+import { loyaltySchema } from './schema';
 
 export const upsertLoyalty = withAction({
   schema: loyaltySchema,

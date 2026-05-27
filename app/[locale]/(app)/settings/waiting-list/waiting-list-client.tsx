@@ -12,13 +12,11 @@ import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
-import {
-  deleteWaitlistEntry,
-  updateWaitlistEntryStatus,
-  upsertWaitingList,
-  waitingListSchema,
-  type WaitingListInput,
-} from './actions';
+import { deleteWaitlistEntry, updateWaitlistEntryStatus, upsertWaitingList } from './actions';
+// Loop 59 hotfix — schema + type live in `./schema` not `./actions`
+// because the latter is `'use server'` and the bundler strips
+// non-function exports from the client bundle.
+import { waitingListSchema, type WaitingListInput } from './schema';
 
 export type WaitlistEntry = {
   id: string;

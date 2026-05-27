@@ -58,7 +58,11 @@ function buildStrictCsp() {
     `img-src 'self' data: blob: https://${supabaseHost}`,
     "font-src 'self' data:",
     `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} ${turnstileHost}`,
-    `frame-src ${turnstileHost}`,
+    // `'self'` is required so admin surfaces can iframe their own
+    // `/embed/[shopSlug]` route for the live preview pane in
+    // /settings/widget. Without it the browser blocks the iframe and
+    // shows its broken-iframe placeholder.
+    `frame-src 'self' ${turnstileHost}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

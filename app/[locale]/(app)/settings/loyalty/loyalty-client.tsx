@@ -12,7 +12,11 @@ import { RadioGroup } from '@/components/ui/radio-group';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
 import type { LoyaltyProgramRow } from '@/db/rows';
-import { loyaltySchema, upsertLoyalty, type LoyaltyInput } from './actions';
+import { upsertLoyalty } from './actions';
+// Loop 59 hotfix — schema + type live in `./schema` not `./actions`
+// because the latter is `'use server'` and the bundler strips
+// non-function exports from the client bundle.
+import { loyaltySchema, type LoyaltyInput } from './schema';
 
 export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
   const t = useTranslations('pages.settings.loyalty');
