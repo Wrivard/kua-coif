@@ -54,6 +54,9 @@ export type BookingShop = {
   municipality: string | null;
   province: string | null;
   postal_code: string | null;
+  // Loop 65 — shop logo URL (Supabase Storage). Drives the wizard
+  // header brand mark; falls back to the "K" Küa glyph when null.
+  logo_url?: string | null;
   // Phase 64 — marketing banner.
   marketing_banner_enabled?: boolean | null;
   marketing_banner_text?: string | null;
@@ -370,13 +373,26 @@ export function BookingWizard({
 
   return (
     <div className="space-y-7">
-      {/* Brand mark + shop name — premium first impression. The accent-glow
-          K matches the auth shell so returning customers feel the same
-          surface quality on both touch-points. */}
+      {/* Brand mark + shop name — premium first impression. When the
+          shop has uploaded a `logo_url` (Loop 65), we render it as
+          the brand mark; otherwise we fall back to the accent-glow
+          "K" Küa glyph that matches the auth shell. The fixed 40px
+          square keeps the layout stable regardless of the source
+          image's intrinsic dimensions (object-cover handles the
+          crop). */}
       <header className="flex flex-col items-center gap-3 text-center">
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
-          <span className="text-base font-semibold">K</span>
-        </span>
+        {shop.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={shop.logo_url}
+            alt={shop.name}
+            className="h-10 w-10 rounded-xl object-cover shadow-accent-glow"
+          />
+        ) : (
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-fg shadow-accent-glow">
+            <span className="text-base font-semibold">K</span>
+          </span>
+        )}
         <div className="space-y-1">
           <h1 className="text-display-sm font-semibold tracking-tight text-text-primary">
             {shop.name}

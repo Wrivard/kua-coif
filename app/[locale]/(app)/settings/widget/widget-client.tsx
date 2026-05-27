@@ -181,14 +181,15 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="mode">{t('fields.mode')}</Label>
+                  {/* Loop 65 — light + auto unlocked. The embed page
+                   *  now forces `data-theme` from this value via an
+                   *  inline script, so all three modes work
+                   *  end-to-end. `auto` defers to the customer's OS
+                   *  `prefers-color-scheme`. */}
                   <Select id="mode" {...register('mode')}>
                     <option value="dark">{t('options.modeDark')}</option>
-                    <option value="light" disabled>
-                      {t('options.modeLight')}
-                    </option>
-                    <option value="auto" disabled>
-                      {t('options.modeAuto')}
-                    </option>
+                    <option value="light">{t('options.modeLight')}</option>
+                    <option value="auto">{t('options.modeAuto')}</option>
                   </Select>
                   <p className="mt-1 text-xs text-text-muted">{t('fields.modeHint')}</p>
                 </div>

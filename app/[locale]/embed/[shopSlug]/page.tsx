@@ -42,7 +42,10 @@ export default async function EmbedBookingPage({ params: { locale, shopSlug } }:
   const shopRes = await supabase
     .from('shops')
     .select(
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, widget_config',
+      // Loop 65 — `logo_url` added so the embedded widget shows the
+      // shop's actual logo. Same selection as /book/[shopSlug] minus
+      // marketing_banner (the banner doesn't render on /embed/*).
+      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, logo_url, widget_config',
     )
     .eq('alias', shopSlug)
     .limit(1);
@@ -101,8 +104,31 @@ export default async function EmbedBookingPage({ params: { locale, shopSlug } }:
 
   const themeCss = widgetThemeCss(widgetConfig);
 
+  // Loop 65 — widget theme override.
+  //
+  // Until now the embed iframe's theme was determined by the Loop 60
+  // FOUC init script in the root layout, which reads localStorage +
+  // prefers-color-scheme. For a third-party-site visitor opening the
+  // widget for the first time, localStorage is empty → the customer's
+  // OS preference wins, regardless of what the shop owner picked in
+  // /settings/widget. The "Color mode: Dark" setting was cosmetic.
+  //
+  // The script below runs AFTER the root layout's init script (later
+  // in the document) and BEFORE React hydrates, so it overrides the
+  // `data-theme` attribute synchronously. For `mode === 'auto'` we
+  // intentionally do nothing — the root script's prefers-color-scheme
+  // detection is the right behavior.
+  const themeOverrideScript =
+    widgetConfig.mode === 'auto'
+      ? null
+      : `(function(){var t='${widgetConfig.mode}';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');})();`;
+
   return (
     <>
+      {themeOverrideScript ? (
+        // eslint-disable-next-line react/no-danger
+        <script dangerouslySetInnerHTML={{ __html: themeOverrideScript }} />
+      ) : null}
       {themeCss ? (
         // eslint-disable-next-line react/no-danger
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />

@@ -49,7 +49,9 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
   const shopRes = await supabase
     .from('shops')
     .select(
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, marketing_banner_enabled, marketing_banner_text',
+      // Loop 65 — `logo_url` added so the wizard header can render
+      // the shop's actual logo instead of the "K" Küa fallback.
+      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, logo_url, marketing_banner_enabled, marketing_banner_text',
     )
     .eq('alias', shopSlug)
     .limit(1);

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from './button';
@@ -35,6 +36,16 @@ import { Button } from './button';
  */
 export function CookieBanner({ locale }: { locale: string }) {
   const t = useTranslations('legal.cookieBanner');
+  const pathname = usePathname();
+  // Loop 65 — `/embed/*` is the iframed booking widget loaded inside
+  // third-party salon websites. The host site is responsible for its
+  // own cookie compliance; rendering OUR banner inside the iframe
+  // would (a) look out of place to the customer, (b) inflate the
+  // iframe height because the parent's resize listener accommodates
+  // the fixed-bottom banner. Suppress unconditionally on embed paths
+  // (matches `/<locale>/embed/...` and bare `/embed/...` for safety).
+  const isEmbed = pathname?.includes('/embed/') ?? false;
+
   // `null` while we read the cookie (avoids a flash of the banner on
   // pages where the user already consented). Once we know the
   // state, `true` shows the banner and `false` keeps it hidden.
@@ -42,6 +53,10 @@ export function CookieBanner({ locale }: { locale: string }) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    if (isEmbed) {
+      setVisible(false);
+      return;
+    }
     const cookies = document.cookie.split(';').map((c) => c.trim());
     const hasConsent = cookies.some((c) => c.startsWith('kua_cookie_consent='));
     // Loop 48 self-review — signed-in users have a Supabase Auth
@@ -52,7 +67,7 @@ export function CookieBanner({ locale }: { locale: string }) {
     // signed in, why is this asking again?" moment.
     const hasAuthSession = cookies.some((c) => c.startsWith('sb-') && c.includes('auth-token'));
     setVisible(!hasConsent && !hasAuthSession);
-  }, []);
+  }, [isEmbed]);
 
   function setConsent(value: 'accepted' | 'essential_only') {
     if (typeof document === 'undefined') return;
