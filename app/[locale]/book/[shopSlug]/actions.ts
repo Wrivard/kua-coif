@@ -14,7 +14,11 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { stripeConfigured } from '@/lib/stripe/server';
-import { createDepositPaymentIntent, verifyDepositPaymentIntent } from '@/lib/stripe/payments';
+import {
+  createDepositPaymentIntent,
+  updateDepositPaymentIntent,
+  verifyDepositPaymentIntent,
+} from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 
@@ -986,6 +990,19 @@ const bookingPaymentIntentSchema = z.object({
     .email()
     .optional()
     .or(z.literal('').transform(() => '')),
+  /**
+   * Phase A SR — the wizard can pass an existing PaymentIntent ID
+   * from a previous call in the same session. If Stripe says it's
+   * still in an updatable state (requires_payment_method/confirmation),
+   * we update its `amount` instead of creating a new PI. Cuts the
+   * "abandoned PI" clutter in the Stripe dashboard when a customer
+   * goes back-and-forth between step 1 and step 4 changing services.
+   */
+  existing_payment_intent_id: z
+    .string()
+    .startsWith('pi_')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 
 export type CreateBookingPaymentIntentInput = z.infer<typeof bookingPaymentIntentSchema>;
@@ -1072,19 +1089,40 @@ export async function createBookingPaymentIntent(
       return ok({ kind: 'no_deposit' as const });
     }
 
-    // A session UUID stands in as the "appointment_id" for the
-    // PaymentIntent metadata + idempotency key. The actual appointment
-    // gets created later by `bookPublicAppointment` with this PI ID
-    // attached — the webhook still finds the row via
-    // `appointments.payment_intent_id`, regardless of what's in metadata.
-    const sessionId = randomUUID();
+    // Phase A SR — if the wizard passed an existing PI from a previous
+    // call in the same session, try to update its `amount` instead of
+    // creating a fresh PI. Customer changing their service selection
+    // back-and-forth at step 4 used to create one abandoned PI per
+    // edit. Update succeeds only while the PI is still in a
+    // pre-confirmation state (requires_payment_method /
+    // requires_confirmation); after confirmation we fall back to
+    // creating a new PI.
+    let intent: Awaited<ReturnType<typeof createDepositPaymentIntent>> | null = null;
+    if (input.existing_payment_intent_id) {
+      intent = await updateDepositPaymentIntent({
+        paymentIntentId: input.existing_payment_intent_id,
+        connectedAccountId: shop.stripe_account_id,
+        amountCents: depositCents,
+      });
+    }
 
-    const intent = await createDepositPaymentIntent({
-      connectedAccountId: shop.stripe_account_id,
-      appointmentId: sessionId,
-      amountCents: depositCents,
-      customerEmail: input.email || undefined,
-    });
+    if (!intent) {
+      // No existing PI to reuse, or the existing one is no longer
+      // updatable → mint a fresh one. A session UUID stands in as
+      // the "appointment_id" for the PaymentIntent metadata +
+      // idempotency key. The actual appointment gets created later
+      // by `bookPublicAppointment` with this PI ID attached — the
+      // webhook still finds the row via
+      // `appointments.payment_intent_id`, regardless of what's in
+      // metadata.
+      const sessionId = randomUUID();
+      intent = await createDepositPaymentIntent({
+        connectedAccountId: shop.stripe_account_id,
+        appointmentId: sessionId,
+        amountCents: depositCents,
+        customerEmail: input.email || undefined,
+      });
+    }
 
     if (!intent.client_secret) {
       // Should never happen on a fresh intent, but the type allows null.

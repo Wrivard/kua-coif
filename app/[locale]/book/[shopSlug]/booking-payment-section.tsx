@@ -106,6 +106,15 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     // to keep the eslint exhaustive-deps rule happy.
     const serviceKey = useMemo(() => serviceIds.slice().sort().join(','), [serviceIds]);
 
+    // Phase A SR — remember the PI created on the first call so we can
+    // ask the server to UPDATE it instead of creating a new one when
+    // the customer changes their service selection. The server-side
+    // helper falls back to create if the PI is no longer updatable
+    // (post-confirmation), so we don't need to check the status here.
+    // Ref instead of state because we don't render anything based on
+    // it; only the next effect run reads it.
+    const lastPiRef = useRef<string | null>(null);
+
     // Fire the server action once on mount (and whenever the set of
     // services changes — a step-4 → step-2 → step-4 round-trip might
     // change the selection). Bare `stripeClientConfigured` short-circuits
@@ -121,6 +130,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
         shop_slug: shopSlug,
         service_ids: serviceKey.split(',').filter(Boolean),
         email,
+        existing_payment_intent_id: lastPiRef.current ?? undefined,
       }).then((res) => {
         if (cancelled) return;
         if (!res.ok) {
@@ -133,6 +143,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
         } else if (payload.kind === 'shop_not_connected') {
           setState({ kind: 'shop_not_connected' });
         } else {
+          lastPiRef.current = payload.paymentIntentId;
           setState({
             kind: 'ready',
             clientSecret: payload.clientSecret,

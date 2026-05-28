@@ -99,6 +99,78 @@ export async function createDepositPaymentIntent({
 }
 
 /**
+ * Phase A SR — update an existing PaymentIntent's amount when the
+ * customer changes their service selection at step 4 of the booking
+ * wizard. Without this, each selection change creates a brand-new
+ * PI and abandons the previous one — no cost, but clutters Stripe.
+ *
+ * Stripe only allows updates while the PI is in a pre-confirmation
+ * state (`requires_payment_method`, `requires_confirmation`). Once
+ * the customer has authorized the card, the amount is locked. The
+ * caller is expected to fall back to creating a new PI when this
+ * function returns null (the wizard's UX handles that path already
+ * — that's the pre-Phase-A-SR behavior).
+ *
+ * Returns null when:
+ *   - the PI doesn't exist (deleted, wrong ID)
+ *   - the PI belongs to a different connected account (shouldn't
+ *     happen but defensive)
+ *   - the PI is in a state Stripe won't let us mutate
+ *   - the application-fee derivation produced a different value than
+ *     the existing PI's fee (in this case a new PI is safer than
+ *     trying to re-derive `application_fee_amount`)
+ */
+export async function updateDepositPaymentIntent({
+  paymentIntentId,
+  connectedAccountId,
+  amountCents,
+  applicationFeeCents,
+}: {
+  paymentIntentId: string;
+  connectedAccountId: string;
+  amountCents: number;
+  applicationFeeCents?: number;
+}): Promise<Stripe.PaymentIntent | null> {
+  const stripe = getStripe();
+  let existing: Stripe.PaymentIntent;
+  try {
+    existing = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch {
+    return null;
+  }
+
+  // Same-shop guard.
+  const dest =
+    typeof existing.transfer_data?.destination === 'string'
+      ? existing.transfer_data.destination
+      : (existing.transfer_data?.destination?.id ?? null);
+  if (dest !== connectedAccountId) return null;
+
+  // Updatable-state guard. `requires_payment_method` (no card yet) and
+  // `requires_confirmation` (card attached but not confirmed) are the
+  // two states Stripe lets us mutate `amount` in. Everything else
+  // (succeeded, processing, canceled, requires_action) is fixed.
+  if (
+    existing.status !== 'requires_payment_method' &&
+    existing.status !== 'requires_confirmation'
+  ) {
+    return null;
+  }
+
+  // If the amount hasn't actually changed, skip the update — saves an
+  // API call when the wizard re-renders without a real selection change.
+  const fee = applicationFeeCents ?? defaultApplicationFeeCents(amountCents);
+  if (existing.amount === amountCents && (existing.application_fee_amount ?? 0) === fee) {
+    return existing;
+  }
+
+  return stripe.paymentIntents.update(paymentIntentId, {
+    amount: amountCents,
+    application_fee_amount: fee > 0 ? fee : undefined,
+  });
+}
+
+/**
  * Refund a paid appointment. Callers always pass an explicit
  * `amountCents` so the idempotency key is fully deterministic; the
  * convenience case ("full refund of the PI") is handled by
