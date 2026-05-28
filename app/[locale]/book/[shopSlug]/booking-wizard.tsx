@@ -93,8 +93,17 @@ type WizardState = {
   // the custom input. Default 'none' so customers who don't notice the
   // section don't get charged a phantom tip.
   tipAmountCents: number;
-  tipSelection: 'none' | `tier:${0 | 1 | 2 | 3}` | 'custom';
+  tipSelection: TipSelection;
 };
+
+/**
+ * Phase E — tip selection state shared between `WizardState` and the
+ * `TipSelector` component. Single source of truth so adding a 5th tier
+ * (or removing a tier) only touches one declaration. The format
+ * `tier:N` is a tagged-union discriminator — easier to .startsWith()
+ * than tracking a separate `kind` + `index` pair.
+ */
+type TipSelection = 'none' | `tier:${0 | 1 | 2 | 3}` | 'custom';
 
 type Props = {
   locale: string;
@@ -307,6 +316,30 @@ export function BookingWizard({
     if (!showTipStep || !tipsConfig) return [];
     return suggestTips(totalAfterLoyalty, tipsConfig);
   }, [showTipStep, tipsConfig, totalAfterLoyalty]);
+
+  // Phase E SR — keep the tier-derived amount in sync when the base
+  // changes (e.g. loyalty balance applied after phone input).
+  //
+  // Without this effect, a customer who clicks "18% of $50 = $9", then
+  // types their phone and gets a $5 loyalty credit, would still pay $9
+  // even though the tier button now reads "18% of $45 = $8.10". The
+  // button label is fresh but the stored amount is stale → silent
+  // overcharge.
+  //
+  // We only re-derive when `tipSelection` is a tier. Custom amounts
+  // are deliberately left alone — the customer typed an absolute
+  // value and that's what they want. 'none' obviously doesn't need
+  // re-derivation either.
+  useEffect(() => {
+    if (!state.tipSelection.startsWith('tier:')) return;
+    const idx = Number(state.tipSelection.slice(5));
+    const sug = tipSuggestions[idx];
+    if (!sug) return;
+    const newCents = Math.round(sug.amount * 100);
+    if (newCents !== state.tipAmountCents) {
+      setState((s) => ({ ...s, tipAmountCents: newCents }));
+    }
+  }, [tipSuggestions, state.tipSelection, state.tipAmountCents]);
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -1553,7 +1586,9 @@ function WaitlistInlineForm({
 // at $1000). "No tip" sets selection='none' and amount 0.
 // ─────────────────────────────────────────────────────────────────────────
 
-type TipSelection = 'none' | `tier:${0 | 1 | 2 | 3}` | 'custom';
+// Phase E SR — `TipSelection` is declared once at the top of the file
+// (used by `WizardState['tipSelection']`). Reusing it here keeps the
+// two declarations from drifting (e.g. adding a 5th tier).
 
 type TipChangePayload = {
   selection: TipSelection;
@@ -1595,7 +1630,14 @@ function TipSelector({
 
   function pickCustom() {
     // Open the custom input; keep the previous amount until user
-    // types something fresh.
+    // types something fresh. Phase E SR — also seed the custom-input
+    // field with the preserved amount so the user sees what they're
+    // about to pay. Without this, switching from a tier to Custom
+    // showed an empty field while the stored cents stayed the same
+    // value — confusing because the user couldn't tell what was
+    // selected. We format as a plain decimal (no currency symbol)
+    // since the leading "$" lives next to the input.
+    if (amountCents > 0) setCustomInput(String(amountCents / 100));
     onChange({ selection: 'custom', amountCents });
   }
 

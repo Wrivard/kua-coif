@@ -624,9 +624,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         total_amount: totalAmount,
         // Phase E — persist the in-widget tip so the receipt + finances
         // can break it out from the service total. Stored in cents per
-        // the schema (column NOT NULL DEFAULT 0). 0 when the customer
-        // skipped the tip step or the shop has show_tip_step=false.
-        tip_amount_cents: tipCentsForVerify,
+        // the schema (column NOT NULL DEFAULT 0).
+        //
+        // Phase E SR — only persist when a PI was actually charged.
+        // In 'none' mode or when the shop isn't Connect-onboarded the
+        // wizard might still forward a tip intent (e.g. the customer
+        // picked a tier before realizing the shop has no online
+        // payment). Persisting it anyway would make the receipt show
+        // a "tip paid" line for money that was never charged. Owner
+        // collects in-shop and reconciles via the regular charge
+        // flow.
+        tip_amount_cents: input.payment_intent_id ? tipCentsForVerify : 0,
         ...paymentFields,
       })
       .select('id')
