@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Plus, Store } from 'lucide-react';
 import { requireKuaAdmin } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,49 +48,52 @@ export default async function AdminShopsPage({ params }: { params: { locale: str
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Shops</h1>
-        <Link
-          href={`/${params.locale}/super-admin/shops/new`}
-          className="inline-flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
-        >
-          <Plus className="h-4 w-4" /> Create shop
-        </Link>
-      </div>
-
-      {shops.length === 0 ? (
-        <div className="rounded border border-dashed border-border bg-bg-surface p-10 text-center text-sm text-text-muted">
-          <Store className="mx-auto h-8 w-8" aria-hidden />
-          <p className="mt-3">No shops yet — create the first one.</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded border border-border bg-bg-surface">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-bg-surface-2 text-[10px] uppercase tracking-wide text-text-muted">
-                <th className="px-3 py-2 text-left">Name</th>
-                <th className="px-3 py-2 text-left">Alias</th>
-                <th className="px-3 py-2 text-left">Members</th>
-                <th className="px-3 py-2 text-left">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shops.map((s) => (
-                <tr key={s.id} className="border-b border-border last:border-b-0">
-                  <td className="px-3 py-2 font-medium">{s.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-text-secondary">
-                    {s.alias ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-text-secondary">{counts[s.id] ?? 0}</td>
-                  <td className="px-3 py-2 text-xs text-text-muted">
-                    {new Date(s.created_at).toLocaleDateString('en-CA')}
-                  </td>
+      <PageHeader
+        title="Shops"
+        subtitle="Tous les salons connectés à Küa"
+        actions={
+          <Link href={`/${params.locale}/super-admin/shops/new`}>
+            <Button size="sm">
+              <Plus className="h-4 w-4" /> Create shop
+            </Button>
+          </Link>
+        }
+      />
+      <div className="space-y-6 p-6">
+        {shops.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-bg-surface p-12 text-center text-sm text-text-muted">
+            <Store className="mx-auto h-8 w-8" aria-hidden />
+            <p className="mt-4">No shops yet — create the first one.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border bg-bg-surface">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-bg-surface-2 text-[10px] uppercase tracking-wide text-text-muted">
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Alias</th>
+                  <th className="px-4 py-3 text-left">Members</th>
+                  <th className="px-4 py-3 text-left">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {shops.map((s) => (
+                  <tr key={s.id} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-3 font-medium">{s.name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
+                      {s.alias ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-secondary">{counts[s.id] ?? 0}</td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
+                      {new Date(s.created_at).toLocaleDateString('en-CA')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </>
   );
 }

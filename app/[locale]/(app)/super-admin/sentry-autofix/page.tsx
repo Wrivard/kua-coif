@@ -3,6 +3,7 @@ import { CheckCircle2, CircleAlert, ExternalLink, GitPullRequest, XCircle } from
 import { requireKuaAdmin } from '@/lib/auth/server';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/ui/page-header';
 import { captureException } from '@/lib/observability';
 
 /**
@@ -140,14 +141,16 @@ export default async function SentryAutofixPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Sentry auto-fix archive</h1>
-        <p className="text-sm text-text-secondary">
-          Daily cron at 09:00 UTC pulls yesterday&apos;s unresolved Sentry issues, runs Claude Code
-          in headless mode, and opens one PR per fix. Review + merge happens via GitHub. This page
-          is the operator&apos;s read-only window onto what&apos;s been attempted and what shipped.
-          Workflow:{' '}
+    <>
+      <PageHeader
+        title="Sentry auto-fix archive"
+        subtitle="Daily cron 09:00 UTC · PR review via GitHub"
+      />
+      <div className="space-y-6 p-6">
+        <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">
+          Le cron quotidien pull les Sentry issues non-résolues d&apos;hier, lance Claude Code en
+          mode headless, et ouvre une PR par fix. Tu reviews + merges via GitHub. Cette page est ta
+          fenêtre read-only sur ce qui a été tenté et ce qui a shippé. Workflow :{' '}
           <Link
             href={`https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/workflows/sentry-autofix.yml`}
             target="_blank"
@@ -158,105 +161,105 @@ export default async function SentryAutofixPage() {
           </Link>
           .
         </p>
-      </div>
 
-      {error ? (
+        {error ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="inline-flex items-center gap-2">
+                  <CircleAlert className="h-4 w-4 text-warning" />
+                  GitHub fetch failed
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardBody>
+              <p className="text-sm text-text-secondary">{error}</p>
+            </CardBody>
+          </Card>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Total" value={stats.total} />
+          <Stat label="Merged" value={stats.merged} variant="success" />
+          <Stat label="Open" value={stats.open} variant="info" />
+          <Stat label="Closed (unmerged)" value={stats.closed} variant="danger" />
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>
-              <span className="inline-flex items-center gap-2">
-                <CircleAlert className="h-4 w-4 text-warning" />
-                GitHub fetch failed
-              </span>
-            </CardTitle>
+            <CardTitle>Recent auto-fix PRs</CardTitle>
           </CardHeader>
-          <CardBody>
-            <p className="text-sm text-text-secondary">{error}</p>
-          </CardBody>
-        </Card>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Total" value={stats.total} />
-        <Stat label="Merged" value={stats.merged} variant="success" />
-        <Stat label="Open" value={stats.open} variant="info" />
-        <Stat label="Closed (unmerged)" value={stats.closed} variant="danger" />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent auto-fix PRs</CardTitle>
-        </CardHeader>
-        <CardBody className="space-y-2">
-          {prs.length === 0 && !error ? (
-            <p className="text-sm text-text-secondary">
-              No auto-fix PRs yet. The cron runs daily; check back tomorrow.
-            </p>
-          ) : (
-            prs.map((pr) => {
-              const state = prState(pr);
-              const sentryLink = sentryLinkFromBranch(pr.head.ref);
-              return (
-                <div
-                  key={pr.number}
-                  className="rounded-md border border-border bg-bg-surface-2 p-3"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={state.variant}>
-                          {state.label === 'Merged' ? (
-                            <CheckCircle2 className="h-3 w-3" />
-                          ) : state.label === 'Closed' ? (
-                            <XCircle className="h-3 w-3" />
-                          ) : (
-                            <GitPullRequest className="h-3 w-3" />
-                          )}
-                          {state.label}
-                        </Badge>
+          <CardBody className="space-y-2">
+            {prs.length === 0 && !error ? (
+              <p className="text-sm text-text-secondary">
+                No auto-fix PRs yet. The cron runs daily; check back tomorrow.
+              </p>
+            ) : (
+              prs.map((pr) => {
+                const state = prState(pr);
+                const sentryLink = sentryLinkFromBranch(pr.head.ref);
+                return (
+                  <div
+                    key={pr.number}
+                    className="rounded-md border border-border bg-bg-surface-2 p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={state.variant}>
+                            {state.label === 'Merged' ? (
+                              <CheckCircle2 className="h-3 w-3" />
+                            ) : state.label === 'Closed' ? (
+                              <XCircle className="h-3 w-3" />
+                            ) : (
+                              <GitPullRequest className="h-3 w-3" />
+                            )}
+                            {state.label}
+                          </Badge>
+                          <Link
+                            href={pr.html_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-text-primary hover:text-accent hover:underline"
+                          >
+                            #{pr.number} {pr.title}
+                          </Link>
+                        </div>
+                        <p className="text-xs text-text-muted">
+                          Branch <code className="font-mono">{pr.head.ref}</code> · opened{' '}
+                          {formatRelative(pr.created_at)}
+                          {pr.merged_at ? ` · merged ${formatRelative(pr.merged_at)}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {sentryLink ? (
+                          <Link
+                            href={sentryLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Sentry
+                          </Link>
+                        ) : null}
                         <Link
                           href={pr.html_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-medium text-text-primary hover:text-accent hover:underline"
-                        >
-                          #{pr.number} {pr.title}
-                        </Link>
-                      </div>
-                      <p className="text-xs text-text-muted">
-                        Branch <code className="font-mono">{pr.head.ref}</code> · opened{' '}
-                        {formatRelative(pr.created_at)}
-                        {pr.merged_at ? ` · merged ${formatRelative(pr.merged_at)}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {sentryLink ? (
-                        <Link
-                          href={sentryLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
                         >
-                          <ExternalLink className="h-3 w-3" /> Sentry
+                          <ExternalLink className="h-3 w-3" /> GitHub
                         </Link>
-                      ) : null}
-                      <Link
-                        href={pr.html_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-                      >
-                        <ExternalLink className="h-3 w-3" /> GitHub
-                      </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </CardBody>
-      </Card>
-    </div>
+                );
+              })
+            )}
+          </CardBody>
+        </Card>
+      </div>
+    </>
   );
 }
 

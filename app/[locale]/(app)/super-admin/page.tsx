@@ -13,6 +13,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/ui/page-header';
 import { formatCurrencyCAD } from '@/lib/utils';
 
 /**
@@ -258,203 +259,203 @@ export default async function AdminDashboard({ params }: { params: { locale: str
   const appFeePct = (platform.appFeeBps / 100).toFixed(2);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Küa platform overview</h1>
-        <p className="text-sm text-text-secondary">
-          Vue d&apos;ensemble en temps réel : revenue + ce que Küa prend, état des shops, signal
-          Sentry des dernières 24h, activité du cron d&apos;auto-fix. Les fetches Sentry et GitHub
-          font fail-soft — un outage tiers dégrade la carte plutôt que la page entière.
+    <>
+      <PageHeader title="Küa platform overview" subtitle="Super-admin · vue d'ensemble Küa" />
+      <div className="space-y-8 p-6">
+        <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">
+          Revenue + ce que Küa prend (30j), état des shops, signal Sentry des dernières 24h,
+          activité du cron d&apos;auto-fix. Les fetches Sentry et GitHub font fail-soft — un outage
+          tiers dégrade la carte plutôt que la page entière.
         </p>
-      </div>
 
-      {/* ──── Top stats: 4 KPI cards ──── */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          icon={<DollarSign className="h-4 w-4" />}
-          label="Revenue 30 jours"
-          value={formatCurrencyCAD(platform.totals.revenue30d, 'fr')}
-          sub={`${platform.totals.bookings30d} bookings payés`}
-        />
-        <Kpi
-          icon={<TrendingUp className="h-4 w-4" />}
-          label={`Küa fees 30j (${appFeePct}%)`}
-          value={formatCurrencyCAD(platform.totals.feeKua30d, 'fr')}
-          sub={
-            <Link
-              href={`/${params.locale}/super-admin/platform-config`}
-              className="text-accent hover:underline"
-            >
-              Modifier le BPS →
-            </Link>
-          }
-          accent
-        />
-        <Kpi
-          icon={<Store className="h-4 w-4" />}
-          label="Shops"
-          value={String(platform.totals.totalShops)}
-          sub={`${platform.totals.stripeActiveShops} Stripe actif · ${platform.totals.newShops30d} nouveaux ce mois`}
-        />
-        <Kpi
-          icon={<Bug className="h-4 w-4" />}
-          label="Issues Sentry 24h"
-          value={String(sentry.unresolved24h)}
-          sub={
-            sentry.error ? (
-              <span className="text-warning">Token manquant</span>
-            ) : (
+        {/* ──── Top stats: 4 KPI cards ──── */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Kpi
+            icon={<DollarSign className="h-4 w-4" />}
+            label="Revenue 30 jours"
+            value={formatCurrencyCAD(platform.totals.revenue30d, 'fr')}
+            sub={`${platform.totals.bookings30d} bookings payés`}
+          />
+          <Kpi
+            icon={<TrendingUp className="h-4 w-4" />}
+            label={`Küa fees 30j (${appFeePct}%)`}
+            value={formatCurrencyCAD(platform.totals.feeKua30d, 'fr')}
+            sub={
               <Link
-                href={`/${params.locale}/super-admin/sentry-autofix`}
+                href={`/${params.locale}/super-admin/platform-config`}
                 className="text-accent hover:underline"
               >
-                Voir l&apos;archive →
+                Modifier le BPS →
               </Link>
-            )
-          }
-          variant={sentry.unresolved24h > 0 ? 'danger' : undefined}
-        />
-      </div>
+            }
+            accent
+          />
+          <Kpi
+            icon={<Store className="h-4 w-4" />}
+            label="Shops"
+            value={String(platform.totals.totalShops)}
+            sub={`${platform.totals.stripeActiveShops} Stripe actif · ${platform.totals.newShops30d} nouveaux ce mois`}
+          />
+          <Kpi
+            icon={<Bug className="h-4 w-4" />}
+            label="Issues Sentry 24h"
+            value={String(sentry.unresolved24h)}
+            sub={
+              sentry.error ? (
+                <span className="text-warning">Token manquant</span>
+              ) : (
+                <Link
+                  href={`/${params.locale}/super-admin/sentry-autofix`}
+                  className="text-accent hover:underline"
+                >
+                  Voir l&apos;archive →
+                </Link>
+              )
+            }
+            variant={sentry.unresolved24h > 0 ? 'danger' : undefined}
+          />
+        </div>
 
-      {/* ──── Sentry top issues ──── */}
-      {sentry.topIssues.length > 0 ? (
+        {/* ──── Sentry top issues ──── */}
+        {sentry.topIssues.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="inline-flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  Top issues Sentry (24h)
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {sentry.topIssues.map((i) => (
+                <div
+                  key={i.shortId}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-border bg-bg-surface-2 p-4"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-sm font-medium text-text-primary">{i.title}</p>
+                    <p className="text-xs text-text-muted">
+                      <code className="font-mono">{i.shortId}</code> · {i.count} events
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant={i.level === 'error' ? 'danger' : 'warning'}>{i.level}</Badge>
+                    <Link
+                      href={i.permalink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Sentry
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+        ) : sentry.error ? null : (
+          <Card>
+            <CardBody>
+              <p className="text-sm text-text-secondary">
+                ✅ Aucune issue Sentry dans les dernières 24h.
+              </p>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* ──── Auto-fix activity (30 days) ──── */}
         <Card>
           <CardHeader>
             <CardTitle>
               <span className="inline-flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                Top issues Sentry (24h)
+                <GitPullRequest className="h-4 w-4 text-accent" />
+                Auto-fix cron (30 jours)
               </span>
             </CardTitle>
           </CardHeader>
-          <CardBody className="space-y-2">
-            {sentry.topIssues.map((i) => (
-              <div
-                key={i.shortId}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border bg-bg-surface-2 p-3"
-              >
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="text-sm font-medium text-text-primary">{i.title}</p>
-                  <p className="text-xs text-text-muted">
-                    <code className="font-mono">{i.shortId}</code> · {i.count} events
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant={i.level === 'error' ? 'danger' : 'warning'}>{i.level}</Badge>
-                  <Link
-                    href={i.permalink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Sentry
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      ) : sentry.error ? null : (
-        <Card>
           <CardBody>
-            <p className="text-sm text-text-secondary">
-              ✅ Aucune issue Sentry dans les dernières 24h.
+            {autofix.error ? (
+              <p className="text-sm text-text-secondary">{autofix.error}</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <Stat label="PRs ouverts" value={autofix.opened30d} />
+                <Stat label="Mergés" value={autofix.merged30d} variant="success" />
+                <Stat label="En attente review" value={autofix.open} variant="info" />
+              </div>
+            )}
+            <p className="mt-4 text-xs text-text-muted">
+              <Link
+                href={`/${params.locale}/super-admin/sentry-autofix`}
+                className="text-accent hover:underline"
+              >
+                Voir l&apos;archive complète →
+              </Link>
             </p>
           </CardBody>
         </Card>
-      )}
 
-      {/* ──── Auto-fix activity (30 days) ──── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <span className="inline-flex items-center gap-2">
-              <GitPullRequest className="h-4 w-4 text-accent" />
-              Auto-fix cron (30 jours)
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          {autofix.error ? (
-            <p className="text-sm text-text-secondary">{autofix.error}</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <Stat label="PRs ouverts" value={autofix.opened30d} />
-              <Stat label="Mergés" value={autofix.merged30d} variant="success" />
-              <Stat label="En attente review" value={autofix.open} variant="info" />
-            </div>
-          )}
-          <p className="mt-3 text-xs text-text-muted">
-            <Link
-              href={`/${params.locale}/super-admin/sentry-autofix`}
-              className="text-accent hover:underline"
-            >
-              Voir l&apos;archive complète →
-            </Link>
-          </p>
-        </CardBody>
-      </Card>
-
-      {/* ──── Per-shop revenue table ──── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue par shop (30 jours)</CardTitle>
-        </CardHeader>
-        <CardBody>
-          {platform.shops.length === 0 ? (
-            <p className="text-sm text-text-secondary">Aucun shop pour l&apos;instant.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                    <th className="py-2">Shop</th>
-                    <th className="py-2 text-right">Volume</th>
-                    <th className="py-2 text-right">Küa fee</th>
-                    <th className="py-2 text-right">Bookings</th>
-                    <th className="py-2">Stripe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {platform.shops.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-b-0">
-                      <td className="py-2">
-                        <div className="font-medium text-text-primary">{s.name}</div>
-                        {s.alias ? (
-                          <div className="text-[11px] text-text-muted">/{s.alias}</div>
-                        ) : null}
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {formatCurrencyCAD(s.revenue30d, 'fr')}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-accent">
-                        {formatCurrencyCAD(s.feeKua30d, 'fr')}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-text-secondary">
-                        {s.bookings30d}
-                      </td>
-                      <td className="py-2">
-                        <Badge
-                          variant={
-                            s.stripe_connect_status === 'active'
-                              ? 'success'
-                              : s.stripe_connect_status === 'restricted'
-                                ? 'warning'
-                                : 'default'
-                          }
-                        >
-                          {s.stripe_connect_status}
-                        </Badge>
-                      </td>
+        {/* ──── Per-shop revenue table ──── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue par shop (30 jours)</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {platform.shops.length === 0 ? (
+              <p className="text-sm text-text-secondary">Aucun shop pour l&apos;instant.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th className="px-3 py-3">Shop</th>
+                      <th className="px-3 py-3 text-right">Volume</th>
+                      <th className="px-3 py-3 text-right">Küa fee</th>
+                      <th className="px-3 py-3 text-right">Bookings</th>
+                      <th className="px-3 py-3">Stripe</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-    </div>
+                  </thead>
+                  <tbody>
+                    {platform.shops.map((s) => (
+                      <tr key={s.id} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-text-primary">{s.name}</div>
+                          {s.alias ? (
+                            <div className="text-[11px] text-text-muted">/{s.alias}</div>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          {formatCurrencyCAD(s.revenue30d, 'fr')}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums text-accent">
+                          {formatCurrencyCAD(s.feeKua30d, 'fr')}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                          {s.bookings30d}
+                        </td>
+                        <td className="px-3 py-3">
+                          <Badge
+                            variant={
+                              s.stripe_connect_status === 'active'
+                                ? 'success'
+                                : s.stripe_connect_status === 'restricted'
+                                  ? 'warning'
+                                  : 'default'
+                            }
+                          >
+                            {s.stripe_connect_status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+    </>
   );
 }
 
@@ -481,13 +482,13 @@ function Kpi({
     variant === 'danger' ? 'text-danger' : accent ? 'text-accent' : 'text-text-primary';
   return (
     <Card>
-      <CardBody className="space-y-1">
+      <CardBody className="space-y-2">
         <div className="flex items-center gap-2 text-text-muted">
           {icon}
           <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
         </div>
-        <p className={`text-2xl font-semibold ${valueColor}`}>{value}</p>
-        {sub ? <div className="text-xs text-text-secondary">{sub}</div> : null}
+        <p className={`text-3xl font-semibold tracking-tight ${valueColor}`}>{value}</p>
+        {sub ? <div className="mt-1 text-xs leading-relaxed text-text-secondary">{sub}</div> : null}
       </CardBody>
     </Card>
   );
@@ -505,9 +506,9 @@ function Stat({
   const color =
     variant === 'success' ? 'text-success' : variant === 'info' ? 'text-info' : 'text-text-primary';
   return (
-    <div className="rounded-md border border-border bg-bg-surface-2 p-3">
+    <div className="space-y-1.5 rounded-md border border-border bg-bg-surface-2 p-4">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-      <p className={`text-xl font-semibold ${color}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${color}`}>{value}</p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentUser, requireShopMember } from '@/lib/auth/server';
+import { getCurrentUser, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { quickbooksConfigured } from '@/lib/quickbooks/server';
 import { getPlatformAppFeeBps } from '@/lib/stripe/platform-config';
@@ -51,6 +51,13 @@ export type QuickbooksConnectState = {
 export default async function PaymentsPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
+  // Security audit #3 — owner-only gate. The mutations on this page
+  // (Stripe Connect, payment_mode, payment_profile, QuickBooks) are
+  // all `minRole: 'owner'` server-side. Without this page-level guard
+  // a barber could load the page and see the shop's Stripe Connect
+  // status, payment_mode, BPS, last-4 bank, etc. — read-side
+  // disclosure even though no mutations succeed.
+  await requireRoleInCurrentShop('owner');
   const user = await getCurrentUser();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

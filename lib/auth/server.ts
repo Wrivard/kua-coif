@@ -248,11 +248,28 @@ export async function requireKuaAdmin(opts?: { locale?: string }) {
  * Gate a Server Action / page on a minimum role within the active shop.
  * Throws (so `error.tsx` can render) instead of redirecting — callers in form
  * actions usually want to surface the error to the user.
+ *
+ * Security audit #2 (CRITICAL) — cookie-aware membership lookup.
+ *
+ * Pre-fix, this pinned `memberships[0]` regardless of the active-shop
+ * cookie. A multi-shop user (e.g. `owner` in shop A, `barber` in shop
+ * B) who flipped the cookie to shop B would have their owner role
+ * SILENTLY APPLIED against shop B's pages — `/finances`,
+ * `/marketing/*`, `/settings/audit-log`, `/settings/notifications`,
+ * `testSmtpConnection`, `testTwilioConfig`, `upload-actions.ts`.
+ * Cookie was validated for the data layer via `getCurrentShopId()`
+ * but the role gate ignored it. Same bug class as the `withAction`
+ * fix in commit 4227721 — this surface never got it.
+ *
+ * Fix: read `getCurrentShopId()` (which validates the cookie against
+ * memberships) and look up the membership for THAT shop_id. Falls
+ * back to `memberships[0]` for single-shop users.
  */
 export async function requireRoleInCurrentShop(minimum: UserRole) {
   const memberships = await getShopMemberships();
   if (memberships.length === 0) throw new Error('NO_SHOP');
-  const m = memberships[0]!;
+  const activeShopId = await getCurrentShopId();
+  const m = memberships.find((row) => row.shop_id === activeShopId) ?? memberships[0]!;
   const order: Record<UserRole, number> = { owner: 3, manager: 2, barber: 1 };
   if (order[m.role] < order[minimum]) {
     throw new Error('FORBIDDEN');
