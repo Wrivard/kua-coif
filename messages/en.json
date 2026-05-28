@@ -1347,6 +1347,15 @@
           "copy": "Copy code",
           "copied": "Copied!"
         },
+        "snippetMode": {
+          "label": "Integration mode",
+          "inline": "Inline (embedded in the page)",
+          "floatingButton": "Floating button (Calendly-style)",
+          "modal": "Modal (triggered by your own button)",
+          "inlineHint": "Widget fills the zone where you drop the code. Best for a dedicated \"Book\" page.",
+          "floatingButtonHint": "Fixed \"Book\" pill in the bottom-right, opens the widget in a modal on click. Best for a marketing site.",
+          "modalHint": "No automatic button — your own link calls Kua.open(). Best for adding to an existing menu or CTA."
+        },
         "preview": {
           "noAlias": "Set a shop alias first to see the preview.",
           "note": "Preview updates live as you edit. Changes save automatically."

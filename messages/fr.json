@@ -1349,6 +1349,15 @@
           "copy": "Copier le code",
           "copied": "Copié !"
         },
+        "snippetMode": {
+          "label": "Mode d'intégration",
+          "inline": "Inline (intégré dans la page)",
+          "floatingButton": "Bouton flottant (Calendly-style)",
+          "modal": "Modal (déclenché par ton bouton)",
+          "inlineHint": "Le widget remplit la zone où tu places le code. Idéal pour une page « Réservation ».",
+          "floatingButtonHint": "Bouton « Réserver » fixé en bas à droite, ouvre le widget en modal au clic. Idéal pour un site marketing.",
+          "modalHint": "Pas de bouton automatique — ton propre lien appelle Kua.open(). Idéal pour intégrer dans un menu ou un CTA existant."
+        },
         "preview": {
           "noAlias": "Définis d'abord un alias pour voir l'aperçu.",
           "note": "L'aperçu se met à jour en direct à chaque changement. Tes modifications sont sauvegardées automatiquement."

@@ -221,17 +221,39 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   }
 
   // ── Snippet ────────────────────────────────────────────────────────────
+  // Phase H+13 — three integration modes with distinct snippet shapes.
+  //   - inline: data-kua-widget div that mounts the iframe in place.
+  //   - floating-button: same div with data-kua-mode flagging widget.js
+  //     to inject a fixed bottom-right "Book" button instead.
+  //   - modal: salon's own button calls Kua.open() — no div needed.
+  const watchedSnippetMode = watch('snippet_mode');
   const snippet = useMemo(() => {
     if (!shopAlias) return '';
     const origin =
       typeof window !== 'undefined' ? window.location.origin : 'https://kua-coif.vercel.app';
     const snippetLocale = watchedLocale || initial.default_locale;
+    const scriptTag = `<script src="${origin}/widget.js" async></script>`;
+    if (watchedSnippetMode === 'floating-button') {
+      return [
+        `<!-- Küa booking widget (floating button) -->`,
+        `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}" data-kua-mode="floating-button"></div>`,
+        scriptTag,
+      ].join('\n');
+    }
+    if (watchedSnippetMode === 'modal') {
+      const label = snippetLocale === 'en' ? 'Book now' : 'Réserver maintenant';
+      return [
+        `<!-- Küa booking widget (modal API) -->`,
+        `<button onclick="Kua.open('${shopAlias}', { locale: '${snippetLocale}' })">${label}</button>`,
+        scriptTag,
+      ].join('\n');
+    }
     return [
       `<!-- Küa booking widget -->`,
       `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}"></div>`,
-      `<script src="${origin}/widget.js" async></script>`,
+      scriptTag,
     ].join('\n');
-  }, [shopAlias, watchedLocale, initial.default_locale]);
+  }, [shopAlias, watchedLocale, initial.default_locale, watchedSnippetMode]);
 
   function copySnippet() {
     if (!snippet) return;
@@ -620,38 +642,61 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
             <CardHeader>
               <CardTitle>{t('sections.snippet')}</CardTitle>
             </CardHeader>
-            <CardBody className="space-y-3">
-              <p className="text-xs text-text-muted">{t('snippet.instructions')}</p>
-              <pre className="overflow-x-auto rounded border border-border bg-bg-base p-3 text-[11px] leading-relaxed text-text-secondary">
-                {snippet || t('snippet.noAlias')}
-              </pre>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={copySnippet}
-                disabled={!snippet}
-                className="w-full"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4" /> {t('snippet.copied')}
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" /> {t('snippet.copy')}
-                  </>
-                )}
-              </Button>
-              {shopAlias ? (
-                <a
-                  href={`/${locale}/test-embed?slug=${encodeURIComponent(shopAlias)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded border border-border bg-bg-surface-2 px-3 py-2 text-center text-xs font-medium text-text-primary hover:bg-bg-elevated"
+            <CardBody className="space-y-4">
+              {/* Phase H+13 — integration mode selector. Drives both the
+                  snippet shape (3 templates) AND the runtime behaviour
+                  of widget.js when the salon pastes the snippet. */}
+              <div>
+                <Label htmlFor="snippet_mode">{t('snippetMode.label')}</Label>
+                <Select id="snippet_mode" {...register('snippet_mode')}>
+                  <option value="inline">{t('snippetMode.inline')}</option>
+                  <option value="floating-button">{t('snippetMode.floatingButton')}</option>
+                  <option value="modal">{t('snippetMode.modal')}</option>
+                </Select>
+                <p className="mt-1 text-xs text-text-muted">
+                  {watchedSnippetMode === 'floating-button'
+                    ? t('snippetMode.floatingButtonHint')
+                    : watchedSnippetMode === 'modal'
+                      ? t('snippetMode.modalHint')
+                      : t('snippetMode.inlineHint')}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs text-text-muted">{t('snippet.instructions')}</p>
+                <pre className="overflow-x-auto rounded border border-border bg-bg-base p-3 text-[11px] leading-relaxed text-text-secondary">
+                  {snippet || t('snippet.noAlias')}
+                </pre>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={copySnippet}
+                  disabled={!snippet}
+                  className="w-full"
                 >
-                  {t('testEmbed.button')} <ExternalLink className="ml-1 inline h-3 w-3" />
-                </a>
-              ) : null}
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" /> {t('snippet.copied')}
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" /> {t('snippet.copy')}
+                    </>
+                  )}
+                </Button>
+                {shopAlias ? (
+                  <a
+                    href={`/${locale}/test-embed?slug=${encodeURIComponent(
+                      shopAlias,
+                    )}&mode=${watchedSnippetMode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded border border-border bg-bg-surface-2 px-3 py-2 text-center text-xs font-medium text-text-primary hover:bg-bg-elevated"
+                  >
+                    {t('testEmbed.button')} <ExternalLink className="ml-1 inline h-3 w-3" />
+                  </a>
+                ) : null}
+              </div>
             </CardBody>
           </Card>
 

@@ -21,13 +21,44 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: { locale: string };
-  searchParams: { slug?: string };
+  searchParams: { slug?: string; mode?: string; theme?: string };
 };
+
+const VALID_MODES = ['inline', 'floating-button', 'modal'] as const;
+type WidgetMode = (typeof VALID_MODES)[number];
+
+function snippetFor(mode: WidgetMode, slug: string, locale: 'fr' | 'en', theme: string | null) {
+  const themeAttr = theme ? ` data-kua-theme="${theme}"` : '';
+  if (mode === 'floating-button') {
+    return `<!-- Küa booking widget (floating button) -->
+<div data-kua-widget="${slug}" data-kua-locale="${locale}" data-kua-mode="floating-button"${themeAttr}></div>
+<script src="/widget.js" async></script>`;
+  }
+  if (mode === 'modal') {
+    const label = locale === 'en' ? 'Book now' : 'Réserver maintenant';
+    return `<!-- Küa booking widget (modal API) -->
+<button onclick="Kua.open('${slug}', { locale: '${locale}'${theme ? `, theme: '${theme}'` : ''} })">${label}</button>
+<script src="/widget.js" async></script>`;
+  }
+  return `<!-- Küa booking widget -->
+<div data-kua-widget="${slug}" data-kua-locale="${locale}"${themeAttr}></div>
+<script src="/widget.js" async></script>`;
+}
 
 export default function TestEmbedPage({ params: { locale }, searchParams }: Props) {
   setRequestLocale(locale);
   const slug = (searchParams?.slug ?? '').trim();
   const widgetLocale = locale === 'en' ? 'en' : 'fr';
+  // Phase H+13 — pick the widget mode from `?mode=`, fall back to inline.
+  const mode: WidgetMode = (VALID_MODES as readonly string[]).includes(searchParams?.mode ?? '')
+    ? (searchParams!.mode as WidgetMode)
+    : 'inline';
+  const theme =
+    searchParams?.theme === 'dark' ||
+    searchParams?.theme === 'light' ||
+    searchParams?.theme === 'auto'
+      ? searchParams.theme
+      : null;
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
@@ -35,7 +66,13 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
       <div className="border-accent/30 border-b bg-accent-subtle px-4 py-3 text-center text-xs font-medium text-accent">
         <span className="inline-flex items-center gap-2">
           <Info className="h-3.5 w-3.5" />
-          Test embed harness — mounted via the same widget.js public sites use.
+          Test embed harness · mode: <code className="rounded bg-bg-base px-1">{mode}</code>
+          {theme ? (
+            <>
+              {' '}
+              · theme: <code className="rounded bg-bg-base px-1">{theme}</code>
+            </>
+          ) : null}
         </span>
       </div>
 
@@ -64,10 +101,35 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
 
         {slug ? (
           <>
-            {/* The placeholder + script — copied verbatim from the snippet card */}
+            {/* The placeholder — shape depends on mode. Modal mode
+                renders a sample "Book now" button that calls
+                Kua.open() since the placeholder div wouldn't show
+                anything otherwise. */}
             <section className="rounded-lg border border-border bg-bg-surface p-6 shadow-sm">
-              {/* eslint-disable-next-line react/no-unknown-property */}
-              <div data-kua-widget={slug} data-kua-locale={widgetLocale} />
+              {mode === 'modal' ? (
+                // Plain HTML button with an inline `onclick` so the
+                // behaviour matches exactly what a salon would paste
+                // on their site — no React, no client component, just
+                // a script tag + this trigger. dangerouslySetInnerHTML
+                // because Server Components can't carry an `onClick`
+                // prop down to the DOM as a real listener.
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: `<button type="button" onclick="Kua.open('${slug}', { locale: '${widgetLocale}'${
+                      theme ? `, theme: '${theme}'` : ''
+                    } })" style="display:inline-flex;height:44px;align-items:center;border-radius:9999px;background:#8b5cf6;color:white;padding:0 24px;font-size:14px;font-weight:600;border:0;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15)">${
+                      widgetLocale === 'en' ? 'Book now' : 'Réserver maintenant'
+                    }</button>`,
+                  }}
+                />
+              ) : (
+                <div
+                  data-kua-widget={slug}
+                  data-kua-locale={widgetLocale}
+                  data-kua-mode={mode === 'inline' ? undefined : mode}
+                  data-kua-theme={theme ?? undefined}
+                />
+              )}
             </section>
 
             <Script src="/widget.js" strategy="afterInteractive" />
@@ -75,9 +137,7 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
             <section className="rounded-lg border border-border bg-bg-surface-2 p-4 text-xs text-text-secondary">
               <p className="mb-2 font-semibold text-text-primary">Snippet rendered above</p>
               <pre className="overflow-x-auto rounded bg-bg-base p-3 leading-relaxed">
-                {`<!-- Küa booking widget -->
-<div data-kua-widget="${slug}" data-kua-locale="${widgetLocale}"></div>
-<script src="/widget.js" async></script>`}
+                {snippetFor(mode, slug, widgetLocale, theme)}
               </pre>
               <p className="mt-3">
                 On a real site, the <code className="rounded bg-bg-base px-1">script src</code>{' '}
@@ -87,6 +147,23 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
                 </code>
                 .
               </p>
+            </section>
+
+            {/* Mode switcher so the operator can quickly compare the
+                three integration styles on the same shop. */}
+            <section className="flex flex-wrap gap-2 text-xs">
+              <span className="self-center text-text-muted">Try another mode:</span>
+              {VALID_MODES.filter((m) => m !== mode).map((m) => (
+                <a
+                  key={m}
+                  href={`/${locale}/test-embed?slug=${encodeURIComponent(slug)}&mode=${m}${
+                    theme ? `&theme=${theme}` : ''
+                  }`}
+                  className="rounded border border-border bg-bg-surface px-3 py-1.5 font-medium text-text-primary hover:bg-bg-surface-2"
+                >
+                  {m}
+                </a>
+              ))}
             </section>
 
             <a

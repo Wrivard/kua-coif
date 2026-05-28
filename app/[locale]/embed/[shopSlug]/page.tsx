@@ -24,7 +24,10 @@ type Props = {
   // by the /settings/widget admin iframe. Public widget.js loads never
   // pass this flag, so the listener is dead code for third-party
   // visitors (zero JS sent down to them).
-  searchParams?: { preview?: string };
+  // Phase H+13 — `?theme=dark|light|auto` lets a salon override the
+  // saved `widget_config.mode` per-instance. Useful when the same
+  // widget lives on pages with different visual themes.
+  searchParams?: { preview?: string; theme?: string };
 };
 
 export const metadata: Metadata = {
@@ -47,6 +50,14 @@ export default async function EmbedBookingPage({
 }: Props) {
   setRequestLocale(locale);
   const isPreview = searchParams?.preview === '1';
+  // Phase H+13 — per-instance theme override via URL. Validated against
+  // the enum so a malicious `?theme=javascript:` is ignored.
+  const themeOverride =
+    searchParams?.theme === 'dark' ||
+    searchParams?.theme === 'light' ||
+    searchParams?.theme === 'auto'
+      ? searchParams.theme
+      : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceRoleClient() as any;
@@ -68,6 +79,12 @@ export default async function EmbedBookingPage({
   if (!shopRow) notFound();
 
   const widgetConfig = parseWidgetConfig(shopRow.widget_config);
+  // Phase H+13 — apply the URL theme override after parsing so the
+  // override walks the same downstream code path (themeOverrideScript,
+  // widgetThemeCss, preview wrapper). The saved config is left intact.
+  if (themeOverride) {
+    widgetConfig.mode = themeOverride;
+  }
 
   // 2. Fetch everything the wizard needs, scoped to the shop.
   //    Phase E — `tips_config` for the in-widget tip selector. The
