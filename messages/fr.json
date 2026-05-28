@@ -1318,6 +1318,7 @@
           "allowedOrigins": "Origines d'intégration autorisées",
           "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com.",
           "allowedOriginsWarning": "Aucune origine spécifiée — n'importe quel site peut intégrer ton widget. Recommandé : ajoute ton domaine.",
+          "allowedOriginsError": "Origine invalide. Format attendu : https://salon.com, https://*.salon.com ou * (tout autoriser). Pas de chemin.",
           "redirectEnabled": "Rediriger le client après confirmation",
           "redirectUrl": "URL de redirection",
           "redirectUrlHint": "URL complète https://… affichée au client après confirmation. Utile pour le tracking Google Ads ou ta page « Merci » brandée.",
@@ -1360,7 +1361,7 @@
           "modalHint": "Pas de bouton automatique — ton propre lien appelle Kua.open(). Idéal pour intégrer dans un menu ou un CTA existant."
         },
         "analytics": {
-          "intro": "30 derniers jours · combien de personnes voient ton widget, combien réservent.",
+          "intro": "30 derniers jours · combien de personnes ouvrent ton widget et combien vont jusqu'au bout. Chiffres indicatifs, pas une comptabilité exacte.",
           "empty": "Pas encore d'événements. Les statistiques apparaîtront dès qu'un client ouvrira ton widget.",
           "impressions": "Impressions",
           "bookings": "Réservations",
@@ -1377,6 +1378,7 @@
           "saved": "Sauvegardé",
           "savedAgo": "Sauvegardé il y a {seconds}s",
           "error": "Erreur de sauvegarde",
+          "invalid": "Champs invalides — non sauvegardé",
           "retry": "Réessayer"
         },
         "testEmbed": {
@@ -1484,7 +1486,9 @@
       },
       "done": {
         "title": "Rendez-vous confirmé !",
-        "description": "Tu recevras un rappel par courriel ou texto avant ta visite."
+        "description": "Tu recevras un rappel par courriel ou texto avant ta visite.",
+        "redirecting": "Redirection en cours…",
+        "redirectManual": "Clique ici si rien ne se passe."
       }
     }
   },

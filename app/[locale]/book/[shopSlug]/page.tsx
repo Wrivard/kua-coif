@@ -184,6 +184,12 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
         // either piece is missing.
         widgetConfig={widgetConfig}
         tipsConfig={tipsConfig}
+        // Phase H+14 — the hosted booking page is NOT the embeddable
+        // widget. Passing `null` keeps its traffic out of the widget
+        // conversion funnel (/settings/widget), which would otherwise
+        // log every /book visit as a `source='direct'` impression and
+        // conflate it with bare /embed loads.
+        analyticsSource={null}
       />
     </>
   );

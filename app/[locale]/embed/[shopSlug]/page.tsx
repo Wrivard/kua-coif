@@ -191,7 +191,13 @@ export default async function EmbedBookingPage({
         // eslint-disable-next-line react/no-danger
         <script dangerouslySetInnerHTML={{ __html: themeOverrideScript }} />
       ) : null}
-      {themeCss ? (
+      {/* Skip the static SSR theme block in preview mode: `PreviewWrapper`
+       *  injects its own reactive <style> from the live config. Emitting
+       *  BOTH means clearing an override (e.g. blanking accent_color) can't
+       *  visually reset — the live style goes empty but this static block
+       *  keeps applying the saved accent. Letting the wrapper own all theme
+       *  CSS in preview keeps "what you see" == "what you'd save". */}
+      {!isPreview && themeCss ? (
         // eslint-disable-next-line react/no-danger
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
       ) : null}

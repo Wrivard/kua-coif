@@ -320,6 +320,15 @@ export function BookingWizard({
   // abandon path since the browser may kill `fetch` on unload.
   const sessionIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
+  // Guard so one navigation doesn't double-count: `beforeunload` AND
+  // `pagehide` both fire on most real unloads, and we only want a single
+  // `abandon` per session.
+  const abandonedRef = useRef(false);
+  // Mirror of `state.step`. The unload handler is bound once (empty-dep
+  // effect) so its closure can't see the live step — this ref gives it the
+  // CURRENT value. Assigned during render (cheap, standard mirror pattern).
+  const stepRef = useRef<WizardState['step']>(state.step);
+  stepRef.current = state.step;
 
   const sendEvent = useMemo(() => {
     return (
@@ -366,11 +375,14 @@ export function BookingWizard({
   // Fire impression once per mount.
   useEffect(() => {
     sendEvent('impression');
-    // Abandon on unload if the customer never reached step 5.
+    // Abandon on unload if the customer never reached step 5. Guarded by
+    // `abandonedRef` (one beacon per session even though beforeunload +
+    // pagehide both fire) and reads the live step via `stepRef`.
     const onUnload = () => {
-      if (!completedRef.current && state.step < 5) {
-        sendEvent('abandon');
-      }
+      if (completedRef.current || abandonedRef.current) return;
+      if (stepRef.current >= 5) return;
+      abandonedRef.current = true;
+      sendEvent('abandon');
     };
     window.addEventListener('beforeunload', onUnload);
     window.addEventListener('pagehide', onUnload);
@@ -378,7 +390,7 @@ export function BookingWizard({
       window.removeEventListener('beforeunload', onUnload);
       window.removeEventListener('pagehide', onUnload);
     };
-    // sendEvent is stable; state.step is read via closure at unload.
+    // sendEvent is stable; the live step + guards come from refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1084,6 +1096,27 @@ export function BookingWizard({
                 {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
               </p>
             </div>
+            {/* Phase H+14 — redirect fallback. The auto-redirect effect
+                fires `window.top.location` on a 2.5s timer, but browsers
+                block top-frame navigation from a cross-origin iframe
+                (the real embed case) when it isn't tied to a user
+                gesture. This visible link IS a user gesture (target=_top
+                breaks out of the iframe), so the customer can always
+                complete the redirect even when the automatic one is
+                silently blocked. */}
+            {redirectEnabled && redirectUrl ? (
+              <p className="text-xs text-text-muted">
+                {t('done.redirecting')}{' '}
+                <a
+                  href={redirectUrl}
+                  target="_top"
+                  rel="noopener noreferrer"
+                  className="text-accent underline hover:no-underline"
+                >
+                  {t('done.redirectManual')}
+                </a>
+              </p>
+            ) : null}
           </section>
         )}
 

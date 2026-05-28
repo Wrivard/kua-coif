@@ -131,6 +131,10 @@
     return iframe;
   }
 
+  // Returns the bound handler so callers with a finite lifecycle (the
+  // modal) can remove it on teardown. Inline mounts ignore the return
+  // value — their iframe lives for the whole page, so the listener is
+  // meant to persist.
   function bindResize(iframe, host) {
     function onMessage(event) {
       if (event.source !== iframe.contentWindow) return;
@@ -148,6 +152,7 @@
       }
     }
     window.addEventListener('message', onMessage);
+    return onMessage;
   }
 
   // ─── Mode 1: inline ───────────────────────────────────────────────
@@ -276,13 +281,19 @@
     modalContainer._kuaEsc = onEsc;
 
     document.body.appendChild(modalContainer);
-    bindResize(iframe, host);
+    // Stash the resize handler so closeModal can detach it — otherwise
+    // every open/close cycle leaks a window `message` listener (the
+    // modal iframe is destroyed on close, but its listener lived on).
+    modalContainer._kuaResize = bindResize(iframe, host);
   }
 
   function closeModal() {
     if (!modalContainer) return;
     if (modalContainer._kuaEsc) {
       document.removeEventListener('keydown', modalContainer._kuaEsc);
+    }
+    if (modalContainer._kuaResize) {
+      window.removeEventListener('message', modalContainer._kuaResize);
     }
     modalContainer.remove();
     modalContainer = null;

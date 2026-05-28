@@ -22,7 +22,7 @@ import { Select } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { widgetConfigSchema, type WidgetConfig } from '@/lib/business/widget-config';
+import { originPattern, widgetConfigSchema, type WidgetConfig } from '@/lib/business/widget-config';
 import { upsertWidgetConfig } from './actions';
 
 /**
@@ -128,8 +128,13 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
 
   // Phase H+11 — auto-save status surfaced in the PageHeader actions slot.
   // The state machine: idle → saving (during the in-flight request) →
-  // saved | error → (back to idle on next change).
-  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  // saved | error → (back to idle on next change). The 'invalid' state
+  // is a local validation block (bad accent hex, malformed origin) — it
+  // means "your latest edit did NOT save, fix the field" and is distinct
+  // from 'error' (the server/network rejected an otherwise-valid save).
+  const [autoSaveState, setAutoSaveState] = useState<
+    'idle' | 'saving' | 'saved' | 'error' | 'invalid'
+  >('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const {
@@ -195,12 +200,26 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
   const isInitialMount = useRef(true);
   const triggerSave = useCallback(
     async (force = false) => {
-      if (!force && !isValid) return;
-      setAutoSaveState('saving');
       const origins = originsText
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean);
+      // Refuse to save on local validation failure. RHF's `isValid`
+      // covers the registered fields; `allowed_origins` lives in its
+      // own state, so we validate each line here with the SAME regex
+      // the server schema enforces (imported `originPattern`) — a
+      // divergence would let the UI accept an origin the server then
+      // rejects with a generic error. Either failure flips the badge
+      // to 'invalid' rather than returning silently, so the operator
+      // knows their latest edit didn't persist. Malformed origins
+      // block even a forced (Enter-key) save since the server would
+      // reject them outright.
+      const originsInvalid = origins.some((line) => !originPattern.test(line));
+      if (originsInvalid || (!force && !isValid)) {
+        setAutoSaveState('invalid');
+        return;
+      }
+      setAutoSaveState('saving');
       const payload: WidgetConfig = { ...getValues(), allowed_origins: origins };
       try {
         const result = await upsertWidgetConfig(payload);
@@ -299,11 +318,14 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
 
   // Empty allowed_origins → CSP wildcard. Surface a warning so the
   // operator knows their widget is embeddable anywhere.
-  const allowedOriginsEmpty =
-    originsText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean).length === 0;
+  const originsLines = originsText
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowedOriginsEmpty = originsLines.length === 0;
+  // Any non-empty line that fails the shared origin regex. Same rule
+  // the server enforces, so "looks valid here" == "saves there".
+  const originsHasError = originsLines.some((line) => !originPattern.test(line));
 
   return (
     <>
@@ -581,12 +603,21 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                   placeholder="https://salon-example.com&#10;https://*.example.com"
                   value={originsText}
                   onChange={(e) => setOriginsText(e.target.value)}
+                  invalid={originsHasError}
                 />
                 <p className="mt-1 text-xs text-text-muted">{t('fields.allowedOriginsHint')}</p>
-                {/* Phase H+11 — empty origins = CSP wildcard `*` so the
-                    widget can be iframed by literally anyone. Warn the
-                    operator since silent "*" is a footgun. */}
-                {allowedOriginsEmpty ? (
+                {/* Phase H+14 — a malformed origin line is an error (red):
+                    the server would reject the save, so block it client-
+                    side and say why. Empty origins is only a warning
+                    (amber): it's a valid-but-permissive "*" footgun. The
+                    error supersedes the warning — they can't co-occur (a
+                    bad line means the list isn't empty). */}
+                {originsHasError ? (
+                  <div className="border-danger/30 bg-danger/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-danger">
+                    <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <p>{t('fields.allowedOriginsError')}</p>
+                  </div>
+                ) : allowedOriginsEmpty ? (
                   <div className="border-warning/30 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-warning">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>{t('fields.allowedOriginsWarning')}</p>
@@ -833,7 +864,7 @@ function AutoSaveBadge({
   lastSavedAt,
   t,
 }: {
-  state: 'idle' | 'saving' | 'saved' | 'error';
+  state: 'idle' | 'saving' | 'saved' | 'error' | 'invalid';
   lastSavedAt: Date | null;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -862,6 +893,17 @@ function AutoSaveBadge({
       <span className="inline-flex items-center gap-1.5 text-xs text-danger">
         <CircleAlert className="h-3.5 w-3.5" />
         {t('autosave.error')}
+      </span>
+    );
+  }
+  // 'invalid' is amber, not red — it's a "fix your input" local block,
+  // not a failed server round-trip. Distinct color keeps the two apart
+  // at a glance.
+  if (state === 'invalid') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-warning">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        {t('autosave.invalid')}
       </span>
     );
   }

@@ -24,11 +24,15 @@ const hexColor = z
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/u, 'Invalid hex color')
   .optional();
 
-const originUrl = z
-  .string()
-  // Allow `https://example.com`, `https://*.example.com`, and `*` (wildcard).
-  // We don't accept paths — CSP frame-ancestors is host-based.
-  .regex(/^(\*|https?:\/\/(\*\.)?[a-zA-Z0-9.-]+(:[0-9]+)?)$/u, 'Invalid origin');
+// Exported so the settings UI can validate the `allowed_origins` textarea
+// client-side with the EXACT same rule the schema enforces (single source
+// of truth — a divergence would let the UI accept an origin the server
+// then rejects with a generic error).
+// Allow `https://example.com`, `https://*.example.com`, and `*` (wildcard).
+// We don't accept paths — CSP frame-ancestors is host-based.
+export const originPattern = /^(\*|https?:\/\/(\*\.)?[a-zA-Z0-9.-]+(:[0-9]+)?)$/u;
+
+const originUrl = z.string().regex(originPattern, 'Invalid origin');
 
 // Phase H+11 — accepts http(s) URLs only. Used for `redirect_url` so a
 // shop owner can't accidentally redirect customers to `javascript:` or

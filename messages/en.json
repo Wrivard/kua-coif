@@ -1316,6 +1316,7 @@
           "allowedOrigins": "Allowed embedding origins",
           "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com.",
           "allowedOriginsWarning": "No origin set — any site can embed your widget. Recommended: add your domain.",
+          "allowedOriginsError": "Invalid origin. Expected: https://salon.com, https://*.salon.com or * (allow all). No paths.",
           "redirectEnabled": "Redirect the customer after confirmation",
           "redirectUrl": "Redirect URL",
           "redirectUrlHint": "Full https:// URL the customer is sent to after confirming. Useful for Google Ads conversion tracking or a branded \"Thank you\" page.",
@@ -1358,7 +1359,7 @@
           "modalHint": "No automatic button — your own link calls Kua.open(). Best for adding to an existing menu or CTA."
         },
         "analytics": {
-          "intro": "Last 30 days · how many people see your widget and how many actually book.",
+          "intro": "Last 30 days · how many people open your widget and how many reach the end. Indicative figures, not exact accounting.",
           "empty": "No events yet. Stats appear once a customer opens your widget.",
           "impressions": "Impressions",
           "bookings": "Bookings",
@@ -1375,6 +1376,7 @@
           "saved": "Saved",
           "savedAgo": "Saved {seconds}s ago",
           "error": "Save failed",
+          "invalid": "Invalid fields — not saved",
           "retry": "Retry"
         },
         "testEmbed": {
@@ -1482,7 +1484,9 @@
       },
       "done": {
         "title": "Appointment confirmed!",
-        "description": "You'll receive a reminder via email or SMS before your visit."
+        "description": "You'll receive a reminder via email or SMS before your visit.",
+        "redirecting": "Redirecting…",
+        "redirectManual": "Click here if nothing happens."
       }
     }
   },
