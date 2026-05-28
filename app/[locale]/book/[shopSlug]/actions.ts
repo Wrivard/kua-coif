@@ -14,6 +14,7 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { signToken } from '@/lib/security/signed-tokens';
+import { appUrl } from '@/lib/env/app-url';
 import { stripeConfigured } from '@/lib/stripe/server';
 import {
   createDepositPaymentIntent,
@@ -781,8 +782,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           resourceId: clientId,
           expiresInSeconds: 60 * 60 * 24 * 365,
         });
-        const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
-        meUrl = `${base}/${input.locale}/me/${meToken}`;
+        // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read
+        // and warns once to Sentry in production when missing (broken
+        // /me links in customer emails).
+        meUrl = `${appUrl()}/${input.locale}/me/${meToken}`;
       }
 
       // The dispatcher (Phase 25) handles three gates internally:

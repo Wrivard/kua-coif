@@ -6,6 +6,7 @@ import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { signToken } from '@/lib/security/signed-tokens';
 import { logAuditAction } from '@/lib/audit-log';
+import { appUrl } from '@/lib/env/app-url';
 
 /**
  * Phase 12 (post-loop-11) — Admin-side generators for the signed public
@@ -74,9 +75,12 @@ export const generatePublicLinks = withAction({
       expiresInSeconds: 60 * 60 * 24 * 7,
     });
 
-    // Use NEXT_PUBLIC_APP_URL when set (Vercel prod / preview), else
-    // a relative path the caller will prefix with window.location.origin.
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+    // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read +
+    // warns once to Sentry in production when missing. When unset, the
+    // helper returns '' which produces relative paths the caller will
+    // prefix with window.location.origin (existing admin drawer
+    // behavior); in production the Sentry warning surfaces the gap.
+    const base = appUrl();
 
     // Loop 30 (P2.104) — minting a signed public URL grants someone
     // unauth'd access to receipt + reschedule + review surfaces, so

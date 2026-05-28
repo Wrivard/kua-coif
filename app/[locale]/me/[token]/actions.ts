@@ -194,6 +194,11 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
 const cancelSchema = z.object({
   token: z.string().trim().min(10).max(4096),
   appointment_id: z.string().uuid(),
+  // Phase H — customer's locale, threaded from the /me URL path so the
+  // cancellation email arrives in the right language. Defaults to FR
+  // (the project's default + Quebec context) when the wizard didn't
+  // forward it (older builds, hand-crafted POSTs).
+  locale: z.enum(['fr', 'en']).optional().default('fr'),
 });
 
 export type CancelMyAppointmentInput = z.infer<typeof cancelSchema>;
@@ -267,24 +272,41 @@ export async function cancelMyAppointment(
       return err('INVALID_INPUT', { appointment: 'already_started' });
     }
 
-    // Resolve the refund-policy window — same precedence as the
-    // admin-side `cancelAppointment` (Phase D): barber override beats
-    // shop default. 0 minutes = "no policy" = refund always proceeds.
+    // Resolve the cancel policy + refund-policy window — same precedence
+    // as the admin-side `cancelAppointment` (Phase D): barber override
+    // beats shop default. 0 minutes = "no policy" = refund always
+    // proceeds.
+    //
+    // Phase H — `customer_cancellations` is also pulled here. When the
+    // shop disabled customer-initiated cancels (toggle off in
+    // /settings/barbers), the customer must contact the salon — the
+    // /me self-cancel surface MUST honor that or it bypasses the
+    // owner's explicit "no" decision.
     const settingsRes = await supabase
       .from('barber_settings')
-      .select('scope, barber_id, mins_cancel_before_appt')
+      .select('scope, barber_id, mins_cancel_before_appt, customer_cancellations')
       .eq('shop_id', appt.shop_id);
     const settingsRows =
       (settingsRes.data as Array<{
         scope: 'shop' | 'barber';
         barber_id: string | null;
         mins_cancel_before_appt: number;
+        customer_cancellations: boolean | null;
       }> | null) ?? [];
     const override = settingsRows.find(
       (r) => r.scope === 'barber' && r.barber_id === appt.barber_id,
     );
     const fallback = settingsRows.find((r) => r.scope === 'shop');
-    const minsBefore = (override ?? fallback)?.mins_cancel_before_appt ?? 0;
+    const resolvedSettings = override ?? fallback;
+    const minsBefore = resolvedSettings?.mins_cancel_before_appt ?? 0;
+
+    // Phase H — explicit "no customer cancels" check. Defaults to TRUE
+    // (allowed) when the column is null so a shop that never touched
+    // the toggle keeps the default behavior. Only `false` blocks.
+    const customerCancellationsAllowed = resolvedSettings?.customer_cancellations !== false;
+    if (!customerCancellationsAllowed) {
+      return err('INVALID_INPUT', { cancellation: 'not_allowed' });
+    }
 
     // Is the customer past the cancellation window?
     const startMs = new Date(appt.start_at).getTime();
@@ -381,16 +403,19 @@ export async function cancelMyAppointment(
         .filter((n): n is string => Boolean(n))
         .map((name) => ({ name }));
       if (customer?.email && shop) {
+        // Phase H — locale comes from the /me URL path so the email
+        // arrives in the customer's chosen language. The subject line
+        // also switches; the rest of the template handles locale
+        // itself.
+        const emailLocale = parsed.data.locale;
         await sendEmail({
           shopId: appt.shop_id,
           kind: 'cancellation',
           to: customer.email,
-          // V1.5 will derive locale from client preference; for now we
-          // ship the FR template since the wizard defaults to FR and
-          // the /me link comes from the FR locale path most of the time.
-          subject: `Annulation — ${shop.name}`,
+          subject:
+            emailLocale === 'fr' ? `Annulation — ${shop.name}` : `Cancellation — ${shop.name}`,
           template: AppointmentCancellation({
-            locale: 'fr',
+            locale: emailLocale,
             shop: { name: shop.name, phone: shop.phone, timezone: shop.timezone },
             client: { firstName: customer.first_name },
             appointment: { startAt: appt.start_at, services },

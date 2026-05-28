@@ -92,13 +92,32 @@ export function MeClient({
     if (!confirm(confirmText)) return;
 
     startTransition(async () => {
-      const result = await cancelMyAppointment({ token, appointment_id: appointment.id });
+      // Phase H — forward the URL locale so the cancellation email
+      // lands in the right language. The action defaults to FR when
+      // the field is missing (older clients).
+      const emailLocale: 'fr' | 'en' = isFr ? 'fr' : 'en';
+      const result = await cancelMyAppointment({
+        token,
+        appointment_id: appointment.id,
+        locale: emailLocale,
+      });
       if (!result.ok) {
+        // Phase H — shop disabled customer-initiated cancels via
+        // `barber_settings.customer_cancellations`. The action surfaces
+        // a specific field-error so we can show the right copy
+        // ("contact the salon") instead of a generic failure.
+        const cancelBlocked =
+          result.errorCode === 'INVALID_INPUT' &&
+          result.fieldErrors?.cancellation === 'not_allowed';
         show({
           variant: 'danger',
-          title: isFr
-            ? 'Annulation impossible. Contacte le salon.'
-            : 'Cancel failed. Contact the shop.',
+          title: cancelBlocked
+            ? isFr
+              ? 'Ce salon n’autorise pas les annulations en libre-service. Contacte-le directement.'
+              : "This shop doesn't allow self-service cancellations. Please contact them directly."
+            : isFr
+              ? 'Annulation impossible. Contacte le salon.'
+              : 'Cancel failed. Contact the shop.',
         });
         return;
       }

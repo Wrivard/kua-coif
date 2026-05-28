@@ -135,6 +135,28 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
         break;
       }
+      // Phase H — refund failures.
+      //
+      // `charge.refunded` fires when we ASK Stripe for a refund. But the
+      // money movement is async (especially for ACH/SEPA destinations):
+      // the refund can FAIL hours later if the destination account
+      // rejects it (closed account, frozen, etc.). When that happens
+      // Stripe fires `charge.refund.updated` with `refund.status='failed'`
+      // and the money returns to the platform. Without handling this,
+      // `payment_status` stays at 'refunded' forever even though the
+      // customer never got their money back — silent correctness bug.
+      //
+      // On 'failed' we flip payment_status back to 'paid' so the admin
+      // drawer surfaces the row as needing attention. Owner can then
+      // re-try the refund via a different method.
+      case 'charge.refund.updated': {
+        const refund = event.data.object as Stripe.Refund;
+        const intentId = typeof refund.payment_intent === 'string' ? refund.payment_intent : null;
+        if (intentId && refund.status === 'failed') {
+          await revertRefundForIntent(intentId, refund.id);
+        }
+        break;
+      }
       // Phase B — chargeback / dispute lifecycle.
       case 'charge.dispute.created':
       case 'charge.dispute.updated':
@@ -195,10 +217,34 @@ async function persistPaymentStatus(intent: Stripe.PaymentIntent): Promise<void>
   const status = mapIntentStatus(intent.status);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createSupabaseServiceRoleClient() as any;
-  await admin
+  // Phase H — capture the count so we can warn when 0 rows match.
+  // A 0-row match for `payment_intent.succeeded` is suspicious: either
+  // (a) the appointment hasn't been inserted yet (race with the
+  // booking action), (b) the PI belongs to a different Küa install,
+  // or (c) the row was deleted (Loi 25 anonymization). Phase A SR
+  // pre-flips to 'paid' at insert, so case (a) is mostly closed —
+  // but `payment_intent.processing` can still race. We log to Sentry
+  // with the intent ID so an operator can grep the audit_log + Stripe
+  // dashboard and reconcile manually.
+  const updateRes = await admin
     .from('appointments')
     .update({ payment_status: status })
-    .eq('payment_intent_id', intent.id);
+    .eq('payment_intent_id', intent.id)
+    .select('id');
+  const matched = ((updateRes.data as Array<{ id: string }> | null) ?? []).length;
+  if (matched === 0 && (status === 'paid' || status === 'pending')) {
+    captureException(new Error(`[stripe-webhook] orphan PI: ${intent.id} (${status})`), {
+      tags: { layer: 'stripe-webhook', stage: 'orphan-pi', status },
+      extra: {
+        intentId: intent.id,
+        amount: intent.amount,
+        destination:
+          typeof intent.transfer_data?.destination === 'string'
+            ? intent.transfer_data.destination
+            : null,
+      },
+    });
+  }
 }
 
 /**
@@ -213,6 +259,34 @@ async function persistRefundForIntent(intentId: string): Promise<void> {
     .from('appointments')
     .update({ payment_status: 'refunded' })
     .eq('payment_intent_id', intentId);
+}
+
+/**
+ * Phase H — undo a refund that failed async. Triggered by
+ * `charge.refund.updated` with `refund.status='failed'`. Flips
+ * `payment_status` back to 'paid' so the admin drawer surfaces the
+ * row as needing attention. Also alerts via Sentry so the operator
+ * notices before the customer complains.
+ *
+ * Why not also flip cancelled appointments back to 'booked' on failed
+ * refund: the cancel was an independent decision (admin clicked
+ * Cancel & Refund, customer self-cancelled). The refund failing
+ * doesn't un-cancel the appointment — just means the money is still
+ * with us instead of moved back. Owner can refund again via a
+ * different mechanism (wire, check, in-person credit).
+ */
+async function revertRefundForIntent(intentId: string, refundId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  await admin
+    .from('appointments')
+    .update({ payment_status: 'paid' })
+    .eq('payment_intent_id', intentId)
+    .eq('payment_status', 'refunded'); // only flip back if WE said refunded
+  captureException(new Error(`[stripe-webhook] refund failed: ${refundId} on ${intentId}`), {
+    tags: { layer: 'stripe-webhook', stage: 'refund-failed' },
+    extra: { intentId, refundId },
+  });
 }
 
 /**
