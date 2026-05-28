@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 import { updatePlatformAppFee, type UpdateAppFeeState } from './actions';
 
 type Props = {
@@ -43,6 +44,7 @@ export function PlatformConfigClient({
   return (
     <>
       <PageHeader title="Platform config" subtitle="Küa-wide settings · application fee, etc." />
+      <SuperAdminNav />
       <div className="max-w-3xl space-y-6 p-6">
         <p className="text-sm leading-relaxed text-text-secondary">
           The application fee BPS drives every Stripe Connect destination charge across all shops.

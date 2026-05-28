@@ -14,6 +14,7 @@ import { captureException } from '@/lib/observability';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 import { formatCurrencyCAD } from '@/lib/utils';
 
 /**
@@ -261,6 +262,7 @@ export default async function AdminDashboard({ params }: { params: { locale: str
   return (
     <>
       <PageHeader title="Küa platform overview" subtitle="Super-admin · vue d'ensemble Küa" />
+      <SuperAdminNav />
       <div className="space-y-8 p-6">
         <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">
           Revenue + ce que Küa prend (30j), état des shops, signal Sentry des dernières 24h,

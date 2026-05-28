@@ -17,6 +17,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 import { formatCurrencyCAD } from '@/lib/utils';
 
 /**
@@ -200,6 +201,7 @@ export default async function ShopDetailPage({ params }: Props) {
           </Link>
         }
       />
+      <SuperAdminNav />
       <div className="space-y-8 p-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">

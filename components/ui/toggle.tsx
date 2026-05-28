@@ -40,8 +40,16 @@ export function Toggle({ checked, onChange, label, disabled, className, id, ...r
   );
 
   if (!label) return <span className={className}>{control}</span>;
+  // Phase H+8 fix — `inline-flex` made stacked Toggle siblings flow
+  // horizontally instead of vertically (visible on /settings/widget
+  // where multiple labelled toggles share a CardBody with space-y-*).
+  // `flex w-fit` keeps the toggle pill compact while making each one
+  // a block-level row, so space-y-* on the parent stacks them
+  // properly. Existing uses inside flex rows / grid cells still
+  // honor the parent's layout — `w-fit` keeps the pill from
+  // stretching to fill the slot.
   return (
-    <label className={cn('inline-flex items-center gap-3', disabled && 'opacity-50', className)}>
+    <label className={cn('flex w-fit items-center gap-3', disabled && 'opacity-50', className)}>
       {control}
       <span className="text-sm text-text-primary">{label}</span>
     </label>

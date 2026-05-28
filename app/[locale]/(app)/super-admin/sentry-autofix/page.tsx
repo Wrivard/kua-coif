@@ -4,6 +4,7 @@ import { requireKuaAdmin } from '@/lib/auth/server';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 import { captureException } from '@/lib/observability';
 
 /**
@@ -146,6 +147,7 @@ export default async function SentryAutofixPage() {
         title="Sentry auto-fix archive"
         subtitle="Daily cron 09:00 UTC · PR review via GitHub"
       />
+      <SuperAdminNav />
       <div className="space-y-6 p-6">
         <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">
           Le cron quotidien pull les Sentry issues non-résolues d&apos;hier, lance Claude Code en

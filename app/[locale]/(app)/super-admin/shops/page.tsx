@@ -4,6 +4,7 @@ import { requireKuaAdmin } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export default async function AdminShopsPage({ params }: { params: { locale: str
           </Link>
         }
       />
+      <SuperAdminNav />
       <div className="space-y-6 p-6">
         {shops.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-bg-surface p-12 text-center text-sm text-text-muted">

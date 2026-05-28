@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
+import { SuperAdminNav } from '@/components/ui/super-admin-nav';
 
 /**
  * Phase H+6 — append-only log of every `platform_config.app_fee_bps`
@@ -69,6 +70,7 @@ export default async function PlatformConfigHistoryPage({
           </Link>
         }
       />
+      <SuperAdminNav />
       <div className="max-w-4xl space-y-6 p-6">
         <Card>
           <CardHeader>
