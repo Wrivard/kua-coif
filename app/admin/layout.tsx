@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, Settings as SettingsIcon, Store } from 'lucide-react';
+import { ArrowLeft, Bug, ShieldCheck, Settings as SettingsIcon, Store } from 'lucide-react';
 import '../globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { signOutAction } from '@/lib/auth/actions';
@@ -64,6 +64,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                   className="inline-flex items-center gap-1 hover:text-text-primary"
                 >
                   <SettingsIcon className="h-3 w-3" /> Platform config
+                </Link>
+                <Link
+                  href="/admin/sentry-autofix"
+                  className="inline-flex items-center gap-1 hover:text-text-primary"
+                >
+                  <Bug className="h-3 w-3" /> Auto-fix archive
                 </Link>
               </nav>
             </div>

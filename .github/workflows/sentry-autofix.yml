@@ -1,0 +1,170 @@
+name: Sentry · daily auto-fix
+
+# Daily cron that fetches yesterday's unresolved Sentry issues, runs Claude
+# Code in headless mode against the briefing, and opens one PR per fixed
+# issue. Owner reviews + merges. Failed/skipped issues are left for the
+# next day.
+#
+# Auth model: uses the user's Claude Pro/Max subscription via OAuth token
+# (zero API cost). The token is generated locally with `claude setup-token`
+# and stored as the `CLAUDE_CODE_OAUTH_TOKEN` repo secret. We explicitly
+# clear `ANTHROPIC_API_KEY` so a stray env var can't reroute the action
+# through the paid API.
+#
+# Scope of issues fetched (overridable via the workflow_dispatch inputs):
+#   query  = is:unresolved firstSeen:-24h
+#   limit  = 5 issues per run (keeps the agent context budget bounded
+#            and caps the PR firehose on a spike day)
+#
+# Sentry MCP isn't used here because the hosted Sentry MCP requires
+# browser OAuth — unusable headless. We pre-fetch via the Sentry REST
+# API in `.github/scripts/fetch-sentry-issues.mjs` and feed Claude a
+# markdown briefing. That keeps the agent on its actual job (writing
+# the fix) instead of burning turns on API plumbing.
+
+on:
+  schedule:
+    # 09:00 UTC = 05:00 ET (Quebec winter) / 04:00 ET (summer). The
+    # operator sees the overnight bugs as PRs in their inbox before the
+    # workday. GitHub Actions cron can drift by 5–30 min under load —
+    # acceptable here.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      sentry_query:
+        description: 'Override Sentry issue search query'
+        required: false
+        default: 'is:unresolved firstSeen:-24h'
+      fetch_limit:
+        description: 'Max issues to fix in one run'
+        required: false
+        default: '5'
+
+# Only one run at a time — a stuck previous run shouldn't pile up.
+concurrency:
+  group: sentry-autofix
+  cancel-in-progress: false
+
+permissions:
+  contents: write # branch push for the fix commits
+  pull-requests: write # the action opens PRs via the GH CLI
+  issues: read
+
+jobs:
+  autofix:
+    name: Fetch Sentry → Claude fix → PR
+    runs-on: ubuntu-latest
+    # 30 min hard cap — Claude with 5 issues × ~5 turns each should finish
+    # in 10–15 min. The cap kills a stuck run before it eats the runner.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so the agent can git log / look at recent commits
+          # when diagnosing regressions.
+          fetch-depth: 100
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch Sentry issues → briefing
+        id: fetch
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: kua
+          SENTRY_PROJECT: javascript-nextjs
+          SENTRY_REGION_URL: https://us.sentry.io
+          SENTRY_QUERY: ${{ inputs.sentry_query || 'is:unresolved firstSeen:-24h' }}
+          SENTRY_FETCH_LIMIT: ${{ inputs.fetch_limit || '5' }}
+          OUTPUT_PATH: .sentry-briefing.md
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
+            echo "::error::SENTRY_AUTH_TOKEN secret is missing. Add a Sentry user auth token with event:read + org:read scopes in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          node .github/scripts/fetch-sentry-issues.mjs | tee .sentry-fetch.log
+          if grep -q '^NO_ISSUES$' .sentry-fetch.log; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::No issues match the filter — nothing to fix this run."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            # Hand the briefing to the Claude step via GITHUB_OUTPUT.
+            # Heredoc form is required for multi-line content.
+            {
+              echo 'briefing<<SENTRY_BRIEFING_EOF'
+              cat .sentry-briefing.md
+              echo 'SENTRY_BRIEFING_EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Claude Code (subscription auth)
+        if: steps.fetch.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
+        env:
+          # CRITICAL: explicitly blank ANTHROPIC_API_KEY so the action can't
+          # accidentally route through the paid API. The OAuth token below
+          # uses the Claude Pro/Max subscription instead (zero API cost).
+          ANTHROPIC_API_KEY: ''
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The agent needs to push branches + open PRs. GITHUB_TOKEN has
+          # the right scopes via the `permissions:` block above.
+          GH_TOKEN: ${{ github.token }}
+        with:
+          # The briefing IS the prompt. It tells the agent its mission +
+          # carries the issue payloads. We add a tight intro so the agent
+          # knows the operational constraints (one PR per issue, label,
+          # CI gates).
+          prompt: |
+            You are running headless in a GitHub Actions cron. The repository is
+            already checked out at the working directory on the default branch.
+
+            Your mission is in the briefing below. Read it carefully — it has the
+            Sentry issue list + stack traces + tags. The `layer:` / `stage:` /
+            `action:` tags map 1:1 to the tags I stamp via `captureException` in
+            the codebase, so a grep against the tag value points at the call
+            site that needs the fix.
+
+            HARD RULES:
+            1. ONE PR per issue you fix. Branch name: `autofix/sentry-<shortId>`.
+            2. PR title prefix: `fix(autofix): ` followed by a one-line summary.
+            3. PR body must include the Sentry shortId + permalink, a one-paragraph
+               root-cause diagnosis, and what you changed.
+            4. PR must carry the label `sentry-autofix` (use
+               `gh pr create --label sentry-autofix`).
+            5. Before opening the PR, run `pnpm typecheck && pnpm lint && pnpm format --check && pnpm test`.
+               If any gate fails, fix it OR skip the issue and move on.
+            6. Skip issues you can't confidently fix with a small surgical change
+               (intermittent network failures, flaky tests, product-judgment
+               decisions). Note skips at the bottom of any PR description so
+               there's a paper trail.
+            7. Do NOT amend or force-push. Do NOT touch main. Do NOT modify CI
+               config or workflow files.
+
+            ---
+
+            ${{ steps.fetch.outputs.briefing }}
+          claude_args: |
+            --max-turns 40
+            --allowedTools Read,Edit,Write,Glob,Grep,Bash
+
+      - name: Upload briefing as artifact (debugging)
+        if: always() && steps.fetch.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentry-briefing
+          path: .sentry-briefing.md
+          retention-days: 30
