@@ -1281,21 +1281,31 @@
         "openInTab": "Ouvrir dans un onglet",
         "sections": {
           "identity": "Identité",
+          "messages": "Messages personnalisés",
           "theme": "Thème",
+          "presets": "Presets",
           "steps": "Étapes du parcours",
           "behavior": "Comportement",
+          "postBooking": "Après réservation",
           "snippet": "Code d'intégration",
           "preview": "Aperçu en direct"
         },
         "fields": {
-          "displayName": "Nom affiché (surcharge)",
+          "displayName": "Nom affiché (FR)",
+          "displayNameEn": "Nom affiché (EN)",
           "displayNameHint": "Laisse vide pour utiliser le nom du salon.",
           "showAddress": "Afficher l'adresse du salon dans l'entête du widget",
           "showPhone": "Afficher le téléphone du salon dans l'entête du widget",
+          "welcomeMessage": "Message d'accueil (FR)",
+          "welcomeMessageEn": "Message d'accueil (EN)",
+          "welcomeMessageHint": "Court texte affiché sous le nom du salon. 280 caractères max.",
+          "postBookingMessage": "Message après réservation (FR)",
+          "postBookingMessageEn": "Message après réservation (EN)",
+          "postBookingMessageHint": "Remplace la phrase par défaut sur l'écran de confirmation. 280 caractères max.",
           "mode": "Mode couleur",
           "modeHint": "« Auto » suit la préférence système du client (clair/sombre).",
-          "accentColor": "Couleur d'accent (hex)",
-          "accentColorHint": "Surcharge le mauve par défaut. Format : #RRGGBB.",
+          "accentColor": "Couleur d'accent",
+          "accentColorHint": "Surcharge le mauve par défaut. Format hex : #RRGGBB.",
           "font": "Police",
           "borderRadius": "Style des coins",
           "proFirst": "Choisir le professionnel avant le service",
@@ -1305,7 +1315,22 @@
           "stepsHint": "Pourboire et code promo apparaissent dans l'étape contact du parcours client.",
           "defaultLocale": "Langue par défaut",
           "allowedOrigins": "Origines d'intégration autorisées",
-          "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com."
+          "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com.",
+          "allowedOriginsWarning": "Aucune origine spécifiée — n'importe quel site peut intégrer ton widget. Recommandé : ajoute ton domaine.",
+          "redirectEnabled": "Rediriger le client après confirmation",
+          "redirectUrl": "URL de redirection",
+          "redirectUrlHint": "URL complète https://… affichée au client après confirmation. Utile pour le tracking Google Ads ou ta page « Merci » brandée.",
+          "redirectUrlPlaceholder": "https://salon.com/merci"
+        },
+        "presets": {
+          "intro": "Applique un combo couleur + police + arrondi en un clic. Tu peux ajuster chaque élément après.",
+          "kua": "Küa",
+          "noirOr": "Noir & or",
+          "rosePastel": "Pastel rose",
+          "cuivre": "Métal cuivré",
+          "foret": "Forêt",
+          "minimaliste": "Minimaliste",
+          "apply": "Appliquer"
         },
         "options": {
           "modeDark": "Sombre",
@@ -1326,10 +1351,22 @@
         },
         "preview": {
           "noAlias": "Définis d'abord un alias pour voir l'aperçu.",
-          "note": "L'aperçu se met à jour en direct à chaque changement. Clique Enregistrer pour déployer la nouvelle config aux clients."
+          "note": "L'aperçu se met à jour en direct à chaque changement. Tes modifications sont sauvegardées automatiquement."
+        },
+        "autosave": {
+          "saving": "Sauvegarde…",
+          "saved": "Sauvegardé",
+          "savedAgo": "Sauvegardé il y a {seconds}s",
+          "error": "Erreur de sauvegarde",
+          "retry": "Réessayer"
+        },
+        "testEmbed": {
+          "button": "Tester l'intégration",
+          "description": "Ouvre une page de test qui simule le widget embedded sur un vrai site."
         },
         "toasts": {
           "saved": "Widget enregistré",
+          "saveError": "Erreur de sauvegarde — réessaie ?",
           "copyFailed": "Impossible de copier. Sélectionne le code manuellement."
         }
       }

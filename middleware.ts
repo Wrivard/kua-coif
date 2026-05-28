@@ -192,6 +192,9 @@ async function applyEmbedSecurityHeaders(response: NextResponse, shopSlug: strin
     show_professional_first: false,
     allow_multi_service: true,
     show_tip_step: false,
+    // Phase H+11 — new fields with defaults that don't affect CSP.
+    snippet_mode: 'inline',
+    redirect_enabled: false,
     show_promo_code: false,
     default_locale: 'fr',
   });

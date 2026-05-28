@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { Check, Copy, ExternalLink } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  CircleAlert,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Palette,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -12,6 +20,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import { widgetConfigSchema, type WidgetConfig } from '@/lib/business/widget-config';
 import { upsertWidgetConfig } from './actions';
 
@@ -22,73 +31,113 @@ type Props = {
   initial: WidgetConfig;
 };
 
+/**
+ * Phase H+11 — theme presets.
+ *
+ * One-click combos applied to (accent_color, font_family, border_radius,
+ * mode). The mode is included because some presets only read well in
+ * one direction (e.g. pastel pink lands better on light, copper on
+ * dark). The operator can still override any field after applying.
+ */
+type Preset = {
+  id: 'kua' | 'noirOr' | 'rosePastel' | 'cuivre' | 'foret' | 'minimaliste';
+  accent_color: string;
+  font_family: WidgetConfig['font_family'];
+  border_radius: WidgetConfig['border_radius'];
+  mode: WidgetConfig['mode'];
+};
+
+const THEME_PRESETS: Preset[] = [
+  {
+    id: 'kua',
+    accent_color: '#8b5cf6',
+    font_family: 'system',
+    border_radius: 'rounded',
+    mode: 'dark',
+  },
+  {
+    id: 'noirOr',
+    accent_color: '#d4af37',
+    font_family: 'system',
+    border_radius: 'sharp',
+    mode: 'dark',
+  },
+  {
+    id: 'rosePastel',
+    accent_color: '#ec4899',
+    font_family: 'geist',
+    border_radius: 'rounded',
+    mode: 'light',
+  },
+  {
+    id: 'cuivre',
+    accent_color: '#b87333',
+    font_family: 'system',
+    border_radius: 'rounded',
+    mode: 'dark',
+  },
+  {
+    id: 'foret',
+    accent_color: '#10b981',
+    font_family: 'geist',
+    border_radius: 'rounded',
+    mode: 'dark',
+  },
+  {
+    id: 'minimaliste',
+    accent_color: '#525252',
+    font_family: 'inter',
+    border_radius: 'sharp',
+    mode: 'light',
+  },
+];
+
 export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   const t = useTranslations('pages.settings.widget');
-  const tCommon = useTranslations('common');
-  const tErr = useTranslations('actionErrors');
   const { show } = useToast();
-  const [isPending, startTransition] = useTransition();
 
-  // The preview iframe URL changes whenever we save (cache-buster `?v=`),
-  // forcing a full reload of the embed page. Between saves, the iframe
-  // updates LIVE via postMessage → PreviewListener (Loop 66) so the
-  // operator sees theme/accent/font/radius changes the moment they edit
-  // the form.
-  const [previewVersion, setPreviewVersion] = useState(0);
+  // The preview iframe URL doesn't change on auto-save — the live
+  // preview already syncs via postMessage. The version counter is
+  // wired through `key={previewVersion}` so we *could* force-reload
+  // by bumping it; we don't today but keeping the affordance avoids
+  // a refactor when the failure-recovery story lands.
+  const [previewVersion] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Normalize the `allowed_origins` array ↔ multiline textarea representation.
-  // RHF doesn't natively handle "array → string → array", so we keep a local
-  // textarea state and reconcile it on submit.
   const [originsText, setOriginsText] = useState(initial.allowed_origins.join('\n'));
   const [copied, setCopied] = useState(false);
+
+  // Phase H+11 — auto-save status surfaced in the PageHeader actions slot.
+  // The state machine: idle → saving (during the in-flight request) →
+  // saved | error → (back to idle on next change).
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
+    getValues,
     control,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<WidgetConfig>({
-    // The schema declares zod `.default(...)` on most fields, which makes the
-    // inferred **input** type wider (optionals) than the **output** type that
-    // `useForm<WidgetConfig>` expects. The resolver runs the schema at runtime
-    // and produces values that DO satisfy `WidgetConfig`, so the cast is safe.
     resolver: zodResolver(widgetConfigSchema) as unknown as Resolver<WidgetConfig>,
     defaultValues: initial,
+    mode: 'onChange', // validate on every change so auto-save sees fresh errors
   });
 
   // ── Preview URL ────────────────────────────────────────────────────────
-  // We point the preview iframe at the LIVE embed route (same origin → CSP
-  // allows it). After Save the cache-buster forces a refetch so the new
-  // config is applied. `?preview=1` opts the embed page into mounting
-  // the PreviewListener (Loop 66) so postMessage updates take effect.
-  // The form's `default_locale` field is always populated (zod default), so
-  // `watch` returns a non-empty value once the form mounts. We fall back to
-  // the page locale during the very first render only.
   const watchedLocale = watch('default_locale');
   const previewUrl = useMemo(() => {
     if (!shopAlias) return null;
     const previewLocale = watchedLocale || (locale === 'en' ? 'en' : 'fr');
     return `/${previewLocale}/embed/${encodeURIComponent(shopAlias)}?preview=1&v=${previewVersion}`;
-    // We don't include the form values in this URL — initial paint reflects
-    // what is saved in the DB; live edits arrive via postMessage. That
-    // keeps "saved state" and "preview state" distinguishable.
   }, [shopAlias, locale, previewVersion, watchedLocale]);
 
-  // ── Live preview broadcast (Loop 66) ──────────────────────────────────
-  // Subscribe to every field via useWatch (re-renders on each change),
-  // debounce 200ms, then postMessage the current config to the iframe.
-  // The PreviewListener inside the embed page applies it to the DOM.
-  //
-  // 200ms matches the typical typing-debounce sweet spot — fast enough
-  // to feel live, slow enough to coalesce a flurry of color-picker
-  // changes into one paint. Each post is cheap (same-origin, no
-  // serialization beyond the structured-clone overhead).
+  // ── Live preview broadcast ─────────────────────────────────────────────
   const liveConfig = useWatch({ control }) as WidgetConfig;
-  // Keep a stable ref to the latest config so the `ready` listener
-  // below can read it without becoming a dep (which would re-subscribe
-  // the listener on every keystroke).
   const liveConfigRef = useRef(liveConfig);
   liveConfigRef.current = liveConfig;
 
@@ -102,16 +151,8 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
       );
     }, 200);
     return () => clearTimeout(timer);
-    // useWatch returns a NEW object reference each render so this effect
-    // fires once per change. JSON.stringify dep would also work but
-    // would re-iterate the same object every render.
   }, [liveConfig]);
 
-  // Loop 66 SR — listen for the iframe's `ready` ping. The iframe sends
-  // it once on PreviewListener mount, which may land AFTER the first
-  // 200ms debounced broadcast above (if hydration is slow). Without
-  // this immediate-rebroadcast, the operator would see a brief lag
-  // on their first edit. Subsequent edits debounce normally.
   useEffect(() => {
     function onReady(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
@@ -128,11 +169,58 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
     return () => window.removeEventListener('message', onReady);
   }, []);
 
-  // ── Snippet for copy ───────────────────────────────────────────────────
-  // Phase H+10 — the snippet now reflects the FORM-watched
-  // `default_locale` so "if I save and embed this, here's what to
-  // paste" updates as the operator edits. `watchedLocale` falls back
-  // to the saved value during the first render before RHF hydrates.
+  // ── Auto-save (Phase H+11) ─────────────────────────────────────────────
+  // Debounce 1500ms after the last form change. We skip the first render
+  // (the initial values aren't a change) and refuse to save while the
+  // form has validation errors — letting bad data hit the server would
+  // surface as a "Save failed" message even though the issue is local.
+  const isInitialMount = useRef(true);
+  const triggerSave = useCallback(
+    async (force = false) => {
+      if (!force && !isValid) return;
+      setAutoSaveState('saving');
+      const origins = originsText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const payload: WidgetConfig = { ...getValues(), allowed_origins: origins };
+      try {
+        const result = await upsertWidgetConfig(payload);
+        if (result.ok) {
+          setAutoSaveState('saved');
+          setLastSavedAt(new Date());
+        } else {
+          setAutoSaveState('error');
+          show({ variant: 'danger', title: t('toasts.saveError') });
+        }
+      } catch {
+        setAutoSaveState('error');
+        show({ variant: 'danger', title: t('toasts.saveError') });
+      }
+    },
+    [getValues, isValid, originsText, show, t],
+  );
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void triggerSave(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [liveConfig, originsText, triggerSave]);
+
+  // ── Theme preset application ──────────────────────────────────────────
+  function applyPreset(preset: Preset) {
+    setValue('accent_color', preset.accent_color, { shouldDirty: true, shouldValidate: true });
+    setValue('font_family', preset.font_family, { shouldDirty: true });
+    setValue('border_radius', preset.border_radius, { shouldDirty: true });
+    setValue('mode', preset.mode, { shouldDirty: true });
+  }
+
+  // ── Snippet ────────────────────────────────────────────────────────────
   const snippet = useMemo(() => {
     if (!shopAlias) return '';
     const origin =
@@ -156,24 +244,26 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
       .catch(() => show({ variant: 'danger', title: t('toasts.copyFailed') }));
   }
 
-  function onSubmit(values: WidgetConfig) {
-    // Parse the textarea back to an array of trimmed, non-empty origins.
-    const origins = originsText
+  // Manual save handler kept around so `<form onSubmit>` doesn't lose
+  // the legacy contract. Hitting Enter in an input now triggers an
+  // immediate save (the explicit Save button is gone in favor of auto-
+  // save, but Enter-to-save is still a useful affordance).
+  function onSubmit(_values: WidgetConfig) {
+    void triggerSave(true);
+  }
+
+  // Read the watched accent_color for the native color picker so the
+  // swatch + hex input stay in sync. Default to the Küa purple when
+  // the field is empty (so the picker doesn't show black on first load).
+  const watchedAccent = watch('accent_color') || '#8b5cf6';
+
+  // Empty allowed_origins → CSP wildcard. Surface a warning so the
+  // operator knows their widget is embeddable anywhere.
+  const allowedOriginsEmpty =
+    originsText
       .split('\n')
       .map((s) => s.trim())
-      .filter(Boolean);
-    const payload: WidgetConfig = { ...values, allowed_origins: origins };
-
-    startTransition(async () => {
-      const result = await upsertWidgetConfig(payload);
-      if (result.ok) {
-        show({ variant: 'success', title: t('toasts.saved') });
-        setPreviewVersion((v) => v + 1); // refresh preview iframe
-      } else {
-        show({ variant: 'danger', title: tErr(result.errorCode) });
-      }
-    });
-  }
+      .filter(Boolean).length === 0;
 
   return (
     <>
@@ -181,37 +271,52 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
         title={t('title')}
         subtitle={shopAlias ? t('subtitle', { alias: shopAlias }) : t('subtitleNoAlias')}
         actions={
-          shopAlias ? (
-            <a
-              href={`/${locale}/embed/${shopAlias}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded border border-border bg-bg-surface px-3 py-2 text-xs font-medium text-text-primary hover:bg-bg-surface-2"
-            >
-              {t('openInTab')} <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          ) : null
+          <div className="flex items-center gap-3">
+            <AutoSaveBadge state={autoSaveState} lastSavedAt={lastSavedAt} t={t} />
+            {shopAlias ? (
+              <a
+                href={`/${locale}/embed/${shopAlias}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded border border-border bg-bg-surface px-3 py-2 text-xs font-medium text-text-primary hover:bg-bg-surface-2"
+              >
+                {t('openInTab')} <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : null}
+          </div>
         }
       />
 
       <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
         {/* ── Form column ────────────────────────────────────────────── */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+          {/* ── Identity ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.identity')}</CardTitle>
             </CardHeader>
             <CardBody className="space-y-4">
-              <div>
-                <Label htmlFor="display_name">{t('fields.displayName')}</Label>
-                <Input
-                  id="display_name"
-                  placeholder={shopName}
-                  {...register('display_name')}
-                  invalid={Boolean(errors.display_name)}
-                />
-                <p className="mt-1 text-xs text-text-muted">{t('fields.displayNameHint')}</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="display_name_fr">{t('fields.displayName')}</Label>
+                  <Input
+                    id="display_name_fr"
+                    placeholder={shopName}
+                    {...register('display_name_fr')}
+                    invalid={Boolean(errors.display_name_fr)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="display_name_en">{t('fields.displayNameEn')}</Label>
+                  <Input
+                    id="display_name_en"
+                    placeholder={shopName}
+                    {...register('display_name_en')}
+                    invalid={Boolean(errors.display_name_en)}
+                  />
+                </div>
               </div>
+              <p className="text-xs text-text-muted">{t('fields.displayNameHint')}</p>
               <Controller
                 control={control}
                 name="show_address"
@@ -237,6 +342,62 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
             </CardBody>
           </Card>
 
+          {/* ── Messages ─────────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.messages')}</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="welcome_message_fr">{t('fields.welcomeMessage')}</Label>
+                  <Textarea
+                    id="welcome_message_fr"
+                    rows={2}
+                    maxLength={280}
+                    {...register('welcome_message_fr')}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="welcome_message_en">{t('fields.welcomeMessageEn')}</Label>
+                  <Textarea
+                    id="welcome_message_en"
+                    rows={2}
+                    maxLength={280}
+                    {...register('welcome_message_en')}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-text-muted">{t('fields.welcomeMessageHint')}</p>
+            </CardBody>
+          </Card>
+
+          {/* ── Theme presets ────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="inline-flex items-center gap-2">
+                  <Palette className="h-4 w-4" />
+                  {t('sections.presets')}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <p className="text-xs text-text-muted">{t('presets.intro')}</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {THEME_PRESETS.map((p) => (
+                  <PresetCard
+                    key={p.id}
+                    preset={p}
+                    label={t(`presets.${p.id}`)}
+                    onApply={() => applyPreset(p)}
+                  />
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* ── Theme ────────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.theme')}</CardTitle>
@@ -245,11 +406,6 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="mode">{t('fields.mode')}</Label>
-                  {/* Loop 65 — light + auto unlocked. The embed page
-                   *  now forces `data-theme` from this value via an
-                   *  inline script, so all three modes work
-                   *  end-to-end. `auto` defers to the customer's OS
-                   *  `prefers-color-scheme`. */}
                   <Select id="mode" {...register('mode')}>
                     <option value="dark">{t('options.modeDark')}</option>
                     <option value="light">{t('options.modeLight')}</option>
@@ -259,13 +415,31 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                 </div>
                 <div>
                   <Label htmlFor="accent_color">{t('fields.accentColor')}</Label>
-                  <Input
-                    id="accent_color"
-                    type="text"
-                    placeholder="#8b5cf6"
-                    {...register('accent_color')}
-                    invalid={Boolean(errors.accent_color)}
-                  />
+                  {/* Phase H+11 — native color picker. Sits left of the
+                      hex text input + syncs both ways. The picker is a
+                      visible swatch (h-10 w-12) so the operator sees the
+                      live color. */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      aria-label={t('fields.accentColor')}
+                      value={watchedAccent}
+                      onChange={(e) =>
+                        setValue('accent_color', e.target.value, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                      className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-bg-surface-2 p-1"
+                    />
+                    <Input
+                      id="accent_color"
+                      type="text"
+                      placeholder="#8b5cf6"
+                      {...register('accent_color')}
+                      invalid={Boolean(errors.accent_color)}
+                    />
+                  </div>
                   {errors.accent_color ? (
                     <p className="mt-1 text-xs text-danger">{t('errors.accentColor')}</p>
                   ) : (
@@ -292,6 +466,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
             </CardBody>
           </Card>
 
+          {/* ── Steps ────────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.steps')}</CardTitle>
@@ -319,11 +494,6 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                   />
                 )}
               />
-              {/* Phase H+10 — `disabled` removed. The booking-wizard
-                  already wires both show_tip_step + show_promo_code
-                  end-to-end (tip selector on the confirm step, promo
-                  code field on the contact step); the toggles were
-                  shipped locked for no good reason. */}
               <Controller
                 control={control}
                 name="show_tip_step"
@@ -350,6 +520,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
             </CardBody>
           </Card>
 
+          {/* ── Behavior ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.behavior')}</CardTitle>
@@ -372,15 +543,75 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                   onChange={(e) => setOriginsText(e.target.value)}
                 />
                 <p className="mt-1 text-xs text-text-muted">{t('fields.allowedOriginsHint')}</p>
+                {/* Phase H+11 — empty origins = CSP wildcard `*` so the
+                    widget can be iframed by literally anyone. Warn the
+                    operator since silent "*" is a footgun. */}
+                {allowedOriginsEmpty ? (
+                  <div className="border-warning/30 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-warning">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <p>{t('fields.allowedOriginsWarning')}</p>
+                  </div>
+                ) : null}
               </div>
             </CardBody>
           </Card>
 
-          <div className="flex justify-end">
-            <Button type="submit" loading={isPending}>
-              {tCommon('actions.save')}
-            </Button>
-          </div>
+          {/* ── Post-booking ─────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.postBooking')}</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="post_booking_message_fr">{t('fields.postBookingMessage')}</Label>
+                  <Textarea
+                    id="post_booking_message_fr"
+                    rows={2}
+                    maxLength={280}
+                    {...register('post_booking_message_fr')}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="post_booking_message_en">
+                    {t('fields.postBookingMessageEn')}
+                  </Label>
+                  <Textarea
+                    id="post_booking_message_en"
+                    rows={2}
+                    maxLength={280}
+                    {...register('post_booking_message_en')}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-text-muted">{t('fields.postBookingMessageHint')}</p>
+
+              <Controller
+                control={control}
+                name="redirect_enabled"
+                render={({ field }) => (
+                  <Toggle
+                    checked={field.value}
+                    onChange={field.onChange}
+                    label={t('fields.redirectEnabled')}
+                  />
+                )}
+              />
+              {watch('redirect_enabled') ? (
+                <div>
+                  <Label htmlFor="redirect_url">{t('fields.redirectUrl')}</Label>
+                  <Input
+                    id="redirect_url"
+                    type="url"
+                    placeholder={t('fields.redirectUrlPlaceholder')}
+                    {...register('redirect_url')}
+                    invalid={Boolean(errors.redirect_url)}
+                  />
+                  <p className="mt-1 text-xs text-text-muted">{t('fields.redirectUrlHint')}</p>
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
         </form>
 
         {/* ── Preview + snippet column ──────────────────────────────── */}
@@ -411,6 +642,16 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                   </>
                 )}
               </Button>
+              {shopAlias ? (
+                <a
+                  href={`/${locale}/test-embed?slug=${encodeURIComponent(shopAlias)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded border border-border bg-bg-surface-2 px-3 py-2 text-center text-xs font-medium text-text-primary hover:bg-bg-elevated"
+                >
+                  {t('testEmbed.button')} <ExternalLink className="ml-1 inline h-3 w-3" />
+                </a>
+              ) : null}
             </CardBody>
           </Card>
 
@@ -436,5 +677,106 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Sub-components
+// ────────────────────────────────────────────────────────────────────
+
+function AutoSaveBadge({
+  state,
+  lastSavedAt,
+  t,
+}: {
+  state: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt: Date | null;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  if (state === 'saving') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {t('autosave.saving')}
+      </span>
+    );
+  }
+  if (state === 'saved' || (state === 'idle' && lastSavedAt)) {
+    const time = lastSavedAt
+      ? lastSavedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      : '';
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-success">
+        <Check className="h-3.5 w-3.5" />
+        {t('autosave.saved')}
+        {time ? <span className="text-text-muted">· {time}</span> : null}
+      </span>
+    );
+  }
+  if (state === 'error') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-danger">
+        <CircleAlert className="h-3.5 w-3.5" />
+        {t('autosave.error')}
+      </span>
+    );
+  }
+  return null;
+}
+
+function PresetCard({
+  preset,
+  label,
+  onApply,
+}: {
+  preset: Preset;
+  label: string;
+  onApply: () => void;
+}) {
+  // Inline CSS so each card paints its own preview without leaking
+  // styles into the document. The mini-card mimics the widget's surface
+  // + accent button so the operator can compare at a glance.
+  const surfaceBg = preset.mode === 'light' ? '#ffffff' : '#1b1b1b';
+  const surfaceFg = preset.mode === 'light' ? '#1b1b1b' : '#f5f5f5';
+  const subtext = preset.mode === 'light' ? '#6b7280' : '#a0a0a0';
+  const radius =
+    preset.border_radius === 'sharp' ? '0px' : preset.border_radius === 'pill' ? '999px' : '8px';
+  const previewStyle: CSSProperties = {
+    backgroundColor: surfaceBg,
+    color: surfaceFg,
+    borderRadius: radius === '999px' ? '12px' : radius, // card stays card-ish
+  };
+  const btnStyle: CSSProperties = {
+    backgroundColor: preset.accent_color,
+    borderRadius: radius,
+    color: '#ffffff',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onApply}
+      className={cn(
+        'group flex flex-col items-stretch gap-2 rounded-lg border border-border bg-bg-surface-2 p-3 text-left',
+        'transition-colors duration-150 hover:border-accent hover:bg-bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-text-primary">{label}</span>
+        <span
+          className="h-3 w-3 shrink-0 rounded-full"
+          style={{ backgroundColor: preset.accent_color }}
+          aria-hidden
+        />
+      </div>
+      <div className="rounded-md border border-border p-2 text-[10px]" style={previewStyle}>
+        <div className="mb-1 font-semibold">Aa</div>
+        <div className="mb-1.5 text-[9px]" style={{ color: subtext }}>
+          Booking
+        </div>
+        <div className="px-2 py-1 text-center text-[10px] font-medium" style={btnStyle}>
+          OK
+        </div>
+      </div>
+    </button>
   );
 }

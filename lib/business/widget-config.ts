@@ -30,11 +30,35 @@ const originUrl = z
   // We don't accept paths — CSP frame-ancestors is host-based.
   .regex(/^(\*|https?:\/\/(\*\.)?[a-zA-Z0-9.-]+(:[0-9]+)?)$/u, 'Invalid origin');
 
+// Phase H+11 — accepts http(s) URLs only. Used for `redirect_url` so a
+// shop owner can't accidentally redirect customers to `javascript:` or
+// other dangerous schemes after booking confirmation.
+const httpUrl = z
+  .string()
+  .trim()
+  .refine((v) => v === '' || /^https?:\/\/.+/i.test(v), 'Must be a valid http(s) URL');
+
 export const widgetConfigSchema = z.object({
   // ── Identity ────────────────────────────────────────────────────────────
+  // Phase H+11 — per-locale display names. Keep the legacy `display_name`
+  // as a fallback so existing rows + V1 callers keep working. New writes
+  // use the per-locale variants; the embed picks the right one based on
+  // the URL locale, falling back to `display_name`, then `shop.name`.
   display_name: z.string().trim().max(60).optional(),
+  display_name_fr: z.string().trim().max(60).optional(),
+  display_name_en: z.string().trim().max(60).optional(),
   show_address: z.boolean().default(true),
   show_phone: z.boolean().default(false),
+
+  // Phase H+11 — custom welcome line (shown under the address/phone in
+  // the wizard header) + post-booking message (shown on the confirmation
+  // screen). Per-locale so a bilingual shop can speak the right language
+  // to each customer. 280 chars max ≈ a tweet — enough to say something
+  // meaningful, short enough to keep the header from blowing up.
+  welcome_message_fr: z.string().trim().max(280).optional(),
+  welcome_message_en: z.string().trim().max(280).optional(),
+  post_booking_message_fr: z.string().trim().max(280).optional(),
+  post_booking_message_en: z.string().trim().max(280).optional(),
 
   // ── Theme ───────────────────────────────────────────────────────────────
   mode: z.enum(['dark', 'light', 'auto']).default('dark'),
@@ -45,8 +69,8 @@ export const widgetConfigSchema = z.object({
   // ── Steps ──────────────────────────────────────────────────────────────
   show_professional_first: z.boolean().default(false), // when true: barber → service (Squire-style)
   allow_multi_service: z.boolean().default(true),
-  show_tip_step: z.boolean().default(false), // tip step inside widget — V1.1
-  show_promo_code: z.boolean().default(false), // promo code field — V1.1
+  show_tip_step: z.boolean().default(false),
+  show_promo_code: z.boolean().default(false),
 
   // ── Behavior ───────────────────────────────────────────────────────────
   default_locale: z.enum(['fr', 'en']).default('fr'),
@@ -54,6 +78,25 @@ export const widgetConfigSchema = z.object({
   // tighten later). Each entry: full origin like `https://salon.com` or
   // wildcard subdomain `https://*.salon.com`. Special token `*` allows all.
   allowed_origins: z.array(originUrl).default([]),
+
+  // ── Phase H+11 — Snippet mode + post-booking redirect ─────────────────
+  // `snippet_mode` drives which integration code the widget settings page
+  // shows AND which widget.js codepath fires on the salon's site:
+  //   - inline (default): widget renders directly where the placeholder
+  //     div is dropped. The V1 behavior.
+  //   - floating-button: widget.js injects a fixed bottom-right "Book"
+  //     button that opens a modal containing the iframe. Calendly-style.
+  //   - modal: widget.js exposes a `Kua.open()` API the salon calls from
+  //     their own "Book" button (or any link). Iframe lives in a modal
+  //     overlay opened on demand.
+  snippet_mode: z.enum(['inline', 'floating-button', 'modal']).default('inline'),
+
+  // After a successful booking, redirect the customer to a custom URL
+  // (e.g. https://salon.com/merci?ref=kua). Useful for Google Ads
+  // conversion tracking + a branded "thank you" page. When disabled,
+  // the wizard's built-in confirmation screen is shown instead.
+  redirect_enabled: z.boolean().default(false),
+  redirect_url: httpUrl.optional(),
 });
 
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
@@ -77,6 +120,39 @@ export function parseWidgetConfig(raw: unknown): WidgetConfig {
   if (!raw || typeof raw !== 'object') return defaultWidgetConfig;
   const result = widgetConfigSchema.safeParse(raw);
   return result.success ? result.data : defaultWidgetConfig;
+}
+
+// ---------------------------------------------------------------------------
+// Locale-aware getters (Phase H+11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the display name for a given locale. Order:
+ *   1. The locale-specific field (display_name_fr / display_name_en)
+ *   2. The legacy single field (display_name) — kept for backward compat
+ *   3. null — caller falls back to the shop's row.name
+ */
+export function displayNameFor(cfg: WidgetConfig, locale: 'fr' | 'en'): string | null {
+  const localized = locale === 'fr' ? cfg.display_name_fr : cfg.display_name_en;
+  return (localized?.trim() || cfg.display_name?.trim() || null) ?? null;
+}
+
+/**
+ * Welcome message for a given locale. Null when the operator hasn't set
+ * one — the wizard header renders nothing in that case.
+ */
+export function welcomeMessageFor(cfg: WidgetConfig, locale: 'fr' | 'en'): string | null {
+  const msg = locale === 'fr' ? cfg.welcome_message_fr : cfg.welcome_message_en;
+  return msg?.trim() || null;
+}
+
+/**
+ * Post-booking message for a given locale. Null when unset — wizard
+ * shows the default confirmation copy.
+ */
+export function postBookingMessageFor(cfg: WidgetConfig, locale: 'fr' | 'en'): string | null {
+  const msg = locale === 'fr' ? cfg.post_booking_message_fr : cfg.post_booking_message_en;
+  return msg?.trim() || null;
 }
 
 // ---------------------------------------------------------------------------

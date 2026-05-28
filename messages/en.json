@@ -1279,21 +1279,31 @@
         "openInTab": "Open in new tab",
         "sections": {
           "identity": "Identity",
+          "messages": "Custom messages",
           "theme": "Theme",
+          "presets": "Presets",
           "steps": "Wizard steps",
           "behavior": "Behavior",
+          "postBooking": "After booking",
           "snippet": "Embed snippet",
           "preview": "Live preview"
         },
         "fields": {
-          "displayName": "Display name (override)",
+          "displayName": "Display name (FR)",
+          "displayNameEn": "Display name (EN)",
           "displayNameHint": "Leave empty to use the shop name.",
           "showAddress": "Show shop address in widget header",
           "showPhone": "Show shop phone in widget header",
+          "welcomeMessage": "Welcome message (FR)",
+          "welcomeMessageEn": "Welcome message (EN)",
+          "welcomeMessageHint": "Short copy shown under the shop name. 280 characters max.",
+          "postBookingMessage": "Post-booking message (FR)",
+          "postBookingMessageEn": "Post-booking message (EN)",
+          "postBookingMessageHint": "Overrides the default copy on the confirmation screen. 280 characters max.",
           "mode": "Color mode",
           "modeHint": "\"Auto\" follows the customer's OS preference (light/dark).",
-          "accentColor": "Accent color (hex)",
-          "accentColorHint": "Override the default purple. Format: #RRGGBB.",
+          "accentColor": "Accent color",
+          "accentColorHint": "Override the default purple. Hex format: #RRGGBB.",
           "font": "Font family",
           "borderRadius": "Corner style",
           "proFirst": "Pick the professional first (instead of the service)",
@@ -1303,7 +1313,22 @@
           "stepsHint": "Tip and promo appear in the contact step of the customer flow.",
           "defaultLocale": "Default language",
           "allowedOrigins": "Allowed embedding origins",
-          "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com."
+          "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com.",
+          "allowedOriginsWarning": "No origin set — any site can embed your widget. Recommended: add your domain.",
+          "redirectEnabled": "Redirect the customer after confirmation",
+          "redirectUrl": "Redirect URL",
+          "redirectUrlHint": "Full https:// URL the customer is sent to after confirming. Useful for Google Ads conversion tracking or a branded \"Thank you\" page.",
+          "redirectUrlPlaceholder": "https://salon.com/thank-you"
+        },
+        "presets": {
+          "intro": "Apply a color + font + corner-style combo in one click. You can fine-tune any field afterwards.",
+          "kua": "Küa",
+          "noirOr": "Black & gold",
+          "rosePastel": "Pastel pink",
+          "cuivre": "Copper",
+          "foret": "Forest",
+          "minimaliste": "Minimal",
+          "apply": "Apply"
         },
         "options": {
           "modeDark": "Dark",
@@ -1324,10 +1349,22 @@
         },
         "preview": {
           "noAlias": "Set a shop alias first to see the preview.",
-          "note": "Preview updates live as you change settings. Click Save to deploy the new config to customers."
+          "note": "Preview updates live as you edit. Changes save automatically."
+        },
+        "autosave": {
+          "saving": "Saving…",
+          "saved": "Saved",
+          "savedAgo": "Saved {seconds}s ago",
+          "error": "Save failed",
+          "retry": "Retry"
+        },
+        "testEmbed": {
+          "button": "Test the embed",
+          "description": "Opens a test page that simulates the widget embedded on a real site."
         },
         "toasts": {
           "saved": "Widget settings saved",
+          "saveError": "Save failed — try again?",
           "copyFailed": "Could not copy. Try selecting the code manually."
         }
       }
