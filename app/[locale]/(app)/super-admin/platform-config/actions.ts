@@ -60,6 +60,17 @@ export async function updatePlatformAppFee(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = createSupabaseServiceRoleClient() as any;
+
+    // Phase H+6 — read the OLD value first so we can log a history
+    // row with both old and new. If the read fails we still proceed
+    // with the update (the audit log + Sentry catch any oddity).
+    const priorRes = await sb
+      .from('platform_config')
+      .select('app_fee_bps')
+      .eq('id', 1)
+      .maybeSingle();
+    const oldBps = (priorRes.data as { app_fee_bps: number } | null)?.app_fee_bps ?? 0;
+
     const res = await sb
       .from('platform_config')
       .update({
@@ -71,11 +82,30 @@ export async function updatePlatformAppFee(
     if (res.error) {
       return { kind: 'error', message: res.error.message };
     }
+
+    // Phase H+6 — append the history log row. Best-effort: a failed
+    // log shouldn't block the actual config change (which already
+    // succeeded above). Sentry catches if it goes wrong.
+    if (oldBps !== bps) {
+      try {
+        await sb.from('platform_config_history').insert({
+          changed_by: user.id,
+          old_app_fee_bps: oldBps,
+          new_app_fee_bps: bps,
+        });
+      } catch (e) {
+        captureException(e, {
+          tags: { layer: 'platform-config', stage: 'history-log' },
+        });
+      }
+    }
+
     // Flip the in-memory cache so the next PI mint reads the new
     // value immediately instead of waiting up to 30s.
     invalidatePlatformConfigCache();
     // Phase H+4 — page moved under the locale-prefixed shell.
     revalidatePath('/[locale]/(app)/super-admin/platform-config', 'page');
+    revalidatePath('/[locale]/(app)/super-admin/platform-config/history', 'page');
     revalidatePath('/[locale]/(app)/super-admin', 'page');
     revalidatePath('/[locale]/(app)/settings/payments', 'page');
     return { kind: 'saved', appFeeBps: bps };

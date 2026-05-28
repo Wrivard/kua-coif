@@ -17,9 +17,18 @@ type Props = {
   /** Email of the super-admin who made the last save. Null when their
    *  profile is missing (e.g. account deleted). */
   updatedByEmail: string | null;
+  /** Phase H+6 — full URL to the history sub-page. The page resolves
+   *  it server-side from the locale param so the link survives FR/EN
+   *  switches. */
+  historyHref: string;
 };
 
-export function PlatformConfigClient({ initialAppFeeBps, updatedAt, updatedByEmail }: Props) {
+export function PlatformConfigClient({
+  initialAppFeeBps,
+  updatedAt,
+  updatedByEmail,
+  historyHref,
+}: Props) {
   // Track the percentage as a string so the input behaves naturally with
   // decimals and the user can clear/type freely. We initialize from BPS.
   const initialPct = (initialAppFeeBps / 100).toString();
@@ -90,12 +99,17 @@ export function PlatformConfigClient({ initialAppFeeBps, updatedAt, updatedByEma
                 <SaveButton />
               </div>
             </form>
-            <div className="rounded border border-border bg-bg-surface-2 p-3 text-xs text-text-secondary">
-              <p className="font-semibold text-text-primary">Last update</p>
-              <p>
-                {updatedAt ? new Date(updatedAt).toLocaleString() : 'Never'}
-                {updatedByEmail ? ` · by ${updatedByEmail}` : ''}
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-border bg-bg-surface-2 p-4 text-xs text-text-secondary">
+              <div className="space-y-1">
+                <p className="font-semibold text-text-primary">Last update</p>
+                <p>
+                  {updatedAt ? new Date(updatedAt).toLocaleString() : 'Never'}
+                  {updatedByEmail ? ` · by ${updatedByEmail}` : ''}
+                </p>
+              </div>
+              <a href={historyHref} className="text-accent hover:underline">
+                Voir l&apos;historique →
+              </a>
             </div>
           </CardBody>
         </Card>

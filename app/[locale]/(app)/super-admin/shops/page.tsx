@@ -78,14 +78,41 @@ export default async function AdminShopsPage({ params }: { params: { locale: str
               </thead>
               <tbody>
                 {shops.map((s) => (
-                  <tr key={s.id} className="border-b border-border last:border-b-0">
-                    <td className="px-4 py-3 font-medium">{s.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      {s.alias ?? '—'}
+                  <tr
+                    key={s.id}
+                    className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-surface-2"
+                  >
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/${params.locale}/super-admin/shops/${s.id}`}
+                        className="block w-full hover:text-accent"
+                      >
+                        {s.name}
+                      </Link>
                     </td>
-                    <td className="px-4 py-3 text-xs text-text-secondary">{counts[s.id] ?? 0}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
+                      <Link
+                        href={`/${params.locale}/super-admin/shops/${s.id}`}
+                        className="block w-full"
+                      >
+                        {s.alias ?? '—'}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-secondary">
+                      <Link
+                        href={`/${params.locale}/super-admin/shops/${s.id}`}
+                        className="block w-full"
+                      >
+                        {counts[s.id] ?? 0}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-xs text-text-muted">
-                      {new Date(s.created_at).toLocaleDateString('en-CA')}
+                      <Link
+                        href={`/${params.locale}/super-admin/shops/${s.id}`}
+                        className="block w-full"
+                      >
+                        {new Date(s.created_at).toLocaleDateString('en-CA')}
+                      </Link>
                     </td>
                   </tr>
                 ))}
