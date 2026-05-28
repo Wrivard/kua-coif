@@ -135,7 +135,7 @@ export function CommissionsClient({
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <div className="flex flex-wrap items-center gap-6">
           <Tabs
             value={scope}

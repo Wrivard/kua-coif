@@ -165,7 +165,7 @@ export function ReviewCampaignClient({
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <Card>
           <CardBody className="p-0">
             <table className="w-full text-sm">

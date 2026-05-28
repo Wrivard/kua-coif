@@ -305,7 +305,7 @@ export function NotificationsClient({ state }: Props) {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <Label htmlFor="from_name">{t('sender.fromName')}</Label>
                 <Input
@@ -443,7 +443,7 @@ export function NotificationsClient({ state }: Props) {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <Label htmlFor="twilio_account_sid" required>
                   {t('twilio.accountSid')}

@@ -145,7 +145,7 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
             <CardHeader>
               <CardTitle>{t('sections.identity')}</CardTitle>
             </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
                 <Label htmlFor="name" required>
                   {t('form.name')}
@@ -226,7 +226,7 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
             <CardHeader>
               <CardTitle>{t('sections.location')}</CardTitle>
             </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
                 <Label htmlFor="country">{t('form.country')}</Label>
                 <Input id="country" {...detailsForm.register('country')} />
@@ -259,7 +259,7 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
             <CardHeader>
               <CardTitle>{t('sections.options')}</CardTitle>
             </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Toggle
                 checked={detailsForm.watch('age_21_only')}
                 onChange={(v) => detailsForm.setValue('age_21_only', v, { shouldDirty: true })}
@@ -348,7 +348,7 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
             <CardHeader>
               <CardTitle>{t('sections.emailBranding')}</CardTitle>
             </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
                 <Label htmlFor="email_logo_url">{t('emailBranding.logoUrl')}</Label>
                 {/* Loop 43 (P120) — file-picker uploads to

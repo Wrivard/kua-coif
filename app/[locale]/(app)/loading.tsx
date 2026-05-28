@@ -28,7 +28,7 @@ export default function AppShellLoading() {
 
       {/* Content area — a single tall card mimicking either a DataTable or
           a form. Both are the dominant patterns under (app). */}
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <div className="flex items-center gap-2">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-7 w-20" />

@@ -96,7 +96,7 @@ export function Modal({
           // match the heading curve in globals.css. Border keyed to
           // `border-soft` instead of `border` so the divider doesn't
           // anchor the eye away from the title.
-          <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-5 md:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
             <div className="min-w-0 flex-1">
               {title ? (
                 <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
@@ -120,9 +120,12 @@ export function Modal({
         )}
         {/* The body is the only scrollable region — keeps the header +
          *  footer always visible while long forms scroll internally. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">{children}</div>
+        {/* Phase H+8 — px-5 py-5 → px-5 py-6 so modal forms breathe
+            consistently with the Card primitive bump. Footer goes
+            py-4 → py-5 for the same rhythm reason. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-6">{children}</div>
         {footer ? (
-          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-5 py-4 md:px-6">
+          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-5 py-5 md:px-6">
             {footer}
           </div>
         ) : null}

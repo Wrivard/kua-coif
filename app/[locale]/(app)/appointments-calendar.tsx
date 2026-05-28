@@ -659,7 +659,7 @@ export function AppointmentsCalendar({
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         {/* Phase 45 — onboarding hint. Auto-hides once setup is complete. */}
         {onboarding ? (
           <OnboardingCard

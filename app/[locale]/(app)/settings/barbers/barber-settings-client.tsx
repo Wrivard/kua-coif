@@ -137,7 +137,7 @@ export function BarberSettingsClient({
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <p className="text-xs text-text-muted">{t('intro')}</p>
 
         <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-sm">

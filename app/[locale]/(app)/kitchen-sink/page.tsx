@@ -175,7 +175,7 @@ export default function KitchenSinkPage() {
 
         {/* Inputs */}
         <Section title={sections('inputs')}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Field label="Shop name" required>
               <Input placeholder="Axum barbershop" />
             </Field>

@@ -236,7 +236,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
               <CardTitle>{t('sections.theme')}</CardTitle>
             </CardHeader>
             <CardBody className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="mode">{t('fields.mode')}</Label>
                   {/* Loop 65 — light + auto unlocked. The embed page

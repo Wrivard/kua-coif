@@ -125,7 +125,10 @@ export function Label({
     <label
       htmlFor={htmlFor}
       className={cn(
-        'mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted',
+        // Phase H+8 — mb-1 → mb-1.5 (4px → 6px) so the label has a
+        // touch more breathing room before the input. Tiny per-field
+        // but adds up over long forms.
+        'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted',
         className,
       )}
     >
@@ -136,7 +139,9 @@ export function Label({
 }
 
 export function FieldHint({ children, error }: { children: ReactNode; error?: boolean }) {
+  // Phase H+8 — mt-1 → mt-1.5 to match the Label uplift; keeps hint
+  // visually balanced under the field instead of touching it.
   return (
-    <p className={cn('mt-1 text-xs', error ? 'text-danger' : 'text-text-muted')}>{children}</p>
+    <p className={cn('mt-1.5 text-xs', error ? 'text-danger' : 'text-text-muted')}>{children}</p>
   );
 }

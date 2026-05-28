@@ -313,7 +313,7 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <Tabs
           value={tab}
           onChange={setTab}

@@ -86,7 +86,7 @@ export default async function MarketingPage({
       <PageHeader title={t('title')} subtitle={t('subtitle')} />
 
       <div className="space-y-6 p-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {cards.map((card) => {
             const Icon = card.icon;
             return (

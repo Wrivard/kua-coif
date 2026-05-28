@@ -91,7 +91,7 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
     >
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="grid grid-cols-1 gap-4 md:grid-cols-2"
+        className="grid grid-cols-1 gap-6 md:grid-cols-2"
         noValidate
       >
         {/* Loop 44 (P120 follow-through) — avatar upload reuses the

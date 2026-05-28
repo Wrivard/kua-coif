@@ -267,7 +267,7 @@ function PromoCodeFormModal({
     >
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="grid grid-cols-1 gap-4 md:grid-cols-2"
+        className="grid grid-cols-1 gap-6 md:grid-cols-2"
         noValidate
       >
         <div className="md:col-span-2">

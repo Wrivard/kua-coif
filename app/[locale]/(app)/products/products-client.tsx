@@ -326,7 +326,7 @@ export function ProductsClient({
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         {view === 'products' ? (
           <p className="text-xs text-text-muted">
             {t('summary', {

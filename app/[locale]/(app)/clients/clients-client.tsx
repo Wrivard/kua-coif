@@ -266,7 +266,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
         }
       />
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-6 p-6">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"

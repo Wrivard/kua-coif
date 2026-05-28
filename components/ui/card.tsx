@@ -23,8 +23,10 @@ export function CardHeader({ className, ...rest }: DivProps) {
   return (
     <div
       className={cn(
-        // px-5 → px-6 + py-4 → py-5 for slightly more breathing room.
-        'flex items-center justify-between gap-4 border-b border-border px-6 py-5',
+        // Phase H+8 — py-5 → py-6 to match the Card breathing-room
+        // uplift. Pairs with CardBody's py-6 so header + body share
+        // the same vertical rhythm.
+        'flex items-center justify-between gap-4 border-b border-border px-6 py-6',
         className,
       )}
       {...rest}
@@ -42,14 +44,20 @@ export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElem
 }
 
 export function CardBody({ className, ...rest }: DivProps) {
-  return <div className={cn('px-6 py-5', className)} {...rest} />;
+  // Phase H+8 — py-5 → py-6 (20px → 24px vertical). Touches every
+  // Card in the app; pages with stacked cards gain noticeable breathing
+  // room without needing per-page tweaks.
+  return <div className={cn('px-6 py-6', className)} {...rest} />;
 }
 
 export function CardFooter({ className, ...rest }: DivProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-end gap-2 border-t border-border px-6 py-4',
+        // Phase H+8 — py-4 → py-5 so footer rhythm sits midway between
+        // header/body (py-6) and the underlying border. Footers usually
+        // hold a single action row, so less padding than body is right.
+        'flex items-center justify-end gap-2 border-t border-border px-6 py-5',
         className,
       )}
       {...rest}

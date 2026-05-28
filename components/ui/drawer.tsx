@@ -95,7 +95,10 @@ export function Drawer({
         {/* Header — bumped to text-lg tracking-tight + larger close
          *  button to match the Modal upgrade. border-soft so the divider
          *  doesn't over-anchor the eye. */}
-        <div className="flex items-center justify-between gap-4 border-b border-border-soft px-5 py-5 md:px-6">
+        {/* Phase H+8 — py-5 → py-6 on header + body, py-4 → py-5 on
+            footer, matching the Modal + Card primitive uplifts so all
+            elevated surfaces share one rhythm. */}
+        <div className="flex items-center justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
           <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
           <button
             type="button"
@@ -106,9 +109,9 @@ export function Drawer({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-6">{children}</div>
         {footer ? (
-          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-5 py-4 md:px-6">
+          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-5 py-5 md:px-6">
             {footer}
           </div>
         ) : null}

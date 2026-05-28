@@ -254,7 +254,7 @@ export default async function CloseOutPage({
             is wrapped in a tooltip color when > 0 so the owner can't
             miss that there are still un-completed appointments before
             calling it a day. */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi label={t('kpis.gross')} value={fmtCAD(grossRevenue)} />
           <Kpi label={t('kpis.tips')} value={fmtCAD(tipsTotal)} />
           <Kpi label={t('kpis.completed')} value={String(completedCount)} />

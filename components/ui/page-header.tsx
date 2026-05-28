@@ -33,7 +33,10 @@ export function PageHeader({ title, subtitle, center, actions, switcher, classNa
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-0.5 truncate text-[11px] text-text-muted sm:text-xs">{subtitle}</p>
+          // Phase H+8 — mt-0.5 → mt-1 so the subtitle sits a hair
+          // further from the title; 2px → 4px reads as breathing room,
+          // not a typo.
+          <p className="mt-1 truncate text-[11px] text-text-muted sm:text-xs">{subtitle}</p>
         ) : null}
       </div>
       {/* Center slot hides under `sm` — there's no horizontal room for it
