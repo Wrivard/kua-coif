@@ -87,6 +87,18 @@ export function PreviewListener() {
     }
 
     window.addEventListener('message', onMessage);
+
+    // Loop 66 SR — tell the parent we're ready. There's a race between
+    // the parent's first 200ms-debounced broadcast and our hydration:
+    // if the broadcast fires before this effect runs, the message
+    // lands with no listener and is silently dropped. The operator
+    // would see a brief lag on their first edit. By emitting `ready`,
+    // the parent can immediately rebroadcast the current form state
+    // (bypassing the debounce). Targets parent only, same-origin.
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'kua-widget-preview-ready' }, window.location.origin);
+    }
+
     return () => window.removeEventListener('message', onMessage);
   }, []);
 

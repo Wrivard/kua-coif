@@ -86,6 +86,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   // changes into one paint. Each post is cheap (same-origin, no
   // serialization beyond the structured-clone overhead).
   const liveConfig = useWatch({ control }) as WidgetConfig;
+  // Keep a stable ref to the latest config so the `ready` listener
+  // below can read it without becoming a dep (which would re-subscribe
+  // the listener on every keystroke).
+  const liveConfigRef = useRef(liveConfig);
+  liveConfigRef.current = liveConfig;
+
   useEffect(() => {
     const target = iframeRef.current?.contentWindow;
     if (!target) return;
@@ -100,6 +106,27 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
     // fires once per change. JSON.stringify dep would also work but
     // would re-iterate the same object every render.
   }, [liveConfig]);
+
+  // Loop 66 SR — listen for the iframe's `ready` ping. The iframe sends
+  // it once on PreviewListener mount, which may land AFTER the first
+  // 200ms debounced broadcast above (if hydration is slow). Without
+  // this immediate-rebroadcast, the operator would see a brief lag
+  // on their first edit. Subsequent edits debounce normally.
+  useEffect(() => {
+    function onReady(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown } | undefined;
+      if (!data || data.type !== 'kua-widget-preview-ready') return;
+      const target = iframeRef.current?.contentWindow;
+      if (!target) return;
+      target.postMessage(
+        { type: 'kua-widget-preview', config: liveConfigRef.current },
+        window.location.origin,
+      );
+    }
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, []);
 
   // ── Snippet for copy ───────────────────────────────────────────────────
   const snippet = useMemo(() => {
