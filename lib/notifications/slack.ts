@@ -110,3 +110,84 @@ export async function sendSlackBookingNotification(
     return false;
   }
 }
+
+/**
+ * Phase B — chargeback / dispute notifier. Posted to the shop's Slack
+ * webhook when Stripe fires `charge.dispute.created`.
+ *
+ * Disputes are time-sensitive — the shop has ~7 days to submit
+ * evidence before auto-loss. Without this notification, the first
+ * chargeback surprises the owner when they next check the Stripe
+ * dashboard, often after the response window has closed.
+ *
+ * Fire-and-forget like the booking notifier; failures captured to
+ * Sentry but never thrown. The dispute row in the `disputes` table is
+ * the authoritative record; Slack is just the alert.
+ */
+export type SlackDisputePayload = {
+  shopName: string;
+  amount: number; // dollars (not cents)
+  reason: string; // Stripe enum value, e.g. 'fraudulent', 'product_not_received'
+  evidenceDueByIso: string | null;
+  stripeDashboardUrl: string;
+};
+
+export async function sendSlackDisputeNotification(
+  webhookUrl: string,
+  payload: SlackDisputePayload,
+): Promise<boolean> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://')) return false;
+
+  const amountFormatted = new Intl.NumberFormat('fr-CA', {
+    style: 'currency',
+    currency: 'CAD',
+  }).format(payload.amount);
+  const dueLine = payload.evidenceDueByIso
+    ? `⏰ *Réponse requise avant* ${new Date(payload.evidenceDueByIso).toLocaleString('fr-CA', {
+        timeZone: 'America/Toronto',
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })}`
+    : '⏰ Délai de réponse : voir le tableau de bord Stripe';
+
+  const text =
+    `🚨 *Contestation reçue (chargeback)* — ${amountFormatted}\n` +
+    `📋 Motif : ${payload.reason}\n` +
+    `${dueLine}\n` +
+    `🔗 ${payload.stripeDashboardUrl}`;
+
+  const body = JSON.stringify({
+    text,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text },
+      },
+      {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: `_${payload.shopName}_` }],
+      },
+    ],
+  });
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      captureException(new Error(`Slack dispute webhook returned ${res.status}`), {
+        tags: { layer: 'notifications', kind: 'slack-dispute', status: String(res.status) },
+      });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    captureException(e, {
+      tags: { layer: 'notifications', kind: 'slack-dispute' },
+    });
+    return false;
+  }
+}

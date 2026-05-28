@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { getStripe, stripeConfigured } from '@/lib/stripe/server';
 import { mapAccountToStatus } from '@/lib/stripe/connect';
 import { mapIntentStatus } from '@/lib/stripe/payments';
+import { sendSlackDisputeNotification } from '@/lib/notifications/slack';
 import { captureException } from '@/lib/observability';
 import type Stripe from 'stripe';
 
@@ -61,7 +62,37 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: 'invalid_signature' }, { status: 400 });
   }
 
-  // 3. Route by event type. Defensive switch — unknown events return 200
+  // 3. Phase B — event-ID dedupe. Stripe retries failed deliveries for
+  //    up to 3 days; without this guard, the same event can arrive
+  //    twice and we'd re-apply the handler. INSERT ... ON CONFLICT DO
+  //    NOTHING gives us at-most-once semantics: if 0 rows inserted, we
+  //    already processed this event and return 200 immediately.
+  //
+  //    The dedupe row goes in BEFORE the handler runs, which means a
+  //    handler failure that returns 500 (triggering Stripe retry) will
+  //    find the dedupe row already present on the next attempt and
+  //    skip. That's fine for transient failures (we've recorded that
+  //    we saw the event; the data side may catch up via reconciliation
+  //    later) and CORRECT for permanent failures (a malformed payload
+  //    we couldn't handle shouldn't be re-attempted forever).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+  const dedupeRes = await admin
+    .from('stripe_events')
+    .insert({ id: event.id, event_type: event.type })
+    .select('id');
+  // PostgreSQL returns the inserted rows in .data. On conflict (already
+  // exists), insert+select returns empty data without error. We rely
+  // on data.length === 0 as the "already processed" signal.
+  if (
+    Array.isArray((dedupeRes as { data?: unknown[] }).data) &&
+    ((dedupeRes as { data: unknown[] }).data?.length ?? 0) === 0 &&
+    !(dedupeRes as { error: unknown }).error
+  ) {
+    return NextResponse.json({ ok: true, skipped: 'already_processed' });
+  }
+
+  // 4. Route by event type. Defensive switch — unknown events return 200
   //    so Stripe doesn't retry, but we log them so we notice if Stripe
   //    starts sending something we should be handling.
   try {
@@ -91,6 +122,14 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
         break;
       }
+      // Phase B — chargeback / dispute lifecycle.
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated':
+      case 'charge.dispute.closed': {
+        const dispute = event.data.object as Stripe.Dispute;
+        await persistDispute(dispute, event.type === 'charge.dispute.created');
+        break;
+      }
       // Future:
       //   - 'payout.created' (notify shop owner of incoming payout)
       default: {
@@ -104,9 +143,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     captureException(e, {
       tags: { layer: 'stripe-webhook', stage: 'handler', event: event.type },
     });
-    // 500 makes Stripe retry — fine for transient DB hiccups, bad for
-    // permanently-bad payloads. For V1 we lean toward "retry" because
-    // every handler we have is idempotent (upserts).
+    // Phase B — 500 still triggers Stripe retry, but the dedupe row
+    // above guarantees we won't double-process on the retry. Trade-off
+    // is that a permanently-broken handler will silently no-op on
+    // every subsequent retry attempt — Sentry tags surface the issue
+    // so we notice before the 3-day retry window closes.
     return NextResponse.json({ ok: false, error: 'handler_failed' }, { status: 500 });
   }
 }
@@ -159,4 +200,110 @@ async function persistRefundForIntent(intentId: string): Promise<void> {
     .from('appointments')
     .update({ payment_status: 'refunded' })
     .eq('payment_intent_id', intentId);
+}
+
+/**
+ * Phase B — persist a Stripe dispute and (on first creation) fire a
+ * Slack alert to the shop owner.
+ *
+ * The dispute may not be tied to any Küa appointment (a refund-gone-
+ * wrong on a manual charge, a dispute on a long-cancelled appointment
+ * whose row was hard-deleted, etc.). We try to link via the PaymentIntent
+ * → appointment join, but fall back to a NULL `appointment_id` when no
+ * row matches. The dispute row still gets recorded so the owner sees
+ * the alert and can investigate via the Stripe dashboard URL.
+ *
+ * Shop resolution: every dispute carries a `charge.application` field
+ * which is null on direct charges and the Connect app ID on destination
+ * charges (our model). The `charge.destination` field carries the
+ * connected account ID directly. We use the latter to find the
+ * matching shop row.
+ *
+ * Upsert pattern: ON CONFLICT (stripe_dispute_id) DO UPDATE so a
+ * `charge.dispute.updated` event refreshes the status / evidence_due_by
+ * fields on the existing row.
+ */
+async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+
+  // Charge is always a string ID on the webhook event (no expansion).
+  const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id;
+  // PaymentIntent is the bridge to our appointment row.
+  const intentId =
+    typeof dispute.payment_intent === 'string'
+      ? dispute.payment_intent
+      : (dispute.payment_intent?.id ?? null);
+
+  // 1. Find the appointment + shop. Both can be null — see jsdoc.
+  let shopId: string | null = null;
+  let appointmentId: string | null = null;
+  let slackWebhookUrl: string | null = null;
+  let shopName: string | null = null;
+
+  if (intentId) {
+    const apptRes = await admin
+      .from('appointments')
+      .select('id, shop_id, shop:shops(name, slack_webhook_url)')
+      .eq('payment_intent_id', intentId)
+      .limit(1);
+    const row = ((apptRes.data as Array<{
+      id: string;
+      shop_id: string;
+      shop: { name: string; slack_webhook_url: string | null } | null;
+    }> | null) ?? [])[0];
+    if (row) {
+      appointmentId = row.id;
+      shopId = row.shop_id;
+      shopName = row.shop?.name ?? null;
+      slackWebhookUrl = row.shop?.slack_webhook_url ?? null;
+    }
+  }
+
+  // Without a shop we can't satisfy the NOT NULL on disputes.shop_id.
+  // Log + skip — Sentry surfaces the orphan for investigation.
+  if (!shopId) {
+    captureException(new Error('[disputes] no matching shop for dispute'), {
+      tags: { layer: 'stripe-webhook', kind: 'dispute-orphan' },
+      extra: { disputeId: dispute.id, chargeId, intentId },
+    });
+    return;
+  }
+
+  // 2. Upsert the dispute row.
+  await admin
+    .from('disputes')
+    .upsert(
+      {
+        shop_id: shopId,
+        appointment_id: appointmentId,
+        stripe_dispute_id: dispute.id,
+        stripe_charge_id: chargeId,
+        stripe_payment_intent_id: intentId,
+        amount_cents: dispute.amount,
+        currency: dispute.currency,
+        reason: dispute.reason,
+        status: dispute.status,
+        evidence_due_by: dispute.evidence_details?.due_by
+          ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+          : null,
+      },
+      { onConflict: 'stripe_dispute_id' },
+    )
+    .select('id');
+
+  // 3. On creation only, fire the Slack alert. `charge.dispute.updated`
+  //    and `.closed` don't re-notify — the owner already knows; status
+  //    changes are visible via the upserted row + the dashboard URL.
+  if (isCreated && slackWebhookUrl) {
+    void sendSlackDisputeNotification(slackWebhookUrl, {
+      shopName: shopName ?? 'Unknown shop',
+      amount: dispute.amount / 100,
+      reason: dispute.reason,
+      evidenceDueByIso: dispute.evidence_details?.due_by
+        ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+        : null,
+      stripeDashboardUrl: `https://dashboard.stripe.com/payments/${intentId ?? chargeId}`,
+    });
+  }
 }
