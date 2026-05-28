@@ -1404,6 +1404,10 @@
           "subtotalLabel": "Subtotal:",
           "loyaltyApplied": "Loyalty credit:",
           "totalLabel": "Total:",
+          "tipTitle": "Tip",
+          "tipCustom": "Custom",
+          "tipSkip": "No tip",
+          "tipLine": "Tip:",
           "consent": "I agree that my information may be used to manage this appointment, in accordance with the",
           "consentLink": "privacy policy",
           "consentSuffix": " (Quebec Bill 25)."

@@ -1406,6 +1406,10 @@
           "subtotalLabel": "Sous-total :",
           "loyaltyApplied": "Crédit fidélité :",
           "totalLabel": "Total :",
+          "tipTitle": "Pourboire",
+          "tipCustom": "Personnalisé",
+          "tipSkip": "Aucun pourboire",
+          "tipLine": "Pourboire :",
           "consent": "J’accepte que mes informations soient utilisées pour gérer ce rendez-vous, conformément à la",
           "consentLink": "politique de confidentialité",
           "consentSuffix": " (Loi 25)."

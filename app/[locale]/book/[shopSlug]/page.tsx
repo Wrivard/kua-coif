@@ -2,6 +2,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { parseWidgetConfig } from '@/lib/business/widget-config';
+import type { TipsConfig } from '@/lib/business/tips';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { BookingWizard, type BookingShop, type BookingHours } from './booking-wizard';
 
@@ -51,40 +53,58 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
     .select(
       // Loop 65 — `logo_url` added so the wizard header can render
       // the shop's actual logo instead of the "K" Küa fallback.
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, logo_url, marketing_banner_enabled, marketing_banner_text',
+      // Phase E — `widget_config` for the show_tip_step toggle,
+      // plumbed here so /book matches the embed surface. The widget
+      // config is otherwise unused on /book today; that's fine, the
+      // wizard ignores fields it doesn't recognize.
+      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, logo_url, marketing_banner_enabled, marketing_banner_text, widget_config',
     )
     .eq('alias', shopSlug)
     .limit(1);
-  const shop = ((shopRes.data as BookingShop[] | null) ?? [])[0];
-  if (!shop) notFound();
+  const shopRow = ((shopRes.data as Array<BookingShop & { widget_config: unknown }> | null) ??
+    [])[0];
+  if (!shopRow) notFound();
+  const { widget_config: shopWidgetConfigRaw, ...shop } = shopRow;
+  const widgetConfig = parseWidgetConfig(shopWidgetConfigRaw);
 
   // 2. Concurrently fetch hours, days_off, barbers, services, categories.
-  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes] = await Promise.all([
-    supabase
-      .from('shop_hours')
-      .select('weekday, enabled, open_time, close_time')
-      .eq('shop_id', shop.id)
-      .order('weekday', { ascending: true }),
-    supabase.from('shop_days_off').select('date').eq('shop_id', shop.id),
-    supabase
-      .from('barbers')
-      .select('id, display_name, avatar_url, sort_order, status')
-      .eq('shop_id', shop.id)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('services')
-      .select('id, category_id, name, duration_min, price, status, sort_order')
-      .eq('shop_id', shop.id)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('service_categories')
-      .select('id, name, sort_order')
-      .eq('shop_id', shop.id)
-      .order('sort_order', { ascending: true }),
-  ]);
+  //    Phase E adds `tips_config` for the in-widget tip selector.
+  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes, tipsRes] = await Promise.all(
+    [
+      supabase
+        .from('shop_hours')
+        .select('weekday, enabled, open_time, close_time')
+        .eq('shop_id', shop.id)
+        .order('weekday', { ascending: true }),
+      supabase.from('shop_days_off').select('date').eq('shop_id', shop.id),
+      supabase
+        .from('barbers')
+        .select('id, display_name, avatar_url, sort_order, status')
+        .eq('shop_id', shop.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('services')
+        .select('id, category_id, name, duration_min, price, status, sort_order')
+        .eq('shop_id', shop.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('service_categories')
+        .select('id, name, sort_order')
+        .eq('shop_id', shop.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('tips_config')
+        .select(
+          'round_up, pct_tier1, pct_tier2, pct_tier3, pct_tier4, pct_use_above_amount, flat_tier1, flat_tier2, flat_tier3, flat_tier4',
+        )
+        .eq('shop_id', shop.id)
+        .limit(1),
+    ],
+  );
 
   const hours = (hoursRes.data as BookingHours[] | null) ?? [];
   const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
+  const tipsConfig = ((tipsRes.data as TipsConfig[] | null) ?? [])[0];
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
     (b) => b.status === 'confirmed',
   );
@@ -158,6 +178,12 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
         barbers={barbers}
         services={services}
         categories={categories}
+        // Phase E — both surfaces (/book and /embed) now share the
+        // widget_config + tips_config so the in-widget tip step
+        // behaves identically. The wizard hides the section when
+        // either piece is missing.
+        widgetConfig={widgetConfig}
+        tipsConfig={tipsConfig}
       />
     </>
   );

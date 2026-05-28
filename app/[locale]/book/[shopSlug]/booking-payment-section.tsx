@@ -86,10 +86,20 @@ type Props = {
    * the intent on change.
    */
   phone: string;
+  /**
+   * Phase E — tip amount in cents picked by the customer in the
+   * wizard's tip selector. Added to the PI amount on top of whatever
+   * payment_mode charges. Re-fires the intent on change (debounced).
+   * 0 when the shop hides the tip step or the customer skipped it.
+   */
+  tipAmountCents: number;
 };
 
 export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>(
-  function BookingPaymentSection({ shopSlug, serviceIds, email, locale, promoCode, phone }, ref) {
+  function BookingPaymentSection(
+    { shopSlug, serviceIds, email, locale, promoCode, phone, tipAmountCents },
+    ref,
+  ) {
     const t = useTranslations('pages.booking.payment');
     const [state, setState] = useState<
       | { kind: 'loading' }
@@ -175,6 +185,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           existing_payment_intent_id: lastPiRef.current ?? undefined,
           promo_code: promoCode || undefined,
           phone: phone || undefined,
+          tip_amount_cents: tipAmountCents,
         }).then((res) => {
           if (cancelled) return;
           if (!res.ok) {
@@ -202,7 +213,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
         cancelled = true;
         clearTimeout(timer);
       };
-    }, [shopSlug, serviceKey, email, promoCode, phone]);
+    }, [shopSlug, serviceKey, email, promoCode, phone, tipAmountCents]);
 
     useImperativeHandle(
       ref,

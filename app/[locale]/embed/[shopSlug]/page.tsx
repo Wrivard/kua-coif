@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
+import type { TipsConfig } from '@/lib/business/tips';
 import {
   BookingWizard,
   type BookingShop,
@@ -68,32 +69,44 @@ export default async function EmbedBookingPage({
   const widgetConfig = parseWidgetConfig(shopRow.widget_config);
 
   // 2. Fetch everything the wizard needs, scoped to the shop.
-  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes] = await Promise.all([
-    supabase
-      .from('shop_hours')
-      .select('weekday, enabled, open_time, close_time')
-      .eq('shop_id', shopRow.id)
-      .order('weekday', { ascending: true }),
-    supabase.from('shop_days_off').select('date').eq('shop_id', shopRow.id),
-    supabase
-      .from('barbers')
-      .select('id, display_name, avatar_url, sort_order, status')
-      .eq('shop_id', shopRow.id)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('services')
-      .select('id, category_id, name, duration_min, price, status, sort_order')
-      .eq('shop_id', shopRow.id)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('service_categories')
-      .select('id, name, sort_order')
-      .eq('shop_id', shopRow.id)
-      .order('sort_order', { ascending: true }),
-  ]);
+  //    Phase E — `tips_config` for the in-widget tip selector. The
+  //    wizard hides the tip section when this row is missing.
+  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes, tipsRes] = await Promise.all(
+    [
+      supabase
+        .from('shop_hours')
+        .select('weekday, enabled, open_time, close_time')
+        .eq('shop_id', shopRow.id)
+        .order('weekday', { ascending: true }),
+      supabase.from('shop_days_off').select('date').eq('shop_id', shopRow.id),
+      supabase
+        .from('barbers')
+        .select('id, display_name, avatar_url, sort_order, status')
+        .eq('shop_id', shopRow.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('services')
+        .select('id, category_id, name, duration_min, price, status, sort_order')
+        .eq('shop_id', shopRow.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('service_categories')
+        .select('id, name, sort_order')
+        .eq('shop_id', shopRow.id)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('tips_config')
+        .select(
+          'round_up, pct_tier1, pct_tier2, pct_tier3, pct_tier4, pct_use_above_amount, flat_tier1, flat_tier2, flat_tier3, flat_tier4',
+        )
+        .eq('shop_id', shopRow.id)
+        .limit(1),
+    ],
+  );
 
   const hours = (hoursRes.data as BookingHours[] | null) ?? [];
   const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
+  const tipsConfig = ((tipsRes.data as TipsConfig[] | null) ?? [])[0];
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
     (b) => b.status === 'confirmed',
   );
@@ -161,6 +174,7 @@ export default async function EmbedBookingPage({
         services={services}
         categories={categories}
         widgetConfig={widgetConfig}
+        tipsConfig={tipsConfig}
       />
     </>
   );

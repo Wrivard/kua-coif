@@ -103,6 +103,16 @@ export const publicBookingSchema = z.object({
   /** Deposit amount in cents that the PI was created for (Phase 56). */
   deposit_amount_cents: z.number().int().min(0).optional(),
   /**
+   * Phase E — in-widget tip amount in cents. Persisted on
+   * `appointments.tip_amount_cents` so receipts + finances can break
+   * out the tip line. When > 0 it's added to the PI amount the
+   * customer pays upfront (regardless of payment_mode, deposit or
+   * full — the customer who tipped means to). The verify recomputes
+   * with the same tip so the math reconciles. Capped at $1000 to
+   * prevent obvious abuse (any legit tip is well under that).
+   */
+  tip_amount_cents: z.number().int().min(0).max(100_000).optional().default(0),
+  /**
    * Loop 24 — Quebec Loi 25 affirmative consent flag. Must be true.
    * The wizard gates Confirm on the checkbox; the action re-enforces
    * server-side so a hand-crafted POST can't bypass.
@@ -543,13 +553,20 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     //                 in-shop BALANCE, not the deposit.
     //   - 'none'    : no PI on this path, leave the value at 0.
     //
+    // Phase E — the tip stacks on top of either base in both modes.
+    // Same formula as `createBookingPaymentIntent`. The tip is persisted
+    // separately on `appointments.tip_amount_cents` so the receipt +
+    // finances can break it out from the service total.
+    //
     // The `'full'` formula deliberately mirrors what
     // `createBookingPaymentIntent` does. Any drift between the two
     // formulas → verify rejects a legit PI with `wrong_amount`.
+    const tipCentsForVerify = Math.max(0, Math.min(100_000, input.tip_amount_cents ?? 0));
     const recomputedDepositCents = input.payment_intent_id
-      ? shop.payment_mode === 'full'
-        ? Math.round(totalAmount * 100)
-        : services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
+      ? (shop.payment_mode === 'full'
+          ? Math.round(totalAmount * 100)
+          : services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)) +
+        tipCentsForVerify
       : 0;
 
     let verifiedPaymentStatus: 'paid' | 'pending' = 'pending';
@@ -605,6 +622,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         source: 'online',
         notes: input.notes || null,
         total_amount: totalAmount,
+        // Phase E — persist the in-widget tip so the receipt + finances
+        // can break it out from the service total. Stored in cents per
+        // the schema (column NOT NULL DEFAULT 0). 0 when the customer
+        // skipped the tip step or the shop has show_tip_step=false.
+        tip_amount_cents: tipCentsForVerify,
         ...paymentFields,
       })
       .select('id')
@@ -1058,6 +1080,14 @@ const bookingPaymentIntentSchema = z.object({
     .regex(phoneRegex)
     .optional()
     .or(z.literal('').transform(() => undefined)),
+  /**
+   * Phase E — in-widget tip in cents. Added to the PI amount on top
+   * of whatever the payment_mode charges (full price or deposit).
+   * Re-fires the intent on change (debounced) so the customer sees
+   * the new total in Stripe Elements before confirming. The booking
+   * action recomputes the same tip in the verify step.
+   */
+  tip_amount_cents: z.number().int().min(0).max(100_000).optional().default(0),
 });
 
 export type CreateBookingPaymentIntentInput = z.infer<typeof bookingPaymentIntentSchema>;
@@ -1261,10 +1291,22 @@ export async function createBookingPaymentIntent(
       depositCents = svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
     }
 
+    // Phase E — tip stacks on top of the base charge in BOTH 'full' and
+    // 'deposit' modes. The customer who picked a tip means to pay it
+    // upfront alongside whatever the payment_mode asks for. We don't
+    // re-validate against tips_config tiers here — the wizard's UI is
+    // the source of truth for which tier was picked, and the server-
+    // side cap at $1000 (in the schema) is the abuse-prevention gate.
+    // Custom tip amounts are first-class; the UI surfaces tier
+    // buttons as shortcuts.
+    const tipCents = Math.max(0, Math.min(100_000, input.tip_amount_cents ?? 0));
+    depositCents += tipCents;
+
     if (depositCents <= 0) {
       // 'full' mode: every service was free OR discounts covered the
-      // entire price. 'deposit' mode: no service has a deposit set.
-      // Either way the widget skips PaymentElement.
+      // entire price AND no tip. 'deposit' mode: no service has a
+      // deposit set AND no tip. Either way the widget skips
+      // PaymentElement.
       return ok({ kind: 'no_deposit' as const });
     }
 

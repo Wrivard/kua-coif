@@ -24,6 +24,7 @@ import { TurnstileWidget, turnstileSiteKeyConfigured } from '@/components/ui/tur
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
 import type { WidgetConfig } from '@/lib/business/widget-config';
+import { suggestTips, type TipsConfig } from '@/lib/business/tips';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { addToWaitlistPublic, bookPublicAppointment, lookupLoyaltyByPhone } from './actions';
 import type { BookingPaymentSectionRef } from './booking-payment-section';
@@ -85,6 +86,14 @@ type WizardState = {
   promoCode: string; // Phase 41 — optional, server-validated
   loyaltyBalanceCents: number; // Phase 60 — server-confirmed balance for the typed phone
   consentLoi25: boolean; // Loop 24 — Quebec Loi 25 affirmative consent gate
+  // Phase E — in-widget tip. `tipAmountCents` is the actual amount sent
+  // to the server (PI mint + appointment row). `tipSelection` drives the
+  // UI button state: 'none' means the customer explicitly chose "No tip",
+  // 'tier:N' means the Nth suggested tier is selected, 'custom' shows
+  // the custom input. Default 'none' so customers who don't notice the
+  // section don't get charged a phantom tip.
+  tipAmountCents: number;
+  tipSelection: 'none' | `tier:${0 | 1 | 2 | 3}` | 'custom';
 };
 
 type Props = {
@@ -102,6 +111,14 @@ type Props = {
    * etc.). See `lib/business/widget-config.ts`.
    */
   widgetConfig?: WidgetConfig;
+  /**
+   * Phase E — shop's tip tier config. Drives the suggested-tier buttons
+   * shown above the payment section when `widgetConfig.show_tip_step`
+   * is on. Undefined when the shop has no tips_config row yet — in
+   * that case the wizard hides the tip section regardless of the
+   * widget toggle (no tiers to suggest).
+   */
+  tipsConfig?: TipsConfig;
 };
 
 // Five progress chips, regardless of which of {service, barber} comes first.
@@ -174,6 +191,7 @@ export function BookingWizard({
   services,
   categories,
   widgetConfig,
+  tipsConfig,
 }: Props) {
   const t = useTranslations('pages.booking');
   const tErr = useTranslations('actionErrors');
@@ -214,6 +232,8 @@ export function BookingWizard({
     promoCode: '',
     loyaltyBalanceCents: 0,
     consentLoi25: false,
+    tipAmountCents: 0,
+    tipSelection: 'none',
   });
 
   // Phase 60 — debounced loyalty lookup on phone change. Fires ~500ms
@@ -272,6 +292,21 @@ export function BookingWizard({
     return Math.min(state.loyaltyBalanceCents, runningCents);
   })();
   const totalAfterLoyalty = Math.max(0, totalPrice - loyaltyCreditCents / 100);
+
+  // Phase E — tip tier suggestions. The base for percentage tiers is
+  // the post-loyalty total in dollars (matches what the customer is
+  // actually paying for service). The shop's `use_taxes_in_tips` and
+  // `use_prod_price_in_tips` toggles control whether taxes/products
+  // count toward tipBase — V1 widget only sells services so the latter
+  // is moot, and taxes are bundled into the displayed price already
+  // (`services.price` is tax-inclusive per the spec). Hide the section
+  // entirely when the shop has no tips_config row (undefined) or the
+  // widget toggle is off.
+  const showTipStep = Boolean(widgetConfig?.show_tip_step && tipsConfig);
+  const tipSuggestions = useMemo(() => {
+    if (!showTipStep || !tipsConfig) return [];
+    return suggestTips(totalAfterLoyalty, tipsConfig);
+  }, [showTipStep, tipsConfig, totalAfterLoyalty]);
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -394,6 +429,9 @@ export function BookingWizard({
         // Phase 56 — only set when the payment section actually charged.
         payment_intent_id: paymentIntentId,
         deposit_amount_cents: depositCents,
+        // Phase E — tip picked in the wizard. The action re-verifies
+        // it against the PI amount and persists on the row.
+        tip_amount_cents: state.tipAmountCents,
         // Loop 24 — Loi 25 affirmative consent. Server enforces too.
         consent_loi25: state.consentLoi25,
       });
@@ -714,7 +752,41 @@ export function BookingWizard({
                 )}{' '}
                 · {state.startTime}
               </p>
+              {/* Phase E — tip line in the summary card. Shown only when
+                  the customer picked a non-zero tip. */}
+              {state.tipAmountCents > 0 ? (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {t('steps.contact.tipLine')}{' '}
+                  <span className="text-text-primary">
+                    {formatCurrencyCAD(state.tipAmountCents / 100, locale === 'fr' ? 'fr' : 'en')}
+                  </span>
+                </p>
+              ) : null}
             </div>
+
+            {/* Phase E — tip selector. Shown only when the shop has
+                `widget_config.show_tip_step` on AND a tips_config row
+                exists. The suggestions come from `suggestTips()` which
+                picks % vs flat tiers based on `pct_use_above_amount`.
+                The customer can pick a tier, type a custom amount, or
+                explicitly skip. The selection drives both the summary
+                line above and the PaymentSection re-fire below. */}
+            {showTipStep ? (
+              <TipSelector
+                suggestions={tipSuggestions}
+                selection={state.tipSelection}
+                amountCents={state.tipAmountCents}
+                locale={locale === 'fr' ? 'fr' : 'en'}
+                onChange={(next) =>
+                  setState((s) => ({
+                    ...s,
+                    tipSelection: next.selection,
+                    tipAmountCents: next.amountCents,
+                  }))
+                }
+                t={t}
+              />
+            ) : null}
 
             {/* Phase 56 — Stripe Elements deposit collection. The section
                 self-determines whether to render based on the shop's
@@ -734,6 +806,10 @@ export function BookingWizard({
               // `createBookingPaymentIntent`.
               promoCode={state.promoCode}
               phone={state.phone}
+              // Phase E — forward selected tip so the PI mints
+              // for (base + tip). 0 when the customer hasn't
+              // picked a tip or the shop hides the step.
+              tipAmountCents={state.tipAmountCents}
             />
           </section>
         )}
@@ -1456,6 +1532,148 @@ function WaitlistInlineForm({
         <Button type="button" size="sm" onClick={submit} disabled={!canSubmit} loading={submitting}>
           {t('waitlist.submit')}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase E — TipSelector
+//
+// Tier-button row + custom amount input + "no tip" opt-out. Lives inside
+// the wizard so it has direct access to the wizard's i18n namespace; if
+// we ever need it elsewhere we can extract to /components/features. The
+// suggestions come from `suggestTips()` which already picks % vs flat
+// tiers based on `tips_config.pct_use_above_amount`.
+//
+// State contract with the parent: the parent owns `selection` + `amountCents`
+// and re-renders on change. Tier picks set selection='tier:N' and the
+// amount derived from the matching suggestion. Custom picks set
+// selection='custom' and the amount typed (parsed via Number, capped
+// at $1000). "No tip" sets selection='none' and amount 0.
+// ─────────────────────────────────────────────────────────────────────────
+
+type TipSelection = 'none' | `tier:${0 | 1 | 2 | 3}` | 'custom';
+
+type TipChangePayload = {
+  selection: TipSelection;
+  amountCents: number;
+};
+
+function TipSelector({
+  suggestions,
+  selection,
+  amountCents,
+  locale,
+  onChange,
+  t,
+}: {
+  suggestions: ReturnType<typeof suggestTips>;
+  selection: TipSelection;
+  amountCents: number;
+  locale: 'fr' | 'en';
+  onChange: (next: TipChangePayload) => void;
+  t: (key: string) => string;
+}) {
+  // Custom input is rendered when the customer picks "Custom". The
+  // string state shadows `amountCents` so the user can type fractional
+  // values (e.g. "5.5") without the controlled input fighting the
+  // parsed number.
+  const [customInput, setCustomInput] = useState<string>(
+    selection === 'custom' && amountCents > 0 ? String(amountCents / 100) : '',
+  );
+
+  function pickTier(idx: 0 | 1 | 2 | 3) {
+    const sug = suggestions[idx];
+    if (!sug) return;
+    onChange({ selection: `tier:${idx}` as const, amountCents: Math.round(sug.amount * 100) });
+  }
+
+  function pickNone() {
+    onChange({ selection: 'none', amountCents: 0 });
+  }
+
+  function pickCustom() {
+    // Open the custom input; keep the previous amount until user
+    // types something fresh.
+    onChange({ selection: 'custom', amountCents });
+  }
+
+  function setCustom(value: string) {
+    setCustomInput(value);
+    const parsed = Number(value.replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      onChange({ selection: 'custom', amountCents: 0 });
+      return;
+    }
+    const cents = Math.min(100_000, Math.round(parsed * 100));
+    onChange({ selection: 'custom', amountCents: cents });
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-bg-base p-4 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+        {t('steps.contact.tipTitle')}
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {suggestions.map((sug, i) => {
+          const isSelected = selection === `tier:${i}`;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => pickTier(i as 0 | 1 | 2 | 3)}
+              className={cn(
+                'flex flex-col items-center gap-0.5 rounded-md border px-3 py-2 text-sm transition',
+                isSelected
+                  ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
+                  : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
+              )}
+            >
+              <span className="text-xs text-text-muted">{sug.label}</span>
+              <span className="font-medium">{formatCurrencyCAD(sug.amount, locale)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={pickCustom}
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-xs transition',
+            selection === 'custom'
+              ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
+              : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
+          )}
+        >
+          {t('steps.contact.tipCustom')}
+        </button>
+        <button
+          type="button"
+          onClick={pickNone}
+          className={cn(
+            'rounded-md border px-3 py-1.5 text-xs transition',
+            selection === 'none'
+              ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
+              : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
+          )}
+        >
+          {t('steps.contact.tipSkip')}
+        </button>
+        {selection === 'custom' ? (
+          <div className="ml-auto flex items-center gap-1">
+            <span className="text-xs text-text-muted">$</span>
+            <Input
+              inputMode="decimal"
+              autoFocus
+              value={customInput}
+              onChange={(e) => setCustom(e.target.value)}
+              className="w-24 text-right"
+              aria-label={t('steps.contact.tipCustom')}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
