@@ -99,28 +99,32 @@ export async function createDepositPaymentIntent({
 }
 
 /**
- * Phase A SR — update an existing PaymentIntent's amount when the
- * customer changes their service selection at step 4 of the booking
- * wizard. Without this, each selection change creates a brand-new
- * PI and abandons the previous one — no cost, but clutters Stripe.
+ * Phase A SR — retrieve an existing PaymentIntent for the booking wizard
+ * to reuse across re-renders when the amount hasn't actually changed.
  *
- * Stripe only allows updates while the PI is in a pre-confirmation
- * state (`requires_payment_method`, `requires_confirmation`). Once
- * the customer has authorized the card, the amount is locked. The
- * caller is expected to fall back to creating a new PI when this
- * function returns null (the wizard's UX handles that path already
- * — that's the pre-Phase-A-SR behavior).
+ * Phase A SR-of-SR security note: the original Phase A SR also mutated
+ * the PI's `amount` via `paymentIntents.update` when the customer
+ * changed their service selection. That introduced a client/server
+ * amount-of-record race: Stripe Elements caches the amount from
+ * `clientSecret` at mount time, so a customer who clicked Confirm
+ * BEFORE the client re-rendered with the new amount would see "$50"
+ * in the UI and get charged "$40" (or "$40" UI → "$50" charge — the
+ * dangerous direction).
+ *
+ * The right model is: when amount changes, throw the old PI away and
+ * mint a new one. The new PI has a fresh `clientSecret` → Stripe
+ * Elements re-mounts → the customer always sees the amount they're
+ * actually authorizing. We keep the reuse path ONLY for the no-op
+ * case (same amount + same fee), which is the common one for cosmetic
+ * re-renders (parent state change, theme toggle, etc.).
  *
  * Returns null when:
  *   - the PI doesn't exist (deleted, wrong ID)
- *   - the PI belongs to a different connected account (shouldn't
- *     happen but defensive)
- *   - the PI is in a state Stripe won't let us mutate
- *   - the application-fee derivation produced a different value than
- *     the existing PI's fee (in this case a new PI is safer than
- *     trying to re-derive `application_fee_amount`)
+ *   - the PI belongs to a different connected account
+ *   - the PI is no longer in a pre-confirmation state
+ *   - amount or fee has changed (caller falls back to create)
  */
-export async function updateDepositPaymentIntent({
+export async function getReusableDepositPaymentIntent({
   paymentIntentId,
   connectedAccountId,
   amountCents,
@@ -146,10 +150,10 @@ export async function updateDepositPaymentIntent({
       : (existing.transfer_data?.destination?.id ?? null);
   if (dest !== connectedAccountId) return null;
 
-  // Updatable-state guard. `requires_payment_method` (no card yet) and
-  // `requires_confirmation` (card attached but not confirmed) are the
-  // two states Stripe lets us mutate `amount` in. Everything else
-  // (succeeded, processing, canceled, requires_action) is fixed.
+  // Pre-confirmation state guard. `requires_payment_method` (no card
+  // yet) and `requires_confirmation` (card attached but not confirmed)
+  // are the only states where a fresh card-entry session against the
+  // same clientSecret still makes sense.
   if (
     existing.status !== 'requires_payment_method' &&
     existing.status !== 'requires_confirmation'
@@ -157,17 +161,15 @@ export async function updateDepositPaymentIntent({
     return null;
   }
 
-  // If the amount hasn't actually changed, skip the update — saves an
-  // API call when the wizard re-renders without a real selection change.
+  // Amount + fee must match exactly — any divergence means the client's
+  // Elements would be displaying a stale amount. New PI = new
+  // clientSecret = Elements re-mounts with the authoritative value.
   const fee = applicationFeeCents ?? defaultApplicationFeeCents(amountCents);
-  if (existing.amount === amountCents && (existing.application_fee_amount ?? 0) === fee) {
-    return existing;
+  if (existing.amount !== amountCents || (existing.application_fee_amount ?? 0) !== fee) {
+    return null;
   }
 
-  return stripe.paymentIntents.update(paymentIntentId, {
-    amount: amountCents,
-    application_fee_amount: fee > 0 ? fee : undefined,
-  });
+  return existing;
 }
 
 /**
@@ -258,7 +260,10 @@ export async function refundPaymentIntentFull({
  */
 export type VerifyDepositPiResult =
   | { valid: true; status: Stripe.PaymentIntent.Status }
-  | { valid: false; reason: 'not_found' | 'wrong_shop' | 'wrong_amount' | 'wrong_status' };
+  | {
+      valid: false;
+      reason: 'not_found' | 'wrong_shop' | 'wrong_amount' | 'wrong_status' | 'wrong_currency';
+    };
 
 export async function verifyDepositPaymentIntent({
   paymentIntentId,
@@ -287,6 +292,15 @@ export async function verifyDepositPaymentIntent({
       : (intent.transfer_data?.destination?.id ?? null);
   if (dest !== expectedConnectedAccountId) {
     return { valid: false, reason: 'wrong_shop' };
+  }
+
+  // Phase A SR-of-SR — CAD-only by design today (`createDepositPaymentIntent`
+  // hardcodes 'cad', `formatCurrencyCAD` is the only money formatter in the
+  // wizard). Defense-in-depth: reject any PI in a different currency so a
+  // future multi-currency feature can't silently break the deposit
+  // verification with the same numeric `amount`.
+  if (intent.currency !== 'cad') {
+    return { valid: false, reason: 'wrong_currency' };
   }
 
   if (intent.amount !== expectedAmountCents) {

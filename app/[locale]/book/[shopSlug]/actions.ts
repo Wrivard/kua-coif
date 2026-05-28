@@ -16,7 +16,7 @@ import { verifyTurnstile } from '@/lib/security/turnstile';
 import { stripeConfigured } from '@/lib/stripe/server';
 import {
   createDepositPaymentIntent,
-  updateDepositPaymentIntent,
+  getReusableDepositPaymentIntent,
   verifyDepositPaymentIntent,
 } from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
@@ -90,11 +90,14 @@ export const publicBookingSchema = z.object({
    * the ID here so we can persist the link. The webhook keeps
    * `payment_status` in sync (pending → paid).
    */
+  // Phase A SR-of-SR — tightened from `^pi_/` to require the actual
+  // Stripe ID shape. The verify call would catch any garbage anyway
+  // (Stripe 404s on `pi_; DROP TABLE`-style payloads) but Zod-side
+  // rejection short-circuits before we round-trip to Stripe.
   payment_intent_id: z
     .string()
     .trim()
-    .max(120)
-    .regex(/^pi_/, 'INVALID_PAYMENT_INTENT')
+    .regex(/^pi_[A-Za-z0-9_]{8,255}$/, 'INVALID_PAYMENT_INTENT')
     .optional()
     .or(z.literal('').transform(() => undefined)),
   /** Deposit amount in cents that the PI was created for (Phase 56). */
@@ -992,15 +995,15 @@ const bookingPaymentIntentSchema = z.object({
     .or(z.literal('').transform(() => '')),
   /**
    * Phase A SR — the wizard can pass an existing PaymentIntent ID
-   * from a previous call in the same session. If Stripe says it's
-   * still in an updatable state (requires_payment_method/confirmation),
-   * we update its `amount` instead of creating a new PI. Cuts the
-   * "abandoned PI" clutter in the Stripe dashboard when a customer
-   * goes back-and-forth between step 1 and step 4 changing services.
+   * from a previous call in the same session. If amount + fee are
+   * unchanged and the PI is still pre-confirmation, we reuse it
+   * (saves an API call on cosmetic re-renders). Any other case
+   * creates a fresh PI — see `getReusableDepositPaymentIntent`
+   * for why mutating amount was unsafe.
    */
   existing_payment_intent_id: z
     .string()
-    .startsWith('pi_')
+    .regex(/^pi_[A-Za-z0-9_]{8,255}$/)
     .optional()
     .or(z.literal('').transform(() => undefined)),
 });
@@ -1089,17 +1092,22 @@ export async function createBookingPaymentIntent(
       return ok({ kind: 'no_deposit' as const });
     }
 
-    // Phase A SR — if the wizard passed an existing PI from a previous
-    // call in the same session, try to update its `amount` instead of
-    // creating a fresh PI. Customer changing their service selection
-    // back-and-forth at step 4 used to create one abandoned PI per
-    // edit. Update succeeds only while the PI is still in a
-    // pre-confirmation state (requires_payment_method /
-    // requires_confirmation); after confirmation we fall back to
-    // creating a new PI.
+    // Phase A SR-of-SR — if the wizard passed an existing PI from a
+    // previous call in the same session, try to REUSE it (no API
+    // mutation). Reuse is allowed only when amount + fee are exactly
+    // unchanged AND the PI is still pre-confirmation; any other case
+    // falls back to creating a new PI.
+    //
+    // The amount-change case is intentionally a CREATE-not-update:
+    // mutating an existing PI's amount client-side led to a race
+    // where Stripe Elements still showed the old amount while the
+    // server had the new one — customer could click Confirm
+    // believing they were paying $50 and get charged $40 (or vice
+    // versa). Forcing a fresh PI on amount change re-mounts
+    // Elements with the authoritative value.
     let intent: Awaited<ReturnType<typeof createDepositPaymentIntent>> | null = null;
     if (input.existing_payment_intent_id) {
-      intent = await updateDepositPaymentIntent({
+      intent = await getReusableDepositPaymentIntent({
         paymentIntentId: input.existing_payment_intent_id,
         connectedAccountId: shop.stripe_account_id,
         amountCents: depositCents,
