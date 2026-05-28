@@ -1281,15 +1281,14 @@
         "openInTab": "Ouvrir dans un onglet",
         "sections": {
           "identity": "Identité",
-          "messages": "Messages personnalisés",
           "theme": "Thème",
-          "presets": "Presets",
+          "messages": "Messages personnalisés",
           "steps": "Étapes du parcours",
-          "behavior": "Comportement",
           "postBooking": "Après réservation",
-          "analytics": "Statistiques",
+          "security": "Sécurité",
+          "preview": "Aperçu en direct",
           "snippet": "Code d'intégration",
-          "preview": "Aperçu en direct"
+          "analytics": "Statistiques"
         },
         "fields": {
           "displayName": "Nom affiché (FR)",
@@ -1315,6 +1314,7 @@
           "promoCode": "Afficher le code promo",
           "stepsHint": "Pourboire et code promo apparaissent dans l'étape contact du parcours client.",
           "defaultLocale": "Langue par défaut",
+          "defaultLocaleHint": "Langue affichée à l'ouverture du widget. Le client peut en changer.",
           "allowedOrigins": "Origines d'intégration autorisées",
           "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com.",
           "allowedOriginsWarning": "Aucune origine spécifiée — n'importe quel site peut intégrer ton widget. Recommandé : ajoute ton domaine.",
@@ -1323,16 +1323,6 @@
           "redirectUrl": "URL de redirection",
           "redirectUrlHint": "URL complète https://… affichée au client après confirmation. Utile pour le tracking Google Ads ou ta page « Merci » brandée.",
           "redirectUrlPlaceholder": "https://salon.com/merci"
-        },
-        "presets": {
-          "intro": "Applique un combo couleur + police + arrondi en un clic. Tu peux ajuster chaque élément après.",
-          "kua": "Küa",
-          "noirOr": "Noir & or",
-          "rosePastel": "Pastel rose",
-          "cuivre": "Métal cuivré",
-          "foret": "Forêt",
-          "minimaliste": "Minimaliste",
-          "apply": "Appliquer"
         },
         "options": {
           "modeDark": "Sombre",
@@ -1383,7 +1373,8 @@
         },
         "testEmbed": {
           "button": "Tester l'intégration",
-          "description": "Ouvre une page de test qui simule le widget embedded sur un vrai site."
+          "openTab": "Plein écran",
+          "description": "Le widget réel s'affiche ci-dessous, exactement comme sur un vrai site. En mode bouton flottant, le bouton apparaît dans le coin de ce cadre."
         },
         "toasts": {
           "saved": "Widget enregistré",

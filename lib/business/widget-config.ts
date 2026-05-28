@@ -271,9 +271,24 @@ export function widgetThemeCss(cfg: WidgetConfig): string {
   } else if (cfg.font_family === 'inter') {
     rules.push("font-family: 'Inter', system-ui, -apple-system, sans-serif;");
   }
-  if (cfg.border_radius === 'sharp') rules.push('--radius: 0px; --radius-sm: 0px;');
-  else if (cfg.border_radius === 'pill') rules.push('--radius: 999px; --radius-sm: 999px;');
-  // 'rounded' = use the existing defaults from globals.css.
+  // Corner style overrides the WHOLE radius scale, not just --radius and
+  // --radius-sm. The wizard's surfaces use the full set of tokens
+  // (rounded-lg → --radius-lg, rounded-xl → --radius-xl, …), so touching
+  // only the two base tokens left every card/button visually unchanged —
+  // the control looked dead. 'rounded' = keep the globals.css defaults.
+  if (cfg.border_radius === 'sharp') {
+    rules.push(
+      '--radius-2xs: 0px; --radius-xs: 0px; --radius-sm: 0px; --radius: 0px; --radius-lg: 0px; --radius-xl: 0px;',
+    );
+  } else if (cfg.border_radius === 'pill') {
+    // Functional tiers (chips, inputs, small/medium buttons) go full
+    // pill; large surfaces (cards, modals) get a generous-but-bounded
+    // radius so they read as "very round" without collapsing into a
+    // stadium shape whose quarter-circle corners eat the content.
+    rules.push(
+      '--radius-2xs: 999px; --radius-xs: 999px; --radius-sm: 999px; --radius: 999px; --radius-lg: 22px; --radius-xl: 28px;',
+    );
+  }
 
   if (rules.length === 0) return '';
   return `:root, .widget-root { ${rules.join(' ')} }`;

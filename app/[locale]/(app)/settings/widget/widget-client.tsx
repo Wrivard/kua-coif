@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
@@ -12,7 +12,6 @@ import {
   Copy,
   ExternalLink,
   Loader2,
-  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,67 +47,6 @@ type Props = {
   initial: WidgetConfig;
   funnelStats: FunnelStats;
 };
-
-/**
- * Phase H+11 — theme presets.
- *
- * One-click combos applied to (accent_color, font_family, border_radius,
- * mode). The mode is included because some presets only read well in
- * one direction (e.g. pastel pink lands better on light, copper on
- * dark). The operator can still override any field after applying.
- */
-type Preset = {
-  id: 'kua' | 'noirOr' | 'rosePastel' | 'cuivre' | 'foret' | 'minimaliste';
-  accent_color: string;
-  font_family: WidgetConfig['font_family'];
-  border_radius: WidgetConfig['border_radius'];
-  mode: WidgetConfig['mode'];
-};
-
-const THEME_PRESETS: Preset[] = [
-  {
-    id: 'kua',
-    accent_color: '#8b5cf6',
-    font_family: 'system',
-    border_radius: 'rounded',
-    mode: 'dark',
-  },
-  {
-    id: 'noirOr',
-    accent_color: '#d4af37',
-    font_family: 'system',
-    border_radius: 'sharp',
-    mode: 'dark',
-  },
-  {
-    id: 'rosePastel',
-    accent_color: '#ec4899',
-    font_family: 'geist',
-    border_radius: 'rounded',
-    mode: 'light',
-  },
-  {
-    id: 'cuivre',
-    accent_color: '#b87333',
-    font_family: 'system',
-    border_radius: 'rounded',
-    mode: 'dark',
-  },
-  {
-    id: 'foret',
-    accent_color: '#10b981',
-    font_family: 'geist',
-    border_radius: 'rounded',
-    mode: 'dark',
-  },
-  {
-    id: 'minimaliste',
-    accent_color: '#525252',
-    font_family: 'inter',
-    border_radius: 'sharp',
-    mode: 'light',
-  },
-];
 
 export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats }: Props) {
   const t = useTranslations('pages.settings.widget');
@@ -249,14 +187,6 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
     return () => clearTimeout(timer);
   }, [liveConfig, originsText, triggerSave]);
 
-  // ── Theme preset application ──────────────────────────────────────────
-  function applyPreset(preset: Preset) {
-    setValue('accent_color', preset.accent_color, { shouldDirty: true, shouldValidate: true });
-    setValue('font_family', preset.font_family, { shouldDirty: true });
-    setValue('border_radius', preset.border_radius, { shouldDirty: true });
-    setValue('mode', preset.mode, { shouldDirty: true });
-  }
-
   // ── Snippet ────────────────────────────────────────────────────────────
   // Phase H+13 — three integration modes with distinct snippet shapes.
   //   - inline: data-kua-widget div that mounts the iframe in place.
@@ -316,6 +246,17 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
   // the field is empty (so the picker doesn't show black on first load).
   const watchedAccent = watch('accent_color') || '#8b5cf6';
 
+  // In-page integration test. Loads `/test-embed` (which itself pulls
+  // widget.js + injects the real iframe) INSIDE the settings page so
+  // the operator can verify the snippet without leaving — the floating-
+  // button mode's `position:fixed` button is scoped to this iframe's
+  // document, so it appears in the corner of the test frame, not the
+  // whole admin page. Keyed on the snippet mode so switching modes
+  // remounts the frame and re-runs widget.js with the new behavior.
+  const testEmbedUrl = shopAlias
+    ? `/${locale}/test-embed?slug=${encodeURIComponent(shopAlias)}&mode=${watchedSnippetMode}`
+    : '';
+
   // Empty allowed_origins → CSP wildcard. Surface a warning so the
   // operator knows their widget is embeddable anywhere.
   const originsLines = originsText
@@ -352,7 +293,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
       <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
         {/* ── Form column ────────────────────────────────────────────── */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-          {/* ── Identity ─────────────────────────────────────────────── */}
+          {/* ── 1. Identity ──────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.identity')}</CardTitle>
@@ -401,65 +342,18 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                   />
                 )}
               />
-            </CardBody>
-          </Card>
-
-          {/* ── Messages ─────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.messages')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="welcome_message_fr">{t('fields.welcomeMessage')}</Label>
-                  <Textarea
-                    id="welcome_message_fr"
-                    rows={2}
-                    maxLength={280}
-                    {...register('welcome_message_fr')}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="welcome_message_en">{t('fields.welcomeMessageEn')}</Label>
-                  <Textarea
-                    id="welcome_message_en"
-                    rows={2}
-                    maxLength={280}
-                    {...register('welcome_message_en')}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-text-muted">{t('fields.welcomeMessageHint')}</p>
-            </CardBody>
-          </Card>
-
-          {/* ── Theme presets ────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="inline-flex items-center gap-2">
-                  <Palette className="h-4 w-4" />
-                  {t('sections.presets')}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <p className="text-xs text-text-muted">{t('presets.intro')}</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {THEME_PRESETS.map((p) => (
-                  <PresetCard
-                    key={p.id}
-                    preset={p}
-                    label={t(`presets.${p.id}`)}
-                    onApply={() => applyPreset(p)}
-                  />
-                ))}
+              <div>
+                <Label htmlFor="default_locale">{t('fields.defaultLocale')}</Label>
+                <Select id="default_locale" className="max-w-xs" {...register('default_locale')}>
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                </Select>
+                <p className="mt-1 text-xs text-text-muted">{t('fields.defaultLocaleHint')}</p>
               </div>
             </CardBody>
           </Card>
 
-          {/* ── Theme ────────────────────────────────────────────────── */}
+          {/* ── 2. Theme ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.theme')}</CardTitle>
@@ -477,10 +371,9 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                 </div>
                 <div>
                   <Label htmlFor="accent_color">{t('fields.accentColor')}</Label>
-                  {/* Phase H+11 — native color picker. Sits left of the
-                      hex text input + syncs both ways. The picker is a
-                      visible swatch (h-10 w-12) so the operator sees the
-                      live color. */}
+                  {/* Native color picker. Sits left of the hex text input +
+                      syncs both ways. The picker is a visible swatch
+                      (h-10 w-12) so the operator sees the live color. */}
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
@@ -528,7 +421,60 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
             </CardBody>
           </Card>
 
-          {/* ── Steps ────────────────────────────────────────────────── */}
+          {/* ── 3. Messages ──────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.messages')}</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="welcome_message_fr">{t('fields.welcomeMessage')}</Label>
+                  <Textarea
+                    id="welcome_message_fr"
+                    rows={2}
+                    maxLength={280}
+                    {...register('welcome_message_fr')}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="welcome_message_en">{t('fields.welcomeMessageEn')}</Label>
+                  <Textarea
+                    id="welcome_message_en"
+                    rows={2}
+                    maxLength={280}
+                    {...register('welcome_message_en')}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-text-muted">{t('fields.welcomeMessageHint')}</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="post_booking_message_fr">{t('fields.postBookingMessage')}</Label>
+                  <Textarea
+                    id="post_booking_message_fr"
+                    rows={2}
+                    maxLength={280}
+                    {...register('post_booking_message_fr')}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="post_booking_message_en">
+                    {t('fields.postBookingMessageEn')}
+                  </Label>
+                  <Textarea
+                    id="post_booking_message_en"
+                    rows={2}
+                    maxLength={280}
+                    {...register('post_booking_message_en')}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-text-muted">{t('fields.postBookingMessageHint')}</p>
+            </CardBody>
+          </Card>
+
+          {/* ── 4. Steps ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.steps')}</CardTitle>
@@ -582,19 +528,45 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
             </CardBody>
           </Card>
 
-          {/* ── Behavior ─────────────────────────────────────────────── */}
+          {/* ── 5. After booking ─────────────────────────────────────── */}
           <Card>
             <CardHeader>
-              <CardTitle>{t('sections.behavior')}</CardTitle>
+              <CardTitle>{t('sections.postBooking')}</CardTitle>
             </CardHeader>
             <CardBody className="space-y-4">
-              <div>
-                <Label htmlFor="default_locale">{t('fields.defaultLocale')}</Label>
-                <Select id="default_locale" className="max-w-xs" {...register('default_locale')}>
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                </Select>
-              </div>
+              <Controller
+                control={control}
+                name="redirect_enabled"
+                render={({ field }) => (
+                  <Toggle
+                    checked={field.value}
+                    onChange={field.onChange}
+                    label={t('fields.redirectEnabled')}
+                  />
+                )}
+              />
+              {watch('redirect_enabled') ? (
+                <div>
+                  <Label htmlFor="redirect_url">{t('fields.redirectUrl')}</Label>
+                  <Input
+                    id="redirect_url"
+                    type="url"
+                    placeholder={t('fields.redirectUrlPlaceholder')}
+                    {...register('redirect_url')}
+                    invalid={Boolean(errors.redirect_url)}
+                  />
+                  <p className="mt-1 text-xs text-text-muted">{t('fields.redirectUrlHint')}</p>
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
+
+          {/* ── 6. Security ──────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.security')}</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
               <div>
                 <Label htmlFor="allowed_origins">{t('fields.allowedOrigins')}</Label>
                 <Textarea
@@ -626,73 +598,32 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
               </div>
             </CardBody>
           </Card>
-
-          {/* ── Post-booking ─────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.postBooking')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="post_booking_message_fr">{t('fields.postBookingMessage')}</Label>
-                  <Textarea
-                    id="post_booking_message_fr"
-                    rows={2}
-                    maxLength={280}
-                    {...register('post_booking_message_fr')}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="post_booking_message_en">
-                    {t('fields.postBookingMessageEn')}
-                  </Label>
-                  <Textarea
-                    id="post_booking_message_en"
-                    rows={2}
-                    maxLength={280}
-                    {...register('post_booking_message_en')}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-text-muted">{t('fields.postBookingMessageHint')}</p>
-
-              <Controller
-                control={control}
-                name="redirect_enabled"
-                render={({ field }) => (
-                  <Toggle
-                    checked={field.value}
-                    onChange={field.onChange}
-                    label={t('fields.redirectEnabled')}
-                  />
-                )}
-              />
-              {watch('redirect_enabled') ? (
-                <div>
-                  <Label htmlFor="redirect_url">{t('fields.redirectUrl')}</Label>
-                  <Input
-                    id="redirect_url"
-                    type="url"
-                    placeholder={t('fields.redirectUrlPlaceholder')}
-                    {...register('redirect_url')}
-                    invalid={Boolean(errors.redirect_url)}
-                  />
-                  <p className="mt-1 text-xs text-text-muted">{t('fields.redirectUrlHint')}</p>
-                </div>
-              ) : null}
-            </CardBody>
-          </Card>
         </form>
 
-        {/* ── Preview + snippet column ──────────────────────────────── */}
+        {/* ── Preview + integration column ──────────────────────────── */}
         <div className="space-y-6">
-          {/* Phase H+14 — conversion funnel card. Shows the last 30
-              days of widget activity for this shop. Source-broken-
-              down so the operator can see which integration shape
-              (inline vs floating vs modal) is pulling its weight. */}
-          <FunnelCard stats={funnelStats} t={t} />
+          {/* ── 1. Live preview ──────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('sections.preview')}</CardTitle>
+            </CardHeader>
+            <CardBody>
+              {previewUrl ? (
+                <iframe
+                  ref={iframeRef}
+                  key={previewVersion}
+                  src={previewUrl}
+                  title="Widget preview"
+                  className="h-[640px] w-full rounded border border-border bg-bg-base"
+                />
+              ) : (
+                <p className="text-sm text-text-muted">{t('preview.noAlias')}</p>
+              )}
+              <p className="mt-2 text-xs text-text-muted">{t('preview.note')}</p>
+            </CardBody>
+          </Card>
 
+          {/* ── 2. Integration code + in-page test ───────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.snippet')}</CardTitle>
@@ -739,41 +670,47 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                     </>
                   )}
                 </Button>
-                {shopAlias ? (
-                  <a
-                    href={`/${locale}/test-embed?slug=${encodeURIComponent(
-                      shopAlias,
-                    )}&mode=${watchedSnippetMode}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded border border-border bg-bg-surface-2 px-3 py-2 text-center text-xs font-medium text-text-primary hover:bg-bg-elevated"
-                  >
-                    {t('testEmbed.button')} <ExternalLink className="ml-1 inline h-3 w-3" />
-                  </a>
-                ) : null}
               </div>
+
+              {/* In-page integration test. Renders the real widget (via
+                  /test-embed → widget.js) inside this frame so the
+                  operator can try the exact snippet — including the
+                  floating-button mode, whose fixed button stays scoped
+                  to this iframe. A "full screen" link opens the same
+                  test in a new tab for a true full-page check. */}
+              {shopAlias ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                      {t('testEmbed.button')}
+                    </p>
+                    <a
+                      href={testEmbedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                    >
+                      {t('testEmbed.openTab')} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <p className="text-xs text-text-muted">{t('testEmbed.description')}</p>
+                  <iframe
+                    key={watchedSnippetMode}
+                    src={testEmbedUrl}
+                    title={t('testEmbed.button')}
+                    className="h-[560px] w-full rounded-lg border border-border bg-bg-base"
+                  />
+                </div>
+              ) : null}
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.preview')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              {previewUrl ? (
-                <iframe
-                  ref={iframeRef}
-                  key={previewVersion}
-                  src={previewUrl}
-                  title="Widget preview"
-                  className="h-[640px] w-full rounded border border-border bg-bg-base"
-                />
-              ) : (
-                <p className="text-sm text-text-muted">{t('preview.noAlias')}</p>
-              )}
-              <p className="mt-2 text-xs text-text-muted">{t('preview.note')}</p>
-            </CardBody>
-          </Card>
+          {/* ── 3. Stats ─────────────────────────────────────────────── */}
+          {/* Phase H+14 — conversion funnel card. Shows the last 30
+              days of widget activity for this shop. Source-broken-
+              down so the operator can see which integration shape
+              (inline vs floating vs modal) is pulling its weight. */}
+          <FunnelCard stats={funnelStats} t={t} />
         </div>
       </div>
     </>
@@ -908,61 +845,4 @@ function AutoSaveBadge({
     );
   }
   return null;
-}
-
-function PresetCard({
-  preset,
-  label,
-  onApply,
-}: {
-  preset: Preset;
-  label: string;
-  onApply: () => void;
-}) {
-  // Inline CSS so each card paints its own preview without leaking
-  // styles into the document. The mini-card mimics the widget's surface
-  // + accent button so the operator can compare at a glance.
-  const surfaceBg = preset.mode === 'light' ? '#ffffff' : '#1b1b1b';
-  const surfaceFg = preset.mode === 'light' ? '#1b1b1b' : '#f5f5f5';
-  const subtext = preset.mode === 'light' ? '#6b7280' : '#a0a0a0';
-  const radius =
-    preset.border_radius === 'sharp' ? '0px' : preset.border_radius === 'pill' ? '999px' : '8px';
-  const previewStyle: CSSProperties = {
-    backgroundColor: surfaceBg,
-    color: surfaceFg,
-    borderRadius: radius === '999px' ? '12px' : radius, // card stays card-ish
-  };
-  const btnStyle: CSSProperties = {
-    backgroundColor: preset.accent_color,
-    borderRadius: radius,
-    color: '#ffffff',
-  };
-  return (
-    <button
-      type="button"
-      onClick={onApply}
-      className={cn(
-        'group flex flex-col items-stretch gap-2 rounded-lg border border-border bg-bg-surface-2 p-3 text-left',
-        'transition-colors duration-150 hover:border-accent hover:bg-bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-text-primary">{label}</span>
-        <span
-          className="h-3 w-3 shrink-0 rounded-full"
-          style={{ backgroundColor: preset.accent_color }}
-          aria-hidden
-        />
-      </div>
-      <div className="rounded-md border border-border p-2 text-[10px]" style={previewStyle}>
-        <div className="mb-1 font-semibold">Aa</div>
-        <div className="mb-1.5 text-[9px]" style={{ color: subtext }}>
-          Booking
-        </div>
-        <div className="px-2 py-1 text-center text-[10px] font-medium" style={btnStyle}>
-          OK
-        </div>
-      </div>
-    </button>
-  );
 }

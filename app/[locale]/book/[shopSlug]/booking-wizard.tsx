@@ -1249,7 +1249,7 @@ function ServiceStep({
                   type="button"
                   aria-label={t('steps.service.removeAria', { name: s.name })}
                   onClick={() => onRemove(s.id)}
-                  className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  className="shrink-0 rounded-sm p-1.5 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1905,7 +1905,7 @@ function TipSelector({
               type="button"
               onClick={() => pickTier(i as 0 | 1 | 2 | 3)}
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-md border px-3 py-2 text-sm transition',
+                'flex flex-col items-center gap-0.5 rounded-sm border px-3 py-2 text-sm transition',
                 isSelected
                   ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
                   : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
@@ -1922,7 +1922,7 @@ function TipSelector({
           type="button"
           onClick={pickCustom}
           className={cn(
-            'rounded-md border px-3 py-1.5 text-xs transition',
+            'rounded-sm border px-3 py-1.5 text-xs transition',
             selection === 'custom'
               ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
               : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
@@ -1934,7 +1934,7 @@ function TipSelector({
           type="button"
           onClick={pickNone}
           className={cn(
-            'rounded-md border px-3 py-1.5 text-xs transition',
+            'rounded-sm border px-3 py-1.5 text-xs transition',
             selection === 'none'
               ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
               : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',

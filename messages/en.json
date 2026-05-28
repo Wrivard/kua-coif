@@ -1279,15 +1279,14 @@
         "openInTab": "Open in new tab",
         "sections": {
           "identity": "Identity",
-          "messages": "Custom messages",
           "theme": "Theme",
-          "presets": "Presets",
+          "messages": "Custom messages",
           "steps": "Wizard steps",
-          "behavior": "Behavior",
           "postBooking": "After booking",
-          "analytics": "Analytics",
+          "security": "Security",
+          "preview": "Live preview",
           "snippet": "Embed snippet",
-          "preview": "Live preview"
+          "analytics": "Analytics"
         },
         "fields": {
           "displayName": "Display name (FR)",
@@ -1313,6 +1312,7 @@
           "promoCode": "Show promo code field",
           "stepsHint": "Tip and promo appear in the contact step of the customer flow.",
           "defaultLocale": "Default language",
+          "defaultLocaleHint": "Language shown when the widget opens. Customers can switch.",
           "allowedOrigins": "Allowed embedding origins",
           "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com.",
           "allowedOriginsWarning": "No origin set — any site can embed your widget. Recommended: add your domain.",
@@ -1321,16 +1321,6 @@
           "redirectUrl": "Redirect URL",
           "redirectUrlHint": "Full https:// URL the customer is sent to after confirming. Useful for Google Ads conversion tracking or a branded \"Thank you\" page.",
           "redirectUrlPlaceholder": "https://salon.com/thank-you"
-        },
-        "presets": {
-          "intro": "Apply a color + font + corner-style combo in one click. You can fine-tune any field afterwards.",
-          "kua": "Küa",
-          "noirOr": "Black & gold",
-          "rosePastel": "Pastel pink",
-          "cuivre": "Copper",
-          "foret": "Forest",
-          "minimaliste": "Minimal",
-          "apply": "Apply"
         },
         "options": {
           "modeDark": "Dark",
@@ -1380,8 +1370,9 @@
           "retry": "Retry"
         },
         "testEmbed": {
-          "button": "Test the embed",
-          "description": "Opens a test page that simulates the widget embedded on a real site."
+          "button": "Test the integration",
+          "openTab": "Full screen",
+          "description": "The real widget renders below, exactly as on a live site. In floating-button mode the button appears in the corner of this frame."
         },
         "toasts": {
           "saved": "Widget settings saved",
