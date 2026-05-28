@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { revalidateTag } from 'next/cache';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
@@ -64,7 +65,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Unknown channel ID OR token mismatch → drop silently with 200.
     // 4xx would trigger Google's retry/backoff; we don't want that
     // for spoofed POSTs, just black-hole them.
-    if (!row || row.webhook_token !== channelToken) {
+    //
+    // Security audit #9 — constant-time compare. The webhook_channel_id
+    // we mint is part of the URL Google calls back; if leaked, an
+    // attacker could brute-force the token via timing differences in
+    // a naive `!==` compare. timingSafeEqual + length pre-check is the
+    // standard pattern (matches the Twilio webhook).
+    if (!row || !row.webhook_token) {
+      return new NextResponse(null, { status: 200 });
+    }
+    const tokenMatch =
+      row.webhook_token.length === channelToken.length &&
+      timingSafeEqual(Buffer.from(row.webhook_token), Buffer.from(channelToken));
+    if (!tokenMatch) {
       return new NextResponse(null, { status: 200 });
     }
 

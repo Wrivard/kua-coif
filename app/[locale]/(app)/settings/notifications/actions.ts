@@ -8,6 +8,7 @@ import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
 import { encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { verifyShopSmtp } from '@/lib/email/smtp';
+import { checkRateLimit } from '@/lib/auth/rate-limit';
 // Schemas live in `./schema` because Next.js `'use server'` files can only
 // export async functions — Zod schemas are object values.
 import {
@@ -127,7 +128,12 @@ export type TestConnectionResult =
   | { ok: true }
   | {
       ok: false;
-      errorCode: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'INVALID_INPUT' | 'CONNECTION_FAILED';
+      errorCode:
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'INVALID_INPUT'
+        | 'CONNECTION_FAILED'
+        | 'RATE_LIMITED';
       message?: string;
     };
 
@@ -146,7 +152,8 @@ export async function testSmtpConnection(raw: unknown): Promise<TestConnectionRe
   if (!parsed.success) return { ok: false, errorCode: 'INVALID_INPUT' };
 
   // Auth check inline (no `withAction` wrapper).
-  const { requireRoleInCurrentShop, requireShopMember } = await import('@/lib/auth/server');
+  const { getCurrentUser, requireRoleInCurrentShop, requireShopMember } =
+    await import('@/lib/auth/server');
   try {
     await requireShopMember();
     await requireRoleInCurrentShop('manager');
@@ -154,6 +161,18 @@ export async function testSmtpConnection(raw: unknown): Promise<TestConnectionRe
     const code = e instanceof Error && e.message === 'NO_SHOP' ? 'FORBIDDEN' : 'UNAUTHENTICATED';
     return { ok: false, errorCode: code };
   }
+
+  // Security audit #10 — rate-limit this endpoint. Without a cap, an
+  // authenticated manager could (a) hammer arbitrary SMTP creds to
+  // DoS the third-party server, (b) leverage the verify path as an
+  // internal port-scanner (the SSRF check in verifyShopSmtp blocks
+  // private IPs but each attempt still costs a TCP open + auth
+  // round-trip). 5/hour per user is generous for legitimate "test
+  // before save" UX.
+  const user = await getCurrentUser();
+  const rateKey = `smtp-test:${user?.id ?? 'anon'}`;
+  const rl = await checkRateLimit(rateKey, { max: 5, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) return { ok: false, errorCode: 'RATE_LIMITED' };
 
   const result = await verifyShopSmtp({
     fromEmail: parsed.data.from_email,
@@ -284,7 +303,7 @@ export type TestTwilioResult =
   | { ok: true; sid: string }
   | {
       ok: false;
-      errorCode: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'INVALID_INPUT' | 'SEND_FAILED';
+      errorCode: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'INVALID_INPUT' | 'SEND_FAILED' | 'RATE_LIMITED';
       message?: string;
     };
 
@@ -299,7 +318,8 @@ export async function testTwilioConfig(raw: unknown): Promise<TestTwilioResult> 
   const parsed = twilioTestSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, errorCode: 'INVALID_INPUT' };
 
-  const { requireRoleInCurrentShop, requireShopMember } = await import('@/lib/auth/server');
+  const { getCurrentUser, requireRoleInCurrentShop, requireShopMember } =
+    await import('@/lib/auth/server');
   try {
     await requireShopMember();
     await requireRoleInCurrentShop('manager');
@@ -307,6 +327,15 @@ export async function testTwilioConfig(raw: unknown): Promise<TestTwilioResult> 
     const code = e instanceof Error && e.message === 'NO_SHOP' ? 'FORBIDDEN' : 'UNAUTHENTICATED';
     return { ok: false, errorCode: code };
   }
+
+  // Security audit #10 — rate-limit. Twilio test sends a REAL SMS to
+  // a manager-supplied number; without a cap a compromised session
+  // could (a) spam an arbitrary phone (Twilio bills per send), (b)
+  // probe Twilio creds. 5/hour per user covers legitimate setup.
+  const user = await getCurrentUser();
+  const rateKey = `twilio-test:${user?.id ?? 'anon'}`;
+  const rl = await checkRateLimit(rateKey, { max: 5, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) return { ok: false, errorCode: 'RATE_LIMITED' };
 
   const result = await sendSms(
     {

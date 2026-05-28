@@ -1,3 +1,5 @@
+import { isAllowedSlackWebhookHost } from '@/lib/security/ssrf';
+
 /**
  * Loop 33 (Phase 90) — Slack incoming-webhook dispatcher.
  *
@@ -47,7 +49,12 @@ export async function sendSlackBookingNotification(
   webhookUrl: string,
   payload: SlackBookingPayload,
 ): Promise<boolean> {
-  if (!webhookUrl || !webhookUrl.startsWith('https://')) return false;
+  // Security audit #4 — host allow-list for webhook URLs. Pre-fix any
+  // https:// URL was accepted; a malicious owner could point us at
+  // internal IPs (instance metadata, Redis, etc.). The whitelist covers
+  // the known Slack-compatible services; custom Mattermost endpoints
+  // are explicitly opted-in via the *.mattermost.com suffix.
+  if (!webhookUrl || !isAllowedSlackWebhookHost(webhookUrl)) return false;
 
   const sourceEmoji = payload.source === 'online' ? '🌐' : '🪑';
   const formattedStart = new Date(payload.startAtIso).toLocaleString('fr-CA', {
@@ -187,7 +194,8 @@ export async function sendSlackDisputeNotification(
   webhookUrl: string,
   payload: SlackDisputePayload,
 ): Promise<boolean> {
-  if (!webhookUrl || !webhookUrl.startsWith('https://')) return false;
+  // Security audit #4 — see sendSlackBookingNotification for rationale.
+  if (!webhookUrl || !isAllowedSlackWebhookHost(webhookUrl)) return false;
 
   const intlLocale = payload.locale === 'en' ? 'en-CA' : 'fr-CA';
   const amountFormatted = new Intl.NumberFormat(intlLocale, {

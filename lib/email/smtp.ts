@@ -21,6 +21,14 @@ import nodemailer, { type Transporter } from 'nodemailer';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
+import { isPrivateOrLoopbackHost } from '@/lib/security/ssrf';
+
+// Security audit #5 — allowed SMTP ports. Owner can submit any port via
+// the settings UI; we restrict to the standard SMTP ports to prevent
+// nodemailer from opening a TCP socket to an arbitrary internal service
+// (e.g., :6379 Redis, :5432 Postgres). Ports below cover SMTPS (465),
+// submission (587), legacy SMTP (25), and Postfix submissions (2525).
+const ALLOWED_SMTP_PORTS = new Set([25, 465, 587, 2525]);
 
 export type ShopSmtpConfig = {
   fromEmail: string;
@@ -119,6 +127,15 @@ export type SmtpSendResult = { sent: true; messageId: string } | { sent: false; 
  * here for the "Test connection" Server Action too.
  */
 export async function sendViaShopSmtp(input: SmtpSendInput): Promise<SmtpSendResult> {
+  // Security audit #5 — SSRF guard. Owner-supplied host could point at
+  // private/loopback IPs (Redis, Postgres, instance metadata). Block
+  // unknown ports too so we can't be coerced into TCP-scanning.
+  if (!ALLOWED_SMTP_PORTS.has(input.cfg.port)) {
+    return { sent: false, error: 'smtp_port_not_allowed' };
+  }
+  if (await isPrivateOrLoopbackHost(input.cfg.host)) {
+    return { sent: false, error: 'smtp_host_private' };
+  }
   const transport = buildTransport(input.cfg);
   try {
     const fromAddr = input.cfg.fromName
@@ -151,6 +168,15 @@ export async function sendViaShopSmtp(input: SmtpSendInput): Promise<SmtpSendRes
  * gets a green check before they save credentials they think work.
  */
 export async function verifyShopSmtp(cfg: ShopSmtpConfig): Promise<SmtpSendResult> {
+  // Security audit #5 — same SSRF guard as sendViaShopSmtp. The verify
+  // path runs from a Server Action that ANY manager can invoke; without
+  // these gates it doubles as an internal-port-scanner.
+  if (!ALLOWED_SMTP_PORTS.has(cfg.port)) {
+    return { sent: false, error: 'smtp_port_not_allowed' };
+  }
+  if (await isPrivateOrLoopbackHost(cfg.host)) {
+    return { sent: false, error: 'smtp_host_private' };
+  }
   const transport = buildTransport(cfg);
   try {
     await transport.verify();

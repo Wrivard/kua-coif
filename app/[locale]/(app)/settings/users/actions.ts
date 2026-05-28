@@ -122,12 +122,58 @@ export const inviteUser = withAction({
   },
 });
 
+/**
+ * Security audit #1 (CRITICAL) — privilege-escalation hardening.
+ *
+ * Pre-fix, `updateMember` accepted any `role` from a `minRole: 'manager'`
+ * caller. A manager could send `{member_id: <their own row>, role: 'owner'}`
+ * and the RLS rule (which only requires `has_role_in_shop(shop_id, 'manager')`)
+ * happily applied it. Result: silent self-promotion to owner.
+ *
+ * Two business rules added here that the schema can't express:
+ *   - Only an owner can grant or revoke the `owner` role.
+ *   - No one can edit their own membership row's role/status. Even an
+ *     owner must demote themselves through a different member's action
+ *     (prevents single-owner accidentally locking themselves out).
+ *
+ * `removeMember` gets the same guards: no self-removal, and a non-owner
+ * caller can't remove an owner.
+ */
 export const updateMember = withAction({
   schema: updateMemberSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = createSupabaseServerClient() as any;
+
+    // Look up the target row so we can compare prior role to requested
+    // role + verify shop scope server-side (RLS would catch it too but
+    // we want the explicit refusal, not a silent 0-row update).
+    const targetRes = await sb
+      .from('shop_members')
+      .select('user_id, role')
+      .eq('id', input.member_id)
+      .eq('shop_id', ctx.shopId)
+      .single();
+    const target = targetRes.data as {
+      user_id: string;
+      role: 'owner' | 'manager' | 'barber';
+    } | null;
+    if (!target) return err('NOT_FOUND');
+
+    // Block self-edit: a member can't touch their own role/status. The
+    // UI hides these affordances on the self row but a hand-crafted
+    // POST would otherwise bypass.
+    if (target.user_id === ctx.userId) {
+      return err('FORBIDDEN', { reason: 'self_edit' });
+    }
+    // Only owners can grant OR revoke the owner role. A manager
+    // promoting themselves OR demoting another owner is blocked.
+    const grantingOrRevokingOwner = input.role === 'owner' || target.role === 'owner';
+    if (grantingOrRevokingOwner && ctx.role !== 'owner') {
+      return err('FORBIDDEN', { reason: 'owner_role_change_requires_owner' });
+    }
+
     const { error } = await sb
       .from('shop_members')
       .update({ role: input.role, status: input.status })
@@ -141,7 +187,13 @@ export const updateMember = withAction({
       action: 'update',
       entity: 'shop_members',
       entityId: input.member_id,
-      diff: { role: input.role, status: input.status },
+      diff: {
+        // Include BEFORE+AFTER so compliance trail can reconstruct
+        // any privilege change.
+        from_role: target.role,
+        to_role: input.role,
+        status: input.status,
+      },
     });
     revalidatePath(PATH);
     return ok({ id: input.member_id });
@@ -152,9 +204,34 @@ export const removeMember = withAction({
   schema: removeMemberSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // Soft delete: flip status to 'deleted' — preserves audit history.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = createSupabaseServerClient() as any;
+
+    // Same defensive lookup as updateMember — explicit ownership check
+    // beats relying on RLS for the friendly error path.
+    const targetRes = await sb
+      .from('shop_members')
+      .select('user_id, role')
+      .eq('id', input.member_id)
+      .eq('shop_id', ctx.shopId)
+      .single();
+    const target = targetRes.data as {
+      user_id: string;
+      role: 'owner' | 'manager' | 'barber';
+    } | null;
+    if (!target) return err('NOT_FOUND');
+
+    // No self-removal — a member resigning must be removed by someone
+    // else, preventing accidental lock-out.
+    if (target.user_id === ctx.userId) {
+      return err('FORBIDDEN', { reason: 'self_remove' });
+    }
+    // Only owners can remove owners.
+    if (target.role === 'owner' && ctx.role !== 'owner') {
+      return err('FORBIDDEN', { reason: 'owner_remove_requires_owner' });
+    }
+
+    // Soft delete: flip status to 'deleted' — preserves audit history.
     const { error } = await sb
       .from('shop_members')
       .update({ status: 'deleted' })
@@ -168,7 +245,7 @@ export const removeMember = withAction({
       action: 'update',
       entity: 'shop_members',
       entityId: input.member_id,
-      diff: { status: 'deleted' },
+      diff: { status: 'deleted', from_role: target.role },
     });
     revalidatePath(PATH);
     return ok({ id: input.member_id });

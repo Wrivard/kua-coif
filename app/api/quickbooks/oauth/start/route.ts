@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { getCurrentShopId, getCurrentUser } from '@/lib/auth/server';
 import { buildQbOAuthUrl, quickbooksConfigured } from '@/lib/quickbooks/server';
+import { signOauthState } from '@/lib/security/oauth-state';
 
 /**
  * Kick off the QuickBooks OAuth flow — Phase 35.
@@ -20,10 +21,9 @@ export const runtime = 'nodejs';
 const STATE_COOKIE = 'kua-qb-oauth-state';
 const STATE_TTL_SEC = 10 * 60;
 
-function signState(payload: string): string {
-  const secret = process.env.NOTIFICATION_ENCRYPTION_KEY ?? 'dev-only-fallback';
-  return createHmac('sha256', secret).update(payload).digest('base64url');
-}
+// Security audit #8 — see google/oauth/start. Local helper now delegates
+// to the shared lib which hard-fails in production on missing env.
+const signState = signOauthState;
 
 export async function GET(req: NextRequest) {
   if (!quickbooksConfigured()) {

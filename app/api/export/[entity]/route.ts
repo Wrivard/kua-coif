@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import Papa from 'papaparse';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentUser, getShopMemberships } from '@/lib/auth/server';
+import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -75,17 +75,33 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   const cfg = ENTITY_CONFIG[entity];
   if (!cfg) return new NextResponse(`Unknown entity: ${entity}`, { status: 404 });
 
+  // Security audit #12 — scope by active shop. Pre-fix the route
+  // relied entirely on RLS to filter rows; for a multi-shop user
+  // (owner in A, manager in B) this returned rows from BOTH shops
+  // silently merged into one CSV with no shop_id discriminator.
+  // Worse, with finding #2 unfixed, "active shop" wasn't propagated
+  // here at all. Now we explicitly filter by getCurrentShopId() so
+  // a manager exporting from shop B never gets shop A's data even
+  // though they have read access to both.
+  const activeShopId = await getCurrentShopId();
+  if (!activeShopId) return new NextResponse('No shop', { status: 403 });
+
   const supabase = createSupabaseServerClient();
   type QueryResult = { data: unknown; error: unknown };
   const filterBuilder = (
     supabase as unknown as {
       from: (t: string) => {
         select: (cols: string) => {
-          order: (
+          eq: (
             k: string,
-            opts?: { ascending?: boolean },
-          ) => Promise<QueryResult> & {
-            eq: (k: string, v: string) => Promise<QueryResult>;
+            v: string,
+          ) => {
+            order: (
+              k: string,
+              opts?: { ascending?: boolean },
+            ) => Promise<QueryResult> & {
+              eq: (k: string, v: string) => Promise<QueryResult>;
+            };
           };
         };
       };
@@ -93,6 +109,7 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   )
     .from(cfg.table)
     .select(cfg.columns)
+    .eq('shop_id', activeShopId)
     .order(cfg.orderBy, { ascending: cfg.ascending });
 
   // Optional ?status=… filter for barbers etc.

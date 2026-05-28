@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { exchangeCodeForToken, fetchUserEmail, googleConfigured } from '@/lib/google/server';
 import { captureException } from '@/lib/observability';
+import { verifyOauthState } from '@/lib/security/oauth-state';
 
 /**
  * Google OAuth callback — Phase 34.
@@ -29,10 +29,9 @@ export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'kua-google-oauth-state';
 
-function signState(payload: string): string {
-  const secret = process.env.NOTIFICATION_ENCRYPTION_KEY ?? 'dev-only-fallback';
-  return createHmac('sha256', secret).update(payload).digest('base64url');
-}
+// Security audit #8 — state verification moved to lib/security/oauth-state.ts.
+// Hard-fails in production when NOTIFICATION_ENCRYPTION_KEY is missing
+// rather than silently using a public constant.
 
 function safeRedirect(origin: string, params: Record<string, string>): NextResponse {
   const url = new URL('/fr/settings/users', origin);
@@ -77,11 +76,7 @@ export async function GET(req: NextRequest) {
     return safeRedirect(origin, { google: 'error', reason: 'malformed_state' });
   }
   const payload = Buffer.from(payloadB64, 'base64url').toString('utf8');
-  const expectedSig = signState(payload);
-  if (
-    sig.length !== expectedSig.length ||
-    !timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))
-  ) {
+  if (!verifyOauthState(payload, sig)) {
     return safeRedirect(origin, { google: 'error', reason: 'invalid_signature' });
   }
 

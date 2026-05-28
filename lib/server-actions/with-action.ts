@@ -1,5 +1,10 @@
 import { ZodError, type ZodSchema } from 'zod';
-import { getCurrentUser, getShopMemberships, type ShopMembership } from '@/lib/auth/server';
+import {
+  getCurrentShopId,
+  getCurrentUser,
+  getShopMemberships,
+  type ShopMembership,
+} from '@/lib/auth/server';
 import { captureException } from '@/lib/observability';
 import type { UserRole } from '@/db/enums';
 import { err, ok, type ActionErrorCode, type Result } from './result';
@@ -53,7 +58,24 @@ export function withAction<Schema extends ZodSchema, T>(opts: ActionOptions<Sche
 
     const memberships = await getShopMemberships();
     if (memberships.length === 0) return err('NO_SHOP');
-    const m: ShopMembership = memberships[0]!;
+
+    // Security audit #2 (CRITICAL) — cookie-aware shop resolution.
+    //
+    // Pre-fix, this pinned `memberships[0]` regardless of the active
+    // shop cookie. A multi-shop user (owner in A, barber in B) who
+    // switched the UI to shop B would have their `barber` role
+    // SILENTLY UPGRADED to `owner` (shop A's role) when running any
+    // `minRole: 'manager'` action — because `memberships[0]` resolved
+    // to shop A. RLS still scoped the data write to the cookie's
+    // shop, but the role gate accepted the call. Result: a barber
+    // in shop B could perform owner-only actions on shop B.
+    //
+    // Fix: read the cookie via `getCurrentShopId`, then look up the
+    // membership row for THAT shop_id. Falls back to memberships[0]
+    // for the single-shop user (cookie absent OR resolves to same).
+    const activeShopId = await getCurrentShopId();
+    const m: ShopMembership =
+      memberships.find((row) => row.shop_id === activeShopId) ?? memberships[0]!;
 
     const minRole = opts.minRole ?? 'barber';
     if (ROLE_RANK[m.role] < ROLE_RANK[minRole]) return err('FORBIDDEN');

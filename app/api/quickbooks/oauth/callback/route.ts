@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { exchangeQbCode, quickbooksConfigured } from '@/lib/quickbooks/server';
 import { captureException } from '@/lib/observability';
+import { verifyOauthState } from '@/lib/security/oauth-state';
 
 /**
  * QuickBooks OAuth callback — Phase 35.
@@ -26,10 +26,8 @@ export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'kua-qb-oauth-state';
 
-function signState(payload: string): string {
-  const secret = process.env.NOTIFICATION_ENCRYPTION_KEY ?? 'dev-only-fallback';
-  return createHmac('sha256', secret).update(payload).digest('base64url');
-}
+// Security audit #8 — state verification moved to lib/security/oauth-state.ts
+// which hard-fails in production on missing NOTIFICATION_ENCRYPTION_KEY.
 
 function safeRedirect(origin: string, params: Record<string, string>): NextResponse {
   const url = new URL('/fr/settings/payments', origin);
@@ -71,11 +69,7 @@ export async function GET(req: NextRequest) {
     return safeRedirect(origin, { qb: 'error', reason: 'malformed_state' });
   }
   const payload = Buffer.from(payloadB64, 'base64url').toString('utf8');
-  const expectedSig = signState(payload);
-  if (
-    sig.length !== expectedSig.length ||
-    !timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))
-  ) {
+  if (!verifyOauthState(payload, sig)) {
     return safeRedirect(origin, { qb: 'error', reason: 'invalid_signature' });
   }
   let parsed: { shopId: string; nonce: string; exp: number };

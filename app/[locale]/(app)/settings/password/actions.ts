@@ -6,6 +6,7 @@ import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { mapSupabaseAuthError } from '@/lib/auth/errors';
 import { logAuditAction } from '@/lib/audit-log';
+import { checkRateLimit } from '@/lib/auth/rate-limit';
 
 export const changePasswordSchema = z
   .object({
@@ -28,6 +29,19 @@ export const changePassword = withAction({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user?.email) return err('UNAUTHENTICATED');
+
+    // Security audit #11 — rate-limit the verify step. A compromised
+    // session could brute-force the current password via this
+    // endpoint (it doubles as a "verify password" oracle). Supabase
+    // Auth has its own server-side limits on signInWithPassword but
+    // they're per-IP and looser than what's appropriate here. 10 per
+    // hour per user accommodates a forgetful operator + retry, and
+    // throttles automated brute-force.
+    const rl = await checkRateLimit(`changepw:${user.id}`, {
+      max: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
 
     // Re-auth with the current password (Supabase doesn't expose a direct
     // "verify password" call, so we sign in with it as a verification step).

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { getCurrentUser, getShopMemberships } from '@/lib/auth/server';
 import { buildOAuthUrl, googleConfigured } from '@/lib/google/server';
+import { signOauthState } from '@/lib/security/oauth-state';
 
 /**
  * Kick off the per-barber Google Calendar OAuth flow — Phase 34.
@@ -27,13 +28,13 @@ export const runtime = 'nodejs';
 const STATE_COOKIE = 'kua-google-oauth-state';
 const STATE_TTL_SEC = 10 * 60; // 10 minutes — generous for slow consent screens.
 
-function signState(payload: string): string {
-  // Reuse NOTIFICATION_ENCRYPTION_KEY as our HMAC key — we already require
-  // it for SMTP encryption (Phase 25), so any deployment that has Google
-  // Connect activated will also have this. Saves a new env var.
-  const secret = process.env.NOTIFICATION_ENCRYPTION_KEY ?? 'dev-only-fallback';
-  return createHmac('sha256', secret).update(payload).digest('base64url');
-}
+// Security audit #8 — state signing moved to lib/security/oauth-state.ts
+// which hard-fails in production when NOTIFICATION_ENCRYPTION_KEY is
+// missing (previous local helper fell back to a public constant — CSRF
+// hole if env was misconfigured). Same NOTIFICATION_ENCRYPTION_KEY reused
+// for the HMAC: any deploy that has Google Connect activated will already
+// have it for SMTP encryption (Phase 25).
+const signState = signOauthState;
 
 export async function GET(req: NextRequest) {
   if (!googleConfigured()) {

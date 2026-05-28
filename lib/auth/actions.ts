@@ -1,12 +1,13 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
 import { mapSupabaseAuthError, type AuthErrorCode } from './errors';
 import { checkRateLimit } from './rate-limit';
+import { SHOP_COOKIE } from './server';
 
 // Action result shape — what `useFormState` receives.
 type FieldErrors = Partial<Record<'email' | 'password' | 'fullName', string>>;
@@ -111,5 +112,12 @@ export async function signOutAction(formData: FormData): Promise<void> {
 
   const supabase = createSupabaseServerClient();
   await supabase.auth.signOut();
+  // Security audit #7 — clear the active-shop cookie on sign-out. Pre-fix
+  // the cookie persisted, so if a different user logged in on the same
+  // browser and happened to share a membership in the cookied shop, the
+  // stale cookie won the role lookup. `getCurrentShopId` validates the
+  // cookie against memberships before trusting it, so impact is bounded,
+  // but a stale UI on a shared workstation is still confusing.
+  cookies().delete(SHOP_COOKIE);
   redirect(`/${locale}/login`);
 }
