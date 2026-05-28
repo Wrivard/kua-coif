@@ -66,9 +66,16 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
         result.fieldErrors?.refund_policy === 'within_no_refund_window'
       ) {
         const mins = Number(result.fieldErrors?.mins_cancel_before_appt ?? 0);
-        // i18n key carries the threshold via ICU so we render
-        // "X hours / Y minutes" depending on the size.
-        const prompt = t('confirmForceRefund', { mins });
+        // Format the threshold as the most natural unit so 300 minutes
+        // reads as "5 hours" not "less than 300 minutes". We hand the
+        // pre-formatted string to the i18n message rather than ICU-
+        // plural-ing the raw minute count — ICU can pluralize but it
+        // can't pick the most natural unit.
+        const threshold =
+          mins >= 60 && mins % 60 === 0
+            ? t('refundPolicy.hours', { hours: mins / 60 })
+            : t('refundPolicy.minutes', { mins });
+        const prompt = t('confirmForceRefund', { threshold });
         if (confirm(prompt)) {
           onCancel(alsoRefund, true);
         }

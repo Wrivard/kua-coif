@@ -226,7 +226,11 @@
       "cancelAndRefund": "Annuler et rembourser",
       "refundOnly": "Rembourser",
       "confirmRefund": "Rembourser le client sans annuler le rendez-vous ? L'opération est définitive et le client recevra le remboursement sous quelques jours ouvrables.",
-      "confirmForceRefund": "Ce rendez-vous est à moins de {mins, plural, =0 {0 minute} =1 {1 minute} other {# minutes}} du début. Selon ta politique d'annulation, le client a passé la fenêtre de remboursement. Forcer le remboursement malgré tout ?",
+      "confirmForceRefund": "Ce rendez-vous est à moins de {threshold} du début. Selon ta politique d'annulation, le client a passé la fenêtre de remboursement. Forcer le remboursement malgré tout ?",
+      "refundPolicy": {
+        "hours": "{hours, plural, =1 {1 heure} other {# heures}}",
+        "minutes": "{mins, plural, =1 {1 minute} other {# minutes}}"
+      },
       "statuses": {
         "booked": "Réservé",
         "confirmed": "Confirmé",

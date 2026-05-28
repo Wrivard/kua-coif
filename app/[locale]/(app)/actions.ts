@@ -611,6 +611,12 @@ export const cancelAppointment = withAction({
       const override = rows.find((r) => r.scope === 'barber' && r.barber_id === pre.barber_id);
       const fallback = rows.find((r) => r.scope === 'shop');
       const minsBefore = (override ?? fallback)?.mins_cancel_before_appt ?? 0;
+      // 0-minute policy is interpreted as "no policy → refund proceeds"
+      // (matches the customer-side cancellation semantics: no cancellation
+      // window means cancellations are unrestricted). A shop that wants
+      // to forbid all online refunds should disable the auto-refund flow
+      // entirely via a future settings toggle rather than expressing
+      // "no refunds" as a 0-minute window.
       if (minsBefore > 0) {
         const startMs = new Date(pre.start_at).getTime();
         const cutoffMs = startMs - minsBefore * 60_000;
