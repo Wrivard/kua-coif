@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldCheck, Settings as SettingsIcon, Store } from 'lucide-
 import '../globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { signOutAction } from '@/lib/auth/actions';
+import { requireKuaAdmin } from '@/lib/auth/server';
 import { defaultLocale } from '@/i18n';
 
 /**
@@ -19,7 +20,14 @@ import { defaultLocale } from '@/i18n';
  * Style-wise we keep the dark theme + accent so the shift between admin and
  * the shop dashboard is visually consistent.
  */
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default async function AdminLayout({ children }: { children: ReactNode }) {
+  // Phase F SR — defense in depth. Every concrete page under /admin/*
+  // already calls `requireKuaAdmin()`, but a typo'd path like
+  // `/admin/foo` would render Next's 404 INSIDE this admin shell, briefly
+  // leaking the "Küa admin · Super-admin console" header to a logged-in
+  // non-admin. Gating at the layout level closes that window — non-admins
+  // get bounced to /no-shop before any chrome renders.
+  await requireKuaAdmin();
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-bg-base text-text-primary antialiased">

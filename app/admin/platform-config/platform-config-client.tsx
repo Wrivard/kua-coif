@@ -36,8 +36,9 @@ export function PlatformConfigClient({ initialAppFeeBps, updatedAt, updatedByEma
         <h1 className="text-xl font-semibold">Platform config</h1>
         <p className="text-sm text-text-secondary">
           Küa-wide settings. The application fee BPS drives every Stripe Connect destination charge
-          across all shops. Changes take effect on the next PaymentIntent (cached up to 30 seconds,
-          force-invalidated on save).
+          across all shops. Changes take effect on the next PaymentIntent on this serverless
+          instance (force-invalidated locally on save); other instances refresh on their own 30s
+          TTL.
         </p>
       </div>
 

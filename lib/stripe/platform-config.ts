@@ -14,6 +14,23 @@
  * The fetch uses the service-role client because the booking path is
  * unauthenticated (public booking from a wizard); the RLS policy gates
  * super-admin writes anyway.
+ *
+ * DEPLOYMENT NOTE — UNSET `STRIPE_APP_FEE_BPS` AFTER ROLLOUT.
+ *
+ * Pre-Phase F, the env var was the canonical fee source. Post-Phase F
+ * the DB row is canonical and the migration seeds it at 0. If a
+ * production deployment still has STRIPE_APP_FEE_BPS=N (N>0) in env,
+ * the fee silently flips to 0% on rollout (the DB wins in steady
+ * state — the env only kicks in during a DB outage, which then
+ * temporarily restores the OLD env-based fee, surprising).
+ *
+ * Operator runbook:
+ *   1. Apply migration 20260528030000_platform_config.
+ *   2. Set the desired fee via /admin/platform-config (single super-
+ *      admin save).
+ *   3. Remove STRIPE_APP_FEE_BPS from prod env vars (Vercel / Doppler /
+ *      wherever). The fallback in `getPlatformAppFeeBps` will then
+ *      return 0 on DB outage instead of resurrecting the old value.
  */
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
