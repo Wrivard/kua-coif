@@ -17,7 +17,7 @@ import {
 import { quickbooksConfigured, revokeQbToken } from '@/lib/quickbooks/server';
 import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
-import { paymentProfileSchema } from './schema';
+import { paymentProfileSchema, paymentModeSchema } from './schema';
 
 const PATH = '/settings/payments';
 
@@ -57,6 +57,55 @@ export const updatePaymentProfile = withAction({
       actorId: ctx.userId,
       action: 'update',
       entity: 'payment_profiles',
+    });
+    revalidatePath(PATH);
+    return ok({ ok: true });
+  },
+});
+
+/**
+ * Phase D — flip the shop between three payment modes:
+ *
+ *   - 'full'    : booking widget charges the entire service price upfront
+ *   - 'deposit' : booking widget charges the per-service deposit
+ *   - 'none'    : booking widget skips PaymentElement, owner collects in-shop
+ *
+ * Guard: switching INTO 'full' or 'deposit' requires Stripe Connect to
+ * be `active`. Switching to 'none' always works regardless of Connect
+ * status (lets a shop opt out of online payment without disconnecting
+ * Stripe entirely). The widget's `createBookingPaymentIntent` action
+ * has its own runtime guards, so a stale UI can't cause a customer-facing
+ * error — they'd just see the "shop not connected" branch.
+ */
+export const updatePaymentMode = withAction({
+  schema: paymentModeSchema,
+  minRole: 'owner',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    // Guard: 'full' / 'deposit' need Stripe Connect active.
+    if (input.payment_mode !== 'none') {
+      const statusRes = await admin
+        .from('shops')
+        .select('stripe_connect_status')
+        .eq('id', ctx.shopId)
+        .single();
+      const status = (statusRes.data as { stripe_connect_status: string } | null)
+        ?.stripe_connect_status;
+      if (status !== 'active') return err('INVALID_INPUT', { payment_mode: 'stripe_required' });
+    }
+    const { error } = await admin
+      .from('shops')
+      .update({ payment_mode: input.payment_mode })
+      .eq('id', ctx.shopId);
+    if (error) return err('UNEXPECTED');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'shops',
+      entityId: ctx.shopId,
+      diff: { payment_mode: input.payment_mode },
     });
     revalidatePath(PATH);
     return ok({ ok: true });

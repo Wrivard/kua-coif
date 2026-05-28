@@ -660,14 +660,21 @@ export const cancelAppointment = withAction({
         .select('id, start_at, client_id')
         .eq('id', input.id)
         .single();
+      // Phase C SR-of-SR — `client_id` is nullable since Phase 72
+      // (walk-ins create appointments without a client row). The previous
+      // type and `.single()` on `clients` would blow up on every walk-in
+      // cancellation; the `try/catch` swallowed it but logged noise to
+      // Sentry. Null-guarded to match the Phase C `chargeAppointment` fix.
       const appt = apptRes.data as {
         id: string;
         start_at: string;
-        client_id: string;
+        client_id: string | null;
       } | null;
       if (appt) {
         const [clientRes, servicesRes, shopRes] = await Promise.all([
-          sb.from('clients').select('first_name, email').eq('id', appt.client_id).single(),
+          appt.client_id
+            ? sb.from('clients').select('first_name, email').eq('id', appt.client_id).single()
+            : Promise.resolve({ data: null }),
           sb.from('appointment_services').select('services(name)').eq('appointment_id', appt.id),
           sb.from('shops').select('name, timezone, phone').eq('id', ctx.shopId).single(),
         ]);

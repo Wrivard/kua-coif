@@ -947,6 +947,32 @@
             "hoursAgo": "Rafraîchi il y a {hours}h",
             "daysAgo": "Rafraîchi il y a {days}j"
           }
+        },
+        "paymentMode": {
+          "title": "Mode de paiement en ligne",
+          "description": "Choisis ce que le module de réservation prélève au moment de la prise de rendez-vous. Les modes « Total » et « Acompte » nécessitent un compte Stripe Connect actif ; le mode « Aucun » désactive le paiement en ligne et tu encaisses entièrement au salon.",
+          "options": {
+            "full": {
+              "label": "Total du service",
+              "description": "Le client paie le prix complet à la réservation. Rien à régler au salon."
+            },
+            "deposit": {
+              "label": "Acompte",
+              "description": "Le client paie l’acompte défini par service à la réservation ; le solde est réglé au salon."
+            },
+            "none": {
+              "label": "Aucun paiement en ligne",
+              "description": "Le module de réservation saute l’étape paiement. Tu encaisses tout au salon."
+            }
+          },
+          "stripeRequiredHint": "Disponible une fois Stripe Connect activé.",
+          "save": "Enregistrer",
+          "toasts": {
+            "saved": "Mode de paiement enregistré"
+          },
+          "errors": {
+            "stripeRequired": "Connecte Stripe avant d’activer ce mode."
+          }
         }
       },
       "commissions": {
@@ -1323,6 +1349,8 @@
       "payment": {
         "depositLabel": "Acompte à régler",
         "depositHelp": "Pour confirmer ta réservation, un acompte est requis. Tu seras facturé maintenant ; le solde sera réglé en salon.",
+        "fullLabel": "Total à régler",
+        "fullHelp": "Le montant total de la prestation est facturé maintenant. Rien à payer au salon.",
         "shopNotConnected": "Le salon n’a pas encore configuré le paiement en ligne. Tu pourras régler sur place.",
         "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon."
       },

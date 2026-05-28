@@ -12,6 +12,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { PageHeader } from '@/components/ui/page-header';
+import { RadioGroup } from '@/components/ui/radio-group';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { BUSINESS_TYPES } from '@/db/enums';
@@ -21,18 +22,21 @@ import {
   openStripeDashboard,
   refreshStripeStatus,
   startStripeConnect,
+  updatePaymentMode,
   updatePaymentProfile,
 } from './actions';
-import { paymentProfileSchema, type PaymentProfileInput } from './schema';
+import { paymentProfileSchema, type PaymentMode, type PaymentProfileInput } from './schema';
 
 type Props = {
   profile: PaymentProfileRow | null;
   currentUser: { email: string; fullName: string | null };
   stripe: StripeConnectState;
   quickbooks: QuickbooksConnectState;
+  /** Phase D — current value of `shops.payment_mode`. */
+  paymentMode: PaymentMode;
 };
 
-export function PaymentsClient({ profile, currentUser, stripe, quickbooks }: Props) {
+export function PaymentsClient({ profile, currentUser, stripe, quickbooks, paymentMode }: Props) {
   const t = useTranslations('pages.settings.payments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -98,6 +102,23 @@ export function PaymentsClient({ profile, currentUser, stripe, quickbooks }: Pro
             page-level helper passes `stripe.configured` through props. */}
         {stripe.configured ? (
           <StripeConnectCard stripe={stripe} t={t} tErr={tErr} show={show} />
+        ) : null}
+
+        {/* ─── Payment mode (Phase D) ─────────────────────────────────────
+            Sits right under Stripe Connect because the two states are
+            tightly coupled: 'full' and 'deposit' require Connect to be
+            `active`; 'none' bypasses Stripe entirely. The card itself
+            stays visible regardless of Connect status so the owner can
+            see the current setting; the action's server-side guard
+            rejects an invalid switch with a localized message. */}
+        {stripe.configured ? (
+          <PaymentModeCard
+            currentMode={paymentMode}
+            stripeActive={stripe.status === 'active'}
+            t={t}
+            tErr={tErr}
+            show={show}
+          />
         ) : null}
 
         {/* ─── QuickBooks Connect (Phase 35) ──────────────────────────────
@@ -511,6 +532,111 @@ function QuickbooksConnectCard({
               <Unlink className="h-4 w-4" /> {t('quickbooks.actions.disconnect')}
             </Button>
           )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Payment mode — Phase D
+//
+// Owner-facing toggle for what the booking widget collects upfront.
+//
+//   - 'full'    : entire service price charged at booking; nothing left
+//                 to pay at the shop.
+//   - 'deposit' : per-service deposit charged at booking; balance paid
+//                 in person. This is the historical V1 behavior and the
+//                 default for shops that existed before this column.
+//   - 'none'    : widget skips PaymentElement entirely; owner collects
+//                 in-shop. Useful for cash-only or "trust-based" shops.
+//
+// The "Save" button stays disabled when the radio still matches the
+// committed state, and switches "Save" → "Saving" while the action is
+// in flight. Stripe-required modes show a disabled message when Connect
+// isn't active yet; the server-side guard re-enforces this so a stale UI
+// can't bypass.
+// ─────────────────────────────────────────────────────────────────────────
+
+function PaymentModeCard({
+  currentMode,
+  stripeActive,
+  t,
+  tErr,
+  show,
+}: {
+  currentMode: PaymentMode;
+  stripeActive: boolean;
+  t: (key: string) => string;
+  tErr: (key: string) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  show: (toast: any) => void;
+}) {
+  const [selected, setSelected] = useState<PaymentMode>(currentMode);
+  const [busy, startTransition] = useTransition();
+  const dirty = selected !== currentMode;
+  // 'full' and 'deposit' need an active Connect account. The radio for
+  // those options shows a hint when Connect isn't ready; the action
+  // itself rejects the request server-side so a hand-crafted POST
+  // can't bypass the UI guard.
+  const needsConnect = !stripeActive;
+
+  function handleSave() {
+    if (!dirty) return;
+    startTransition(async () => {
+      const result = await updatePaymentMode({ payment_mode: selected });
+      if (result.ok) {
+        show({ variant: 'success', title: t('paymentMode.toasts.saved') });
+      } else if (
+        result.errorCode === 'INVALID_INPUT' &&
+        result.fieldErrors?.payment_mode === 'stripe_required'
+      ) {
+        show({ variant: 'danger', title: t('paymentMode.errors.stripeRequired') });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader>
+        <CardTitle>{t('paymentMode.title')}</CardTitle>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <p className="max-w-2xl text-xs text-text-secondary">{t('paymentMode.description')}</p>
+        <RadioGroup
+          name="payment_mode"
+          value={selected}
+          onChange={(v) => setSelected(v)}
+          options={[
+            {
+              value: 'full',
+              label: t('paymentMode.options.full.label'),
+              description: needsConnect
+                ? t('paymentMode.stripeRequiredHint')
+                : t('paymentMode.options.full.description'),
+              disabled: needsConnect,
+            },
+            {
+              value: 'deposit',
+              label: t('paymentMode.options.deposit.label'),
+              description: needsConnect
+                ? t('paymentMode.stripeRequiredHint')
+                : t('paymentMode.options.deposit.description'),
+              disabled: needsConnect,
+            },
+            {
+              value: 'none',
+              label: t('paymentMode.options.none.label'),
+              description: t('paymentMode.options.none.description'),
+            },
+          ]}
+        />
+        <div className="flex justify-end">
+          <Button onClick={handleSave} loading={busy} disabled={!dirty} size="sm">
+            <Check className="h-4 w-4" /> {t('paymentMode.save')}
+          </Button>
         </div>
       </CardBody>
     </Card>

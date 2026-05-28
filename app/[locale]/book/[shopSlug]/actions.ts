@@ -185,8 +185,14 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // Phase A (Stripe hardening) — `stripe_account_id` added so we
       // can verify the client-supplied `payment_intent_id` belongs to
       // THIS shop before persisting it on the appointment row.
+      //
+      // Phase D — `payment_mode` drives whether the PI we verify was
+      // minted at the deposit total or the full-price total. The
+      // recomputed amount below MUST match the formula
+      // `createBookingPaymentIntent` used or the verify rejects a
+      // legitimate PI.
       .select(
-        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color, slack_webhook_url, stripe_account_id',
+        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color, slack_webhook_url, stripe_account_id, payment_mode',
       )
       .eq('alias', input.shop_slug)
       .limit(1);
@@ -203,6 +209,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       email_accent_color: string | null;
       stripe_account_id: string | null;
       slack_webhook_url: string | null;
+      payment_mode: 'full' | 'deposit' | 'none';
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
 
@@ -523,8 +530,15 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // `payment_intent.succeeded` could fire BEFORE this row exists
     // (the webhook would no-op and the row would stay 'pending'
     // forever).
+    // Phase D — branch on `payment_mode` to match what
+    // `createBookingPaymentIntent` minted the PI for. 'full' charges
+    // the entire service price upfront; 'deposit' charges the per-service
+    // deposit_amount_cents. 'none' never produces a PI on this path so
+    // we leave the value at 0.
     const recomputedDepositCents = input.payment_intent_id
-      ? services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
+      ? shop.payment_mode === 'full'
+        ? services.reduce((sum, s) => sum + Math.round(Number(s.price ?? 0) * 100), 0)
+        : services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
       : 0;
 
     let verifiedPaymentStatus: 'paid' | 'pending' = 'pending';
@@ -1017,6 +1031,12 @@ export type BookingPaymentIntentResult =
       clientSecret: string;
       paymentIntentId: string;
       depositCents: number;
+      // Phase D — `paymentMode` tells the wizard whether the amount
+      // shown is the full service price ('full') or a partial deposit
+      // with the rest collected in-shop ('deposit'). The wizard
+      // uses this to pick the right label/hint copy. 'none' never
+      // reaches this branch (returns 'no_deposit' above).
+      paymentMode: 'full' | 'deposit';
     }
   | { kind: 'shop_not_connected' };
 
@@ -1048,10 +1068,10 @@ export async function createBookingPaymentIntent(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceRoleClient() as any;
 
-    // Resolve shop + Stripe Connect status.
+    // Resolve shop + Stripe Connect status + Phase D payment_mode.
     const shopRes = await supabase
       .from('shops')
-      .select('id, stripe_account_id, stripe_connect_status')
+      .select('id, stripe_account_id, stripe_connect_status, payment_mode')
       .eq('alias', input.shop_slug)
       .limit(1);
     const shop =
@@ -1059,8 +1079,16 @@ export async function createBookingPaymentIntent(
         id: string;
         stripe_account_id: string | null;
         stripe_connect_status: string;
+        payment_mode: 'full' | 'deposit' | 'none';
       }> | null) ?? [])[0] ?? null;
     if (!shop) return err('NOT_FOUND');
+
+    // Phase D — shop chose to collect everything in-shop. Skip the
+    // PaymentElement step entirely regardless of per-service deposit
+    // amounts. Same UX as a shop with 0 deposits on every service.
+    if (shop.payment_mode === 'none') {
+      return ok({ kind: 'no_deposit' as const });
+    }
 
     // Shop must be fully onboarded — Stripe rejects charges to non-active
     // accounts with a 400, so we'd rather catch it here with a clear
@@ -1069,26 +1097,42 @@ export async function createBookingPaymentIntent(
       return ok({ kind: 'shop_not_connected' as const });
     }
 
-    // Resolve services + sum the deposit cents. Services with a 0
-    // deposit_amount_cents (the default) contribute nothing; if every
-    // service is 0 we tell the wizard there's no deposit and it skips
-    // PaymentElement entirely.
+    // Resolve services + compute the charge amount based on payment_mode.
+    //
+    // Phase D — `price` is now in the SELECT alongside the deposit so we
+    // can compute the right amount for `mode='full'`. Both columns are
+    // already cents-based per the migration history (no decimal math).
     const svcsRes = await supabase
       .from('services')
-      .select('id, deposit_amount_cents, status')
+      .select('id, price, deposit_amount_cents, status')
       .eq('shop_id', shop.id)
       .in('id', input.service_ids);
     const svcs =
       (svcsRes.data as Array<{
         id: string;
+        // `services.price` is stored in DOLLARS (numeric column). We
+        // multiply by 100 to compare against deposit_amount_cents
+        // (which is integer cents). Confirmed by the rest of the
+        // codebase (`price_snapshot` columns also store dollars).
+        price: number;
         deposit_amount_cents: number | null;
         status: 'enabled' | 'disabled';
       }> | null) ?? [];
     if (svcs.length !== input.service_ids.length || svcs.some((s) => s.status !== 'enabled')) {
       return err('NOT_FOUND');
     }
-    const depositCents = svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
+    // Phase D — split paths per `payment_mode`:
+    //   - 'full': charge the entire service price upfront
+    //   - 'deposit': charge per-service `deposit_amount_cents` (the
+    //     historical behavior preserved as the column default)
+    const depositCents =
+      shop.payment_mode === 'full'
+        ? svcs.reduce((sum, s) => sum + Math.round(Number(s.price ?? 0) * 100), 0)
+        : svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
     if (depositCents <= 0) {
+      // Even in 'full' mode this can happen if every service is free
+      // (price=0). 'deposit' mode hits this when no service has a
+      // deposit set.
       return ok({ kind: 'no_deposit' as const });
     }
 
@@ -1142,6 +1186,11 @@ export async function createBookingPaymentIntent(
       clientSecret: intent.client_secret,
       paymentIntentId: intent.id,
       depositCents,
+      // Phase D — surface the mode so the wizard can pick the right
+      // label ("Acompte" vs "Total à régler") and hint copy. Cast
+      // narrows 'none' away — the early return above handles that
+      // case before we ever reach here.
+      paymentMode: shop.payment_mode as 'full' | 'deposit',
     });
   } catch (e) {
     captureException(e, { tags: { layer: 'booking-payment-intent' } });

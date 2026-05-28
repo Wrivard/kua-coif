@@ -50,7 +50,16 @@ export type BookingPaymentSectionRef = {
    */
   confirmPayment: () => Promise<
     | { kind: 'no_deposit' }
-    | { kind: 'paid'; paymentIntentId: string; depositCents: number }
+    | {
+        kind: 'paid';
+        paymentIntentId: string;
+        depositCents: number;
+        // Phase D — surface the mode so the parent wizard can render
+        // the right confirmation copy (e.g. "paid in full" vs
+        // "deposit collected, balance due in salon"). Unused today
+        // but cheap to forward.
+        paymentMode: 'full' | 'deposit';
+      }
     | { kind: 'error'; message: string; code?: string; declineCode?: string }
   >;
   /** Returns true when the PaymentElement is mounted and ready. */
@@ -78,6 +87,8 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           clientSecret: string;
           paymentIntentId: string;
           depositCents: number;
+          // Phase D — drives label/hint copy below.
+          paymentMode: 'full' | 'deposit';
         }
     >({ kind: 'loading' });
 
@@ -149,6 +160,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
             clientSecret: payload.clientSecret,
             paymentIntentId: payload.paymentIntentId,
             depositCents: payload.depositCents,
+            paymentMode: payload.paymentMode,
           });
         }
       });
@@ -175,6 +187,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
               kind: 'paid' as const,
               paymentIntentId: state.paymentIntentId,
               depositCents: state.depositCents,
+              paymentMode: state.paymentMode,
             };
           }
           return result;
@@ -261,15 +274,22 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
       locale: locale === 'fr' ? 'fr-CA' : 'en-CA',
     };
 
+    // Phase D — pick label + hint copy based on payment_mode. 'full'
+    // collects the entire service price upfront (no balance to settle
+    // in salon); 'deposit' collects the deposit portion only and the
+    // customer pays the rest in person. Both keys exist in both
+    // locales — see messages/{fr,en}.json `pages.booking.payment`.
+    const labelKey = state.paymentMode === 'full' ? 'fullLabel' : 'depositLabel';
+    const helpKey = state.paymentMode === 'full' ? 'fullHelp' : 'depositHelp';
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-text-primary">{t('depositLabel')}</p>
+          <p className="text-sm font-medium text-text-primary">{t(labelKey)}</p>
           <p className="text-sm font-semibold tracking-tight text-text-primary">
             {formatCurrencyCAD(state.depositCents / 100, locale)}
           </p>
         </div>
-        <p className="text-xs text-text-secondary">{t('depositHelp')}</p>
+        <p className="text-xs text-text-secondary">{t(helpKey)}</p>
         <Elements stripe={getStripeClient()} options={options}>
           <PaymentElement
             options={{

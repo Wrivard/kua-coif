@@ -945,6 +945,32 @@
             "hoursAgo": "Refreshed {hours}h ago",
             "daysAgo": "Refreshed {days}d ago"
           }
+        },
+        "paymentMode": {
+          "title": "Online payment mode",
+          "description": "Pick what the booking widget collects at booking time. ‘Full’ and ‘Deposit’ require an active Stripe Connect account; ‘None’ skips online payment and you collect everything at the shop.",
+          "options": {
+            "full": {
+              "label": "Full service price",
+              "description": "The customer pays the entire price at booking. Nothing left to pay at the shop."
+            },
+            "deposit": {
+              "label": "Deposit",
+              "description": "The customer pays the per-service deposit at booking; balance is settled at the shop."
+            },
+            "none": {
+              "label": "No online payment",
+              "description": "The booking widget skips the payment step. You collect everything at the shop."
+            }
+          },
+          "stripeRequiredHint": "Available once Stripe Connect is active.",
+          "save": "Save",
+          "toasts": {
+            "saved": "Payment mode saved"
+          },
+          "errors": {
+            "stripeRequired": "Connect Stripe before enabling this mode."
+          }
         }
       },
       "commissions": {
@@ -1321,6 +1347,8 @@
       "payment": {
         "depositLabel": "Deposit due",
         "depositHelp": "A deposit is required to confirm your booking. You'll be charged now; the balance is settled at the shop.",
+        "fullLabel": "Total due",
+        "fullHelp": "The full service price is charged now. Nothing to pay at the shop.",
         "shopNotConnected": "The shop hasn't set up online payment yet. You'll pay at the shop.",
         "intentFailed": "Couldn't prepare the payment. Try again or contact the shop."
       },

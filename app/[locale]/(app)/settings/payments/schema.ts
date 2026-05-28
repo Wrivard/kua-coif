@@ -16,3 +16,14 @@ export const paymentProfileSchema = z.object({
     .or(z.literal('').transform(() => null)),
 });
 export type PaymentProfileInput = z.infer<typeof paymentProfileSchema>;
+
+// Phase D — per-shop payment mode toggle. Mirrors the CHECK constraint
+// on `shops.payment_mode`. The action additionally requires Stripe
+// Connect to be active before allowing 'full' or 'deposit'; 'none'
+// always works regardless of Connect status.
+export const PAYMENT_MODES = ['full', 'deposit', 'none'] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+export const paymentModeSchema = z.object({
+  payment_mode: z.enum(PAYMENT_MODES),
+});
+export type PaymentModeInput = z.infer<typeof paymentModeSchema>;

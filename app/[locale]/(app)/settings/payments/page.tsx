@@ -5,6 +5,7 @@ import { stripeConfigured } from '@/lib/stripe/server';
 import { quickbooksConfigured } from '@/lib/quickbooks/server';
 import { PaymentsClient } from './payments-client';
 import type { BusinessType } from '@/db/enums';
+import type { PaymentMode } from './schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     supabase
       .from('shops')
       .select(
-        'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status, quickbooks_refresh_token_expires_at, quickbooks_last_refreshed_at',
+        'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status, quickbooks_refresh_token_expires_at, quickbooks_last_refreshed_at, payment_mode',
       )
       .limit(1),
   ]);
@@ -70,6 +71,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     quickbooks_connect_status: QuickbooksConnectState['status'];
     quickbooks_refresh_token_expires_at: string | null;
     quickbooks_last_refreshed_at: string | null;
+    payment_mode: PaymentMode;
   }> | null) ?? [])[0];
 
   const stripe: StripeConnectState = {
@@ -86,6 +88,11 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
     lastRefreshedAt: shopRow?.quickbooks_last_refreshed_at ?? null,
   };
 
+  // Phase D — `payment_mode` defaults to 'deposit' on shops created before
+  // this column existed (the migration's `default 'deposit'` covers the
+  // backfill). The null-coalesce is just defensive.
+  const paymentMode: PaymentMode = shopRow?.payment_mode ?? 'deposit';
+
   return (
     <PaymentsClient
       profile={profile}
@@ -96,6 +103,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
       }}
       stripe={stripe}
       quickbooks={quickbooks}
+      paymentMode={paymentMode}
     />
   );
 }
