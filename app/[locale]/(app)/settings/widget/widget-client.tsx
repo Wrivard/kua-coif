@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { useForm, Controller, type Resolver } from 'react-hook-form';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Check, Copy, ExternalLink } from 'lucide-react';
@@ -30,8 +30,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   const [isPending, startTransition] = useTransition();
 
   // The preview iframe URL changes whenever we save (cache-buster `?v=`),
-  // not at every keystroke. Live config-via-postMessage is a V1.1 stretch.
+  // forcing a full reload of the embed page. Between saves, the iframe
+  // updates LIVE via postMessage → PreviewListener (Loop 66) so the
+  // operator sees theme/accent/font/radius changes the moment they edit
+  // the form.
   const [previewVersion, setPreviewVersion] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Normalize the `allowed_origins` array ↔ multiline textarea representation.
   // RHF doesn't natively handle "array → string → array", so we keep a local
@@ -57,7 +61,8 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   // ── Preview URL ────────────────────────────────────────────────────────
   // We point the preview iframe at the LIVE embed route (same origin → CSP
   // allows it). After Save the cache-buster forces a refetch so the new
-  // config is applied.
+  // config is applied. `?preview=1` opts the embed page into mounting
+  // the PreviewListener (Loop 66) so postMessage updates take effect.
   // The form's `default_locale` field is always populated (zod default), so
   // `watch` returns a non-empty value once the form mounts. We fall back to
   // the page locale during the very first render only.
@@ -65,10 +70,36 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   const previewUrl = useMemo(() => {
     if (!shopAlias) return null;
     const previewLocale = watchedLocale || (locale === 'en' ? 'en' : 'fr');
-    return `/${previewLocale}/embed/${encodeURIComponent(shopAlias)}?v=${previewVersion}`;
-    // We don't include the form values in this URL — preview reflects what
-    // is saved in the DB, not what's in the form. That keeps "preview" honest.
+    return `/${previewLocale}/embed/${encodeURIComponent(shopAlias)}?preview=1&v=${previewVersion}`;
+    // We don't include the form values in this URL — initial paint reflects
+    // what is saved in the DB; live edits arrive via postMessage. That
+    // keeps "saved state" and "preview state" distinguishable.
   }, [shopAlias, locale, previewVersion, watchedLocale]);
+
+  // ── Live preview broadcast (Loop 66) ──────────────────────────────────
+  // Subscribe to every field via useWatch (re-renders on each change),
+  // debounce 200ms, then postMessage the current config to the iframe.
+  // The PreviewListener inside the embed page applies it to the DOM.
+  //
+  // 200ms matches the typical typing-debounce sweet spot — fast enough
+  // to feel live, slow enough to coalesce a flurry of color-picker
+  // changes into one paint. Each post is cheap (same-origin, no
+  // serialization beyond the structured-clone overhead).
+  const liveConfig = useWatch({ control }) as WidgetConfig;
+  useEffect(() => {
+    const target = iframeRef.current?.contentWindow;
+    if (!target) return;
+    const timer = setTimeout(() => {
+      target.postMessage(
+        { type: 'kua-widget-preview', config: liveConfig },
+        window.location.origin,
+      );
+    }, 200);
+    return () => clearTimeout(timer);
+    // useWatch returns a NEW object reference each render so this effect
+    // fires once per change. JSON.stringify dep would also work but
+    // would re-iterate the same object every render.
+  }, [liveConfig]);
 
   // ── Snippet for copy ───────────────────────────────────────────────────
   const snippet = useMemo(() => {
@@ -354,6 +385,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
             <CardBody>
               {previewUrl ? (
                 <iframe
+                  ref={iframeRef}
                   key={previewVersion}
                   src={previewUrl}
                   title="Widget preview"

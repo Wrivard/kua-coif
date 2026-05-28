@@ -10,13 +10,21 @@ import {
   type BookingHours,
 } from '../../book/[shopSlug]/booking-wizard';
 import { WidgetResizeEmitter } from './widget-resize-emitter';
+import { PreviewListener } from './preview-listener';
 
 // Embed widget — same caching strategy as `/book/[shopSlug]` (60s ISR). The
 // widget is loaded inside an iframe on third-party sites, so we want it to
 // respond fast and not hammer Supabase on every page load.
 export const revalidate = 60;
 
-type Props = { params: { locale: string; shopSlug: string } };
+type Props = {
+  params: { locale: string; shopSlug: string };
+  // Loop 66 — `?preview=1` opts into the live-preview listener mounted
+  // by the /settings/widget admin iframe. Public widget.js loads never
+  // pass this flag, so the listener is dead code for third-party
+  // visitors (zero JS sent down to them).
+  searchParams?: { preview?: string };
+};
 
 export const metadata: Metadata = {
   // Robots: don't index the embed page directly (it's meant to live inside
@@ -32,8 +40,12 @@ export const metadata: Metadata = {
  * automatically. Loaded inside an iframe injected by `public/widget.js` (or
  * directly in the admin live-preview pane).
  */
-export default async function EmbedBookingPage({ params: { locale, shopSlug } }: Props) {
+export default async function EmbedBookingPage({
+  params: { locale, shopSlug },
+  searchParams,
+}: Props) {
   setRequestLocale(locale);
+  const isPreview = searchParams?.preview === '1';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceRoleClient() as any;
@@ -134,6 +146,11 @@ export default async function EmbedBookingPage({ params: { locale, shopSlug } }:
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
       ) : null}
       <WidgetResizeEmitter />
+      {/* Loop 66 — mounted only when ?preview=1 (the admin live-
+       *  preview iframe URL carries this flag). Public widget.js
+       *  loads never include it, so the listener stays dead code
+       *  for third-party visitors. */}
+      {isPreview ? <PreviewListener /> : null}
       <BookingWizard
         locale={locale}
         shopSlug={shopSlug}
