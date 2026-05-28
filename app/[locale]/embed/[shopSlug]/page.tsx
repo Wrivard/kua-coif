@@ -11,7 +11,7 @@ import {
   type BookingHours,
 } from '../../book/[shopSlug]/booking-wizard';
 import { WidgetResizeEmitter } from './widget-resize-emitter';
-import { PreviewListener } from './preview-listener';
+import { PreviewWrapper } from './preview-wrapper';
 
 // Embed widget — same caching strategy as `/book/[shopSlug]` (60s ISR). The
 // widget is loaded inside an iframe on third-party sites, so we want it to
@@ -52,13 +52,14 @@ export default async function EmbedBookingPage({
   const supabase = createSupabaseServiceRoleClient() as any;
 
   // 1. Resolve shop by alias.
+  // Phase H+10 — `phone` added to the select so the widget header
+  // can render a tap-to-call line when `widget_config.show_phone`
+  // is on. Always queried (not gated on the config) so the preview
+  // wrapper can flip the toggle live without a network round-trip.
   const shopRes = await supabase
     .from('shops')
     .select(
-      // Loop 65 — `logo_url` added so the embedded widget shows the
-      // shop's actual logo. Same selection as /book/[shopSlug] minus
-      // marketing_banner (the banner doesn't render on /embed/*).
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, logo_url, widget_config',
+      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, phone, logo_url, widget_config',
     )
     .eq('alias', shopSlug)
     .limit(1);
@@ -117,14 +118,18 @@ export default async function EmbedBookingPage({
 
   // The shop name shown in the wizard header can be overridden by the widget
   // config (e.g. "Book at Axum" instead of "Axum barbershop").
+  // Phase H+10 — `phone` joins the privacy-redaction set so the new
+  // header phone line obeys `widget_config.show_phone`. Public (non-
+  // preview) embed renders this redacted version directly. Preview
+  // mode bypasses this and feeds the wrapper the unredacted `shopRow`
+  // so live toggles can flip address/phone on without a save.
   const shop: BookingShop = {
     ...shopRow,
-    name: widgetConfig.display_name || shopRow.name,
-    // Hide address/phone if config says so. The wizard already gates on `street`
-    // being present — easier to just blank the field than thread a new prop.
+    name: widgetConfig.display_name?.trim() || shopRow.name,
     street: widgetConfig.show_address ? shopRow.street : null,
     municipality: widgetConfig.show_address ? shopRow.municipality : null,
     province: widgetConfig.show_address ? shopRow.province : null,
+    phone: widgetConfig.show_phone ? (shopRow.phone ?? null) : null,
   };
 
   const themeCss = widgetThemeCss(widgetConfig);
@@ -159,23 +164,39 @@ export default async function EmbedBookingPage({
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
       ) : null}
       <WidgetResizeEmitter />
-      {/* Loop 66 — mounted only when ?preview=1 (the admin live-
-       *  preview iframe URL carries this flag). Public widget.js
-       *  loads never include it, so the listener stays dead code
-       *  for third-party visitors. */}
-      {isPreview ? <PreviewListener /> : null}
-      <BookingWizard
-        locale={locale}
-        shopSlug={shopSlug}
-        shop={shop}
-        hours={hours}
-        daysOff={daysOff}
-        barbers={barbers}
-        services={services}
-        categories={categories}
-        widgetConfig={widgetConfig}
-        tipsConfig={tipsConfig}
-      />
+      {/* Phase H+10 — full live preview supersedes Loop 66's narrower
+       *  theme-only listener. In preview mode, `PreviewWrapper` holds
+       *  the WidgetConfig as React state, derives shop + applies
+       *  theme reactively, and re-renders the wizard on every parent
+       *  postMessage broadcast. Public embed loads bypass it entirely
+       *  and render the saved-config-derived `shop` directly. */}
+      {isPreview ? (
+        <PreviewWrapper
+          initialConfig={widgetConfig}
+          rawShop={shopRow as BookingShop}
+          locale={locale}
+          shopSlug={shopSlug}
+          hours={hours}
+          daysOff={daysOff}
+          barbers={barbers}
+          services={services}
+          categories={categories}
+          tipsConfig={tipsConfig}
+        />
+      ) : (
+        <BookingWizard
+          locale={locale}
+          shopSlug={shopSlug}
+          shop={shop}
+          hours={hours}
+          daysOff={daysOff}
+          barbers={barbers}
+          services={services}
+          categories={categories}
+          widgetConfig={widgetConfig}
+          tipsConfig={tipsConfig}
+        />
+      )}
     </>
   );
 }

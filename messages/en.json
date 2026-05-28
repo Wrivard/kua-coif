@@ -1298,17 +1298,17 @@
           "borderRadius": "Corner style",
           "proFirst": "Pick the professional first (instead of the service)",
           "multiService": "Allow multiple services per booking",
-          "tipStep": "Show tip step (coming soon)",
-          "promoCode": "Show promo code field (coming soon)",
-          "stepsHint": "Tip & promo will require online payments — coming in V1.1.",
+          "tipStep": "Show tip step",
+          "promoCode": "Show promo code field",
+          "stepsHint": "Tip and promo appear in the contact step of the customer flow.",
           "defaultLocale": "Default language",
           "allowedOrigins": "Allowed embedding origins",
           "allowedOriginsHint": "One per line. Leave empty to allow any origin. Example: https://salon.com or https://*.salon.com."
         },
         "options": {
           "modeDark": "Dark",
-          "modeLight": "Light (coming soon)",
-          "modeAuto": "Auto (coming soon)",
+          "modeLight": "Light",
+          "modeAuto": "Auto",
           "radiusSharp": "Sharp",
           "radiusRounded": "Rounded",
           "radiusPill": "Pill"
@@ -1324,7 +1324,7 @@
         },
         "preview": {
           "noAlias": "Set a shop alias first to see the preview.",
-          "note": "Preview reflects the saved configuration — click Save to refresh."
+          "note": "Preview updates live as you change settings. Click Save to deploy the new config to customers."
         },
         "toasts": {
           "saved": "Widget settings saved",

@@ -1300,17 +1300,17 @@
           "borderRadius": "Style des coins",
           "proFirst": "Choisir le professionnel avant le service",
           "multiService": "Permettre plusieurs services par réservation",
-          "tipStep": "Afficher l'étape pourboire (bientôt)",
-          "promoCode": "Afficher le code promo (bientôt)",
-          "stepsHint": "Pourboire & promo demandent le paiement en ligne — V1.1.",
+          "tipStep": "Afficher l'étape pourboire",
+          "promoCode": "Afficher le code promo",
+          "stepsHint": "Pourboire et code promo apparaissent dans l'étape contact du parcours client.",
           "defaultLocale": "Langue par défaut",
           "allowedOrigins": "Origines d'intégration autorisées",
           "allowedOriginsHint": "Une par ligne. Vide = autorise n'importe quelle origine. Ex. : https://salon.com ou https://*.salon.com."
         },
         "options": {
           "modeDark": "Sombre",
-          "modeLight": "Clair (bientôt)",
-          "modeAuto": "Auto (bientôt)",
+          "modeLight": "Clair",
+          "modeAuto": "Auto",
           "radiusSharp": "Angles vifs",
           "radiusRounded": "Arrondi",
           "radiusPill": "Pilule"
@@ -1326,7 +1326,7 @@
         },
         "preview": {
           "noAlias": "Définis d'abord un alias pour voir l'aperçu.",
-          "note": "L'aperçu reflète la configuration enregistrée — clique Enregistrer pour le rafraîchir."
+          "note": "L'aperçu se met à jour en direct à chaque changement. Clique Enregistrer pour déployer la nouvelle config aux clients."
         },
         "toasts": {
           "saved": "Widget enregistré",

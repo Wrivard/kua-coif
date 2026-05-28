@@ -55,6 +55,13 @@ export type BookingShop = {
   municipality: string | null;
   province: string | null;
   postal_code: string | null;
+  // Phase H+10 — shop phone shown under the address in the wizard
+  // header when `widget_config.show_phone === true`. Always queried
+  // for the embed page so the preview wrapper can flip the toggle
+  // live. The server-side wizard render in `/book/[shopSlug]` and
+  // `/embed/[shopSlug]` null this out when the widget config opts
+  // it off — the wizard just checks for truthiness.
+  phone?: string | null;
   // Loop 65 — shop logo URL (Supabase Storage). Drives the wizard
   // header brand mark; falls back to the "K" Küa glyph when null.
   logo_url?: string | null;
@@ -495,6 +502,21 @@ export function BookingWizard({
             <p className="text-xs text-text-muted">
               {shop.street} · {shop.municipality}
               {shop.province ? `, ${shop.province}` : ''}
+            </p>
+          ) : null}
+          {/* Phase H+10 — phone line, shown only when widget_config
+              opts it in. Wrapped in a `tel:` link so a customer on
+              mobile can tap-to-call. The number is rendered exactly
+              as stored (the shop owner formats it; we don't impose
+              a NANP regex at display time). */}
+          {shop.phone ? (
+            <p className="text-xs text-text-muted">
+              <a
+                href={`tel:${shop.phone.replace(/[^\d+]/g, '')}`}
+                className="hover:text-text-primary"
+              >
+                {shop.phone}
+              </a>
             </p>
           ) : null}
         </div>

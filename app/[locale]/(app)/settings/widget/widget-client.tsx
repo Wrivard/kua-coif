@@ -129,15 +129,21 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
   }, []);
 
   // ── Snippet for copy ───────────────────────────────────────────────────
+  // Phase H+10 — the snippet now reflects the FORM-watched
+  // `default_locale` so "if I save and embed this, here's what to
+  // paste" updates as the operator edits. `watchedLocale` falls back
+  // to the saved value during the first render before RHF hydrates.
   const snippet = useMemo(() => {
     if (!shopAlias) return '';
     const origin =
       typeof window !== 'undefined' ? window.location.origin : 'https://kua-coif.vercel.app';
+    const snippetLocale = watchedLocale || initial.default_locale;
     return [
-      `<div data-kua-widget="${shopAlias}" data-kua-locale="${initial.default_locale}"></div>`,
+      `<!-- Küa booking widget -->`,
+      `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}"></div>`,
       `<script src="${origin}/widget.js" async></script>`,
     ].join('\n');
-  }, [shopAlias, initial.default_locale]);
+  }, [shopAlias, watchedLocale, initial.default_locale]);
 
   function copySnippet() {
     if (!snippet) return;
@@ -313,6 +319,11 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                   />
                 )}
               />
+              {/* Phase H+10 — `disabled` removed. The booking-wizard
+                  already wires both show_tip_step + show_promo_code
+                  end-to-end (tip selector on the confirm step, promo
+                  code field on the contact step); the toggles were
+                  shipped locked for no good reason. */}
               <Controller
                 control={control}
                 name="show_tip_step"
@@ -321,7 +332,6 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                     checked={field.value}
                     onChange={field.onChange}
                     label={t('fields.tipStep')}
-                    disabled
                   />
                 )}
               />
@@ -333,7 +343,6 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
                     checked={field.value}
                     onChange={field.onChange}
                     label={t('fields.promoCode')}
-                    disabled
                   />
                 )}
               />
