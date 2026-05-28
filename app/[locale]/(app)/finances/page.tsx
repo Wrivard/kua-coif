@@ -307,17 +307,23 @@ export default async function FinancesPage({
               className="h-10 rounded-lg bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
-          <Button type="submit" size="sm">
-            {t('rangeForm.apply')}
-          </Button>
-          {!isDefaultRange ? (
-            <a
-              href="?"
-              className="rounded-md px-3 py-2 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              {t('rangeForm.thisMonth')}
-            </a>
-          ) : null}
+          {/* Wrap button + reset link in their own flex row so they
+              baseline with the date inputs' bottom edge instead of
+              floating midway. `pb-px` nudges them down 1px to align
+              perfectly with the 40px-tall inputs. */}
+          <div className="flex items-center gap-2 pb-px">
+            <Button type="submit" size="sm">
+              {t('rangeForm.apply')}
+            </Button>
+            {!isDefaultRange ? (
+              <a
+                href="?"
+                className="rounded-md px-3 py-2 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                {t('rangeForm.thisMonth')}
+              </a>
+            ) : null}
+          </div>
         </form>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -339,13 +345,13 @@ export default async function FinancesPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byBarber.columns.barber')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byBarber.columns.appointments')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byBarber.columns.revenue')}
                     </th>
                   </tr>
@@ -353,9 +359,9 @@ export default async function FinancesPage({
                 <tbody>
                   {barberRows.map((b) => (
                     <tr key={b.id} className="border-b border-border last:border-b-0">
-                      <td className="py-2 font-medium text-text-primary">{b.display_name}</td>
-                      <td className="py-2 text-right text-text-secondary">{b.count}</td>
-                      <td className="py-2 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 font-medium text-text-primary">{b.display_name}</td>
+                      <td className="px-3 py-3 text-right text-text-secondary">{b.count}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
                         {fmtCAD(b.revenue)}
                       </td>
                     </tr>
@@ -384,19 +390,19 @@ export default async function FinancesPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.barber')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.revenue')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.rate')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.mode')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.commission')}
                     </th>
                   </tr>
@@ -404,19 +410,21 @@ export default async function FinancesPage({
                 <tbody>
                   {commissionRows.map((c) => (
                     <tr key={c.barberId} className="border-b border-border last:border-b-0">
-                      <td className="py-2 font-medium text-text-primary">{c.barberName}</td>
-                      <td className="py-2 text-right text-text-secondary">{fmtCAD(c.revenue)}</td>
-                      <td className="py-2 text-right text-text-secondary">
+                      <td className="px-3 py-3 font-medium text-text-primary">{c.barberName}</td>
+                      <td className="px-3 py-3 text-right text-text-secondary">
+                        {fmtCAD(c.revenue)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-text-secondary">
                         {c.effectivePct > 0 ? `${c.effectivePct.toFixed(1)}%` : '—'}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="px-3 py-3 text-right">
                         <Badge variant={c.cumulative ? 'info' : 'default'}>
                           {c.cumulative
                             ? t('commissions.modeCumulative')
                             : t('commissions.modeSingle')}
                         </Badge>
                       </td>
-                      <td className="py-2 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
                         {fmtCAD(c.commission)}
                       </td>
                     </tr>
@@ -441,13 +449,13 @@ export default async function FinancesPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byCategory.columns.category')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byCategory.columns.appointments')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byCategory.columns.revenue')}
                     </th>
                   </tr>
@@ -455,9 +463,9 @@ export default async function FinancesPage({
                 <tbody>
                   {categoryRows.map((c) => (
                     <tr key={c.id ?? 'none'} className="border-b border-border last:border-b-0">
-                      <td className="py-2 font-medium text-text-primary">{c.name}</td>
-                      <td className="py-2 text-right text-text-secondary">{c.apptCount}</td>
-                      <td className="py-2 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 font-medium text-text-primary">{c.name}</td>
+                      <td className="px-3 py-3 text-right text-text-secondary">{c.apptCount}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
                         {fmtCAD(c.revenue)}
                       </td>
                     </tr>

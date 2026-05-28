@@ -283,13 +283,13 @@ export function BarberSettingsClient({
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="min-w-[100px] px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide">
+    <th className="min-w-[110px] px-2 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wide">
       {children}
     </th>
   );
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-2 py-2 align-middle">{children}</td>;
+  return <td className="px-2 py-2.5 align-middle">{children}</td>;
 }
 
 function MinSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {

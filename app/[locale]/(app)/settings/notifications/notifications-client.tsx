@@ -601,9 +601,9 @@ export function NotificationsClient({ state }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-[10px] uppercase tracking-wide text-text-muted">
-                  <th className="py-2 text-left">{t('automations.columns.kind')}</th>
-                  <th className="w-24 py-2 text-center">{t('automations.columns.email')}</th>
-                  <th className="w-32 py-2 text-center">{t('automations.columns.sms')}</th>
+                  <th className="py-3 text-left">{t('automations.columns.kind')}</th>
+                  <th className="w-24 py-3 text-center">{t('automations.columns.email')}</th>
+                  <th className="w-32 py-3 text-center">{t('automations.columns.sms')}</th>
                 </tr>
               </thead>
               <tbody>

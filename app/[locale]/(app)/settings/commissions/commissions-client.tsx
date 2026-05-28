@@ -188,8 +188,8 @@ export function CommissionsClient({
                       {b.display_name}
                     </td>
                     {draft.tiers.map((tier, idx) => (
-                      <td key={idx} colSpan={2} className="px-2 py-2">
-                        <div className="flex items-center gap-1">
+                      <td key={idx} colSpan={2} className="px-2 py-2.5">
+                        <div className="flex items-center gap-1.5">
                           <MoneyInput
                             className="w-28"
                             value={tier.threshold}

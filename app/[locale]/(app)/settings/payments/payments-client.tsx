@@ -109,7 +109,7 @@ export function PaymentsClient({
   return (
     <>
       <PageHeader title={t('title')} />
-      <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-3">
         {/* ─── Stripe Connect (Phase 28) ──────────────────────────────────
             Only renders when STRIPE_SECRET_KEY is set server-side. The
             page-level helper passes `stripe.configured` through props. */}
@@ -211,7 +211,7 @@ export function PaymentsClient({
           </CardHeader>
           <CardBody className="space-y-3 text-sm">
             {profile?.destination_bank_name ? (
-              <div className="rounded border border-border bg-bg-surface-2 p-3">
+              <div className="rounded border border-border bg-bg-surface-2 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                   {profile.destination_bank_name}
                 </p>

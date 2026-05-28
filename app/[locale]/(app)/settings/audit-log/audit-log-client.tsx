@@ -48,11 +48,11 @@ export function AuditLogClient({ locale, rows }: Props) {
             <thead>
               <tr className="border-b border-border bg-bg-surface-2 text-[10px] uppercase tracking-wide text-text-muted">
                 <th className="w-6" />
-                <th className="px-3 py-2 text-left">{t('columns.when')}</th>
-                <th className="px-3 py-2 text-left">{t('columns.who')}</th>
-                <th className="px-3 py-2 text-left">{t('columns.action')}</th>
-                <th className="px-3 py-2 text-left">{t('columns.entity')}</th>
-                <th className="px-3 py-2 text-left">{t('columns.entityId')}</th>
+                <th className="px-3 py-3 text-left">{t('columns.when')}</th>
+                <th className="px-3 py-3 text-left">{t('columns.who')}</th>
+                <th className="px-3 py-3 text-left">{t('columns.action')}</th>
+                <th className="px-3 py-3 text-left">{t('columns.entity')}</th>
+                <th className="px-3 py-3 text-left">{t('columns.entityId')}</th>
               </tr>
             </thead>
             <tbody>
@@ -113,15 +113,15 @@ function Row({
             <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden />
           )}
         </td>
-        <td className="px-3 py-2 font-mono text-xs text-text-secondary">
+        <td className="px-3 py-3 font-mono text-xs text-text-secondary">
           {formatWhen(row.occurred_at)}
         </td>
-        <td className="px-3 py-2">{actorName}</td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3">{actorName}</td>
+        <td className="px-3 py-3">
           <Badge variant={actionVariant(row.action)}>{row.action}</Badge>
         </td>
-        <td className="px-3 py-2 font-mono text-xs">{row.entity}</td>
-        <td className="px-3 py-2 font-mono text-[11px] text-text-muted">{row.entity_id ?? '—'}</td>
+        <td className="px-3 py-3 font-mono text-xs">{row.entity}</td>
+        <td className="px-3 py-3 font-mono text-[11px] text-text-muted">{row.entity_id ?? '—'}</td>
       </tr>
       {isOpen && row.diff ? (
         <tr className="border-b border-border bg-bg-base">

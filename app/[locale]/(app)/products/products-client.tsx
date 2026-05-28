@@ -292,17 +292,13 @@ export function ProductsClient({
 
   return (
     <>
+      {/* Phase H+7 UI pass — moved the products summary (retail /
+          wholesale / low inv) out of the PageHeader subtitle and into a
+          stat strip at the top of the body, freeing the header for the
+          SectionSwitcher + Export + Add actions without title truncation
+          under 1280px viewports. */}
       <PageHeader
         title={t('title')}
-        subtitle={
-          view === 'products'
-            ? t('summary', {
-                retail: formatCurrencyCAD(retailValue, locale === 'fr' ? 'fr' : 'en'),
-                wholesale: formatCurrencyCAD(wholesaleValue, locale === 'fr' ? 'fr' : 'en'),
-                low: lowInventoryCount,
-              })
-            : undefined
-        }
         actions={
           <>
             <a
@@ -330,7 +326,16 @@ export function ProductsClient({
         }
       />
 
-      <div className="p-6">
+      <div className="space-y-4 p-6">
+        {view === 'products' ? (
+          <p className="text-xs text-text-muted">
+            {t('summary', {
+              retail: formatCurrencyCAD(retailValue, locale === 'fr' ? 'fr' : 'en'),
+              wholesale: formatCurrencyCAD(wholesaleValue, locale === 'fr' ? 'fr' : 'en'),
+              low: lowInventoryCount,
+            })}
+          </p>
+        ) : null}
         {view === 'products' && (
           <DataTable
             columns={productColumns}
