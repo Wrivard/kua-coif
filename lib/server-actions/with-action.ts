@@ -1,5 +1,6 @@
 import { ZodError, type ZodSchema } from 'zod';
 import {
+  getCurrentBarberId,
   getCurrentShopId,
   getCurrentUser,
   getShopMemberships,
@@ -13,6 +14,14 @@ type ActionContext = {
   userId: string;
   shopId: string;
   role: UserRole;
+  /**
+   * Phase H+5 — the `barbers.id` row that ties this user to a chair in
+   * the active shop. Null for owners / managers who don't carry
+   * appointments themselves. Set so barber-scoped ownership checks
+   * (e.g. "this appt belongs to ctx.barberId") work without each
+   * action having to re-query.
+   */
+  barberId: string | null;
 };
 
 type ActionOptions<Schema extends ZodSchema, T> = {
@@ -97,10 +106,16 @@ export function withAction<Schema extends ZodSchema, T>(opts: ActionOptions<Sche
       }
     }
 
+    // Phase H+5 — resolve the user's barber-row id (if any) for the
+    // active shop, so barber-scoped ownership checks can run without
+    // a per-action query. Cached in React-request scope.
+    const barberId = m.role === 'barber' ? await getCurrentBarberId() : null;
+
     const ctx: ActionContext = {
       userId: user.id,
       shopId: m.shop_id,
       role: m.role,
+      barberId,
     };
 
     try {

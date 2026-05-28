@@ -245,6 +245,37 @@ export async function requireKuaAdmin(opts?: { locale?: string }) {
 }
 
 /**
+ * Phase H+5 — resolve the `barbers.id` row for the currently-signed-in user
+ * in the active shop. Returns null when:
+ *   - no user (unauthenticated)
+ *   - no active shop
+ *   - user is signed in but has no barber row (e.g. owner / manager who
+ *     never carries appointments themselves)
+ *
+ * Used by the `withAction` wrapper to populate `ctx.barberId`, which the
+ * appointment/clients mutation actions use to enforce "barber can only
+ * touch their own work" ownership checks.
+ *
+ * Cached at the React-request level so a single render that touches
+ * several actions doesn't re-query.
+ */
+export const getCurrentBarberId = cache(async (): Promise<string | null> => {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const shopId = await getCurrentShopId();
+  if (!shopId) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = createSupabaseServiceRoleClient() as any;
+  const res = await sb
+    .from('barbers')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('shop_id', shopId)
+    .maybeSingle();
+  return (res.data as { id: string } | null)?.id ?? null;
+});
+
+/**
  * Gate a Server Action / page on a minimum role within the active shop.
  * Throws (so `error.tsx` can render) instead of redirecting — callers in form
  * actions usually want to surface the error to the user.

@@ -63,6 +63,24 @@ export const updateClient = withAction({
   minRole: 'barber',
   run: async (input, ctx) => {
     const { id, ...rest } = input;
+
+    // Phase H+5 — strict barber scope. A barber can only update a
+    // client they've actually served (i.e. there's at least one
+    // appointment linking that client to this barber). Managers +
+    // owners skip the check.
+    if (ctx.role === 'barber') {
+      if (!ctx.barberId) return err('FORBIDDEN', { reason: 'no_barber_row' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const check = await (db() as any)
+        .from('appointments')
+        .select('id')
+        .eq('client_id', id)
+        .eq('barber_id', ctx.barberId)
+        .limit(1);
+      const rows = (check.data as Array<{ id: string }> | null) ?? [];
+      if (rows.length === 0) return err('FORBIDDEN', { reason: 'not_your_client' });
+    }
+
     const { error } = await db().from('clients').update(rest).eq('id', id);
     if (error) return err('UNEXPECTED');
 

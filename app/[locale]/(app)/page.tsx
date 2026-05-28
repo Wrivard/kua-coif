@@ -1,6 +1,11 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentShop, requireShopMember } from '@/lib/auth/server';
+import {
+  getCurrentBarberId,
+  getCurrentShop,
+  getShopMemberships,
+  requireShopMember,
+} from '@/lib/auth/server';
 import { parseShopIsoDate, shopDayEnd, shopIsoDate } from '@/lib/business/timezone';
 import { googleConfigured } from '@/lib/google/server';
 import { fetchBarberBusyForDay } from '@/lib/google/sync';
@@ -17,6 +22,18 @@ type Props = {
 export default async function AppointmentsPage({ params: { locale }, searchParams }: Props) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
+
+  // Phase H+5 — strict barber scope on reads. If the viewer is a
+  // barber (not owner/manager), narrow every list query down to:
+  //   - their OWN barber row (calendar only renders their column)
+  //   - their OWN appointments
+  //   - their OWN blocked_time (+ shop-wide blocks where barber_id is null)
+  //   - clients they've actually served
+  // Owners and managers keep full visibility.
+  const memberships = await getShopMemberships();
+  const viewerRole = memberships[0]?.role ?? 'barber';
+  const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
+  const isStrictBarber = viewerRole === 'barber' && Boolean(viewerBarberId);
 
   const supabase = createSupabaseServerClient();
   // Until db/types codegen lands, we cast the chainable Supabase builder to a
@@ -53,6 +70,49 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   // The appointment_services query depends on appointments, so we resolve
   // appointments first then run the linked-services query in parallel with
   // everything else. Two phases of parallelism.
+  // Phase H+5 — build the barber + appointment queries conditionally
+  // based on viewer role. For a strict barber, narrow to their row
+  // only; for managers + owners, keep the original "all" queries.
+  const barbersQuery = isStrictBarber
+    ? sb
+        .from('barbers')
+        .select('*')
+        .eq('id', viewerBarberId)
+        .order('sort_order', { ascending: true })
+    : sb.from('barbers').select('*').order('sort_order', { ascending: true });
+
+  const apptsQuery = (
+    isStrictBarber
+      ? sb
+          .from('appointments')
+          .select(
+            'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+          )
+          .eq('barber_id', viewerBarberId)
+      : sb
+          .from('appointments')
+          .select(
+            'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+          )
+  )
+    .order('start_at', { ascending: true })
+    .gte('start_at', dayStart.toISOString())
+    .lt('start_at', dayEnd.toISOString());
+
+  // Blocked time: a strict barber sees their personal blocks PLUS
+  // shop-wide blocks (barber_id IS NULL). PostgREST `or()` covers it.
+  const blockedQuery = (
+    isStrictBarber
+      ? sb
+          .from('blocked_time')
+          .select('id, barber_id, start_at, end_at, reason')
+          .or(`barber_id.eq.${viewerBarberId},barber_id.is.null`)
+      : sb.from('blocked_time').select('id, barber_id, start_at, end_at, reason')
+  )
+    .order('start_at', { ascending: true })
+    .gte('start_at', dayStart.toISOString())
+    .lt('start_at', dayEnd.toISOString());
+
   const [
     barbersRes,
     servicesRes,
@@ -63,7 +123,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     apptsRes,
     blockedRes,
   ] = await Promise.all([
-    sb.from('barbers').select('*').order('sort_order', { ascending: true }),
+    barbersQuery,
     sb.from('services').select('*').order('sort_order', { ascending: true }),
     sb.from('service_categories').select('*').order('sort_order', { ascending: true }),
     sb
@@ -76,23 +136,8 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       .select('weekday, enabled, open_time, close_time')
       .order('weekday', { ascending: true }),
     sb.from('shop_days_off').select('date').order('date', { ascending: true }),
-    sb
-      .from('appointments')
-      .select(
-        'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
-      )
-      .order('start_at', { ascending: true })
-      // Filter by start_at within the day in UTC bounds. We use gte/lt via the chained builder.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .gte('start_at' as any, dayStart.toISOString())
-      .lt('start_at', dayEnd.toISOString()),
-    sb
-      .from('blocked_time')
-      .select('id, barber_id, start_at, end_at, reason')
-      .order('start_at', { ascending: true })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .gte('start_at' as any, dayStart.toISOString())
-      .lt('start_at', dayEnd.toISOString()),
+    apptsQuery,
+    blockedQuery,
   ]);
 
   // Phase 2 of parallelism: now that we know which appointments exist today,

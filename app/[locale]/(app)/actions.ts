@@ -152,6 +152,17 @@ export const createAppointment = withAction({
   schema: appointmentSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
+    // Phase H+5 — strict barber scope. A barber can only create
+    // appointments for THEMSELVES. We rewrite input.barber_id to
+    // ctx.barberId regardless of what the form sent. Managers +
+    // owners can create for any barber as before (no rewrite).
+    if (ctx.role === 'barber') {
+      if (!ctx.barberId) return err('FORBIDDEN', { reason: 'no_barber_row' });
+      if (input.barber_id !== ctx.barberId) {
+        return err('FORBIDDEN', { reason: 'not_your_chair' });
+      }
+    }
+
     const services = await fetchServices(input.service_ids, ctx.shopId);
     if (!services || services.length !== input.service_ids.length) {
       return err('NOT_FOUND');
@@ -310,18 +321,31 @@ export const updateAppointment = withAction({
 
     // Read the prior state so we can detect the unpaid→completed
     // transition (Phase 43 loyalty award only fires once per visit).
+    // Phase H+5 — also pulls barber_id so we can run the ownership
+    // check before any write.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = rawDb() as any;
     const priorRes = await sb
       .from('appointments')
-      .select('status, client_id, total_amount')
+      .select('status, client_id, total_amount, barber_id')
       .eq('id', id)
       .single();
     const prior = priorRes.data as {
       status: string;
       client_id: string;
       total_amount: number;
+      barber_id: string;
     } | null;
+    if (!prior) return err('NOT_FOUND');
+
+    // Phase H+5 — strict barber scope. A barber can only update their
+    // OWN appointments. Managers + owners can edit anyone's. ctx.barberId
+    // is populated by withAction when role === 'barber'; if it's null,
+    // either we couldn't resolve their barber row (data inconsistency)
+    // or they're a manager+ in which case we skip the check entirely.
+    if (ctx.role === 'barber' && prior.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
 
     const { error } = await sb.from('appointments').update({ status, notes }).eq('id', id);
     if (error) return err('UNEXPECTED');
@@ -395,6 +419,11 @@ export const rescheduleAppointment = withAction({
     } | null;
     if (!appt) return err('NOT_FOUND');
     if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND'); // RLS would have hidden it, but belt-and-braces.
+    // Phase H+5 — strict barber scope. A barber can only reschedule
+    // their own appointments. Managers + owners can move anyone's.
+    if (ctx.role === 'barber' && appt.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
     // Don't allow moving a cancelled/no-show appointment — they're
     // historical. The drag UI should disable dragging those, but the
     // server rejects them defensively too.
@@ -574,6 +603,13 @@ export const cancelAppointment = withAction({
       payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
       start_at: string;
     } | null;
+    if (!pre) return err('NOT_FOUND');
+
+    // Phase H+5 — strict barber scope. A barber can only cancel their
+    // OWN appointments. Managers + owners can cancel anyone's.
+    if (ctx.role === 'barber' && pre.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
 
     // Phase D — cancellation-policy gate on the auto-refund leg.
     //
