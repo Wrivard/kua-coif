@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bug, ShieldCheck, Settings as SettingsIcon, Store } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bug,
+  LayoutDashboard,
+  ShieldCheck,
+  Settings as SettingsIcon,
+  Store,
+} from 'lucide-react';
 import '../globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { signOutAction } from '@/lib/auth/actions';
@@ -35,7 +42,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <header className="flex h-header-h items-center justify-between border-b border-border bg-bg-surface px-6">
             <div className="flex items-center gap-3">
               <Link
-                href="/admin/shops"
+                href="/admin"
                 aria-label="Küa admin home"
                 className="flex h-8 w-8 items-center justify-center rounded bg-accent text-accent-fg"
               >
@@ -53,6 +60,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                   Future sections (feature flags, support tickets) go
                   here as siblings. */}
               <nav className="ml-6 flex items-center gap-4 text-xs text-text-secondary">
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1 hover:text-text-primary"
+                >
+                  <LayoutDashboard className="h-3 w-3" /> Dashboard
+                </Link>
                 <Link
                   href="/admin/shops"
                   className="inline-flex items-center gap-1 hover:text-text-primary"
