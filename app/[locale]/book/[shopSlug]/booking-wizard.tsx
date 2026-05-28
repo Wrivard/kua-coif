@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   CalendarCheck,
@@ -23,7 +24,11 @@ import { useToast } from '@/components/ui/toast';
 import { TurnstileWidget, turnstileSiteKeyConfigured } from '@/components/ui/turnstile';
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import { addDays, formatHeaderDate, shopIsoDate } from '@/lib/business/timezone';
-import type { WidgetConfig } from '@/lib/business/widget-config';
+import {
+  postBookingMessageFor,
+  welcomeMessageFor,
+  type WidgetConfig,
+} from '@/lib/business/widget-config';
 import { suggestTips, type TipsConfig } from '@/lib/business/tips';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { addToWaitlistPublic, bookPublicAppointment, lookupLoyaltyByPhone } from './actions';
@@ -214,6 +219,23 @@ export function BookingWizard({
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  // Phase H+11 — URL params for pre-filling the wizard. Useful when a
+  // salon links from "Coupe avec Olivier" on their pricing page directly
+  // to the wizard with both pre-selected. Recognized params:
+  //   ?service=<id>[,<id>...]  one or more service IDs
+  //   ?barber=<id>|any         barber ID or the "any" sentinel
+  //   ?date=YYYY-MM-DD         pre-selected date (still validated against hours)
+  // Invalid IDs are silently ignored — the wizard falls back to defaults.
+  const searchParams = useSearchParams();
+
+  const localeBucket: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
+  const welcomeMessage = widgetConfig ? welcomeMessageFor(widgetConfig, localeBucket) : null;
+  const postBookingMessage = widgetConfig
+    ? postBookingMessageFor(widgetConfig, localeBucket)
+    : null;
+  const redirectEnabled = Boolean(widgetConfig?.redirect_enabled && widgetConfig.redirect_url);
+  const redirectUrl = widgetConfig?.redirect_url ?? null;
+
   // ── Step ordering ──────────────────────────────────────────────────────
   // The widget config can flip the first two steps: when `show_professional_first`
   // is on, step 1 = barber picker and step 2 = service picker (Squire-style).
@@ -232,25 +254,82 @@ export function BookingWizard({
   }
 
   const today = useMemo(() => shopIsoDate(new Date(), shop.timezone), [shop.timezone]);
-  const [state, setState] = useState<WizardState>({
-    step: 1,
-    serviceIds: [],
-    barberId: shop.allow_booking_any_barber ? 'any' : null,
-    date: today,
-    startTime: null,
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    notes: '',
-    hp: '',
-    turnstileToken: '',
-    promoCode: '',
-    loyaltyBalanceCents: 0,
-    consentLoi25: false,
-    tipAmountCents: 0,
-    tipSelection: 'none',
-  });
+
+  // Phase H+11 — URL pre-fill. Compute initial state synchronously from
+  // searchParams so the wizard renders with the right pre-selection on
+  // first paint (no flash of empty → filled). Invalid IDs are dropped.
+  const initialState = useMemo<WizardState>(() => {
+    const serviceParam = searchParams?.get('service');
+    const barberParam = searchParams?.get('barber');
+    const dateParam = searchParams?.get('date');
+
+    const requestedServiceIds = (serviceParam ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const validServiceIds = requestedServiceIds.filter((id) => services.some((s) => s.id === id));
+
+    let barberId: WizardState['barberId'] = shop.allow_booking_any_barber ? 'any' : null;
+    if (barberParam) {
+      if (barberParam === 'any' && shop.allow_booking_any_barber) {
+        barberId = 'any';
+      } else if (barbers.some((b) => b.id === barberParam)) {
+        barberId = barberParam;
+      }
+    }
+
+    const dateValid = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam);
+
+    return {
+      step: 1,
+      serviceIds: validServiceIds,
+      barberId,
+      date: dateValid ? dateParam : today,
+      startTime: null,
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      notes: '',
+      hp: '',
+      turnstileToken: '',
+      promoCode: '',
+      loyaltyBalanceCents: 0,
+      consentLoi25: false,
+      tipAmountCents: 0,
+      tipSelection: 'none',
+    };
+    // searchParams is stable per route; we only want to seed state once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [state, setState] = useState<WizardState>(initialState);
+
+  // Phase H+11 — post-booking redirect. Fires on step transition to 5
+  // (confirmation). 2.5s delay so the customer reads the confirmation
+  // copy before the page changes — the redirect feels intentional, not
+  // a hostile yank. Top-level navigation (window.location.href) so we
+  // BREAK OUT of the embed iframe when applicable, landing the customer
+  // on the salon's real site.
+  useEffect(() => {
+    if (state.step !== 5) return;
+    if (!redirectEnabled || !redirectUrl) return;
+    const timer = setTimeout(() => {
+      try {
+        const url = new URL(redirectUrl);
+        // Break out of an iframe parent (widget embed) so the customer
+        // lands on the salon's site in the top window, not inside the
+        // widget. Falls back to same-window nav when not iframed.
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = url.toString();
+        } else {
+          window.location.href = url.toString();
+        }
+      } catch {
+        // Malformed URL — swallow so the confirmation page stays.
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [state.step, redirectEnabled, redirectUrl]);
 
   // Phase 60 — debounced loyalty lookup on phone change. Fires ~500ms
   // after the user stops typing, only when the digit count looks like a
@@ -518,6 +597,12 @@ export function BookingWizard({
                 {shop.phone}
               </a>
             </p>
+          ) : null}
+          {/* Phase H+11 — operator-provided welcome line. 280 chars max,
+              shown under address/phone so the customer reads a "human"
+              note before diving into service selection. */}
+          {welcomeMessage ? (
+            <p className="mx-auto max-w-md text-sm text-text-secondary">{welcomeMessage}</p>
           ) : null}
         </div>
       </header>
@@ -883,7 +968,12 @@ export function BookingWizard({
             <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
               {t('done.title')}
             </h2>
-            <p className="text-sm text-text-secondary">{t('done.description')}</p>
+            {/* Phase H+11 — operator-customizable post-booking copy.
+                Falls back to the default i18n string when the field
+                isn't set. */}
+            <p className="text-sm text-text-secondary">
+              {postBookingMessage ?? t('done.description')}
+            </p>
             <div className="rounded-lg border border-border bg-bg-base p-4 text-left text-sm shadow-sm">
               <p className="font-medium text-text-primary">
                 {selectedServices.map((s) => s.name).join(' + ')}

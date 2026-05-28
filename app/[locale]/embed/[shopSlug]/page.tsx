@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import { parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
+import { displayNameFor, parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
 import type { TipsConfig } from '@/lib/business/tips';
 import {
   BookingWizard,
@@ -123,9 +123,13 @@ export default async function EmbedBookingPage({
   // preview) embed renders this redacted version directly. Preview
   // mode bypasses this and feeds the wrapper the unredacted `shopRow`
   // so live toggles can flip address/phone on without a save.
+  // Phase H+11 — locale-aware display name (FR/EN overrides with the
+  // legacy single field as fallback, then the shop's row.name).
+  const localeBucket: 'fr' | 'en' = locale === 'en' ? 'en' : 'fr';
+  const displayNameOverride = displayNameFor(widgetConfig, localeBucket);
   const shop: BookingShop = {
     ...shopRow,
-    name: widgetConfig.display_name?.trim() || shopRow.name,
+    name: displayNameOverride || shopRow.name,
     street: widgetConfig.show_address ? shopRow.street : null,
     municipality: widgetConfig.show_address ? shopRow.municipality : null,
     province: widgetConfig.show_address ? shopRow.province : null,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
+import { displayNameFor, parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
 import type { WidgetConfig } from '@/lib/business/widget-config';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { TipsConfig } from '@/lib/business/tips';
@@ -88,17 +88,23 @@ export function PreviewWrapper({
   // Derive the shop the wizard sees. Each toggle in the Identity section
   // maps to a single field swap here, so the operator gets visual
   // feedback the instant they flip a switch.
-  const shop: BookingShop = useMemo(
-    () => ({
+  const shop: BookingShop = useMemo(() => {
+    // Phase H+11 — display name resolution honors the per-locale
+    // overrides (display_name_fr / display_name_en) with the legacy
+    // single field as fallback, and finally the shop's row.name.
+    const localeBucket: 'fr' | 'en' = locale === 'en' ? 'en' : 'fr';
+    const overrideName = displayNameFor(config, localeBucket);
+    return {
       ...rawShop,
-      name: config.display_name?.trim() || rawShop.name,
+      name: overrideName || rawShop.name,
       street: config.show_address ? rawShop.street : null,
       municipality: config.show_address ? rawShop.municipality : null,
       province: config.show_address ? rawShop.province : null,
       phone: config.show_phone ? (rawShop.phone ?? null) : null,
-    }),
-    [config.display_name, config.show_address, config.show_phone, rawShop],
-  );
+    };
+    // `config` itself is a fresh object per postMessage so depending
+    // on it re-derives every update — fine, the work is cheap.
+  }, [config, locale, rawShop]);
 
   // postMessage listener — receives the parent's debounced broadcast
   // from /settings/widget. On mount we also send a `ready` ping so the
