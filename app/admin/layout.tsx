@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Settings as SettingsIcon, Store } from 'lucide-react';
 import '../globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { signOutAction } from '@/lib/auth/actions';
@@ -39,6 +39,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   Super-admin console
                 </p>
               </div>
+              {/* Phase F — nav between the admin sections. Kept minimal
+                  (text links, no fancy active state) so we don't have
+                  to thread `usePathname` into a server-rendered layout.
+                  Future sections (feature flags, support tickets) go
+                  here as siblings. */}
+              <nav className="ml-6 flex items-center gap-4 text-xs text-text-secondary">
+                <Link
+                  href="/admin/shops"
+                  className="inline-flex items-center gap-1 hover:text-text-primary"
+                >
+                  <Store className="h-3 w-3" /> Shops
+                </Link>
+                <Link
+                  href="/admin/platform-config"
+                  className="inline-flex items-center gap-1 hover:text-text-primary"
+                >
+                  <SettingsIcon className="h-3 w-3" /> Platform config
+                </Link>
+              </nav>
             </div>
             <div className="flex items-center gap-3">
               <Link

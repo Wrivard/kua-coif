@@ -921,7 +921,8 @@
           },
           "toasts": {
             "refreshed": "État mis à jour"
-          }
+          },
+          "platformFee": "Frais Küa actuels : {pct} % sur chaque paiement encaissé via Stripe."
         },
         "quickbooks": {
           "title": "QuickBooks Online",

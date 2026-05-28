@@ -34,9 +34,22 @@ type Props = {
   quickbooks: QuickbooksConnectState;
   /** Phase D — current value of `shops.payment_mode`. */
   paymentMode: PaymentMode;
+  /**
+   * Phase F — Küa-wide application fee BPS (100 = 1%). Surfaced on
+   * the Stripe Connect card so the owner sees what comes off the top
+   * of every destination charge. 0 = no platform fee (V1 default).
+   */
+  platformAppFeeBps: number;
 };
 
-export function PaymentsClient({ profile, currentUser, stripe, quickbooks, paymentMode }: Props) {
+export function PaymentsClient({
+  profile,
+  currentUser,
+  stripe,
+  quickbooks,
+  paymentMode,
+  platformAppFeeBps,
+}: Props) {
   const t = useTranslations('pages.settings.payments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -101,7 +114,13 @@ export function PaymentsClient({ profile, currentUser, stripe, quickbooks, payme
             Only renders when STRIPE_SECRET_KEY is set server-side. The
             page-level helper passes `stripe.configured` through props. */}
         {stripe.configured ? (
-          <StripeConnectCard stripe={stripe} t={t} tErr={tErr} show={show} />
+          <StripeConnectCard
+            stripe={stripe}
+            platformAppFeeBps={platformAppFeeBps}
+            t={t}
+            tErr={tErr}
+            show={show}
+          />
         ) : null}
 
         {/* ─── Payment mode (Phase D) ─────────────────────────────────────
@@ -313,12 +332,15 @@ const STATUS_BADGE: Record<
 
 function StripeConnectCard({
   stripe,
+  platformAppFeeBps,
   t,
   tErr,
   show,
 }: {
   stripe: StripeConnectState;
-  t: (key: string) => string;
+  /** Phase F — app fee BPS, surfaced as "Küa takes X%" transparency. */
+  platformAppFeeBps: number;
+  t: (key: string, values?: Record<string, string | number>) => string;
   tErr: (key: string) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   show: (toast: any) => void;
@@ -368,13 +390,24 @@ function StripeConnectCard({
         <Badge variant={badge.variant}>{t(badge.key)}</Badge>
       </CardHeader>
       <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-xl text-xs text-text-secondary">
-          {stripe.status === 'active'
-            ? t('stripe.description.active')
-            : stripe.status === 'pending' || stripe.status === 'restricted'
-              ? t('stripe.description.pending')
-              : t('stripe.description.notStarted')}
-        </p>
+        <div className="max-w-xl space-y-1">
+          <p className="text-xs text-text-secondary">
+            {stripe.status === 'active'
+              ? t('stripe.description.active')
+              : stripe.status === 'pending' || stripe.status === 'restricted'
+                ? t('stripe.description.pending')
+                : t('stripe.description.notStarted')}
+          </p>
+          {/* Phase F — Küa-side platform fee transparency. Renders the
+              percentage so the owner knows what comes off the top of
+              each card charge. Hidden when the fee is 0 (the V1 default)
+              to avoid showing "Platform fee: 0%" noise. */}
+          {platformAppFeeBps > 0 ? (
+            <p className="text-[11px] text-text-muted">
+              {t('stripe.platformFee', { pct: (platformAppFeeBps / 100).toFixed(2) })}
+            </p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {stripe.status === 'not_started' && (
             <Button onClick={handleStart} loading={busy} size="sm">

@@ -20,6 +20,7 @@
 
 import type Stripe from 'stripe';
 import { getStripe } from './server';
+import { applicationFeeForAmount, getPlatformAppFeeBps } from './platform-config';
 
 /**
  * Create a PaymentIntent for a deposit on an appointment.
@@ -38,22 +39,6 @@ import { getStripe } from './server';
  * Idempotency key based on appointment ID prevents duplicate intents
  * if the caller retries (e.g., network blip during booking).
  */
-/**
- * Phase 70 audit fix — resolve the application fee from the
- * `STRIPE_APP_FEE_BPS` env var (basis points, 100 = 1%). When unset or
- * 0, no platform fee is collected. Callers can override per-call via
- * `applicationFeeCents` (e.g. tier-based pricing if we ever add
- * per-shop SaaS plans with different revenue shares).
- *
- * The audit noted Küa was earning $0 from card transactions despite
- * the plumbing being in place — this turns the lever on.
- */
-function defaultApplicationFeeCents(amountCents: number): number {
-  const bps = Number(process.env.STRIPE_APP_FEE_BPS ?? 0);
-  if (!Number.isFinite(bps) || bps <= 0) return 0;
-  return Math.round((amountCents * bps) / 10_000);
-}
-
 export async function createDepositPaymentIntent({
   connectedAccountId,
   appointmentId,
@@ -70,8 +55,10 @@ export async function createDepositPaymentIntent({
   applicationFeeCents?: number;
 }): Promise<Stripe.PaymentIntent> {
   const stripe = getStripe();
-  // Caller can override; otherwise we read from STRIPE_APP_FEE_BPS.
-  const fee = applicationFeeCents ?? defaultApplicationFeeCents(amountCents);
+  // Caller can override (per-shop pricing tiers if we ever add them).
+  // Otherwise read from platform_config.app_fee_bps.
+  const fee =
+    applicationFeeCents ?? applicationFeeForAmount(amountCents, await getPlatformAppFeeBps());
   return stripe.paymentIntents.create(
     {
       amount: amountCents,
@@ -164,7 +151,12 @@ export async function getReusableDepositPaymentIntent({
   // Amount + fee must match exactly — any divergence means the client's
   // Elements would be displaying a stale amount. New PI = new
   // clientSecret = Elements re-mounts with the authoritative value.
-  const fee = applicationFeeCents ?? defaultApplicationFeeCents(amountCents);
+  //
+  // Phase F — pulls the BPS from platform_config (with env-var
+  // fallback). A super-admin save invalidates the cache so a fee
+  // change forces a fresh mint on the next reuse attempt.
+  const fee =
+    applicationFeeCents ?? applicationFeeForAmount(amountCents, await getPlatformAppFeeBps());
   if (existing.amount !== amountCents || (existing.application_fee_amount ?? 0) !== fee) {
     return null;
   }

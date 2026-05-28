@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentUser, requireShopMember } from '@/lib/auth/server';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { quickbooksConfigured } from '@/lib/quickbooks/server';
+import { getPlatformAppFeeBps } from '@/lib/stripe/platform-config';
 import { PaymentsClient } from './payments-client';
 import type { BusinessType } from '@/db/enums';
 import type { PaymentMode } from './schema';
@@ -93,6 +94,12 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
   // backfill). The null-coalesce is just defensive.
   const paymentMode: PaymentMode = shopRow?.payment_mode ?? 'deposit';
 
+  // Phase F — fetch the platform-wide app fee BPS so the owner can see
+  // exactly what Küa takes off the top. Cached in-process for 30s so
+  // this is cheap. Display-only here; the actual fee is enforced at PI
+  // mint time in lib/stripe/payments.ts.
+  const platformAppFeeBps = await getPlatformAppFeeBps();
+
   return (
     <PaymentsClient
       profile={profile}
@@ -104,6 +111,7 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
       stripe={stripe}
       quickbooks={quickbooks}
       paymentMode={paymentMode}
+      platformAppFeeBps={platformAppFeeBps}
     />
   );
 }

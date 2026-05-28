@@ -919,7 +919,8 @@
           },
           "toasts": {
             "refreshed": "Status refreshed"
-          }
+          },
+          "platformFee": "Küa platform fee: {pct}% on each Stripe-collected payment."
         },
         "quickbooks": {
           "title": "QuickBooks Online",
