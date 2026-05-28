@@ -59,12 +59,18 @@ export default async function MePage({
 
   const shopRes = await supabase
     .from('shops')
-    .select('name, email, phone')
+    // Phase G — `timezone` added so the upcoming-appointments card can
+    // format the start_at in the shop's local clock.
+    .select('name, email, phone, timezone')
     .eq('id', client.shop_id)
     .limit(1);
   const shop =
-    ((shopRes.data as Array<{ name: string; email: string | null; phone: string | null }> | null) ??
-      [])[0] ?? null;
+    ((shopRes.data as Array<{
+      name: string;
+      email: string | null;
+      phone: string | null;
+      timezone: string;
+    }> | null) ?? [])[0] ?? null;
 
   // Count completed appointments — used as a "X visits" stat on the page.
   const apptCountRes = await supabase
@@ -73,6 +79,47 @@ export default async function MePage({
     .eq('client_id', client.id)
     .eq('status', 'completed');
   const completedCount = (apptCountRes.count as number | null) ?? 0;
+
+  // Phase G — upcoming appointments (status in {booked, confirmed} AND
+  // start_at in the future). These power the self-cancel UI; each row
+  // gets a Cancel button on the client. Capped at 10 because a
+  // customer with more than 10 future bookings is an edge case and the
+  // page is already pretty long.
+  const upcomingRes = await supabase
+    .from('appointments')
+    .select(
+      'id, start_at, end_at, status, total_amount, payment_status, payment_intent_id, barber:barbers(display_name), services:appointment_services(services(name, duration_min))',
+    )
+    .eq('client_id', client.id)
+    .in('status', ['booked', 'confirmed'])
+    .gte('start_at', new Date().toISOString())
+    .order('start_at', { ascending: true })
+    .limit(10);
+  type UpcomingRow = {
+    id: string;
+    start_at: string;
+    end_at: string;
+    status: 'booked' | 'confirmed';
+    total_amount: number;
+    payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed' | null;
+    payment_intent_id: string | null;
+    barber: { display_name: string } | null;
+    services: Array<{ services: { name: string; duration_min: number } | null }> | null;
+  };
+  const upcoming = ((upcomingRes.data as UpcomingRow[] | null) ?? []).map((r) => ({
+    id: r.id,
+    startAt: r.start_at,
+    endAt: r.end_at,
+    status: r.status,
+    totalAmount: Number(r.total_amount ?? 0),
+    paymentStatus: r.payment_status ?? 'unpaid',
+    hasPaymentIntent: Boolean(r.payment_intent_id),
+    barberName: r.barber?.display_name ?? null,
+    services: (r.services ?? [])
+      .map((s) => s.services)
+      .filter((s): s is { name: string; duration_min: number } => Boolean(s))
+      .map((s) => ({ name: s.name, durationMin: s.duration_min })),
+  }));
 
   return (
     <MeClient
@@ -87,7 +134,9 @@ export default async function MePage({
         name: shop?.name ?? '?',
         email: shop?.email ?? null,
         phone: shop?.phone ?? null,
+        timezone: shop?.timezone ?? 'America/Toronto',
       }}
+      upcoming={upcoming}
     />
   );
 }
