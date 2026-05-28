@@ -159,6 +159,76 @@ export async function refundPaymentIntentFull({
 }
 
 /**
+ * Phase A (Stripe hardening) — server-side PaymentIntent verification.
+ *
+ * The booking action receives `payment_intent_id` from the client and
+ * persists it on the appointment row. Without this verify call, a
+ * hand-crafted POST could attach ANY `pi_*` (their own from a previous
+ * shop, a fabricated string, a partially-confirmed intent with $0
+ * amount) — and the row would happily claim the appointment was paid.
+ *
+ * The check has three legs:
+ *   1. The PI exists (no NOT_FOUND from Stripe).
+ *   2. Its destination matches the shop's connected account — guards
+ *      against PIs from other shops being attached here.
+ *   3. Its amount matches what we expect for the selected services'
+ *      deposits — guards against using a $1 PI from another booking
+ *      to fake a $50 deposit on this one.
+ *   4. Its status is `succeeded` or `processing` — anything earlier
+ *      (`requires_payment_method`, etc.) means the customer never
+ *      actually entered/confirmed card details.
+ *
+ * Returns the canonical status so the caller can also fix the webhook
+ * race in one shot: if Stripe says `succeeded` at this moment, we can
+ * write `payment_status='paid'` at insert time and not wait for a
+ * webhook that may have already fired (and no-op'd because the row
+ * didn't exist yet).
+ */
+export type VerifyDepositPiResult =
+  | { valid: true; status: Stripe.PaymentIntent.Status }
+  | { valid: false; reason: 'not_found' | 'wrong_shop' | 'wrong_amount' | 'wrong_status' };
+
+export async function verifyDepositPaymentIntent({
+  paymentIntentId,
+  expectedConnectedAccountId,
+  expectedAmountCents,
+}: {
+  paymentIntentId: string;
+  expectedConnectedAccountId: string;
+  expectedAmountCents: number;
+}): Promise<VerifyDepositPiResult> {
+  const stripe = getStripe();
+  let intent: Stripe.PaymentIntent;
+  try {
+    intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch {
+    return { valid: false, reason: 'not_found' };
+  }
+
+  // Destination check — `transfer_data.destination` can be a string ID
+  // or an expanded Account object depending on retrieve options.
+  // We don't expand, so the typed-string path is what runs in practice;
+  // the object-id fallback is belt-and-suspenders for future changes.
+  const dest =
+    typeof intent.transfer_data?.destination === 'string'
+      ? intent.transfer_data.destination
+      : (intent.transfer_data?.destination?.id ?? null);
+  if (dest !== expectedConnectedAccountId) {
+    return { valid: false, reason: 'wrong_shop' };
+  }
+
+  if (intent.amount !== expectedAmountCents) {
+    return { valid: false, reason: 'wrong_amount' };
+  }
+
+  if (intent.status !== 'succeeded' && intent.status !== 'processing') {
+    return { valid: false, reason: 'wrong_status' };
+  }
+
+  return { valid: true, status: intent.status };
+}
+
+/**
  * Translate a Stripe PaymentIntent status into our enum.
  *
  * Mapping:

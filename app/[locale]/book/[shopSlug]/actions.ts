@@ -14,7 +14,7 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { stripeConfigured } from '@/lib/stripe/server';
-import { createDepositPaymentIntent } from '@/lib/stripe/payments';
+import { createDepositPaymentIntent, verifyDepositPaymentIntent } from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 
@@ -174,8 +174,12 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // confirmation can fire a Slack notification to the owner
       // without a second round-trip. Service-role client bypasses
       // the column-level REVOKE we put on authenticated/anon.
+      //
+      // Phase A (Stripe hardening) — `stripe_account_id` added so we
+      // can verify the client-supplied `payment_intent_id` belongs to
+      // THIS shop before persisting it on the appointment row.
       .select(
-        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color, slack_webhook_url',
+        'id, name, timezone, allow_booking_any_barber, street, municipality, province, phone, email_logo_url, email_accent_color, slack_webhook_url, stripe_account_id',
       )
       .eq('alias', input.shop_slug)
       .limit(1);
@@ -190,6 +194,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       phone: string | null;
       email_logo_url: string | null;
       email_accent_color: string | null;
+      stripe_account_id: string | null;
       slack_webhook_url: string | null;
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
@@ -490,31 +495,65 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       }
     }
 
-    // ── Insert appointment ───────────────────────────────────────────
-    // Phase 56 — if a PaymentIntent was collected client-side, persist
-    // its ID + the deposit amount. payment_status starts as 'pending'
-    // and gets moved to 'paid' by the webhook handler on
-    // payment_intent.succeeded.
+    // ── Verify the client-supplied PaymentIntent (Phase A) ───────────
     //
-    // Loop 29 (P2.103 from AUDIT_PHASE70) — `deposit_amount_cents` was
-    // previously stored from the client's payload (`input.deposit_amount_cents`).
-    // A hand-crafted POST could set `999999` to make the row claim a
-    // larger deposit than Stripe actually captured — corrupting the
-    // finances trail and any "Balance due in-shop" the customer sees
-    // on the receipt. Re-derive from `services.deposit_amount_cents`
-    // server-side and discard the client value entirely (the schema
-    // still accepts the field so old clients don't break, but we
-    // ignore it).
-    // Re-use the already-fetched `services` array (which now carries
-    // `deposit_amount_cents` per the self-review fix above). One source
-    // of truth, no race window.
+    // Loop 29 (P2.103) made the deposit amount server-derived, but the
+    // `payment_intent_id` itself was still trusted from the client.
+    // A hand-crafted POST could attach ANY `pi_*` (someone else's,
+    // fabricated, $0-amount, etc.) and the row would happily claim
+    // the appointment was paid.
+    //
+    // We now retrieve the PI from Stripe and assert:
+    //   1. it exists,
+    //   2. its destination matches THIS shop's connected account,
+    //   3. its amount matches the deposit we expect from the selected
+    //      services,
+    //   4. its status is succeeded or processing.
+    //
+    // The same retrieve also tells us the canonical status, which lets
+    // us write `payment_status='paid'` directly when Stripe already
+    // says succeeded — closing the webhook race where
+    // `payment_intent.succeeded` could fire BEFORE this row exists
+    // (the webhook would no-op and the row would stay 'pending'
+    // forever).
     const recomputedDepositCents = input.payment_intent_id
       ? services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
       : 0;
+
+    let verifiedPaymentStatus: 'paid' | 'pending' = 'pending';
+    if (input.payment_intent_id) {
+      // A PI with no shop Connect account is impossible — the
+      // `createBookingPaymentIntent` action requires it. Defensive
+      // guard: if somehow the shop lost Connect between intent
+      // creation and booking submit, refuse the PI rather than
+      // trusting it.
+      if (!shop.stripe_account_id) return err('UNEXPECTED');
+
+      const verify = await verifyDepositPaymentIntent({
+        paymentIntentId: input.payment_intent_id,
+        expectedConnectedAccountId: shop.stripe_account_id,
+        expectedAmountCents: recomputedDepositCents,
+      });
+      if (!verify.valid) {
+        // Don't leak which leg failed — same UX as any other
+        // unexpected error from the client's perspective.
+        captureException(new Error(`[booking] PI verify failed: ${verify.reason}`), {
+          tags: { layer: 'booking', reason: verify.reason },
+          extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
+        });
+        return err('UNEXPECTED');
+      }
+      // Phase A — set 'paid' at insert when Stripe already says
+      // succeeded. The webhook handler is still authoritative for
+      // async transitions (refunds, disputes) but we don't depend
+      // on it for the initial state.
+      verifiedPaymentStatus = verify.status === 'succeeded' ? 'paid' : 'pending';
+    }
+
     const paymentFields = input.payment_intent_id
       ? {
           payment_intent_id: input.payment_intent_id,
-          payment_status: 'pending' as const,
+          payment_status: verifiedPaymentStatus,
           deposit_amount_cents: recomputedDepositCents,
         }
       : {};
