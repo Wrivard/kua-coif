@@ -1285,6 +1285,7 @@
           "steps": "Wizard steps",
           "behavior": "Behavior",
           "postBooking": "After booking",
+          "analytics": "Analytics",
           "snippet": "Embed snippet",
           "preview": "Live preview"
         },
@@ -1355,6 +1356,15 @@
           "inlineHint": "Widget fills the zone where you drop the code. Best for a dedicated \"Book\" page.",
           "floatingButtonHint": "Fixed \"Book\" pill in the bottom-right, opens the widget in a modal on click. Best for a marketing site.",
           "modalHint": "No automatic button — your own link calls Kua.open(). Best for adding to an existing menu or CTA."
+        },
+        "analytics": {
+          "intro": "Last 30 days · how many people see your widget and how many actually book.",
+          "empty": "No events yet. Stats appear once a customer opens your widget.",
+          "impressions": "Impressions",
+          "bookings": "Bookings",
+          "conversion": "Conversion",
+          "bySource": "By integration mode",
+          "source": "Source"
         },
         "preview": {
           "noAlias": "Set a shop alias first to see the preview.",

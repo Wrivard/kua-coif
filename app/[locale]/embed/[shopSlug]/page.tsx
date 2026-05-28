@@ -27,7 +27,10 @@ type Props = {
   // Phase H+13 — `?theme=dark|light|auto` lets a salon override the
   // saved `widget_config.mode` per-instance. Useful when the same
   // widget lives on pages with different visual themes.
-  searchParams?: { preview?: string; theme?: string };
+  // Phase H+14 — `?source=` tags the load with which integration mode
+  // mounted it, so the analytics funnel can split conversion by
+  // surface. Defaults to 'direct' (no widget.js, plain /embed/ load).
+  searchParams?: { preview?: string; theme?: string; source?: string };
 };
 
 export const metadata: Metadata = {
@@ -58,6 +61,14 @@ export default async function EmbedBookingPage({
     searchParams?.theme === 'auto'
       ? searchParams.theme
       : null;
+  // Phase H+14 — analytics source tag. Validated against the enum;
+  // unknown values fall back to 'direct'.
+  const analyticsSource: 'inline' | 'floating-button' | 'modal' | 'direct' =
+    searchParams?.source === 'inline' ||
+    searchParams?.source === 'floating-button' ||
+    searchParams?.source === 'modal'
+      ? searchParams.source
+      : 'direct';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceRoleClient() as any;
@@ -216,6 +227,7 @@ export default async function EmbedBookingPage({
           categories={categories}
           widgetConfig={widgetConfig}
           tipsConfig={tipsConfig}
+          analyticsSource={analyticsSource}
         />
       )}
     </>

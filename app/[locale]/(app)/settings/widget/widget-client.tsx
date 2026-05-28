@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import {
   AlertTriangle,
+  BarChart3,
   Check,
   CircleAlert,
   Copy,
@@ -24,11 +25,28 @@ import { cn } from '@/lib/utils';
 import { widgetConfigSchema, type WidgetConfig } from '@/lib/business/widget-config';
 import { upsertWidgetConfig } from './actions';
 
+/**
+ * Phase H+14 — funnel stats shape passed from the server page.
+ * Computed over the last 30 days of widget_events for the active shop.
+ */
+export type FunnelStats = {
+  impressions: number;
+  bookings: number;
+  conversionPct: number;
+  bySource: Partial<
+    Record<
+      'inline' | 'floating-button' | 'modal' | 'direct',
+      { impressions: number; bookings: number }
+    >
+  >;
+};
+
 type Props = {
   locale: string;
   shopName: string;
   shopAlias: string | null;
   initial: WidgetConfig;
+  funnelStats: FunnelStats;
 };
 
 /**
@@ -92,7 +110,7 @@ const THEME_PRESETS: Preset[] = [
   },
 ];
 
-export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
+export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats }: Props) {
   const t = useTranslations('pages.settings.widget');
   const { show } = useToast();
 
@@ -638,6 +656,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
 
         {/* ── Preview + snippet column ──────────────────────────────── */}
         <div className="space-y-6">
+          {/* Phase H+14 — conversion funnel card. Shows the last 30
+              days of widget activity for this shop. Source-broken-
+              down so the operator can see which integration shape
+              (inline vs floating vs modal) is pulling its weight. */}
+          <FunnelCard stats={funnelStats} t={t} />
+
           <Card>
             <CardHeader>
               <CardTitle>{t('sections.snippet')}</CardTitle>
@@ -728,6 +752,81 @@ export function WidgetClient({ locale, shopName, shopAlias, initial }: Props) {
 // ────────────────────────────────────────────────────────────────────
 // Sub-components
 // ────────────────────────────────────────────────────────────────────
+
+function FunnelCard({ stats, t }: { stats: FunnelStats; t: ReturnType<typeof useTranslations> }) {
+  const hasData = stats.impressions > 0;
+  const sourceEntries = Object.entries(stats.bySource) as Array<
+    ['inline' | 'floating-button' | 'modal' | 'direct', { impressions: number; bookings: number }]
+  >;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <span className="inline-flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            {t('sections.analytics')}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <p className="text-xs text-text-muted">{t('analytics.intro')}</p>
+        {!hasData ? (
+          <p className="text-sm text-text-secondary">{t('analytics.empty')}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label={t('analytics.impressions')} value={String(stats.impressions)} />
+              <Stat label={t('analytics.bookings')} value={String(stats.bookings)} accent />
+              <Stat
+                label={t('analytics.conversion')}
+                value={`${stats.conversionPct.toFixed(1)}%`}
+              />
+            </div>
+            {sourceEntries.length > 1 ? (
+              <div className="space-y-2 rounded-md border border-border bg-bg-surface-2 p-3 text-xs">
+                <p className="font-semibold text-text-primary">{t('analytics.bySource')}</p>
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] uppercase text-text-muted">
+                      <th className="text-left">{t('analytics.source')}</th>
+                      <th className="text-right">{t('analytics.impressions')}</th>
+                      <th className="text-right">{t('analytics.bookings')}</th>
+                      <th className="text-right">{t('analytics.conversion')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sourceEntries.map(([source, agg]) => {
+                      const pct = agg.impressions > 0 ? (agg.bookings / agg.impressions) * 100 : 0;
+                      return (
+                        <tr key={source} className="border-t border-border">
+                          <td className="py-1 font-mono">{source}</td>
+                          <td className="py-1 text-right tabular-nums">{agg.impressions}</td>
+                          <td className="py-1 text-right tabular-nums text-accent">
+                            {agg.bookings}
+                          </td>
+                          <td className="py-1 text-right tabular-nums">{pct.toFixed(1)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="space-y-1 rounded-md border border-border bg-bg-surface-2 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+      <p className={cn('text-2xl font-semibold tabular-nums', accent && 'text-accent')}>{value}</p>
+    </div>
+  );
+}
 
 function AutoSaveBadge({
   state,

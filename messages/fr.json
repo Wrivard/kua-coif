@@ -1287,6 +1287,7 @@
           "steps": "Étapes du parcours",
           "behavior": "Comportement",
           "postBooking": "Après réservation",
+          "analytics": "Statistiques",
           "snippet": "Code d'intégration",
           "preview": "Aperçu en direct"
         },
@@ -1357,6 +1358,15 @@
           "inlineHint": "Le widget remplit la zone où tu places le code. Idéal pour une page « Réservation ».",
           "floatingButtonHint": "Bouton « Réserver » fixé en bas à droite, ouvre le widget en modal au clic. Idéal pour un site marketing.",
           "modalHint": "Pas de bouton automatique — ton propre lien appelle Kua.open(). Idéal pour intégrer dans un menu ou un CTA existant."
+        },
+        "analytics": {
+          "intro": "30 derniers jours · combien de personnes voient ton widget, combien réservent.",
+          "empty": "Pas encore d'événements. Les statistiques apparaîtront dès qu'un client ouvrira ton widget.",
+          "impressions": "Impressions",
+          "bookings": "Réservations",
+          "conversion": "Conversion",
+          "bySource": "Par mode d'intégration",
+          "source": "Source"
         },
         "preview": {
           "noAlias": "Définis d'abord un alias pour voir l'aperçu.",

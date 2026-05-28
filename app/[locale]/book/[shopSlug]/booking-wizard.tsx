@@ -140,6 +140,13 @@ type Props = {
    * widget toggle (no tiers to suggest).
    */
   tipsConfig?: TipsConfig;
+  /**
+   * Phase H+14 — analytics source. The embed page resolves this from
+   * `?source=` (set by widget.js when it mounts the iframe). `null`
+   * disables analytics entirely — used by the live preview wrapper
+   * since operator clicks aren't customer behaviour.
+   */
+  analyticsSource?: 'inline' | 'floating-button' | 'modal' | 'direct' | null;
 };
 
 // Five progress chips, regardless of which of {service, barber} comes first.
@@ -213,6 +220,7 @@ export function BookingWizard({
   categories,
   widgetConfig,
   tipsConfig,
+  analyticsSource = 'direct',
 }: Props) {
   const t = useTranslations('pages.booking');
   const tErr = useTranslations('actionErrors');
@@ -303,6 +311,92 @@ export function BookingWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [state, setState] = useState<WizardState>(initialState);
+
+  // Phase H+14 — analytics instrumentation. One session_id per
+  // wizard mount, fired with each event so the back-end can stitch
+  // a single visitor's journey (impression → step_views → complete
+  // or abandon). `analyticsSource === null` disables events entirely
+  // (preview mode). `sendEvent` uses `navigator.sendBeacon` for the
+  // abandon path since the browser may kill `fetch` on unload.
+  const sessionIdRef = useRef<string | null>(null);
+  const completedRef = useRef(false);
+
+  const sendEvent = useMemo(() => {
+    return (
+      eventType: 'impression' | 'step_view' | 'booking_complete' | 'abandon',
+      stepKind?: 'service' | 'barber' | 'slot' | 'contact' | 'done',
+    ) => {
+      if (analyticsSource === null) return;
+      if (typeof window === 'undefined') return;
+      if (!sessionIdRef.current) {
+        sessionIdRef.current =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `s-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+      }
+      const body = JSON.stringify({
+        shopSlug,
+        eventType,
+        stepKind,
+        sessionId: sessionIdRef.current,
+        source: analyticsSource,
+      });
+      const url = '/api/widget/event';
+      // sendBeacon is fire-and-forget AND survives page unload — the
+      // critical bit for the abandon path.
+      if (eventType === 'abandon' && navigator.sendBeacon) {
+        try {
+          navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+          return;
+        } catch {
+          // fall through to fetch
+        }
+      }
+      void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {
+        // Analytics is best-effort; swallow network errors.
+      });
+    };
+  }, [analyticsSource, shopSlug]);
+
+  // Fire impression once per mount.
+  useEffect(() => {
+    sendEvent('impression');
+    // Abandon on unload if the customer never reached step 5.
+    const onUnload = () => {
+      if (!completedRef.current && state.step < 5) {
+        sendEvent('abandon');
+      }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    window.addEventListener('pagehide', onUnload);
+    return () => {
+      window.removeEventListener('beforeunload', onUnload);
+      window.removeEventListener('pagehide', onUnload);
+    };
+    // sendEvent is stable; state.step is read via closure at unload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fire step_view on every step transition.
+  useEffect(() => {
+    const kind = kindForStep(state.step);
+    if (kind === 'done') {
+      if (!completedRef.current) {
+        completedRef.current = true;
+        sendEvent('booking_complete', 'done');
+      }
+      return;
+    }
+    sendEvent('step_view', kind as 'service' | 'barber' | 'slot' | 'contact');
+    // We don't depend on `kindForStep` (it's defined inside the
+    // component) — re-reading it via closure is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.step, sendEvent]);
 
   // Phase H+11 — post-booking redirect. Fires on step transition to 5
   // (confirmation). 2.5s delay so the customer reads the confirmation

@@ -170,6 +170,9 @@ export function PreviewWrapper({
       categories={categories}
       widgetConfig={config}
       tipsConfig={tipsConfig}
+      // Preview mode bypasses analytics — operator activity isn't
+      // customer activity.
+      analyticsSource={null}
     />
   );
 }

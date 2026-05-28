@@ -61,11 +61,17 @@
   // `?theme=` lets the salon override the saved widget_config.mode
   // per-instance. Useful when the same widget is embedded on pages
   // with different visual themes (dark landing page vs. light blog).
-  function buildEmbedUrl(host, alias, locale, theme) {
+  // Phase H+14 — `?source=` tags the iframe load with which mode
+  // mounted it (inline / floating-button / modal) so the analytics
+  // funnel can break down conversion by surface.
+  function buildEmbedUrl(host, alias, locale, theme, source) {
     var url = host + '/' + locale + '/embed/' + encodeURIComponent(alias);
-    if (theme === 'dark' || theme === 'light' || theme === 'auto') {
-      url += '?theme=' + theme;
+    var qs = [];
+    if (theme === 'dark' || theme === 'light' || theme === 'auto') qs.push('theme=' + theme);
+    if (source === 'inline' || source === 'floating-button' || source === 'modal') {
+      qs.push('source=' + source);
     }
+    if (qs.length) url += '?' + qs.join('&');
     return url;
   }
 
@@ -107,9 +113,9 @@
   }
 
   // ─── Iframe factory + resize binding ──────────────────────────────
-  function createIframe(host, alias, locale, theme) {
+  function createIframe(host, alias, locale, theme, source) {
     var iframe = document.createElement('iframe');
-    iframe.src = buildEmbedUrl(host, alias, locale, theme);
+    iframe.src = buildEmbedUrl(host, alias, locale, theme, source);
     iframe.title = 'Küa booking widget';
     iframe.loading = 'lazy';
     iframe.style.cssText = [
@@ -149,7 +155,7 @@
     var skeleton = createSkeleton();
     placeholder.appendChild(skeleton);
 
-    var iframe = createIframe(host, alias, locale, theme);
+    var iframe = createIframe(host, alias, locale, theme, 'inline');
     var removed = false;
     function removeSkeleton() {
       if (removed) return;
@@ -191,7 +197,7 @@
     btn.setAttribute('type', 'button');
     btn.textContent = (opts && opts.text) || (locale === 'en' ? 'Book' : 'Réserver');
     btn.addEventListener('click', function () {
-      openModal(host, alias, locale, theme);
+      openModal(host, alias, locale, theme, 'floating-button');
     });
     document.body.appendChild(btn);
   }
@@ -215,9 +221,10 @@
     document.head.appendChild(style);
   }
 
-  function openModal(host, alias, locale, theme) {
+  function openModal(host, alias, locale, theme, source) {
     if (modalContainer) return;
     injectModalStyles();
+    var sourceTag = source || 'modal';
 
     modalContainer = document.createElement('div');
     modalContainer.className = 'kua-modal-overlay';
@@ -242,7 +249,7 @@
     var skeleton = createSkeleton();
     scroll.appendChild(skeleton);
 
-    var iframe = createIframe(host, alias, locale, theme);
+    var iframe = createIframe(host, alias, locale, theme, sourceTag);
     iframe.style.minHeight = '600px';
     var removed = false;
     function removeSkeleton() {
