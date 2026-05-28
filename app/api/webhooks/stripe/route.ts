@@ -165,6 +165,32 @@ export async function POST(req: NextRequest): Promise<Response> {
         await persistDispute(dispute, event.type === 'charge.dispute.created');
         break;
       }
+      // Phase H — Stripe Radar fraud signal.
+      //
+      // Fires hours-to-days BEFORE the bank actually disputes the
+      // charge, giving us a window to refund proactively (avoid the
+      // chargeback fee + the dispute response burden). We don't refund
+      // automatically here — that's a product decision per shop —
+      // but we log to Sentry with `severity:fraud-warning` so the
+      // owner can investigate in the Stripe dashboard.
+      //
+      // Future: surface this as a shop-side alert ("we got a fraud
+      // warning on this booking — review before the appointment").
+      case 'radar.early_fraud_warning.created': {
+        const warning = event.data.object as Stripe.Radar.EarlyFraudWarning;
+        const chargeId =
+          typeof warning.charge === 'string' ? warning.charge : (warning.charge?.id ?? null);
+        captureException(new Error(`[stripe-webhook] Radar fraud warning: ${warning.id}`), {
+          tags: { layer: 'stripe-webhook', stage: 'fraud-warning' },
+          extra: {
+            warningId: warning.id,
+            chargeId,
+            actionable: warning.actionable,
+            fraudType: warning.fraud_type,
+          },
+        });
+        break;
+      }
       // Future:
       //   - 'payout.created' (notify shop owner of incoming payout)
       default: {
@@ -350,6 +376,57 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
       shopName = row.shop?.name ?? null;
       slackWebhookUrl = row.shop?.slack_webhook_url ?? null;
       shopLocale = row.shop?.default_language === 'en' ? 'en' : 'fr';
+    }
+  }
+
+  // Phase H — fallback resolution via charge.destination when no
+  // appointment matched (Loi 25 anonymization, hard-deleted rows, etc).
+  // The dispute object embeds the underlying charge; we retrieve it
+  // from Stripe to read `transfer_data.destination`, which is the
+  // connected account ID. That maps 1:1 to shops.stripe_account_id.
+  //
+  // Why not expand the charge inline on the dispute webhook payload:
+  // Stripe doesn't expand by default and our `event.data.object` is
+  // the dispute, not the charge. Retrieving is one extra API call per
+  // orphan dispute — rare enough to be fine.
+  if (!shopId && chargeId) {
+    try {
+      const stripe = getStripe();
+      const charge = await stripe.charges.retrieve(chargeId);
+      // Stripe deprecated the top-level `destination` field in favor
+      // of `transfer_data.destination` for Connect destination charges.
+      // We only use the new shape (which is what `createDepositPaymentIntent`
+      // mints), so this is the only candidate.
+      const accountId =
+        typeof charge.transfer_data?.destination === 'string'
+          ? charge.transfer_data.destination
+          : (charge.transfer_data?.destination?.id ?? null);
+      if (accountId) {
+        const shopRes = await admin
+          .from('shops')
+          .select('id, name, slack_webhook_url, default_language')
+          .eq('stripe_account_id', accountId)
+          .limit(1);
+        const shopRow = ((shopRes.data as Array<{
+          id: string;
+          name: string;
+          slack_webhook_url: string | null;
+          default_language: string | null;
+        }> | null) ?? [])[0];
+        if (shopRow) {
+          shopId = shopRow.id;
+          shopName = shopRow.name;
+          slackWebhookUrl = shopRow.slack_webhook_url;
+          shopLocale = shopRow.default_language === 'en' ? 'en' : 'fr';
+        }
+      }
+    } catch (e) {
+      // Stripe retrieve failed — fall through to the orphan branch
+      // below. The disputeId still ends up in Sentry.
+      captureException(e, {
+        tags: { layer: 'stripe-webhook', stage: 'dispute-fallback-retrieve' },
+        extra: { disputeId: dispute.id, chargeId },
+      });
     }
   }
 

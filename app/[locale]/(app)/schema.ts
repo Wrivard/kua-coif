@@ -46,10 +46,19 @@ export const cancelAppointmentSchema = z.object({
   force_refund: z.boolean().optional().default(false),
 });
 
-/** Phase 38 — charge a deposit on an appointment. Amount is in cents. */
+/**
+ * Phase 38 — charge a deposit on an appointment. Amount is in cents.
+ *
+ * Phase H — cap tightened from $100,000 to $5,000. The original ceiling
+ * was the Stripe-side maximum for a single CAD charge, not a realistic
+ * salon ceiling. Even the priciest service + tip caps well under $500;
+ * the $5k headroom covers multi-month membership packages or gift cards
+ * (V1.5) without leaving room for a typo to send $99,999 instead of
+ * $99.99. Adjust upward only when a product use-case justifies it.
+ */
 export const chargeAppointmentSchema = z.object({
   id: z.string().uuid(),
-  amount_cents: z.number().int().min(50).max(100_000_00),
+  amount_cents: z.number().int().min(50).max(500_000),
 });
 
 /** Phase 38 — refund the appointment's payment in full. */

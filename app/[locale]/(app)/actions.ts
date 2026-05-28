@@ -741,13 +741,22 @@ export const cancelAppointment = withAction({
             ? sb.from('clients').select('first_name, email').eq('id', appt.client_id).single()
             : Promise.resolve({ data: null }),
           sb.from('appointment_services').select('services(name)').eq('appointment_id', appt.id),
-          sb.from('shops').select('name, timezone, phone').eq('id', ctx.shopId).single(),
+          // Phase H — `default_language` added so the cancellation
+          // email lands in the shop's chosen language instead of the
+          // hardcoded FR. Customer-preferred locale (V1.5) will
+          // override per-client once we store it on `clients.locale`.
+          sb
+            .from('shops')
+            .select('name, timezone, phone, default_language')
+            .eq('id', ctx.shopId)
+            .single(),
         ]);
         const client = clientRes.data as { first_name: string; email: string | null } | null;
         const shop = shopRes.data as {
           name: string;
           timezone: string;
           phone: string | null;
+          default_language: string | null;
         } | null;
         const services = (
           (servicesRes.data as Array<{ services: { name: string } | null }> | null) ?? []
@@ -756,15 +765,15 @@ export const cancelAppointment = withAction({
           .filter((n): n is string => Boolean(n))
           .map((name) => ({ name }));
         if (client?.email && shop) {
+          const emailLocale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
           await sendEmail({
             shopId: ctx.shopId,
             kind: 'cancellation',
             to: client.email,
-            // V1.5 will derive locale from client preference; for now we
-            // send in the shop's default language (French for new shops).
-            subject: `Annulation — ${shop.name}`,
+            subject:
+              emailLocale === 'fr' ? `Annulation — ${shop.name}` : `Cancellation — ${shop.name}`,
             template: AppointmentCancellation({
-              locale: 'fr',
+              locale: emailLocale,
               shop: { name: shop.name, phone: shop.phone, timezone: shop.timezone },
               client: { firstName: client.first_name },
               appointment: { startAt: appt.start_at, services },
@@ -1109,16 +1118,42 @@ export const chargeAppointment = withAction<
       customerEmail = client?.email ?? undefined;
     }
 
+    // Phase H SR — PI-create-then-DB-fail recovery.
+    //
+    // Pre-Phase H, the create + update lived inside a single try/catch.
+    // If `paymentIntents.create` succeeded but the subsequent Supabase
+    // update threw (network blip, DB locked, etc.), Stripe held a fresh
+    // PI with our idempotency key `appt-deposit-${appt.id}` and our
+    // appointment row had NO `payment_intent_id` link. Result: the
+    // webhook fires `payment_intent.succeeded` later but
+    // `persistPaymentStatus` no-ops because no row matches the intent
+    // ID. Customer's money is in limbo until an operator manually
+    // reconciles.
+    //
+    // Split into two phases:
+    //   1. Create the PI — caught separately, all-or-nothing.
+    //   2. Persist the link — if THIS fails after PI is live, log a
+    //      CRITICAL audit row containing the intent ID so an operator
+    //      can recover. The retry path is idempotent (same key returns
+    //      the same PI) so the operator can re-run the action.
+    let intent: Awaited<ReturnType<typeof createDepositPaymentIntent>>;
     try {
-      const intent = await createDepositPaymentIntent({
+      intent = await createDepositPaymentIntent({
         connectedAccountId: shop.stripe_account_id,
         appointmentId: appt.id,
         amountCents: input.amount_cents,
         customerEmail,
       });
-      // Persist the intent ID + flip status to 'pending'. Webhook flips
-      // to 'paid' on success — until then, the UI shows "Pending payment."
-      await sb
+    } catch (e) {
+      captureException(e, {
+        tags: { layer: 'stripe-payments', action: 'chargeAppointment', stage: 'pi-create' },
+      });
+      return err('UNEXPECTED');
+    }
+
+    // PI exists now. From this point a thrown error means orphaned money.
+    try {
+      const updateRes = await sb
         .from('appointments')
         .update({
           payment_intent_id: intent.id,
@@ -1126,6 +1161,9 @@ export const chargeAppointment = withAction<
           deposit_amount_cents: input.amount_cents,
         })
         .eq('id', appt.id);
+      // Supabase doesn't throw on row-mismatch updates; treat any non-null
+      // error as the PI-orphan trigger.
+      if (updateRes.error) throw new Error(updateRes.error.message ?? 'update_failed');
       await logAuditAction({
         shopId: ctx.shopId,
         actorId: ctx.userId,
@@ -1140,9 +1178,34 @@ export const chargeAppointment = withAction<
         paymentIntentId: intent.id,
       });
     } catch (e) {
+      // CRITICAL: PI is live but link wasn't persisted. Log a high-
+      // visibility audit row + Sentry so an operator can reconcile.
+      // The intent.id is the recovery handle — manually re-run the
+      // action OR PATCH the appointment row to attach this PI.
       captureException(e, {
-        tags: { layer: 'stripe-payments', action: 'chargeAppointment' },
+        tags: {
+          layer: 'stripe-payments',
+          action: 'chargeAppointment',
+          stage: 'orphan-pi',
+        },
+        extra: { intentId: intent.id, appointmentId: appt.id },
       });
+      try {
+        await logAuditAction({
+          shopId: ctx.shopId,
+          actorId: ctx.userId,
+          action: 'update',
+          entity: 'appointments',
+          entityId: appt.id,
+          diff: {
+            orphan_payment_intent: intent.id,
+            amount_cents: input.amount_cents,
+            severity: 'critical',
+          },
+        });
+      } catch {
+        // Audit-log also down? Sentry has the breadcrumb above.
+      }
       return err('UNEXPECTED');
     }
   },
