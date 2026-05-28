@@ -6,6 +6,7 @@
  * the `@sentry/nextjs` package handles that internally.
  */
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/observability/sentry-scrub';
 
 const dsn = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -18,5 +19,9 @@ if (dsn) {
     // everywhere else to keep the free 5k events/month tier alive.
     tracesSampleRate: env === 'production' ? 0.1 : 1.0,
     environment: env,
+    // Phase H+1 — Loi 25 sub-processor compliance. Same scrubber +
+    // same cyrb53 email hash as client + server runtimes.
+    sendDefaultPii: false,
+    beforeSend: scrubSentryEvent,
   });
 }

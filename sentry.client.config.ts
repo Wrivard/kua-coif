@@ -12,6 +12,7 @@
  * already paid for at bundle time).
  */
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/observability/sentry-scrub';
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -26,6 +27,11 @@ if (dsn) {
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0.1,
     environment: env,
+    // Phase H+1 — Loi 25 sub-processor compliance. Strips known PII
+    // keys before send. Email is replaced with a stable cyrb53 hash
+    // (irreversible in practice + pivotable across requests).
+    sendDefaultPii: false,
+    beforeSend: scrubSentryEvent,
     // Filter out the noise from the Vercel toolbar that our CSP already
     // blocks (cf. console warnings in the live deployment).
     denyUrls: [/vercel\.live\/_next-live\/feedback/],

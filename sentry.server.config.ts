@@ -8,6 +8,7 @@
  * scrubbing rules between client and server.
  */
 import * as Sentry from '@sentry/nextjs';
+import { scrubSentryEvent } from '@/lib/observability/sentry-scrub';
 
 const dsn = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -21,5 +22,12 @@ if (dsn) {
     // still catch everything during testing.
     tracesSampleRate: env === 'production' ? 0.1 : 1.0,
     environment: env,
+    // Phase H+1 — Loi 25 sub-processor compliance. Strip known PII
+    // keys (phone, email, address, names, secrets) from every event
+    // before it leaves the process. User email is hashed to a stable
+    // pseudonym so "same user across requests" pivots still work.
+    // Errors + stack traces + operational tags are unaffected.
+    sendDefaultPii: false,
+    beforeSend: scrubSentryEvent,
   });
 }
