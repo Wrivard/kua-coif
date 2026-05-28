@@ -728,6 +728,12 @@ export function BookingWizard({
               serviceIds={state.serviceIds}
               email={state.email}
               locale={locale === 'fr' ? 'fr' : 'en'}
+              // Phase D.3 — forward promo + phone so the server
+              // can reduce the PI amount by discounts in 'full'
+              // mode. The section debounces and forwards them to
+              // `createBookingPaymentIntent`.
+              promoCode={state.promoCode}
+              phone={state.phone}
             />
           </section>
         )}

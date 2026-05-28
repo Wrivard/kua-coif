@@ -531,13 +531,24 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // (the webhook would no-op and the row would stay 'pending'
     // forever).
     // Phase D — branch on `payment_mode` to match what
-    // `createBookingPaymentIntent` minted the PI for. 'full' charges
-    // the entire service price upfront; 'deposit' charges the per-service
-    // deposit_amount_cents. 'none' never produces a PI on this path so
-    // we leave the value at 0.
+    // `createBookingPaymentIntent` minted the PI for.
+    //
+    //   - 'full'    : charge the post-discount total. Because the promo +
+    //                 loyalty have already been applied to `totalAmount`
+    //                 above, `Math.round(totalAmount * 100)` IS the
+    //                 discount-aware amount the widget asked Stripe to
+    //                 charge (Phase D.3).
+    //   - 'deposit' : charge per-service `deposit_amount_cents` — the
+    //                 historical V1 behavior; discounts apply to the
+    //                 in-shop BALANCE, not the deposit.
+    //   - 'none'    : no PI on this path, leave the value at 0.
+    //
+    // The `'full'` formula deliberately mirrors what
+    // `createBookingPaymentIntent` does. Any drift between the two
+    // formulas → verify rejects a legit PI with `wrong_amount`.
     const recomputedDepositCents = input.payment_intent_id
       ? shop.payment_mode === 'full'
-        ? services.reduce((sum, s) => sum + Math.round(Number(s.price ?? 0) * 100), 0)
+        ? Math.round(totalAmount * 100)
         : services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)
       : 0;
 
@@ -1020,6 +1031,33 @@ const bookingPaymentIntentSchema = z.object({
     .regex(/^pi_[A-Za-z0-9_]{8,255}$/)
     .optional()
     .or(z.literal('').transform(() => undefined)),
+  /**
+   * Phase D.3 — promo code in flight on the booking step. Only used
+   * when `shop.payment_mode === 'full'`: the PI amount is reduced
+   * by the validated discount so the customer doesn't overpay. In
+   * 'deposit' mode the deposit is independent of the promo (the
+   * promo applies to the in-shop balance). Invalid codes silently
+   * fall back to no-discount here — the user gets the field-error
+   * surfaced at booking submit by `bookPublicAppointment`.
+   */
+  promo_code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .max(40)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  /**
+   * Phase D.3 — phone for server-side loyalty balance lookup. Same
+   * normalized digits as the wizard's lookup action. Only consumed
+   * in 'full' mode for the same reason as `promo_code` above.
+   */
+  phone: z
+    .string()
+    .trim()
+    .regex(phoneRegex)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 
 export type CreateBookingPaymentIntentInput = z.infer<typeof bookingPaymentIntentSchema>;
@@ -1122,17 +1160,111 @@ export async function createBookingPaymentIntent(
       return err('NOT_FOUND');
     }
     // Phase D — split paths per `payment_mode`:
-    //   - 'full': charge the entire service price upfront
-    //   - 'deposit': charge per-service `deposit_amount_cents` (the
-    //     historical behavior preserved as the column default)
-    const depositCents =
-      shop.payment_mode === 'full'
-        ? svcs.reduce((sum, s) => sum + Math.round(Number(s.price ?? 0) * 100), 0)
-        : svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
+    //   - 'full'    : charge the entire service price upfront (minus
+    //                 discounts, see Phase D.3 below)
+    //   - 'deposit' : charge per-service `deposit_amount_cents` — the
+    //                 historical V1 behavior; discounts apply to the
+    //                 in-shop BALANCE, not the deposit.
+    //
+    // The branches diverge on units. 'deposit' uses cents directly
+    // because `deposit_amount_cents` is already an integer column.
+    // 'full' uses DOLLARS internally to byte-match `bookPublicAppointment`'s
+    // `Math.round(totalAmount * 100)` verify formula — sum-then-round
+    // vs per-service round can disagree on pathological prices like
+    // 1.005, and a single-cent drift fails the verify with
+    // `wrong_amount`. Keeping both sides on the same dollar arithmetic
+    // path is the surest way to avoid that bug class.
+    let depositCents: number;
+    if (shop.payment_mode === 'full') {
+      // Phase D.3 — promo + loyalty in 'full' mode.
+      //
+      // In 'deposit' mode the upfront charge is a partial slice of
+      // the service price; whatever's left to settle at the shop
+      // already absorbs the customer's discounts. Touching the
+      // deposit here would either double-count or shortchange the
+      // salon.
+      //
+      // In 'full' mode the upfront charge IS the total — so the
+      // same promo + loyalty math that `bookPublicAppointment`
+      // applies to `totalAmount` MUST also drive the PI amount.
+      // Otherwise the customer overpays (PI = full price,
+      // totalAmount = discounted) or the verify rejects a legit PI.
+      //
+      // We validate promo READ-ONLY (no redemption bump — that
+      // happens in `bookPublicAppointment` after a successful
+      // insert). Loyalty is read via `effectiveLoyaltyBalanceCents`
+      // so an expired credit returns zero and the customer can't
+      // redeem it. Invalid/expired promo codes degrade silently to
+      // no-discount here; the booking action surfaces a field-error
+      // at submit so the wizard can flag the input. The PI then
+      // mismatches and the verify rejects — acceptable failure
+      // mode (UNEXPECTED toast, customer retries with corrected
+      // promo).
+      const subtotalDollars = svcs.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
+      let discountDollars = 0;
+      if (input.promo_code) {
+        const promoRes = await supabase
+          .from('promo_codes')
+          .select('type, value, expiration_date, one_time, redemptions')
+          .eq('shop_id', shop.id)
+          .eq('code', input.promo_code)
+          .limit(1);
+        const promo = ((promoRes.data as Array<{
+          type: 'percent' | 'fixed';
+          value: number;
+          expiration_date: string | null;
+          one_time: boolean;
+          redemptions: number;
+        }> | null) ?? [])[0];
+        if (
+          promo &&
+          (!promo.expiration_date || new Date(promo.expiration_date).getTime() >= Date.now()) &&
+          !(promo.one_time && promo.redemptions > 0)
+        ) {
+          const raw =
+            promo.type === 'percent' ? (subtotalDollars * promo.value) / 100 : promo.value;
+          discountDollars = Math.min(raw, subtotalDollars);
+        }
+      }
+      let totalDollars = subtotalDollars - discountDollars;
+      if (input.phone && totalDollars > 0) {
+        const phoneKey = input.phone.replace(/\D/g, '');
+        if (phoneKey.length >= 7) {
+          const clientRes = await supabase
+            .from('clients')
+            .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
+            .eq('shop_id', shop.id)
+            .ilike('phone', `%${phoneKey}%`)
+            .limit(1);
+          const row =
+            ((clientRes.data as Array<{
+              id: string;
+              loyalty_balance_cents: number | null;
+              loyalty_balance_expires_at: string | null;
+            }> | null) ?? [])[0] ?? null;
+          if (row) {
+            const effective = await effectiveLoyaltyBalanceCents({
+              clientId: row.id,
+              balanceCents: row.loyalty_balance_cents ?? 0,
+              expiresAt: row.loyalty_balance_expires_at,
+            });
+            // Mirror bookPublicAppointment's cents-based cap: credit
+            // can't drive total negative.
+            const runningCents = Math.round(totalDollars * 100);
+            const creditCents = Math.min(effective, runningCents);
+            totalDollars = Math.max(0, totalDollars - creditCents / 100);
+          }
+        }
+      }
+      depositCents = Math.round(totalDollars * 100);
+    } else {
+      depositCents = svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
+    }
+
     if (depositCents <= 0) {
-      // Even in 'full' mode this can happen if every service is free
-      // (price=0). 'deposit' mode hits this when no service has a
-      // deposit set.
+      // 'full' mode: every service was free OR discounts covered the
+      // entire price. 'deposit' mode: no service has a deposit set.
+      // Either way the widget skips PaymentElement.
       return ok({ kind: 'no_deposit' as const });
     }
 

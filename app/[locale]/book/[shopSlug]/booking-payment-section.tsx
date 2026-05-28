@@ -72,10 +72,24 @@ type Props = {
   /** Customer email — used as `receipt_email` on the PaymentIntent. */
   email: string;
   locale: 'fr' | 'en';
+  /**
+   * Phase D.3 — promo code currently typed in the wizard. In 'full'
+   * mode the server reduces the PI amount by the validated promo
+   * discount so the customer isn't overcharged. Re-fires the intent
+   * creation (debounced) when the value changes. In 'deposit' mode
+   * this is a no-op — the deposit is independent of promo codes.
+   */
+  promoCode: string;
+  /**
+   * Phase D.3 — phone for server-side loyalty balance lookup. Same
+   * semantics as `promoCode`: only consumed in 'full' mode, re-fires
+   * the intent on change.
+   */
+  phone: string;
 };
 
 export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>(
-  function BookingPaymentSection({ shopSlug, serviceIds, email, locale }, ref) {
+  function BookingPaymentSection({ shopSlug, serviceIds, email, locale, promoCode, phone }, ref) {
     const t = useTranslations('pages.booking.payment');
     const [state, setState] = useState<
       | { kind: 'loading' }
@@ -126,48 +140,69 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     // it; only the next effect run reads it.
     const lastPiRef = useRef<string | null>(null);
 
-    // Fire the server action once on mount (and whenever the set of
-    // services changes — a step-4 → step-2 → step-4 round-trip might
-    // change the selection). Bare `stripeClientConfigured` short-circuits
-    // when no publishable key is set so we don't even hit the server.
+    // Fire the server action on mount and whenever any input that
+    // affects the PI amount changes:
+    //   - serviceKey: selected services
+    //   - email: receipt_email
+    //   - promoCode / phone (Phase D.3): drive discount-aware amount
+    //     in 'full' mode. In 'deposit' mode the server ignores them
+    //     so the extra re-fires are harmless beyond a Stripe API call.
+    //
+    // Debounced via a 350ms timer so typing into the promo input
+    // doesn't fire one PI per keystroke. The cleanup cancels both
+    // the in-flight response handling AND the pending timer.
     useEffect(() => {
       if (!stripeClientConfigured()) {
         setState({ kind: 'no_deposit' });
         return;
       }
       let cancelled = false;
-      setState({ kind: 'loading' });
-      createBookingPaymentIntent({
-        shop_slug: shopSlug,
-        service_ids: serviceKey.split(',').filter(Boolean),
-        email,
-        existing_payment_intent_id: lastPiRef.current ?? undefined,
-      }).then((res) => {
+      // Don't blank to loading immediately on every keystroke — that
+      // would make the form flicker. We only show the loading
+      // skeleton on the very first mount; subsequent re-fires keep
+      // the previous Elements visible until the new clientSecret
+      // arrives. The Elements iframe itself doesn't gracefully
+      // re-mount with a new clientSecret post-confirmation, so we
+      // rely on the server's reuse path to keep the same PI when the
+      // amount didn't actually change.
+      setState((prev) => (prev.kind === 'ready' ? prev : { kind: 'loading' }));
+      const timer = setTimeout(() => {
         if (cancelled) return;
-        if (!res.ok) {
-          setState({ kind: 'error', message: 'INTENT_FAILED' });
-          return;
-        }
-        const payload = res.data as BookingPaymentIntentResult;
-        if (payload.kind === 'no_deposit') {
-          setState({ kind: 'no_deposit' });
-        } else if (payload.kind === 'shop_not_connected') {
-          setState({ kind: 'shop_not_connected' });
-        } else {
-          lastPiRef.current = payload.paymentIntentId;
-          setState({
-            kind: 'ready',
-            clientSecret: payload.clientSecret,
-            paymentIntentId: payload.paymentIntentId,
-            depositCents: payload.depositCents,
-            paymentMode: payload.paymentMode,
-          });
-        }
-      });
+        createBookingPaymentIntent({
+          shop_slug: shopSlug,
+          service_ids: serviceKey.split(',').filter(Boolean),
+          email,
+          existing_payment_intent_id: lastPiRef.current ?? undefined,
+          promo_code: promoCode || undefined,
+          phone: phone || undefined,
+        }).then((res) => {
+          if (cancelled) return;
+          if (!res.ok) {
+            setState({ kind: 'error', message: 'INTENT_FAILED' });
+            return;
+          }
+          const payload = res.data as BookingPaymentIntentResult;
+          if (payload.kind === 'no_deposit') {
+            setState({ kind: 'no_deposit' });
+          } else if (payload.kind === 'shop_not_connected') {
+            setState({ kind: 'shop_not_connected' });
+          } else {
+            lastPiRef.current = payload.paymentIntentId;
+            setState({
+              kind: 'ready',
+              clientSecret: payload.clientSecret,
+              paymentIntentId: payload.paymentIntentId,
+              depositCents: payload.depositCents,
+              paymentMode: payload.paymentMode,
+            });
+          }
+        });
+      }, 350);
       return () => {
         cancelled = true;
+        clearTimeout(timer);
       };
-    }, [shopSlug, serviceKey, email]);
+    }, [shopSlug, serviceKey, email, promoCode, phone]);
 
     useImperativeHandle(
       ref,
