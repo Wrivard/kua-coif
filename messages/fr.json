@@ -224,6 +224,8 @@
       "notes": "Notes",
       "cancelAppointment": "Annuler le rendez-vous",
       "cancelAndRefund": "Annuler et rembourser",
+      "refundOnly": "Rembourser",
+      "confirmRefund": "Rembourser le client sans annuler le rendez-vous ? L'opération est définitive et le client recevra le remboursement sous quelques jours ouvrables.",
       "statuses": {
         "booked": "Réservé",
         "confirmed": "Confirmé",
@@ -247,7 +249,8 @@
       "toasts": {
         "created": "Rendez-vous créé",
         "cancelled": "Rendez-vous annulé",
-        "cancelledAndRefunded": "Rendez-vous annulé et remboursé"
+        "cancelledAndRefunded": "Rendez-vous annulé et remboursé",
+        "refunded": "Remboursement effectué"
       }
     },
     "clients": {

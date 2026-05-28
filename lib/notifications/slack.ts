@@ -123,9 +123,60 @@ export async function sendSlackBookingNotification(
  * Fire-and-forget like the booking notifier; failures captured to
  * Sentry but never thrown. The dispute row in the `disputes` table is
  * the authoritative record; Slack is just the alert.
+ *
+ * Phase B SR (audit fix) — `reason` is now mapped to human-readable
+ * text instead of the raw Stripe enum, and the whole notification
+ * branches on `locale` so shops with `default_language='en'` get
+ * English copy (matches the per-shop locale resolution used by the
+ * reminder + birthday crons).
  */
+
+/**
+ * Map Stripe's dispute `reason` enum to human-readable text per locale.
+ * Stripe's set is documented at
+ * https://stripe.com/docs/api/disputes/object#dispute_object-reason.
+ * Anything unrecognized falls back to the raw enum value (safer than
+ * a blank message — gives the operator something to search for).
+ */
+function disputeReasonText(reason: string, locale: 'fr' | 'en'): string {
+  const fr: Record<string, string> = {
+    duplicate: 'Transaction en double',
+    fraudulent: 'Fraude alléguée',
+    subscription_canceled: 'Abonnement annulé',
+    product_unacceptable: 'Produit inacceptable',
+    product_not_received: 'Produit non reçu',
+    unrecognized: 'Transaction non reconnue',
+    credit_not_processed: 'Crédit non traité',
+    general: 'Motif général',
+    incorrect_account_details: 'Détails du compte incorrects',
+    insufficient_funds: 'Fonds insuffisants',
+    bank_cannot_process: 'Banque ne peut traiter',
+    debit_not_authorized: 'Débit non autorisé',
+    customer_initiated: 'Initié par le client',
+  };
+  const en: Record<string, string> = {
+    duplicate: 'Duplicate transaction',
+    fraudulent: 'Alleged fraud',
+    subscription_canceled: 'Subscription canceled',
+    product_unacceptable: 'Product unacceptable',
+    product_not_received: 'Product not received',
+    unrecognized: 'Unrecognized transaction',
+    credit_not_processed: 'Credit not processed',
+    general: 'General',
+    incorrect_account_details: 'Incorrect account details',
+    insufficient_funds: 'Insufficient funds',
+    bank_cannot_process: 'Bank cannot process',
+    debit_not_authorized: 'Debit not authorized',
+    customer_initiated: 'Customer initiated',
+  };
+  const table = locale === 'en' ? en : fr;
+  return table[reason] ?? reason;
+}
+
 export type SlackDisputePayload = {
   shopName: string;
+  /** Per-shop locale resolution (see `shop.default_language`). */
+  locale: 'fr' | 'en';
   amount: number; // dollars (not cents)
   reason: string; // Stripe enum value, e.g. 'fraudulent', 'product_not_received'
   evidenceDueByIso: string | null;
@@ -138,21 +189,41 @@ export async function sendSlackDisputeNotification(
 ): Promise<boolean> {
   if (!webhookUrl || !webhookUrl.startsWith('https://')) return false;
 
-  const amountFormatted = new Intl.NumberFormat('fr-CA', {
+  const intlLocale = payload.locale === 'en' ? 'en-CA' : 'fr-CA';
+  const amountFormatted = new Intl.NumberFormat(intlLocale, {
     style: 'currency',
     currency: 'CAD',
   }).format(payload.amount);
-  const dueLine = payload.evidenceDueByIso
-    ? `⏰ *Réponse requise avant* ${new Date(payload.evidenceDueByIso).toLocaleString('fr-CA', {
+  const dueFormatted = payload.evidenceDueByIso
+    ? new Date(payload.evidenceDueByIso).toLocaleString(intlLocale, {
         timeZone: 'America/Toronto',
         dateStyle: 'short',
         timeStyle: 'short',
-      })}`
-    : '⏰ Délai de réponse : voir le tableau de bord Stripe';
+      })
+    : null;
+
+  const reasonText = disputeReasonText(payload.reason, payload.locale);
+
+  let dueLine: string;
+  let headline: string;
+  let reasonLabel: string;
+  if (payload.locale === 'en') {
+    headline = `🚨 *Chargeback received* — ${amountFormatted}`;
+    reasonLabel = 'Reason';
+    dueLine = dueFormatted
+      ? `⏰ *Response required by* ${dueFormatted}`
+      : '⏰ Response deadline: see Stripe dashboard';
+  } else {
+    headline = `🚨 *Contestation reçue (chargeback)* — ${amountFormatted}`;
+    reasonLabel = 'Motif';
+    dueLine = dueFormatted
+      ? `⏰ *Réponse requise avant* ${dueFormatted}`
+      : '⏰ Délai de réponse : voir le tableau de bord Stripe';
+  }
 
   const text =
-    `🚨 *Contestation reçue (chargeback)* — ${amountFormatted}\n` +
-    `📋 Motif : ${payload.reason}\n` +
+    `${headline}\n` +
+    `📋 ${reasonLabel} : ${reasonText}\n` +
     `${dueLine}\n` +
     `🔗 ${payload.stripeDashboardUrl}`;
 

@@ -64,32 +64,45 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // 3. Phase B — event-ID dedupe. Stripe retries failed deliveries for
   //    up to 3 days; without this guard, the same event can arrive
-  //    twice and we'd re-apply the handler. INSERT ... ON CONFLICT DO
-  //    NOTHING gives us at-most-once semantics: if 0 rows inserted, we
-  //    already processed this event and return 200 immediately.
+  //    twice and we'd re-apply the handler.
   //
-  //    The dedupe row goes in BEFORE the handler runs, which means a
-  //    handler failure that returns 500 (triggering Stripe retry) will
-  //    find the dedupe row already present on the next attempt and
-  //    skip. That's fine for transient failures (we've recorded that
-  //    we saw the event; the data side may catch up via reconciliation
-  //    later) and CORRECT for permanent failures (a malformed payload
-  //    we couldn't handle shouldn't be re-attempted forever).
+  //    Phase B SR (audit fix) — the original check was
+  //    `data.length === 0 && !error`, which assumed Supabase would
+  //    return an empty array on conflict. Reality: Postgres raises
+  //    a unique_violation (code 23505) and Supabase forwards it as
+  //    `{ data: null, error: { code: '23505', ... } }`. So the old
+  //    check fell through to the handler and the dedupe never
+  //    actually held — idempotency was nominal.
+  //
+  //    Correct pattern: branch on `error.code === '23505'`. Any other
+  //    error is a real DB problem; we log it but proceed to the
+  //    handler ("fail open" — better to risk processing an event
+  //    twice than drop a `charge.refunded` and leave money out of
+  //    sync).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createSupabaseServiceRoleClient() as any;
   const dedupeRes = await admin
     .from('stripe_events')
     .insert({ id: event.id, event_type: event.type })
     .select('id');
-  // PostgreSQL returns the inserted rows in .data. On conflict (already
-  // exists), insert+select returns empty data without error. We rely
-  // on data.length === 0 as the "already processed" signal.
-  if (
-    Array.isArray((dedupeRes as { data?: unknown[] }).data) &&
-    ((dedupeRes as { data: unknown[] }).data?.length ?? 0) === 0 &&
-    !(dedupeRes as { error: unknown }).error
-  ) {
-    return NextResponse.json({ ok: true, skipped: 'already_processed' });
+  const dedupeError = (dedupeRes as { error: { code?: string; message?: string } | null }).error;
+  if (dedupeError) {
+    if (dedupeError.code === '23505') {
+      // Already processed — Stripe retried an event we already saw.
+      // At-most-once delivery semantics held; return 200 immediately
+      // so Stripe stops retrying.
+      return NextResponse.json({ ok: true, skipped: 'already_processed' });
+    }
+    // Some other DB issue (timeout, connection blip, RLS mis-grant).
+    // Log it for visibility but proceed to the handler — we'd rather
+    // re-process an event than miss one.
+    captureException(
+      new Error(`[stripe-webhook] dedupe insert failed: ${dedupeError.message ?? 'unknown'}`),
+      {
+        tags: { layer: 'stripe-webhook', stage: 'dedupe' },
+        extra: { eventId: event.id, eventType: event.type, code: dedupeError.code ?? '' },
+      },
+    );
   }
 
   // 4. Route by event type. Defensive switch — unknown events return 200
@@ -240,23 +253,29 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
   let appointmentId: string | null = null;
   let slackWebhookUrl: string | null = null;
   let shopName: string | null = null;
+  let shopLocale: 'fr' | 'en' = 'fr';
 
   if (intentId) {
     const apptRes = await admin
       .from('appointments')
-      .select('id, shop_id, shop:shops(name, slack_webhook_url)')
+      .select('id, shop_id, shop:shops(name, slack_webhook_url, default_language)')
       .eq('payment_intent_id', intentId)
       .limit(1);
     const row = ((apptRes.data as Array<{
       id: string;
       shop_id: string;
-      shop: { name: string; slack_webhook_url: string | null } | null;
+      shop: {
+        name: string;
+        slack_webhook_url: string | null;
+        default_language: string | null;
+      } | null;
     }> | null) ?? [])[0];
     if (row) {
       appointmentId = row.id;
       shopId = row.shop_id;
       shopName = row.shop?.name ?? null;
       slackWebhookUrl = row.shop?.slack_webhook_url ?? null;
+      shopLocale = row.shop?.default_language === 'en' ? 'en' : 'fr';
     }
   }
 
@@ -298,6 +317,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
   if (isCreated && slackWebhookUrl) {
     void sendSlackDisputeNotification(slackWebhookUrl, {
       shopName: shopName ?? 'Unknown shop',
+      locale: shopLocale,
       amount: dispute.amount / 100,
       reason: dispute.reason,
       evidenceDueByIso: dispute.evidence_details?.due_by

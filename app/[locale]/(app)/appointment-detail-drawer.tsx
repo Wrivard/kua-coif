@@ -2,13 +2,13 @@
 
 import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarSync, Link2, Receipt, Sparkles, Star } from 'lucide-react';
+import { CalendarSync, Link2, Receipt, RotateCcw, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
 import { useToast } from '@/components/ui/toast';
 import { formatShopTime } from '@/lib/business/timezone';
-import { cancelAppointment } from './actions';
+import { cancelAppointment, refundAppointment } from './actions';
 import { generatePublicLinks } from './actions-public-links';
 import type { CalendarAppointment } from './appointments-calendar';
 
@@ -43,6 +43,29 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
           variant: 'success',
           title: alsoRefund ? t('toasts.cancelledAndRefunded') : t('toasts.cancelled'),
         });
+        onClose();
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  // Phase C — standalone refund (no cancel). Use case: deposit was
+  // collected but the operator wants to refund it AND keep the
+  // appointment on the calendar (e.g. customer disputes the deposit
+  // policy but still plans to come in), OR the appointment was
+  // already cancelled WITHOUT refund and the operator wants to refund
+  // after the fact. Both cases hit `refundAppointment` directly.
+  //
+  // Confirms once — refunds are not reversible from this UI (the
+  // operator would need to call `chargeAppointment` to re-charge).
+  function onRefund() {
+    if (!appointment) return;
+    if (!confirm(t('confirmRefund'))) return;
+    startTransition(async () => {
+      const result = await refundAppointment({ id: appointment.id });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.refunded') });
         onClose();
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
@@ -114,20 +137,32 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
       onClose={onClose}
       title={t('detailTitle')}
       footer={
-        // Loop 25 — split into two buttons when the appointment was
-        // paid. "Cancel & refund" handles the chargeback-avoidance
-        // pattern in one action; plain "Cancel" stays for the unpaid
-        // case (most appointments). When already cancelled, no footer.
+        // Loop 25 / Phase C — three states:
+        //   - active appointment: Cancel + (when paid) Refund + Cancel & Refund
+        //   - cancelled but paid: standalone Refund only (audit gap closed —
+        //     `refundAppointment` was exported but never callable from UI)
+        //   - cancelled + already refunded/unpaid: no footer
         appointment && !isCancelled ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
               {t('cancelAppointment')}
             </Button>
             {canRefund ? (
-              <Button variant="danger" onClick={() => onCancel(true)} loading={isPending}>
-                {t('cancelAndRefund')}
-              </Button>
+              <>
+                <Button variant="secondary" onClick={onRefund} disabled={isPending}>
+                  <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
+                </Button>
+                <Button variant="danger" onClick={() => onCancel(true)} loading={isPending}>
+                  {t('cancelAndRefund')}
+                </Button>
+              </>
             ) : null}
+          </div>
+        ) : appointment && isCancelled && canRefund ? (
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={onRefund} loading={isPending}>
+              <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
+            </Button>
           </div>
         ) : null
       }

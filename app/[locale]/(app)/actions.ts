@@ -1000,7 +1000,11 @@ export const chargeAppointment = withAction<
       shop_id: string;
       payment_intent_id: string | null;
       payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
-      client_id: string;
+      // Phase C — `client_id` is nullable on walk-in appointments
+      // (Phase 72). The original `chargeAppointment` was written
+      // before that change and assumed non-null; the type now
+      // reflects reality and the email lookup below is null-guarded.
+      client_id: string | null;
     } | null;
     const shop = shopRes.data as {
       stripe_account_id: string | null;
@@ -1019,16 +1023,26 @@ export const chargeAppointment = withAction<
       return err('CONFLICT', { payment: 'already_paid' });
     }
 
-    // Pull the client's email so Stripe can mail them a receipt.
-    const clientRes = await sb.from('clients').select('email').eq('id', appt.client_id).single();
-    const client = clientRes.data as { email: string | null } | null;
+    // Phase C — pull the client's email so Stripe can mail them a
+    // receipt, BUT skip the lookup for walk-ins (Phase 72 made
+    // `client_id` nullable). Without this guard the `.single()` blew
+    // up with `PGRST116` (no rows) on every walk-in charge attempt,
+    // which the audit flagged as a usability regression — the
+    // exported action existed but couldn't actually be called from
+    // any walk-in flow.
+    let customerEmail: string | undefined;
+    if (appt.client_id) {
+      const clientRes = await sb.from('clients').select('email').eq('id', appt.client_id).single();
+      const client = clientRes.data as { email: string | null } | null;
+      customerEmail = client?.email ?? undefined;
+    }
 
     try {
       const intent = await createDepositPaymentIntent({
         connectedAccountId: shop.stripe_account_id,
         appointmentId: appt.id,
         amountCents: input.amount_cents,
-        customerEmail: client?.email ?? undefined,
+        customerEmail,
       });
       // Persist the intent ID + flip status to 'pending'. Webhook flips
       // to 'paid' on success — until then, the UI shows "Pending payment."

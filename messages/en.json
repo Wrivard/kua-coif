@@ -222,6 +222,8 @@
       "notes": "Notes",
       "cancelAppointment": "Cancel appointment",
       "cancelAndRefund": "Cancel & refund",
+      "refundOnly": "Refund",
+      "confirmRefund": "Refund the customer without cancelling the appointment? This is final and the customer will receive the refund in a few business days.",
       "statuses": {
         "booked": "Booked",
         "confirmed": "Confirmed",
@@ -245,7 +247,8 @@
       "toasts": {
         "created": "Appointment created",
         "cancelled": "Appointment cancelled",
-        "cancelledAndRefunded": "Cancelled and refunded"
+        "cancelledAndRefunded": "Cancelled and refunded",
+        "refunded": "Refund issued"
       }
     },
     "clients": {
