@@ -38,6 +38,7 @@ export function MobileSidebar({
   activeShopId = null,
   activeShopName = null,
   shopRows = [],
+  isKuaAdmin = false,
 }: {
   locale: string;
   user: SidebarUser | null;
@@ -48,6 +49,9 @@ export function MobileSidebar({
   activeShopId?: string | null;
   activeShopName?: string | null;
   shopRows?: Array<{ shop_id: string; name: string }>;
+  /** Phase H+4 — same prop as the desktop sidebar. Renders the
+   *  "Küa admin" item at the bottom of the nav when true. */
+  isKuaAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -168,6 +172,7 @@ export function MobileSidebar({
             currentPath={currentPath}
             expanded={true}
             hideProducts={hideProducts}
+            isKuaAdmin={isKuaAdmin}
             onNavigate={() => setOpen(false)}
           />
         </aside>

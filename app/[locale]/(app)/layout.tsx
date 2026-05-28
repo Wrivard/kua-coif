@@ -9,6 +9,7 @@ import {
   getCurrentShop,
   getCurrentShopId,
   getCurrentUser,
+  getIsKuaAdmin,
   getShopMemberships,
 } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -27,12 +28,14 @@ export default async function AppShellLayout({
   // ordering dependency on each other. `getCurrentShop` is the single
   // request-cached read of the shops table (id, name, timezone, industry)
   // that downstream pages will re-use without re-querying.
-  const [user, tA11y, shop, memberships, activeShopId] = await Promise.all([
+  const [user, tA11y, shop, memberships, activeShopId, isKuaAdmin] = await Promise.all([
     getCurrentUser(),
     getTranslations({ locale, namespace: 'a11y' }),
     getCurrentShop(),
     getShopMemberships(),
     getCurrentShopId(),
+    // Phase H+4 — drives the "Küa admin" sidebar item visibility.
+    getIsKuaAdmin(),
   ]);
 
   // Resolve the shop's industry → drives nav-item visibility (Phase 23).
@@ -131,6 +134,7 @@ export default async function AppShellLayout({
                   activeShopId={activeShopId}
                   activeShopName={activeShopName}
                   shopRows={shopRows}
+                  isKuaAdmin={isKuaAdmin}
                 />
                 <MobileSidebar
                   locale={locale}
@@ -139,6 +143,7 @@ export default async function AppShellLayout({
                   activeShopId={activeShopId}
                   activeShopName={activeShopName}
                   shopRows={shopRows}
+                  isKuaAdmin={isKuaAdmin}
                 />
               </>
             );

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * across tenants — gated by `requireKuaAdmin` which ensures only Küa team
  * members reach the page.
  */
-export default async function AdminShopsPage() {
+export default async function AdminShopsPage({ params }: { params: { locale: string } }) {
   await requireKuaAdmin();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +49,7 @@ export default async function AdminShopsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Shops</h1>
         <Link
-          href="/admin/shops/new"
+          href={`/${params.locale}/super-admin/shops/new`}
           className="inline-flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
         >
           <Plus className="h-4 w-4" /> Create shop

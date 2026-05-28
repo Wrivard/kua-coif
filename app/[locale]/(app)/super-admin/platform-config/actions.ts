@@ -74,7 +74,9 @@ export async function updatePlatformAppFee(
     // Flip the in-memory cache so the next PI mint reads the new
     // value immediately instead of waiting up to 30s.
     invalidatePlatformConfigCache();
-    revalidatePath('/admin/platform-config');
+    // Phase H+4 — page moved under the locale-prefixed shell.
+    revalidatePath('/[locale]/(app)/super-admin/platform-config', 'page');
+    revalidatePath('/[locale]/(app)/super-admin', 'page');
     revalidatePath('/[locale]/(app)/settings/payments', 'page');
     return { kind: 'saved', appFeeBps: bps };
   } catch (e) {

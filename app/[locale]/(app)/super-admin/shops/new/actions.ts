@@ -252,5 +252,10 @@ export async function createShopAction(
     return { kind: 'error', message: err instanceof Error ? err.message : 'Unknown error' };
   }
 
-  redirect('/admin/shops');
+  // Phase H+4 — the super-admin shell moved under the locale prefix.
+  // We can't easily read the current locale from a Server Action without
+  // threading it through the form, so we redirect to the FR variant
+  // (the super-admin UI is monolingual and the operator can flip the
+  // locale switcher in the sidebar afterward).
+  redirect('/fr/super-admin/shops');
 }

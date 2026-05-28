@@ -4,7 +4,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, ChevronDown, ChevronsLeft, ChevronsRight, Globe, LogOut } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  Globe,
+  LogOut,
+  ShieldCheck,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { isItemActive, NAV_ITEMS, stripLocale, type NavItem } from '@/lib/nav-items';
@@ -40,6 +48,13 @@ type Props = {
    * when the user has a single shop (no switcher rendered then).
    */
   shopRows?: Array<{ shop_id: string; name: string }>;
+  /**
+   * Phase H+4 — when true, the sidebar renders an extra "Küa admin"
+   * item at the bottom of the nav that links to /[locale]/super-admin.
+   * Read from `profiles.is_kua_admin` server-side; never inferred from
+   * the client. False for everyone else (the item simply doesn't render).
+   */
+  isKuaAdmin?: boolean;
 };
 
 /**
@@ -55,6 +70,7 @@ export function Sidebar({
   activeShopId = null,
   activeShopName = null,
   shopRows = [],
+  isKuaAdmin = false,
 }: Props) {
   const pathname = usePathname();
   const t = useTranslations('nav');
@@ -104,6 +120,7 @@ export function Sidebar({
         currentPath={currentPath}
         expanded={expanded}
         hideProducts={hideProducts}
+        isKuaAdmin={isKuaAdmin}
       />
     </aside>
   );
@@ -263,6 +280,7 @@ export function SidebarNavInner({
   currentPath,
   expanded,
   hideProducts = false,
+  isKuaAdmin = false,
   onNavigate,
 }: {
   locale: string;
@@ -270,6 +288,7 @@ export function SidebarNavInner({
   currentPath: string;
   expanded: boolean;
   hideProducts?: boolean;
+  isKuaAdmin?: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations('nav');
@@ -294,6 +313,20 @@ export function SidebarNavInner({
               />
             </li>
           ))}
+          {/* Phase H+4 — Küa-team super-admin link, server-gated on
+              `profiles.is_kua_admin`. Renders nothing for everyone else
+              so the shop owners + barbers never see it. Active when the
+              current path is under /super-admin. */}
+          {isKuaAdmin ? (
+            <li className="mt-2 border-t border-border pt-2">
+              <KuaAdminLink
+                href={`${localePrefix}/super-admin`}
+                active={currentPath.startsWith('/super-admin')}
+                expanded={expanded}
+                onClick={onNavigate}
+              />
+            </li>
+          ) : null}
         </ul>
       </nav>
 
@@ -396,6 +429,47 @@ function LocaleSwitcher({
           {locale.toUpperCase()} → {other.toUpperCase()}
         </span>
       ) : null}
+    </Link>
+  );
+}
+
+function KuaAdminLink({
+  href,
+  active,
+  expanded,
+  onClick,
+}: {
+  href: string;
+  active: boolean;
+  expanded: boolean;
+  onClick?: () => void;
+}) {
+  const label = 'Küa admin';
+  return (
+    <Link
+      href={href}
+      title={expanded ? undefined : label}
+      aria-current={active ? 'page' : undefined}
+      onClick={onClick}
+      className={cn(
+        'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+        active
+          ? 'bg-accent-subtle text-accent shadow-accent-glow'
+          : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
+          active ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+      <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center">
+        <ShieldCheck className="h-5 w-5" />
+      </span>
+      {expanded ? <span className="truncate text-sm font-medium">{label}</span> : null}
     </Link>
   );
 }
