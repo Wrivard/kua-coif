@@ -13,6 +13,7 @@ import { checkAvailability, type ExistingAppointment } from '@/lib/business/avai
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
+import { signToken } from '@/lib/security/signed-tokens';
 import { stripeConfigured } from '@/lib/stripe/server';
 import {
   createDepositPaymentIntent,
@@ -767,6 +768,23 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .filter(Boolean)
         .join(', ');
 
+      // Phase G SR — mint a /me self-service link so the customer can
+      // cancel/reschedule directly instead of having to call the salon.
+      // The token signs the client_id (kind='me') and expires in 365
+      // days, matching the admin's `generatePublicLinks` defaults.
+      // When `clientId` is somehow missing we fall back to the original
+      // "contact the salon" outro — the template handles meUrl=null.
+      let meUrl: string | null = null;
+      if (clientId) {
+        const meToken = signToken({
+          kind: 'me',
+          resourceId: clientId,
+          expiresInSeconds: 60 * 60 * 24 * 365,
+        });
+        const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+        meUrl = `${base}/${input.locale}/me/${meToken}`;
+      }
+
       // The dispatcher (Phase 25) handles three gates internally:
       //   - `notification_automations.enabled === false` → silent skip
       //   - shop has SMTP configured → ship from the salon's own domain
@@ -798,6 +816,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
             services: services.map((s) => ({ name: s.name, durationMin: s.duration_min })),
             totalAmount,
             professionalName,
+            // Phase G SR — surface the self-service link so the email's
+            // outro becomes a "Manage my appointment" CTA. Null when
+            // we couldn't mint a token (no client_id).
+            meUrl,
           },
         }),
         tags: [

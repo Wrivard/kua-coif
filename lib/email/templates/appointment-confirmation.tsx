@@ -49,6 +49,14 @@ export type AppointmentConfirmationProps = {
     totalAmount: number;
     /** Optional staff name — when null we use the locale's "any pro" label. */
     professionalName: string | null;
+    /**
+     * Phase G SR — full URL to the /me self-service page (signed token
+     * baked in). When provided, the outro tells the customer they can
+     * cancel from there instead of having to contact the salon, which
+     * gives the Phase G self-cancel feature its reach. Null for walk-ins
+     * or when the action couldn't mint a token.
+     */
+    meUrl?: string | null;
   };
 };
 
@@ -82,6 +90,12 @@ const t = (locale: 'fr' | 'en') =>
         addressLabel: 'Adresse',
         phoneLabel: 'Téléphone',
         outro: 'Si tu dois reporter ou annuler, contacte directement le salon. À bientôt !',
+        // Phase G SR — alt outro shown when a /me self-service URL is
+        // included. Customer can cancel from there (with the refund
+        // policy applied automatically) instead of calling the salon.
+        outroWithMeUrl:
+          'Tu peux annuler ou consulter tes rendez-vous depuis ton espace personnel. À bientôt !',
+        manageLabel: 'Gérer mon rendez-vous',
         signature: "— L'équipe",
         minutes: 'min',
       }
@@ -98,6 +112,9 @@ const t = (locale: 'fr' | 'en') =>
         addressLabel: 'Address',
         phoneLabel: 'Phone',
         outro: 'If you need to reschedule or cancel, contact the shop directly. See you soon!',
+        outroWithMeUrl:
+          'You can cancel or view your appointments from your personal space. See you soon!',
+        manageLabel: 'Manage my appointment',
         signature: '— The team',
         minutes: 'min',
       };
@@ -260,9 +277,43 @@ export function AppointmentConfirmation({
             </Section>
           ) : null}
 
-          <Text style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}>
-            {L.outro}
-          </Text>
+          {/* Phase G SR — when the action minted a /me self-service link,
+              swap the "contact the shop" outro for a self-service CTA so
+              the customer can cancel/reschedule directly. The link is a
+              signed URL valid 365 days; minted in bookPublicAppointment
+              right after the appointment insert succeeds. */}
+          {appointment.meUrl ? (
+            <>
+              <Text
+                style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
+              >
+                {L.outroWithMeUrl}
+              </Text>
+              <Section style={{ marginTop: 12 }}>
+                <a
+                  href={appointment.meUrl}
+                  style={{
+                    backgroundColor: palette.accent,
+                    borderRadius: 6,
+                    color: '#ffffff',
+                    display: 'inline-block',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    padding: '10px 16px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {L.manageLabel}
+                </a>
+              </Section>
+            </>
+          ) : (
+            <Text
+              style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
+            >
+              {L.outro}
+            </Text>
+          )}
           <Text style={{ color: palette.textMuted, fontSize: 13, marginTop: 16 }}>
             {L.signature} {shop.name}
           </Text>

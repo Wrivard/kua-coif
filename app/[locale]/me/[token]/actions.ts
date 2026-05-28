@@ -351,12 +351,17 @@ export async function cancelMyAppointment(
     // refresh. The dispatcher itself gates on
     // `notification_automations.cancellation`, so we don't double-gate.
     try {
+      // Phase G SR — dead-code cleanup. The IDOR check earlier
+      // (`appt.client_id !== payload.resourceId → NOT_FOUND`) guarantees
+      // `appt.client_id` is the payload's UUID by the time we get here.
+      // The original `?? '00000000-...'` fallback was unreachable. The
+      // assertion documents the invariant for TS narrowing and any
+      // future reader.
+      if (!appt.client_id) {
+        throw new Error('unreachable: client_id null after IDOR check');
+      }
       const [clientRes, servicesRes, shopRes] = await Promise.all([
-        supabase
-          .from('clients')
-          .select('first_name, email')
-          .eq('id', appt.client_id ?? '00000000-0000-0000-0000-000000000000')
-          .single(),
+        supabase.from('clients').select('first_name, email').eq('id', appt.client_id).single(),
         supabase
           .from('appointment_services')
           .select('services(name)')
