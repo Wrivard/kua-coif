@@ -213,9 +213,19 @@ async function applyEmbedSecurityHeaders(response: NextResponse, shopSlug: strin
 // ---------------------------------------------------------------------------
 
 export async function middleware(request: NextRequest) {
-  // 1. next-intl handles the locale segment (redirects /foo → /fr/foo etc.).
-  //    Whatever response it produces is the base we'll mutate.
-  const response = handleI18n(request);
+  const pathname = request.nextUrl.pathname;
+
+  // Phase H+3 — the Küa super-admin routes live OUTSIDE the locale shell
+  // (see `app/admin/layout.tsx` rationale). They're intentionally NOT
+  // bilingual, so next-intl mustn't redirect `/admin` → `/fr/admin`
+  // (which doesn't exist → 404). Skip the i18n leg for those paths but
+  // KEEP the Supabase session refresh + the auth gate below, so a logged-
+  // out user hitting `/admin` still bounces to /login.
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+
+  // 1. next-intl handles the locale segment (redirects /foo → /fr/foo etc.)
+  //    for everything EXCEPT the admin shell.
+  const response = isAdminRoute ? NextResponse.next() : handleI18n(request);
 
   // If next-intl already issued a redirect, just refresh the session on top of
   // it and let the redirect happen — no point gating against an unauthenticated
@@ -227,8 +237,6 @@ export async function middleware(request: NextRequest) {
 
   // 2. Refresh the Supabase session and learn who's logged in.
   const { user, skipped } = await refreshSupabaseSession(request, response);
-
-  const pathname = request.nextUrl.pathname;
 
   // 3. Embed routes get their own dynamic CSP (Phase 20). We compute it even
   //    when Supabase is "skipped" — `resolveEmbedAllowedOrigins` handles that
