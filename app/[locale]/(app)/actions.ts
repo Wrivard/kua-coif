@@ -575,6 +575,57 @@ export const cancelAppointment = withAction({
       start_at: string;
     } | null;
 
+    // Phase D — cancellation-policy gate on the auto-refund leg.
+    //
+    // Rule: if the appointment starts within `mins_cancel_before_appt`
+    // minutes of now, the customer has missed the policy window and
+    // the salon keeps the money. Admin can still force the refund
+    // (e.g., goodwill gesture, the customer called in sick, etc.) but
+    // they have to acknowledge the override via `force_refund: true`.
+    //
+    // We only gate when `also_refund=true` because the standalone
+    // refund button is explicit admin discretion. The flag is checked
+    // BEFORE the refund call so we don't move money against policy.
+    //
+    // Settings precedence: barber override (matches `pre.barber_id`)
+    // beats shop default. If neither row exists we fall back to a
+    // conservative 0-minute window (no policy = refund proceeds).
+    if (
+      input.also_refund &&
+      !input.force_refund &&
+      pre?.payment_status === 'paid' &&
+      pre?.payment_intent_id
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = rawDb() as any;
+      const settingsRes = await sb
+        .from('barber_settings')
+        .select('scope, barber_id, mins_cancel_before_appt')
+        .eq('shop_id', ctx.shopId);
+      const rows =
+        (settingsRes.data as Array<{
+          scope: 'shop' | 'barber';
+          barber_id: string | null;
+          mins_cancel_before_appt: number;
+        }> | null) ?? [];
+      const override = rows.find((r) => r.scope === 'barber' && r.barber_id === pre.barber_id);
+      const fallback = rows.find((r) => r.scope === 'shop');
+      const minsBefore = (override ?? fallback)?.mins_cancel_before_appt ?? 0;
+      if (minsBefore > 0) {
+        const startMs = new Date(pre.start_at).getTime();
+        const cutoffMs = startMs - minsBefore * 60_000;
+        if (Date.now() >= cutoffMs) {
+          // Within the no-refund window — reject. The client will
+          // re-prompt the admin with a "force refund" confirmation
+          // and retry with `force_refund: true`.
+          return err('INVALID_INPUT', {
+            refund_policy: 'within_no_refund_window',
+            mins_cancel_before_appt: String(minsBefore),
+          });
+        }
+      }
+    }
+
     // Loop 25 — "Cancel & Refund" combo (P1.12 audit). When the
     // caller sets `also_refund` AND the appointment is actually paid,
     // we fire the refund FIRST (irreversible toward the customer —
@@ -601,7 +652,15 @@ export const cancelAppointment = withAction({
           action: 'update',
           entity: 'appointments',
           entityId: input.id,
-          diff: { refunded: true, source: 'cancel-and-refund' },
+          // Phase D — `force_refund` flagged in the audit log so the
+          // owner can later trace out-of-policy refunds (e.g., when
+          // reviewing chargebacks or accountant questions). Only
+          // present when true to keep the log payload small.
+          diff: {
+            refunded: true,
+            source: 'cancel-and-refund',
+            ...(input.force_refund ? { force_refund: true } : {}),
+          },
         });
       } catch (e) {
         captureException(e, {

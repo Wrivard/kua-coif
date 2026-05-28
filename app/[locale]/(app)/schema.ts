@@ -33,6 +33,17 @@ export const cancelAppointmentSchema = z.object({
    * risk identified in AUDIT_PHASE70 P1.12).
    */
   also_refund: z.boolean().optional().default(false),
+  /**
+   * Phase D — explicit override for the cancellation-policy window.
+   * When `also_refund=true` and the appointment starts within the
+   * shop's `mins_cancel_before_appt` window, the policy says the
+   * customer forfeits their refund. The action rejects the refund in
+   * that case UNLESS the admin explicitly sets this flag (i.e., they
+   * acknowledged the "this is past the policy, refund anyway?" dialog).
+   * Audit log records the override so we have a paper trail of
+   * out-of-policy refunds.
+   */
+  force_refund: z.boolean().optional().default(false),
 });
 
 /** Phase 38 — charge a deposit on an appointment. Amount is in cents. */

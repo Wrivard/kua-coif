@@ -28,7 +28,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
 
   const isCancelled = appointment?.status === 'cancelled' || appointment?.status === 'no_show';
 
-  function onCancel(alsoRefund: boolean = false) {
+  function onCancel(alsoRefund: boolean = false, forceRefund: boolean = false) {
     if (!appointment) return;
     // Loop 25 — owner intent: "I'm just cancelling" vs "Cancel and
     // refund the customer." When `alsoRefund=true`, the cancel action
@@ -36,17 +36,45 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
     // order) then marks the row cancelled. Refund failure doesn't
     // block the cancel — the owner gets a toast and can retry the
     // refund via the standalone refund flow.
+    //
+    // Phase D — the refund policy gate. When the appointment is
+    // within `mins_cancel_before_appt` of start time, the action
+    // rejects the auto-refund with `INVALID_INPUT` +
+    // `fieldErrors.refund_policy='within_no_refund_window'`. We
+    // catch that here, ask the operator if they want to force the
+    // refund despite the policy, and retry with `force_refund=true`.
+    // The forced refund still flows through Stripe normally — the
+    // policy is salon-side, not Stripe-side.
     startTransition(async () => {
-      const result = await cancelAppointment({ id: appointment.id, also_refund: alsoRefund });
+      const result = await cancelAppointment({
+        id: appointment.id,
+        also_refund: alsoRefund,
+        force_refund: forceRefund,
+      });
       if (result.ok) {
         show({
           variant: 'success',
           title: alsoRefund ? t('toasts.cancelledAndRefunded') : t('toasts.cancelled'),
         });
         onClose();
-      } else {
-        show({ variant: 'danger', title: tErr(result.errorCode) });
+        return;
       }
+      // Policy-gate branch: re-prompt with the policy message and
+      // retry forced if the operator confirms.
+      if (
+        result.errorCode === 'INVALID_INPUT' &&
+        result.fieldErrors?.refund_policy === 'within_no_refund_window'
+      ) {
+        const mins = Number(result.fieldErrors?.mins_cancel_before_appt ?? 0);
+        // i18n key carries the threshold via ICU so we render
+        // "X hours / Y minutes" depending on the size.
+        const prompt = t('confirmForceRefund', { mins });
+        if (confirm(prompt)) {
+          onCancel(alsoRefund, true);
+        }
+        return;
+      }
+      show({ variant: 'danger', title: tErr(result.errorCode) });
     });
   }
 
