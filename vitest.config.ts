@@ -15,6 +15,6 @@ export default defineConfig({
     include: ['**/*.test.{ts,tsx}'],
     // Business rules and pure utils live next to their tests; UI tests can
     // come later. We keep this list narrow so a `npm test` stays fast.
-    exclude: ['node_modules', '.next', 'dist', 'build'],
+    exclude: ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/build/**', '**/.oryon/**'],
   },
 });
