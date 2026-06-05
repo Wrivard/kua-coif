@@ -579,6 +579,61 @@
       "title": "Finances",
       "soon": "Rapports, revenus, payouts — Phase 7.",
       "todayLink": "Bilan quotidien →",
+      "disputesLink": "Contestations →",
+      "disputes": {
+        "title": "Contestations",
+        "subtitle": "Contestations (chargebacks) reçues sur les transactions de ce salon.",
+        "tableTitle": "Contestations",
+        "needsResponse": "{count} en attente de réponse",
+        "empty": {
+          "title": "Aucune contestation",
+          "description": "Les contestations apparaîtront ici lorsque la banque d'un client en ouvre une contre une transaction."
+        },
+        "columns": {
+          "opened": "Ouverte le",
+          "amount": "Montant",
+          "reason": "Motif",
+          "status": "Statut",
+          "evidenceDue": "Preuve due le",
+          "appointment": "Rendez-vous",
+          "link": "Stripe"
+        },
+        "evidenceDue": {
+          "none": "—"
+        },
+        "appointment": {
+          "linked": "Associé",
+          "none": "—"
+        },
+        "link": {
+          "stripe": "Ouvrir dans Stripe"
+        },
+        "reasons": {
+          "duplicate": "Transaction en double",
+          "fraudulent": "Fraude alléguée",
+          "subscription_canceled": "Abonnement annulé",
+          "product_unacceptable": "Produit inacceptable",
+          "product_not_received": "Produit non reçu",
+          "unrecognized": "Transaction non reconnue",
+          "credit_not_processed": "Crédit non traité",
+          "general": "Motif général",
+          "incorrect_account_details": "Détails du compte incorrects",
+          "insufficient_funds": "Fonds insuffisants",
+          "bank_cannot_process": "Banque ne peut traiter",
+          "debit_not_authorized": "Débit non autorisé",
+          "customer_initiated": "Initié par le client"
+        },
+        "statuses": {
+          "warning_needs_response": "Alerte — réponse possible",
+          "warning_under_review": "Alerte — en examen",
+          "warning_closed": "Alerte close",
+          "needs_response": "Réponse requise",
+          "under_review": "En examen",
+          "won": "Gagnée",
+          "lost": "Perdue",
+          "charge_refunded": "Remboursée"
+        }
+      },
       "today": {
         "title": "Bilan quotidien",
         "subtitleToday": "Aujourd'hui — {date}",

@@ -577,6 +577,61 @@
       "title": "Finances",
       "soon": "Reports, revenue, payouts — Phase 7.",
       "todayLink": "Daily close-out →",
+      "disputesLink": "Disputes →",
+      "disputes": {
+        "title": "Disputes",
+        "subtitle": "Chargebacks received against this shop's transactions.",
+        "tableTitle": "Chargebacks",
+        "needsResponse": "{count} awaiting response",
+        "empty": {
+          "title": "No disputes",
+          "description": "Chargebacks will appear here when a customer's bank opens one against a transaction."
+        },
+        "columns": {
+          "opened": "Opened",
+          "amount": "Amount",
+          "reason": "Reason",
+          "status": "Status",
+          "evidenceDue": "Evidence due",
+          "appointment": "Appointment",
+          "link": "Stripe"
+        },
+        "evidenceDue": {
+          "none": "—"
+        },
+        "appointment": {
+          "linked": "Linked",
+          "none": "—"
+        },
+        "link": {
+          "stripe": "Open in Stripe"
+        },
+        "reasons": {
+          "duplicate": "Duplicate transaction",
+          "fraudulent": "Alleged fraud",
+          "subscription_canceled": "Subscription canceled",
+          "product_unacceptable": "Product unacceptable",
+          "product_not_received": "Product not received",
+          "unrecognized": "Unrecognized transaction",
+          "credit_not_processed": "Credit not processed",
+          "general": "General",
+          "incorrect_account_details": "Incorrect account details",
+          "insufficient_funds": "Insufficient funds",
+          "bank_cannot_process": "Bank cannot process",
+          "debit_not_authorized": "Debit not authorized",
+          "customer_initiated": "Customer initiated"
+        },
+        "statuses": {
+          "warning_needs_response": "Warning — response possible",
+          "warning_under_review": "Warning — under review",
+          "warning_closed": "Warning closed",
+          "needs_response": "Response required",
+          "under_review": "Under review",
+          "won": "Won",
+          "lost": "Lost",
+          "charge_refunded": "Refunded"
+        }
+      },
       "today": {
         "title": "Daily close-out",
         "subtitleToday": "Today — {date}",

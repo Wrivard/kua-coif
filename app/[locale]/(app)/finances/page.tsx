@@ -261,12 +261,25 @@ export default async function FinancesPage({
              against `/en/finances` (no trailing slash) and land on
              `/en/today` — the codebase's convention is `/${locale}/…`
              on every internal anchor. */
-          <a
-            href={`/${locale}/finances/today`}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            {t('todayLink')}
-          </a>
+          <div className="flex items-center gap-1">
+            <a
+              href={`/${locale}/finances/today`}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              {t('todayLink')}
+            </a>
+            {/* Sibling entrypoint into the read-only Stripe disputes
+                (chargebacks) view — same grammar as the close-out link
+                above. Locale-prefixed for the same reason: a relative
+                `disputes` would resolve against `/en/finances` (no
+                trailing slash) and miss. */}
+            <a
+              href={`/${locale}/finances/disputes`}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              {t('disputesLink')}
+            </a>
+          </div>
         }
       />
       <div className="space-y-6 p-6">
