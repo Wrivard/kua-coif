@@ -53,3 +53,5 @@ desktop.ini
 # Supabase
 supabase/.temp/
 supabase/.branches/
+.bridgeforge/
+.oryon/
