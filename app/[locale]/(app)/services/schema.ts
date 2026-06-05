@@ -37,6 +37,17 @@ export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
 export const deleteServiceSchema = z.object({ id: z.string().uuid() });
 export const toggleServiceStatusSchema = z.object({ id: z.string().uuid() });
 
+/**
+ * Drag-to-reorder (Wave 3). The client sends the full ordered list of
+ * service ids; the server writes each row's `sort_order` to its index in
+ * that array. `min(1)` because an empty reorder is a no-op the client
+ * never issues.
+ */
+export const reorderServicesSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
+export type ReorderServicesInput = z.infer<typeof reorderServicesSchema>;
+
 // ---------------------------------------------------------------------------
 // Service categories — single text field, lightweight CRUD mirroring the
 // product brands/categories taxonomy. Delete is guarded server-side: a

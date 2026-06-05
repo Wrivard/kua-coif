@@ -327,6 +327,7 @@
       "emptyTitle": "No services yet",
       "emptyHint": "Create categories first, then add your services.",
       "columns": {
+        "sort": "Sort",
         "name": "Service",
         "duration": "Duration",
         "price": "Price",
@@ -335,7 +336,8 @@
         "status": "Status"
       },
       "actions": {
-        "toggleStatus": "Toggle status"
+        "toggleStatus": "Toggle status",
+        "dragHandle": "Drag to reorder"
       },
       "status": {
         "enabled": "Active",
@@ -362,7 +364,8 @@
         "created": "Service created",
         "updated": "Service updated",
         "deleted": "\"{name}\" deleted",
-        "statusFlipped": "\"{name}\" status updated"
+        "statusFlipped": "\"{name}\" status updated",
+        "reordered": "Order saved"
       },
       "categories": {
         "title": "Service categories",

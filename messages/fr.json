@@ -327,6 +327,7 @@
       "emptyTitle": "Aucun service",
       "emptyHint": "Crée d'abord des catégories puis ajoute tes services.",
       "columns": {
+        "sort": "Ordre",
         "name": "Service",
         "duration": "Durée",
         "price": "Prix",
@@ -335,7 +336,8 @@
         "status": "Statut"
       },
       "actions": {
-        "toggleStatus": "Activer / désactiver"
+        "toggleStatus": "Activer / désactiver",
+        "dragHandle": "Glisser pour réordonner"
       },
       "status": {
         "enabled": "Actif",
@@ -362,7 +364,8 @@
         "created": "Service créé",
         "updated": "Service mis à jour",
         "deleted": "« {name} » supprimé",
-        "statusFlipped": "Statut de « {name} » mis à jour"
+        "statusFlipped": "Statut de « {name} » mis à jour",
+        "reordered": "Ordre enregistré"
       },
       "categories": {
         "title": "Catégories de services",

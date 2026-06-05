@@ -1,19 +1,34 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, FolderTree, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { Download, FolderTree, GripVertical, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
-import { formatCurrencyCAD } from '@/lib/utils';
+import { cn, formatCurrencyCAD } from '@/lib/utils';
 import type { ServiceCategoryRow, ServiceRow, TaxRow } from '@/db/rows';
 import { CategoryManagementModal } from './category-management-modal';
 import { ServiceFormModal } from './service-form-modal';
-import { deleteService, toggleServiceStatus } from './actions';
+import { deleteService, reorderServices, toggleServiceStatus } from './actions';
 
 export type ServicesClientProps = {
   locale: string;
@@ -41,6 +56,18 @@ export function ServicesClient({
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ServiceRow | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Drag-to-reorder (Wave 3) keeps a local copy of the ordered list so the
+  // reorder is optimistic — rows move instantly, then we persist. Re-sync
+  // whenever the server sends a fresh ordering (revalidation after save).
+  const [ordered, setOrdered] = useState<ServiceRow[]>(services);
+  useEffect(() => {
+    setOrdered(services);
+  }, [services]);
+
+  // A small activation distance so clicking the action icons / a row never
+  // gets swallowed as the start of a drag.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const taxById = useMemo(() => new Map(taxes.map((x) => [x.id, x])), [taxes]);
@@ -77,118 +104,77 @@ export function ServicesClient({
     });
   }
 
-  const columns: ReadonlyArray<ColumnDef<ServiceRow>> = [
-    {
-      id: 'name',
-      header: t('columns.name'),
-      cell: (r) => <span className="font-medium">{r.name}</span>,
-      sortable: true,
-      sortValue: (r) => r.name.toLowerCase(),
-    },
-    {
-      id: 'duration',
-      header: t('columns.duration'),
-      cell: (r) => `${r.duration_min} min`,
-      sortable: true,
-      sortValue: (r) => r.duration_min,
-      align: 'right',
-      width: '100px',
-    },
-    {
-      id: 'price',
-      header: t('columns.price'),
-      cell: (r) => formatCurrencyCAD(r.price, locale === 'fr' ? 'fr' : 'en'),
-      sortable: true,
-      sortValue: (r) => r.price,
-      align: 'right',
-      width: '120px',
-    },
-    {
-      id: 'tax',
-      header: t('columns.tax'),
-      cell: (r) => {
-        const ids = taxIdsByService.get(r.id) ?? [];
-        if (ids.length === 0) return <span className="text-text-muted">—</span>;
-        return (
-          <div className="flex flex-col text-xs text-text-secondary">
-            {ids.map((id) => {
-              const tx = taxById.get(id);
-              if (!tx) return null;
-              return (
-                <span key={id}>
-                  {tx.name} {tx.percentage}%
-                </span>
-              );
-            })}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'category',
-      header: t('columns.category'),
-      cell: (r) => {
-        if (!r.category_id) return <span className="text-text-muted">—</span>;
-        return <span>{categoryById.get(r.category_id)?.name ?? '—'}</span>;
-      },
-      sortable: true,
-      sortValue: (r) => categoryById.get(r.category_id ?? '')?.name ?? '',
-    },
-    {
-      id: 'status',
-      header: t('columns.status'),
-      width: '110px',
-      cell: (r) =>
-        r.status === 'enabled' ? (
-          <Badge variant="success">{t('status.enabled')}</Badge>
-        ) : (
-          <Badge>{t('status.disabled')}</Badge>
-        ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      width: '120px',
-      align: 'right',
-      cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMode({ kind: 'edit', service: r });
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('actions.toggleStatus')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStatus(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Power className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = ordered.findIndex((s) => s.id === active.id);
+    const newIndex = ordered.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const previous = ordered;
+    const next = arrayMove(ordered, oldIndex, newIndex);
+    setOrdered(next); // optimistic
+
+    startTransition(async () => {
+      const result = await reorderServices({ ids: next.map((s) => s.id) });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.reordered') });
+      } else {
+        setOrdered(previous); // revert
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  function renderTaxCell(r: ServiceRow) {
+    const ids = taxIdsByService.get(r.id) ?? [];
+    if (ids.length === 0) return <span className="text-text-muted">—</span>;
+    return (
+      <div className="flex flex-col text-xs text-text-secondary">
+        {ids.map((id) => {
+          const tx = taxById.get(id);
+          if (!tx) return null;
+          return (
+            <span key={id}>
+              {tx.name} {tx.percentage}%
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderActions(r: ServiceRow) {
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          aria-label={tCommon('actions.edit')}
+          onClick={() => setMode({ kind: 'edit', service: r })}
+          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={t('actions.toggleStatus')}
+          onClick={() => onToggleStatus(r)}
+          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Power className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={tCommon('actions.delete')}
+          onClick={() => setConfirmDelete(r)}
+          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -213,20 +199,184 @@ export function ServicesClient({
       />
 
       <div className="p-6">
-        <DataTable
-          columns={columns}
-          data={services}
-          getRowKey={(r) => r.id}
-          emptyState={{
-            title: t('emptyTitle'),
-            description: t('emptyHint'),
-            action: (
-              <Button onClick={() => setMode({ kind: 'add' })} size="sm">
-                <Plus className="h-4 w-4" /> {t('addService')}
-              </Button>
-            ),
-          }}
-        />
+        {ordered.length === 0 ? (
+          <div className="rounded-lg bg-bg-surface shadow-sm">
+            <EmptyState
+              className="rounded-none border-0"
+              title={t('emptyTitle')}
+              description={t('emptyHint')}
+              action={
+                <Button onClick={() => setMode({ kind: 'add' })} size="sm">
+                  <Plus className="h-4 w-4" /> {t('addService')}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext
+              items={ordered.map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {/* Desktop: dense sortable table. Mirrors the DataTable column
+                  layout but renders draggable <tr>s so sort_order persists. */}
+              <div className="hidden overflow-x-auto rounded-lg bg-bg-surface shadow-sm md:block">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-bg-surface">
+                    <tr className="border-b border-border">
+                      <th className="w-8" aria-label={t('columns.sort')} />
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('columns.name')}
+                      </th>
+                      <th
+                        className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                        style={{ width: '100px' }}
+                      >
+                        {t('columns.duration')}
+                      </th>
+                      <th
+                        className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                        style={{ width: '120px' }}
+                      >
+                        {t('columns.price')}
+                      </th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('columns.tax')}
+                      </th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('columns.category')}
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                        style={{ width: '110px' }}
+                      >
+                        {t('columns.status')}
+                      </th>
+                      <th className="px-4 py-3" style={{ width: '120px' }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ordered.map((row) => (
+                      <SortableServiceRow key={row.id} id={row.id}>
+                        {({ attributes, listeners, handleRef, dragging }) => (
+                          <>
+                            <td className="w-8 px-2 text-text-muted">
+                              <button
+                                type="button"
+                                ref={handleRef}
+                                aria-label={t('actions.dragHandle')}
+                                className={cn(
+                                  'cursor-grab touch-none rounded-md p-1 hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                                  dragging && 'cursor-grabbing',
+                                )}
+                                {...attributes}
+                                {...listeners}
+                              >
+                                <GripVertical className="h-4 w-4" aria-hidden />
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-text-primary">
+                              <span className="font-medium">{row.name}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-text-primary">
+                              {row.duration_min} min
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-text-primary">
+                              {formatCurrencyCAD(row.price, locale === 'fr' ? 'fr' : 'en')}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-text-primary">
+                              {renderTaxCell(row)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-text-primary">
+                              {row.category_id ? (
+                                <span>{categoryById.get(row.category_id)?.name ?? '—'}</span>
+                              ) : (
+                                <span className="text-text-muted">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-text-primary">
+                              {row.status === 'enabled' ? (
+                                <Badge variant="success">{t('status.enabled')}</Badge>
+                              ) : (
+                                <Badge>{t('status.disabled')}</Badge>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-text-primary">
+                              {renderActions(row)}
+                            </td>
+                          </>
+                        )}
+                      </SortableServiceRow>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: card-per-row, draggable by the grip handle. */}
+              <div className="md:hidden">
+                {ordered.map((row) => (
+                  <SortableServiceCard key={row.id} id={row.id}>
+                    {({ attributes, listeners, handleRef, dragging }) => (
+                      <div
+                        className={cn(
+                          'flex items-start gap-2 border-b border-border bg-bg-surface px-3 py-3 first:rounded-t-lg last:rounded-b-lg last:border-b-0',
+                          dragging && 'shadow-md',
+                        )}
+                      >
+                        <button
+                          type="button"
+                          ref={handleRef}
+                          aria-label={t('actions.dragHandle')}
+                          className={cn(
+                            'mt-0.5 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                            dragging && 'cursor-grabbing',
+                          )}
+                          {...attributes}
+                          {...listeners}
+                        >
+                          <GripVertical className="h-4 w-4" aria-hidden />
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium text-text-primary">{row.name}</span>
+                            {row.status === 'enabled' ? (
+                              <Badge variant="success">{t('status.enabled')}</Badge>
+                            ) : (
+                              <Badge>{t('status.disabled')}</Badge>
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-baseline justify-between gap-3 text-xs">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                              {t('columns.duration')}
+                            </span>
+                            <span className="text-text-primary">{row.duration_min} min</span>
+                          </div>
+                          <div className="mt-1 flex items-baseline justify-between gap-3 text-xs">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                              {t('columns.price')}
+                            </span>
+                            <span className="text-text-primary">
+                              {formatCurrencyCAD(row.price, locale === 'fr' ? 'fr' : 'en')}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-baseline justify-between gap-3 text-xs">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                              {t('columns.category')}
+                            </span>
+                            <span className="min-w-0 truncate text-right text-text-primary">
+                              {row.category_id ? (categoryById.get(row.category_id)?.name ?? '—') : '—'}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex justify-end">{renderActions(row)}</div>
+                        </div>
+                      </div>
+                    )}
+                  </SortableServiceCard>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
       </div>
 
       {mode.kind !== 'closed' && (
@@ -261,5 +411,82 @@ export function ServicesClient({
         onCancel={() => setConfirmDelete(null)}
       />
     </>
+  );
+}
+
+type SortableHandle = ReturnType<typeof useSortable>;
+
+type SortableRenderProps = {
+  // dnd-kit's `attributes` (role/tabIndex/aria) and `listeners`
+  // (pointer/keyboard handlers) are kept separate: their types don't
+  // merge cleanly (SyntheticListenerMap is a Function index signature),
+  // so the caller spreads both onto the grip handle.
+  attributes: SortableHandle['attributes'];
+  listeners: SortableHandle['listeners'];
+  handleRef: (node: HTMLElement | null) => void;
+  dragging: boolean;
+};
+
+/**
+ * Sortable table row. Drag listeners are attached to the grip handle only
+ * (via `handleProps`/`handleRef`), so the row's action buttons keep working.
+ */
+function SortableServiceRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: SortableRenderProps) => ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { position: 'relative', zIndex: 1, background: 'var(--bg-surface-2)' } : {}),
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className="border-b border-border last:border-b-0"
+    >
+      {children({
+        attributes,
+        listeners,
+        handleRef: setActivatorNodeRef,
+        dragging: isDragging,
+      })}
+    </tr>
+  );
+}
+
+function SortableServiceCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: SortableRenderProps) => ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { position: 'relative', zIndex: 1 } : {}),
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({
+        attributes,
+        listeners,
+        handleRef: setActivatorNodeRef,
+        dragging: isDragging,
+      })}
+    </div>
   );
 }

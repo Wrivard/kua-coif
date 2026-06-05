@@ -9,6 +9,7 @@ import { logAuditAction } from '@/lib/audit-log';
 import {
   deleteServiceCategorySchema,
   deleteServiceSchema,
+  reorderServicesSchema,
   serviceCategorySchema,
   serviceSchema,
   toggleServiceStatusSchema,
@@ -252,6 +253,46 @@ export const toggleServiceStatus = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: next });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Reorder (drag-to-reorder, Wave 3) — persist the new `sort_order`
+// ---------------------------------------------------------------------------
+export const reorderServices = withAction({
+  schema: reorderServicesSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const supabase = createSupabaseServerClient();
+    const sb = supabase as unknown as {
+      from: (t: string) => {
+        update: (row: Record<string, unknown>) => {
+          eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+
+    // One UPDATE per row: write each id's index in the submitted list as
+    // its new sort_order. RLS scopes every write to the active shop, so a
+    // foreign id silently affects zero rows (no cross-shop leak). The set
+    // is tiny (services per shop), so the round-trip count is a non-issue.
+    for (let i = 0; i < input.ids.length; i++) {
+      const { error } = await sb.from('services').update({ sort_order: i }).eq('id', input.ids[i]!);
+      if (error) return err('UNEXPECTED');
+    }
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'services',
+      diff: { reordered: input.ids },
+    });
+
+    revalidatePath(SERVICES_PATH);
+    // Booking + embed surfaces render services in sort_order, so bust them.
+    revalidatePublicShopSurfaces();
+    return ok({ ids: input.ids });
   },
 });
 
