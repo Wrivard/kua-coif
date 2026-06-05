@@ -218,6 +218,10 @@
         "emptyTitle": "No appointments",
         "emptyDescription": "Nothing booked for this day."
       },
+      "week": {
+        "empty": "No appointments",
+        "dayOff": "Closed"
+      },
       "reschedule": {
         "failedTitle": "Move failed",
         "conflict": "That slot conflicts with another appointment or blocked time.",

@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs } from '@/components/ui/tabs';
 import { AppointmentsListView } from './appointments-list-view';
+import { AppointmentsWeekView } from './appointments-week-view';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD, cn } from '@/lib/utils';
 import {
@@ -121,6 +122,15 @@ type Props = {
   hours: Hours[];
   daysOff: string[];
   appointments: CalendarAppointment[];
+  /**
+   * Week view dataset — the full Mon..Sun range containing `isoDate`.
+   * Empty unless `initialView === 'week'` (the server only pays for the
+   * extra fetch when the week view is actually requested). Side-by-Side
+   * and List always render against the day-scoped `appointments`.
+   */
+  weekAppointments?: CalendarAppointment[];
+  /** The 7 shop-local ISO dates (Mon..Sun) that the week grid renders. */
+  weekDays?: string[];
   blocked: Blocked[];
   /**
    * Phase 34 — per-barber personal busy periods pulled from their
@@ -159,7 +169,7 @@ function timeToMinutes(t: string | null | undefined): number | null {
   return (hh ?? 0) * 60 + (mm ?? 0);
 }
 
-function statusToColor(status: AppointmentStatus): string {
+export function statusToColor(status: AppointmentStatus): string {
   switch (status) {
     case 'confirmed':
     case 'arrived':
@@ -189,6 +199,8 @@ export function AppointmentsCalendar({
   hours,
   daysOff,
   appointments,
+  weekAppointments = [],
+  weekDays = [],
   blocked,
   googleBusy = [],
   onboarding,
@@ -350,6 +362,14 @@ export function AppointmentsCalendar({
   const listAppointments = useMemo(
     () => effectiveAppointments.filter((a) => selectedBarbers.has(a.barber_id)),
     [effectiveAppointments, selectedBarbers],
+  );
+
+  // Week view dataset. Honors the Barbers filter the same way Side-by-Side
+  // and List do. Optimistic drag overrides only touch the day-scoped set,
+  // so the week grid renders the server-provided rows directly.
+  const weekListAppointments = useMemo(
+    () => weekAppointments.filter((a) => selectedBarbers.has(a.barber_id)),
+    [weekAppointments, selectedBarbers],
   );
 
   // Pre-bucket appointments by barber so each column render is an O(1) lookup
@@ -566,6 +586,23 @@ export function AppointmentsCalendar({
     router.push(url.pathname + '?' + url.searchParams.toString());
   }, [router, today]);
 
+  // View toggle. Side-by-Side ⇄ List is instant local state (both share the
+  // day-scoped dataset). Switching to/from Week also syncs `?view=` so the
+  // Server Component (re)fetches the week-range dataset — the week grid has
+  // no data otherwise. We keep local `view` in sync immediately so the tab
+  // reflects the choice before the navigation resolves.
+  const changeView = useCallback(
+    (next: CalendarView) => {
+      setView(next);
+      if (next === 'week' || view === 'week') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', next);
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      }
+    },
+    [router, view],
+  );
+
   const onSlotClick = useCallback(
     (barberId: string, e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -686,15 +723,17 @@ export function AppointmentsCalendar({
 
       <div className="space-y-6 p-6">
         {/* Phase 5 — view toggle. Side-by-Side is the default; List is the
-            chronological table; Week is a sibling task, present but
-            disabled. Local state only — no refetch on switch. */}
+            chronological table; Week is the 7-day grid. Side-by-Side and
+            List share the day-scoped dataset (switching is instant); Week
+            renders the week-range dataset fetched by the server when
+            `?view=week`. */}
         <Tabs
           aria-label={t('viewLabel')}
           value={view}
-          onChange={setView}
+          onChange={changeView}
           items={[
             { value: 'side-by-side', label: t('views.sideBySide') },
-            { value: 'week', label: t('views.week'), disabled: true },
+            { value: 'week', label: t('views.week'), count: weekListAppointments.length },
             { value: 'list', label: t('views.list'), count: listAppointments.length },
           ]}
         />
@@ -765,68 +804,80 @@ export function AppointmentsCalendar({
             (the gray-tinted surface). Appointments pop now because the
             grid recedes. */}
         {view === 'side-by-side' && (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          {/* Phase 48 — calendar grid is now a "ghost" of itself. The
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            {/* Phase 48 — calendar grid is now a "ghost" of itself. The
               previous /20-/40 borders read as visible white strokes
               against bg-base. We replaced them with /8-/15 ranges + a
               shadow-sm to lift the surface. The grid still segments the
               day visually but doesn't compete with the appointments. */}
-          <div className="overflow-x-auto rounded-lg bg-bg-base shadow-sm">
-            <div className="flex min-w-[600px]">
-              {/* Time axis — labels centered on the hour line
+            <div className="overflow-x-auto rounded-lg bg-bg-base shadow-sm">
+              <div className="flex min-w-[600px]">
+                {/* Time axis — labels centered on the hour line
                   (-translate-y-1/2) so the visual rhythm is
                   "label-on-line, label-on-line" rather than
                   "label, blank, line, label". */}
-              <div className="w-16 shrink-0 border-r border-border-soft bg-bg-base">
-                <div className="h-12 border-b border-border-soft" />
-                <div className="relative" style={{ height: `${gridHeightPx}px` }}>
-                  {hourLabels.map((min) => {
-                    if (min < startMin || min > endMin) return null;
-                    const top = (min - startMin) * PX_PER_MIN;
-                    return (
-                      <div
-                        key={min}
-                        // Loop 37 (P114) — hour ticks on the calendar axis
-                        // are numeric labels; mono font gives them clean
-                        // vertical alignment and a more "pro tool" feel.
-                        className="absolute right-3 -translate-y-1/2 font-mono text-[10px] font-medium uppercase tabular-nums tracking-wider text-text-muted"
-                        style={{ top: `${top}px` }}
-                      >
-                        {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
-                      </div>
-                    );
-                  })}
+                <div className="w-16 shrink-0 border-r border-border-soft bg-bg-base">
+                  <div className="h-12 border-b border-border-soft" />
+                  <div className="relative" style={{ height: `${gridHeightPx}px` }}>
+                    {hourLabels.map((min) => {
+                      if (min < startMin || min > endMin) return null;
+                      const top = (min - startMin) * PX_PER_MIN;
+                      return (
+                        <div
+                          key={min}
+                          // Loop 37 (P114) — hour ticks on the calendar axis
+                          // are numeric labels; mono font gives them clean
+                          // vertical alignment and a more "pro tool" feel.
+                          className="absolute right-3 -translate-y-1/2 font-mono text-[10px] font-medium uppercase tabular-nums tracking-wider text-text-muted"
+                          style={{ top: `${top}px` }}
+                        >
+                          {formatHourLabel(min, locale === 'fr' ? 'fr' : 'en')}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Barber columns */}
+                {visibleBarbers.map((barber) => (
+                  <BarberColumn
+                    key={barber.id}
+                    barber={barber}
+                    barberAppts={apptsByBarber.get(barber.id) ?? []}
+                    barberBlocks={blocksByBarber.get(barber.id) ?? []}
+                    googleBusy={googleBusyByBarber.get(barber.id) ?? []}
+                    timezone={timezone}
+                    startMin={startMin}
+                    endMin={endMin}
+                    gridHeightPx={gridHeightPx}
+                    hourLabels={hourLabels}
+                    nowMin={nowMin}
+                    onSlotClick={onSlotClick}
+                    onApptClick={(a) => setDrawer(a)}
+                    t={t}
+                  />
+                ))}
+
+                {visibleBarbers.length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center p-12 text-sm text-text-muted">
+                    {t('noBarbersSelected')}
+                  </div>
+                ) : null}
               </div>
-
-              {/* Barber columns */}
-              {visibleBarbers.map((barber) => (
-                <BarberColumn
-                  key={barber.id}
-                  barber={barber}
-                  barberAppts={apptsByBarber.get(barber.id) ?? []}
-                  barberBlocks={blocksByBarber.get(barber.id) ?? []}
-                  googleBusy={googleBusyByBarber.get(barber.id) ?? []}
-                  timezone={timezone}
-                  startMin={startMin}
-                  endMin={endMin}
-                  gridHeightPx={gridHeightPx}
-                  hourLabels={hourLabels}
-                  nowMin={nowMin}
-                  onSlotClick={onSlotClick}
-                  onApptClick={(a) => setDrawer(a)}
-                  t={t}
-                />
-              ))}
-
-              {visibleBarbers.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center p-12 text-sm text-text-muted">
-                  {t('noBarbersSelected')}
-                </div>
-              ) : null}
             </div>
-          </div>
-        </DndContext>
+          </DndContext>
+        )}
+
+        {view === 'week' && (
+          <AppointmentsWeekView
+            appointments={weekListAppointments}
+            weekDays={weekDays}
+            selectedIsoDate={isoDate}
+            barbers={barbers}
+            timezone={timezone}
+            daysOff={daysOff}
+            onApptClick={(a) => setDrawer(a)}
+          />
         )}
 
         {view === 'list' && (

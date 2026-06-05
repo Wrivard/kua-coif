@@ -218,6 +218,10 @@
         "emptyTitle": "Aucun rendez-vous",
         "emptyDescription": "Rien de réservé pour cette journée."
       },
+      "week": {
+        "empty": "Aucun rendez-vous",
+        "dayOff": "Fermé"
+      },
       "reschedule": {
         "failedTitle": "Déplacement impossible",
         "conflict": "Ce créneau entre en conflit avec un autre rendez-vous ou un temps bloqué.",

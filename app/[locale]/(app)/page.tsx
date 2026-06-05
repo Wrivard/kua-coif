@@ -6,7 +6,13 @@ import {
   getShopMemberships,
   requireShopMember,
 } from '@/lib/auth/server';
-import { parseShopIsoDate, shopDayEnd, shopIsoDate } from '@/lib/business/timezone';
+import {
+  addDays,
+  formatShopTime,
+  parseShopIsoDate,
+  shopDayEnd,
+  shopIsoDate,
+} from '@/lib/business/timezone';
 import { googleConfigured } from '@/lib/google/server';
 import { fetchBarberBusyForDay } from '@/lib/google/sync';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
@@ -53,10 +59,23 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date ?? '') ? searchParams.date! : today;
   const dayStart = parseShopIsoDate(isoDate, timezone);
   const dayEnd = shopDayEnd(dayStart, timezone);
-  // Seed the calendar view from `?view=`. Only `list` overrides the
-  // Side-by-Side default; both views share the same day-scoped dataset, so
-  // this never changes the fetch below.
-  const initialView = searchParams.view === 'list' ? 'list' : 'side-by-side';
+  // Seed the calendar view from `?view=`. `list` and `week` override the
+  // Side-by-Side default. Side-by-side and list share the same day-scoped
+  // dataset; `week` additionally pulls the full week range below.
+  const initialView =
+    searchParams.view === 'list' ? 'list' : searchParams.view === 'week' ? 'week' : 'side-by-side';
+
+  // Week view needs the Mon..Sun week containing the selected date. Derive
+  // Monday from the shop-local ISO weekday (1=Mon … 7=Sun), then build the
+  // 7 shop-local ISO dates and the UTC range that spans them.
+  const isoWeekday = Number(formatShopTime(dayStart, timezone, 'i')); // 1..7
+  const weekMondayIso = shopIsoDate(addDays(dayStart, -(isoWeekday - 1)), timezone);
+  const weekDays: string[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    weekDays.push(shopIsoDate(addDays(parseShopIsoDate(weekMondayIso, timezone), i), timezone));
+  }
+  const weekStart = parseShopIsoDate(weekMondayIso, timezone);
+  const weekEnd = shopDayEnd(parseShopIsoDate(weekDays[6]!, timezone), timezone);
 
   // 3. Fetch barbers, services, categories, clients, hours, days off, appts, blocked.
   //
@@ -227,6 +246,89 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     payment_status: a.payment_status,
   }));
 
+  // ── Week view dataset ─────────────────────────────────────────────────
+  // Only fetched when `?view=week`; Side-by-Side and List keep the
+  // day-scoped `appointments` above untouched. Mirrors the day query
+  // (same columns, same strict-barber scope) but spans the Mon..Sun
+  // range, then re-uses the service/client maps to build the same
+  // CalendarAppointment shape.
+  let weekAppointments: CalendarAppointment[] = [];
+  if (initialView === 'week') {
+    const weekApptsQuery = (
+      isStrictBarber
+        ? sb
+            .from('appointments')
+            .select(
+              'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+            )
+            .eq('barber_id', viewerBarberId)
+        : sb
+            .from('appointments')
+            .select(
+              'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+            )
+    )
+      .order('start_at', { ascending: true })
+      .gte('start_at', weekStart.toISOString())
+      .lt('start_at', weekEnd.toISOString());
+
+    const weekApptsRes = await weekApptsQuery;
+    const weekRows =
+      (weekApptsRes.data as Array<{
+        id: string;
+        barber_id: string;
+        client_id: string;
+        start_at: string;
+        end_at: string;
+        status: CalendarAppointment['status'];
+        notes: string | null;
+        source: 'admin' | 'online';
+        total_amount: number;
+        payment_status: CalendarAppointment['payment_status'];
+      }> | null) ?? [];
+
+    const weekApptIds = weekRows.map((r) => r.id);
+    const weekServicesRes =
+      weekApptIds.length > 0
+        ? await sb
+            .from('appointment_services')
+            .select('appointment_id, service_id, price_snapshot')
+            .in('appointment_id', weekApptIds)
+        : { data: [] as Array<unknown> };
+    const weekServiceLinks =
+      (weekServicesRes.data as Array<{
+        appointment_id: string;
+        service_id: string;
+        price_snapshot: number;
+      }> | null) ?? [];
+    const weekServicesByAppt = new Map<string, ServiceRow[]>();
+    for (const link of weekServiceLinks) {
+      const list = weekServicesByAppt.get(link.appointment_id) ?? [];
+      const svc = serviceById.get(link.service_id);
+      if (svc) list.push(svc);
+      weekServicesByAppt.set(link.appointment_id, list);
+    }
+
+    weekAppointments = weekRows.map((a) => ({
+      id: a.id,
+      barber_id: a.barber_id,
+      client_id: a.client_id,
+      client_name: (() => {
+        const c = clientById.get(a.client_id);
+        if (!c) return '—';
+        return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+      })(),
+      start_at: a.start_at,
+      end_at: a.end_at,
+      status: a.status,
+      notes: a.notes,
+      source: a.source,
+      total_amount: a.total_amount,
+      services: weekServicesByAppt.get(a.id) ?? [],
+      payment_status: a.payment_status,
+    }));
+  }
+
   // ── Google Calendar busy overlays (Phase 34) ──────────────────────────
   // For each confirmed barber, ask their connected Google account for
   // busy periods in today's window. unstable_cache (60s TTL) means most
@@ -276,6 +378,8 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       hours={hours}
       daysOff={daysOff}
       appointments={appointments}
+      weekAppointments={weekAppointments}
+      weekDays={weekDays}
       blocked={blocked}
       googleBusy={googleBusy}
       onboarding={onboarding}
