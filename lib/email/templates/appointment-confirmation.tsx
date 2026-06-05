@@ -1,14 +1,5 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Heading, Hr, Section, Text } from '@react-email/components';
+import { BrandedEmailLayout, DEFAULT_EMAIL_ACCENT, EmailLabel, emailPalette } from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 import { formatCurrencyCAD } from '@/lib/utils';
 
@@ -17,9 +8,10 @@ import { formatCurrencyCAD } from '@/lib/utils';
  * booking goes through. Rendered server-side by `@react-email/render` into
  * HTML + plaintext.
  *
- * Design tone: match the Küa dark-on-dark identity but lean lighter so the
- * email reads in light-mode clients too. Inline styles only — most email
- * clients strip <style> blocks.
+ * Shares the `BrandedEmailLayout` header/footer with every other
+ * transactional template. Per-shop white-label (Phase 62b): the shop's
+ * `emailLogoUrl` / `emailAccentColor` thread through to the layout so the
+ * email reads like it came from THIS salon, not the platform.
  */
 
 export type AppointmentConfirmationProps = {
@@ -59,21 +51,6 @@ export type AppointmentConfirmationProps = {
     meUrl?: string | null;
   };
 };
-
-// Phase 62b — accent color now per-shop. The other palette tokens stay
-// fixed (background + text contrast is universal); only the brand pop
-// shifts to the shop's chosen hex.
-const DEFAULT_ACCENT = '#8b5cf6';
-function buildPalette(accentOverride?: string | null) {
-  return {
-    bgOuter: '#1b1b1b',
-    bgCard: '#222222',
-    border: '#383838',
-    text: '#f5f5f5',
-    textMuted: '#a0a0a0',
-    accent: accentOverride ?? DEFAULT_ACCENT,
-  };
-}
 
 const t = (locale: 'fr' | 'en') =>
   locale === 'fr'
@@ -126,221 +103,167 @@ export function AppointmentConfirmation({
   appointment,
 }: AppointmentConfirmationProps) {
   const L = t(locale);
-  const palette = buildPalette(shop.emailAccentColor);
+  const accent = shop.emailAccentColor ?? DEFAULT_EMAIL_ACCENT;
   const startDate = new Date(appointment.startAt);
   const formattedDate = formatHeaderDate(startDate, locale, shop.timezone);
   const formattedTime = formatShopTime(appointment.startAt, shop.timezone, 'HH:mm');
 
   return (
-    <Html lang={locale}>
-      <Head />
-      <Preview>{L.preview(shop.name)}</Preview>
-      <Body style={{ backgroundColor: palette.bgOuter, margin: 0, padding: '24px 0' }}>
-        <Container
+    <BrandedEmailLayout
+      locale={locale}
+      previewText={L.preview(shop.name)}
+      logoUrl={shop.emailLogoUrl}
+      accentColor={shop.emailAccentColor}
+      brandName={shop.name}
+      signature={L.signature}
+      shopName={shop.name}
+    >
+      <Heading
+        as="h1"
+        style={{ color: emailPalette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
+      >
+        {L.title}
+      </Heading>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+        {L.hello(client.firstName)}
+      </Text>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
+        {L.intro(shop.name)}
+      </Text>
+
+      <Hr
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${emailPalette.border}`,
+          margin: '24px 0',
+        }}
+      />
+
+      {/* When */}
+      <Row label={L.when}>
+        <Text style={{ color: emailPalette.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
+          {formattedDate}
+        </Text>
+        <Text
           style={{
-            backgroundColor: palette.bgCard,
-            border: `1px solid ${palette.border}`,
-            borderRadius: 8,
-            color: palette.text,
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-            margin: '0 auto',
-            maxWidth: 520,
-            padding: 32,
+            color: emailPalette.textMuted,
+            fontSize: 14,
+            margin: '4px 0 0',
           }}
         >
-          {/* Brand mark — Phase 62b: shop logo if provided, else the Küa
-              wordmark with the (possibly overridden) accent. Logo is
-              capped at 40px height to keep the email compact across
-              clients. */}
-          <Section style={{ marginBottom: 24 }}>
-            {shop.emailLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={shop.emailLogoUrl}
-                alt={shop.name}
-                height={40}
-                style={{ display: 'block', height: 40, maxWidth: 200, objectFit: 'contain' }}
-              />
-            ) : (
-              <span
+          {formattedTime}
+        </Text>
+      </Row>
+
+      {/* With */}
+      <Row label={L.with}>
+        <Text style={{ color: emailPalette.text, fontSize: 14, margin: 0 }}>
+          {appointment.professionalName ?? L.anyPro}
+        </Text>
+      </Row>
+
+      {/* Services */}
+      <Row label={L.services}>
+        {appointment.services.map((s, i) => (
+          <Text
+            key={`${s.name}-${i}`}
+            style={{ color: emailPalette.text, fontSize: 14, margin: i === 0 ? 0 : '4px 0 0' }}
+          >
+            {s.name}{' '}
+            <span style={{ color: emailPalette.textMuted, fontSize: 12 }}>
+              · {s.durationMin} {L.minutes}
+            </span>
+          </Text>
+        ))}
+      </Row>
+
+      {/* Total */}
+      <Row label={L.total}>
+        <Text style={{ color: emailPalette.text, fontSize: 18, fontWeight: 600, margin: 0 }}>
+          {formatCurrencyCAD(appointment.totalAmount, locale)}
+        </Text>
+      </Row>
+
+      {/* Shop contact (only when we have something useful to show) */}
+      {shop.addressLine || shop.phone ? (
+        <>
+          <Hr
+            style={{
+              border: 'none',
+              borderTop: `1px solid ${emailPalette.border}`,
+              margin: '24px 0',
+            }}
+          />
+          <Section style={{ marginBottom: 16 }}>
+            {shop.addressLine ? (
+              <Text
+                style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}
+              >
+                <strong style={{ color: emailPalette.text }}>{L.addressLabel} ·</strong>{' '}
+                {shop.addressLine}
+              </Text>
+            ) : null}
+            {shop.phone ? (
+              <Text
                 style={{
-                  backgroundColor: palette.accent,
-                  borderRadius: 6,
-                  color: '#ffffff',
-                  display: 'inline-block',
-                  fontWeight: 700,
-                  padding: '6px 10px',
+                  color: emailPalette.textMuted,
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  margin: '4px 0 0',
                 }}
               >
-                Küa
-              </span>
-            )}
+                <strong style={{ color: emailPalette.text }}>{L.phoneLabel} ·</strong> {shop.phone}
+              </Text>
+            ) : null}
           </Section>
+        </>
+      ) : null}
 
-          <Heading
-            as="h1"
-            style={{ color: palette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
+      {/* Phase G SR — when the action minted a /me self-service link,
+          swap the "contact the shop" outro for a self-service CTA so
+          the customer can cancel/reschedule directly. The link is a
+          signed URL valid 365 days; minted in bookPublicAppointment
+          right after the appointment insert succeeds. */}
+      {appointment.meUrl ? (
+        <>
+          <Text
+            style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
           >
-            {L.title}
-          </Heading>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-            {L.hello(client.firstName)}
+            {L.outroWithMeUrl}
           </Text>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
-            {L.intro(shop.name)}
-          </Text>
-
-          <Hr
-            style={{
-              border: 'none',
-              borderTop: `1px solid ${palette.border}`,
-              margin: '24px 0',
-            }}
-          />
-
-          {/* When */}
-          <Row label={L.when}>
-            <Text style={{ color: palette.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
-              {formattedDate}
-            </Text>
-            <Text
+          <Section style={{ marginTop: 12 }}>
+            <a
+              href={appointment.meUrl}
               style={{
-                color: palette.textMuted,
+                backgroundColor: accent,
+                borderRadius: 6,
+                color: '#ffffff',
+                display: 'inline-block',
                 fontSize: 14,
-                margin: '4px 0 0',
+                fontWeight: 600,
+                padding: '10px 16px',
+                textDecoration: 'none',
               }}
             >
-              {formattedTime}
-            </Text>
-          </Row>
-
-          {/* With */}
-          <Row label={L.with}>
-            <Text style={{ color: palette.text, fontSize: 14, margin: 0 }}>
-              {appointment.professionalName ?? L.anyPro}
-            </Text>
-          </Row>
-
-          {/* Services */}
-          <Row label={L.services}>
-            {appointment.services.map((s, i) => (
-              <Text
-                key={`${s.name}-${i}`}
-                style={{ color: palette.text, fontSize: 14, margin: i === 0 ? 0 : '4px 0 0' }}
-              >
-                {s.name}{' '}
-                <span style={{ color: palette.textMuted, fontSize: 12 }}>
-                  · {s.durationMin} {L.minutes}
-                </span>
-              </Text>
-            ))}
-          </Row>
-
-          {/* Total */}
-          <Row label={L.total}>
-            <Text style={{ color: palette.text, fontSize: 18, fontWeight: 600, margin: 0 }}>
-              {formatCurrencyCAD(appointment.totalAmount, locale)}
-            </Text>
-          </Row>
-
-          <Hr
-            style={{
-              border: 'none',
-              borderTop: `1px solid ${palette.border}`,
-              margin: '24px 0',
-            }}
-          />
-
-          {/* Shop contact (only when we have something useful to show) */}
-          {shop.addressLine || shop.phone ? (
-            <Section style={{ marginBottom: 16 }}>
-              {shop.addressLine ? (
-                <Text
-                  style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}
-                >
-                  <strong style={{ color: palette.text }}>{L.addressLabel} ·</strong>{' '}
-                  {shop.addressLine}
-                </Text>
-              ) : null}
-              {shop.phone ? (
-                <Text
-                  style={{
-                    color: palette.textMuted,
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    margin: '4px 0 0',
-                  }}
-                >
-                  <strong style={{ color: palette.text }}>{L.phoneLabel} ·</strong> {shop.phone}
-                </Text>
-              ) : null}
-            </Section>
-          ) : null}
-
-          {/* Phase G SR — when the action minted a /me self-service link,
-              swap the "contact the shop" outro for a self-service CTA so
-              the customer can cancel/reschedule directly. The link is a
-              signed URL valid 365 days; minted in bookPublicAppointment
-              right after the appointment insert succeeds. */}
-          {appointment.meUrl ? (
-            <>
-              <Text
-                style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
-              >
-                {L.outroWithMeUrl}
-              </Text>
-              <Section style={{ marginTop: 12 }}>
-                <a
-                  href={appointment.meUrl}
-                  style={{
-                    backgroundColor: palette.accent,
-                    borderRadius: 6,
-                    color: '#ffffff',
-                    display: 'inline-block',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    padding: '10px 16px',
-                    textDecoration: 'none',
-                  }}
-                >
-                  {L.manageLabel}
-                </a>
-              </Section>
-            </>
-          ) : (
-            <Text
-              style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
-            >
-              {L.outro}
-            </Text>
-          )}
-          <Text style={{ color: palette.textMuted, fontSize: 13, marginTop: 16 }}>
-            {L.signature} {shop.name}
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+              {L.manageLabel}
+            </a>
+          </Section>
+        </>
+      ) : (
+        <Text style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}>
+          {L.outro}
+        </Text>
+      )}
+    </BrandedEmailLayout>
   );
 }
 
-// `Row` uses the fixed muted color from the base palette — it never
-// shifts per-shop (only the accent does). Inlining the hex keeps the
-// Row helper independent of the per-shop palette build.
+// `Row` uses the shared muted label + a body slot. The label color never
+// shifts per shop (only the accent does).
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Section style={{ marginBottom: 16 }}>
-      <Text
-        style={{
-          color: '#a0a0a0',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.05em',
-          margin: '0 0 4px',
-          textTransform: 'uppercase',
-        }}
-      >
-        {label}
-      </Text>
+      <EmailLabel>{label}</EmailLabel>
       {children}
     </Section>
   );

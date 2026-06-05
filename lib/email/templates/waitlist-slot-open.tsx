@@ -1,15 +1,5 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Button, Heading, Hr, Section, Text } from '@react-email/components';
+import { BrandedEmailLayout, DEFAULT_EMAIL_ACCENT, EmailLabel, emailPalette } from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 
 /**
@@ -27,6 +17,10 @@ import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
  * on the right shop's booking page is a 90% win — they pick a slot
  * in seconds. A future loop can add prefill once the wizard
  * supports URL params.
+ *
+ * Shares the `BrandedEmailLayout` with every other transactional
+ * template; per-shop white-label threads through `emailLogoUrl` /
+ * `emailAccentColor`.
  */
 
 export type WaitlistSlotOpenProps = {
@@ -47,15 +41,6 @@ export type WaitlistSlotOpenProps = {
   };
   /** Public booking deep-link. `null` when the shop has no alias. */
   bookingUrl: string | null;
-};
-
-const fallbackPalette = {
-  bgOuter: '#1b1b1b',
-  bgCard: '#222222',
-  border: '#383838',
-  text: '#f5f5f5',
-  textMuted: '#a0a0a0',
-  accent: '#8b5cf6',
 };
 
 const copy = (locale: 'fr' | 'en') =>
@@ -97,187 +82,119 @@ const copy = (locale: 'fr' | 'en') =>
 
 export function WaitlistSlotOpen({ locale, shop, entry, slot, bookingUrl }: WaitlistSlotOpenProps) {
   const L = copy(locale);
-  const accent = shop.emailAccentColor ?? fallbackPalette.accent;
+  const accent = shop.emailAccentColor ?? DEFAULT_EMAIL_ACCENT;
   const formattedDate = formatHeaderDate(new Date(slot.startAtIso), locale, shop.timezone);
   const formattedTime = formatShopTime(slot.startAtIso, shop.timezone, 'HH:mm');
 
   return (
-    <Html lang={locale}>
-      <Head />
-      <Preview>{L.preview(shop.name)}</Preview>
-      <Body style={{ backgroundColor: fallbackPalette.bgOuter, margin: 0, padding: '24px 0' }}>
-        <Container
+    <BrandedEmailLayout
+      locale={locale}
+      previewText={L.preview(shop.name)}
+      logoUrl={shop.emailLogoUrl}
+      accentColor={shop.emailAccentColor}
+      brandName={shop.name}
+      signature={L.signature}
+      shopName={shop.name}
+      footnote={L.whyYouGotThis}
+    >
+      <Heading
+        as="h1"
+        style={{
+          color: emailPalette.text,
+          fontSize: 22,
+          fontWeight: 600,
+          margin: '0 0 8px',
+        }}
+      >
+        {L.title}
+      </Heading>
+      <Text
+        style={{
+          color: emailPalette.textMuted,
+          fontSize: 14,
+          lineHeight: 1.5,
+          margin: 0,
+        }}
+      >
+        {L.hello(entry.firstName)}
+      </Text>
+      <Text
+        style={{
+          color: emailPalette.textMuted,
+          fontSize: 14,
+          lineHeight: 1.5,
+          marginTop: 4,
+        }}
+      >
+        {L.intro(shop.name)}
+      </Text>
+
+      <Hr
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${emailPalette.border}`,
+          margin: '24px 0',
+        }}
+      />
+
+      <Section style={{ marginBottom: 16 }}>
+        <EmailLabel>{L.when}</EmailLabel>
+        <Text
           style={{
-            backgroundColor: fallbackPalette.bgCard,
-            border: `1px solid ${fallbackPalette.border}`,
-            borderRadius: 8,
-            color: fallbackPalette.text,
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-            margin: '0 auto',
-            maxWidth: 520,
-            padding: 32,
+            color: emailPalette.text,
+            fontSize: 15,
+            fontWeight: 500,
+            margin: 0,
           }}
         >
-          <Section style={{ marginBottom: 24 }}>
-            <span
-              style={{
-                backgroundColor: accent,
-                borderRadius: 6,
-                color: '#ffffff',
-                display: 'inline-block',
-                fontWeight: 700,
-                padding: '6px 10px',
-              }}
-            >
-              {shop.name}
-            </span>
-          </Section>
+          {formattedDate} · {formattedTime}
+        </Text>
+      </Section>
 
-          <Heading
-            as="h1"
+      <Section style={{ marginBottom: 24 }}>
+        <EmailLabel>{L.barber}</EmailLabel>
+        <Text
+          style={{
+            color: emailPalette.text,
+            fontSize: 15,
+            fontWeight: 500,
+            margin: 0,
+          }}
+        >
+          {slot.barberDisplayName}
+        </Text>
+      </Section>
+
+      {bookingUrl ? (
+        <Section style={{ margin: '0 0 24px' }}>
+          <Button
+            href={bookingUrl}
             style={{
-              color: fallbackPalette.text,
-              fontSize: 22,
+              backgroundColor: accent,
+              borderRadius: 6,
+              color: '#ffffff',
+              display: 'inline-block',
+              fontSize: 15,
               fontWeight: 600,
-              margin: '0 0 8px',
+              padding: '12px 20px',
+              textDecoration: 'none',
             }}
           >
-            {L.title}
-          </Heading>
-          <Text
-            style={{
-              color: fallbackPalette.textMuted,
-              fontSize: 14,
-              lineHeight: 1.5,
-              margin: 0,
-            }}
-          >
-            {L.hello(entry.firstName)}
-          </Text>
-          <Text
-            style={{
-              color: fallbackPalette.textMuted,
-              fontSize: 14,
-              lineHeight: 1.5,
-              marginTop: 4,
-            }}
-          >
-            {L.intro(shop.name)}
-          </Text>
+            {L.cta}
+          </Button>
+        </Section>
+      ) : null}
 
-          <Hr
-            style={{
-              border: 'none',
-              borderTop: `1px solid ${fallbackPalette.border}`,
-              margin: '24px 0',
-            }}
-          />
-
-          <Section style={{ marginBottom: 16 }}>
-            <Label>{L.when}</Label>
-            <Text
-              style={{
-                color: fallbackPalette.text,
-                fontSize: 15,
-                fontWeight: 500,
-                margin: 0,
-              }}
-            >
-              {formattedDate} · {formattedTime}
-            </Text>
-          </Section>
-
-          <Section style={{ marginBottom: 24 }}>
-            <Label>{L.barber}</Label>
-            <Text
-              style={{
-                color: fallbackPalette.text,
-                fontSize: 15,
-                fontWeight: 500,
-                margin: 0,
-              }}
-            >
-              {slot.barberDisplayName}
-            </Text>
-          </Section>
-
-          {bookingUrl ? (
-            <Section style={{ margin: '0 0 24px' }}>
-              <Button
-                href={bookingUrl}
-                style={{
-                  backgroundColor: accent,
-                  borderRadius: 6,
-                  color: '#ffffff',
-                  display: 'inline-block',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  padding: '12px 20px',
-                  textDecoration: 'none',
-                }}
-              >
-                {L.cta}
-              </Button>
-            </Section>
-          ) : null}
-
-          <Text
-            style={{
-              color: fallbackPalette.textMuted,
-              fontSize: 13,
-              lineHeight: 1.5,
-              margin: 0,
-            }}
-          >
-            {shop.phone ? L.outroWithPhone(shop.phone) : L.outroNoPhone}
-          </Text>
-
-          <Hr
-            style={{
-              border: 'none',
-              borderTop: `1px solid ${fallbackPalette.border}`,
-              margin: '24px 0',
-            }}
-          />
-
-          <Text
-            style={{
-              color: fallbackPalette.textMuted,
-              fontSize: 11,
-              lineHeight: 1.5,
-              margin: 0,
-            }}
-          >
-            {L.whyYouGotThis}
-          </Text>
-          <Text
-            style={{
-              color: fallbackPalette.textMuted,
-              fontSize: 12,
-              margin: '12px 0 0',
-            }}
-          >
-            {L.signature}
-          </Text>
-        </Container>
-      </Body>
-    </Html>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <Text
-      style={{
-        color: fallbackPalette.textMuted,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: 0.6,
-        margin: '0 0 4px',
-        textTransform: 'uppercase',
-      }}
-    >
-      {children}
-    </Text>
+      <Text
+        style={{
+          color: emailPalette.textMuted,
+          fontSize: 13,
+          lineHeight: 1.5,
+          margin: 0,
+        }}
+      >
+        {shop.phone ? L.outroWithPhone(shop.phone) : L.outroNoPhone}
+      </Text>
+    </BrandedEmailLayout>
   );
 }

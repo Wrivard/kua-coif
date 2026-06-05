@@ -1,14 +1,5 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Heading, Hr, Section, Text } from '@react-email/components';
+import { BrandedEmailLayout, EmailLabel, emailPalette } from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 
 /**
@@ -17,7 +8,9 @@ import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
  * dispatcher, gated by `notification_automations.kind = 'cancellation'`.
  *
  * Keep it short: customer wants to confirm the cancel went through, not
- * read marketing copy.
+ * read marketing copy. Shares the `BrandedEmailLayout` header/footer with
+ * every other transactional template — the strike-through date carries the
+ * "cancelled" signal in the body rather than recoloring the brand mark.
  */
 
 export type AppointmentCancellationProps = {
@@ -36,15 +29,6 @@ export type AppointmentCancellationProps = {
   };
   /** Optional free-text reason supplied by the admin. Displayed as a quote. */
   reason?: string | null;
-};
-
-const palette = {
-  bgOuter: '#1b1b1b',
-  bgCard: '#222222',
-  border: '#383838',
-  text: '#f5f5f5',
-  textMuted: '#a0a0a0',
-  danger: '#ef4444',
 };
 
 const copy = (locale: 'fr' | 'en') =>
@@ -93,143 +77,97 @@ export function AppointmentCancellation({
   const formattedTime = formatShopTime(appointment.startAt, shop.timezone, 'HH:mm');
 
   return (
-    <Html lang={locale}>
-      <Head />
-      <Preview>{L.preview(shop.name)}</Preview>
-      <Body style={{ backgroundColor: palette.bgOuter, margin: 0, padding: '24px 0' }}>
-        <Container
+    <BrandedEmailLayout
+      locale={locale}
+      previewText={L.preview(shop.name)}
+      brandName={shop.name}
+      signature={L.signature}
+      shopName={shop.name}
+    >
+      <Heading
+        as="h1"
+        style={{ color: emailPalette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
+      >
+        {L.title}
+      </Heading>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+        {L.hello(client.firstName)}
+      </Text>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
+        {L.intro(shop.name)}
+      </Text>
+
+      <Hr
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${emailPalette.border}`,
+          margin: '24px 0',
+        }}
+      />
+
+      <Section style={{ marginBottom: 16 }}>
+        <EmailLabel>{L.when}</EmailLabel>
+        <Text
           style={{
-            backgroundColor: palette.bgCard,
-            border: `1px solid ${palette.border}`,
-            borderRadius: 8,
-            color: palette.text,
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-            margin: '0 auto',
-            maxWidth: 520,
-            padding: 32,
+            color: emailPalette.text,
+            fontSize: 15,
+            fontWeight: 500,
+            margin: 0,
+            textDecoration: 'line-through',
           }}
         >
-          <Section style={{ marginBottom: 24 }}>
-            <span
-              style={{
-                backgroundColor: palette.danger,
-                borderRadius: 6,
-                color: '#ffffff',
-                display: 'inline-block',
-                fontWeight: 700,
-                padding: '6px 10px',
-              }}
-            >
-              Küa
-            </span>
-          </Section>
+          {formattedDate} · {formattedTime}
+        </Text>
+      </Section>
 
-          <Heading
-            as="h1"
-            style={{ color: palette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
-          >
-            {L.title}
-          </Heading>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-            {L.hello(client.firstName)}
-          </Text>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
-            {L.intro(shop.name)}
-          </Text>
-
-          <Hr
-            style={{
-              border: 'none',
-              borderTop: `1px solid ${palette.border}`,
-              margin: '24px 0',
-            }}
-          />
-
-          <Section style={{ marginBottom: 16 }}>
-            <Label>{L.when}</Label>
+      {appointment.services.length > 0 ? (
+        <Section style={{ marginBottom: 16 }}>
+          <EmailLabel>{L.services}</EmailLabel>
+          {appointment.services.map((s, i) => (
             <Text
+              key={`${s.name}-${i}`}
               style={{
-                color: palette.text,
-                fontSize: 15,
-                fontWeight: 500,
-                margin: 0,
-                textDecoration: 'line-through',
+                color: emailPalette.textMuted,
+                fontSize: 14,
+                margin: i === 0 ? 0 : '4px 0 0',
               }}
             >
-              {formattedDate} · {formattedTime}
+              {s.name}
             </Text>
-          </Section>
+          ))}
+        </Section>
+      ) : null}
 
-          {appointment.services.length > 0 ? (
-            <Section style={{ marginBottom: 16 }}>
-              <Label>{L.services}</Label>
-              {appointment.services.map((s, i) => (
-                <Text
-                  key={`${s.name}-${i}`}
-                  style={{
-                    color: palette.textMuted,
-                    fontSize: 14,
-                    margin: i === 0 ? 0 : '4px 0 0',
-                  }}
-                >
-                  {s.name}
-                </Text>
-              ))}
-            </Section>
-          ) : null}
-
-          {reason ? (
-            <Section style={{ marginBottom: 16 }}>
-              <Label>{L.reasonLabel}</Label>
-              <Text
-                style={{
-                  borderLeft: `2px solid ${palette.border}`,
-                  color: palette.text,
-                  fontSize: 14,
-                  fontStyle: 'italic',
-                  margin: 0,
-                  paddingLeft: 12,
-                }}
-              >
-                {reason}
-              </Text>
-            </Section>
-          ) : null}
-
-          <Hr
+      {reason ? (
+        <Section style={{ marginBottom: 16 }}>
+          <EmailLabel>{L.reasonLabel}</EmailLabel>
+          <Text
             style={{
-              border: 'none',
-              borderTop: `1px solid ${palette.border}`,
-              margin: '24px 0',
+              borderLeft: `2px solid ${emailPalette.border}`,
+              color: emailPalette.text,
+              fontSize: 14,
+              fontStyle: 'italic',
+              margin: 0,
+              paddingLeft: 12,
             }}
-          />
-
-          <Text style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-            {L.outro(shop.phone ?? null)}
+          >
+            {reason}
           </Text>
-          <Text style={{ color: palette.textMuted, fontSize: 13, marginTop: 16 }}>
-            {L.signature} {shop.name}
-          </Text>
-        </Container>
-      </Body>
-    </Html>
-  );
-}
+        </Section>
+      ) : null}
 
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <Text
-      style={{
-        color: palette.textMuted,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '0.05em',
-        margin: '0 0 4px',
-        textTransform: 'uppercase',
-      }}
-    >
-      {children}
-    </Text>
+      <Hr
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${emailPalette.border}`,
+          margin: '24px 0',
+        }}
+      />
+
+      <Text style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+        {L.outro(shop.phone ?? null)}
+      </Text>
+    </BrandedEmailLayout>
   );
 }
 

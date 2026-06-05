@@ -1,14 +1,5 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Heading, Hr, Section, Text } from '@react-email/components';
+import { BrandedEmailLayout, EmailLabel, emailPalette } from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 
 /**
@@ -20,7 +11,8 @@ import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
  *   - between 0h45 and 1h15 from now   → kind = 'reminder_1h'
  *
  * The 1h reminder is intentionally short — at that point the customer just
- * needs the time + address, not the full receipt.
+ * needs the time + address, not the full receipt. Shares the
+ * `BrandedEmailLayout` header/footer with every other transactional template.
  */
 
 export type AppointmentReminderProps = {
@@ -40,15 +32,6 @@ export type AppointmentReminderProps = {
     services: Array<{ name: string }>;
     professionalName: string | null;
   };
-};
-
-const palette = {
-  bgOuter: '#1b1b1b',
-  bgCard: '#222222',
-  border: '#383838',
-  text: '#f5f5f5',
-  textMuted: '#a0a0a0',
-  accent: '#8b5cf6',
 };
 
 const copy = (locale: 'fr' | 'en', kind: AppointmentReminderProps['kind']) => {
@@ -106,152 +89,106 @@ export function AppointmentReminder({
   const formattedTime = formatShopTime(appointment.startAt, shop.timezone, 'HH:mm');
 
   return (
-    <Html lang={locale}>
-      <Head />
-      <Preview>{L.preview}</Preview>
-      <Body style={{ backgroundColor: palette.bgOuter, margin: 0, padding: '24px 0' }}>
-        <Container
-          style={{
-            backgroundColor: palette.bgCard,
-            border: `1px solid ${palette.border}`,
-            borderRadius: 8,
-            color: palette.text,
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-            margin: '0 auto',
-            maxWidth: 520,
-            padding: 32,
-          }}
-        >
-          <Section style={{ marginBottom: 24 }}>
-            <span
-              style={{
-                backgroundColor: palette.accent,
-                borderRadius: 6,
-                color: '#ffffff',
-                display: 'inline-block',
-                fontWeight: 700,
-                padding: '6px 10px',
-              }}
+    <BrandedEmailLayout
+      locale={locale}
+      previewText={L.preview}
+      brandName={shop.name}
+      signature={L.signature}
+      shopName={shop.name}
+    >
+      <Heading
+        as="h1"
+        style={{ color: emailPalette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
+      >
+        {L.title}
+      </Heading>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+        {L.hello(client.firstName)}
+      </Text>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
+        {L.intro}
+      </Text>
+
+      <Hr
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${emailPalette.border}`,
+          margin: '24px 0',
+        }}
+      />
+
+      <Section style={{ marginBottom: 16 }}>
+        <EmailLabel>{L.when}</EmailLabel>
+        <Text style={{ color: emailPalette.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
+          {formattedDate}
+        </Text>
+        <Text style={{ color: emailPalette.textMuted, fontSize: 14, margin: '4px 0 0' }}>
+          {formattedTime}
+        </Text>
+      </Section>
+
+      <Section style={{ marginBottom: 16 }}>
+        <EmailLabel>{L.with}</EmailLabel>
+        <Text style={{ color: emailPalette.text, fontSize: 14, margin: 0 }}>
+          {appointment.professionalName ?? L.anyPro}{' '}
+          <span style={{ color: emailPalette.textMuted, fontSize: 13 }}>@ {shop.name}</span>
+        </Text>
+      </Section>
+
+      {/* The 1h reminder skips the full service list — only show on 24h
+          where the customer might double-check before heading out. */}
+      {kind === 'reminder_24h' && appointment.services.length > 0 ? (
+        <Section style={{ marginBottom: 16 }}>
+          <EmailLabel>{L.services}</EmailLabel>
+          {appointment.services.map((s, i) => (
+            <Text
+              key={`${s.name}-${i}`}
+              style={{ color: emailPalette.text, fontSize: 14, margin: i === 0 ? 0 : '4px 0 0' }}
             >
-              Küa
-            </span>
-          </Section>
+              {s.name}
+            </Text>
+          ))}
+        </Section>
+      ) : null}
 
-          <Heading
-            as="h1"
-            style={{ color: palette.text, fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}
-          >
-            {L.title}
-          </Heading>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-            {L.hello(client.firstName)}
-          </Text>
-          <Text style={{ color: palette.textMuted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
-            {L.intro}
-          </Text>
-
+      {shop.addressLine || shop.phone ? (
+        <>
           <Hr
             style={{
               border: 'none',
-              borderTop: `1px solid ${palette.border}`,
+              borderTop: `1px solid ${emailPalette.border}`,
               margin: '24px 0',
             }}
           />
-
           <Section style={{ marginBottom: 16 }}>
-            <Label>{L.when}</Label>
-            <Text style={{ color: palette.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
-              {formattedDate}
-            </Text>
-            <Text style={{ color: palette.textMuted, fontSize: 14, margin: '4px 0 0' }}>
-              {formattedTime}
-            </Text>
-          </Section>
-
-          <Section style={{ marginBottom: 16 }}>
-            <Label>{L.with}</Label>
-            <Text style={{ color: palette.text, fontSize: 14, margin: 0 }}>
-              {appointment.professionalName ?? L.anyPro}{' '}
-              <span style={{ color: palette.textMuted, fontSize: 13 }}>@ {shop.name}</span>
-            </Text>
-          </Section>
-
-          {/* The 1h reminder skips the full service list — only show on 24h
-              where the customer might double-check before heading out. */}
-          {kind === 'reminder_24h' && appointment.services.length > 0 ? (
-            <Section style={{ marginBottom: 16 }}>
-              <Label>{L.services}</Label>
-              {appointment.services.map((s, i) => (
-                <Text
-                  key={`${s.name}-${i}`}
-                  style={{ color: palette.text, fontSize: 14, margin: i === 0 ? 0 : '4px 0 0' }}
-                >
-                  {s.name}
-                </Text>
-              ))}
-            </Section>
-          ) : null}
-
-          {shop.addressLine || shop.phone ? (
-            <>
-              <Hr
+            {shop.addressLine ? (
+              <Text
+                style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}
+              >
+                <strong style={{ color: emailPalette.text }}>{L.addressLabel} ·</strong>{' '}
+                {shop.addressLine}
+              </Text>
+            ) : null}
+            {shop.phone ? (
+              <Text
                 style={{
-                  border: 'none',
-                  borderTop: `1px solid ${palette.border}`,
-                  margin: '24px 0',
+                  color: emailPalette.textMuted,
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  margin: '4px 0 0',
                 }}
-              />
-              <Section style={{ marginBottom: 16 }}>
-                {shop.addressLine ? (
-                  <Text
-                    style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, margin: 0 }}
-                  >
-                    <strong style={{ color: palette.text }}>{L.addressLabel} ·</strong>{' '}
-                    {shop.addressLine}
-                  </Text>
-                ) : null}
-                {shop.phone ? (
-                  <Text
-                    style={{
-                      color: palette.textMuted,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      margin: '4px 0 0',
-                    }}
-                  >
-                    <strong style={{ color: palette.text }}>{L.phoneLabel} ·</strong> {shop.phone}
-                  </Text>
-                ) : null}
-              </Section>
-            </>
-          ) : null}
+              >
+                <strong style={{ color: emailPalette.text }}>{L.phoneLabel} ·</strong> {shop.phone}
+              </Text>
+            ) : null}
+          </Section>
+        </>
+      ) : null}
 
-          <Text style={{ color: palette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}>
-            {L.outro}
-          </Text>
-          <Text style={{ color: palette.textMuted, fontSize: 13, marginTop: 16 }}>
-            {L.signature} {shop.name}
-          </Text>
-        </Container>
-      </Body>
-    </Html>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <Text
-      style={{
-        color: palette.textMuted,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '0.05em',
-        margin: '0 0 4px',
-        textTransform: 'uppercase',
-      }}
-    >
-      {children}
-    </Text>
+      <Text style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}>
+        {L.outro}
+      </Text>
+    </BrandedEmailLayout>
   );
 }
 
