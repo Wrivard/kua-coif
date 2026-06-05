@@ -143,6 +143,16 @@ export function DataTable<Row>({
                 return (
                   <th
                     key={col.id}
+                    scope="col"
+                    aria-sort={
+                      col.sortable
+                        ? isSorted
+                          ? sort?.dir === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                        : undefined
+                    }
                     className={cn(
                       'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted',
                       col.align === 'right' && 'text-right',
