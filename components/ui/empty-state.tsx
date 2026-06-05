@@ -22,6 +22,8 @@ type Props = {
  * instead of a wireframe. Typography hierarchy is tightened: title sits at
  * `text-base font-semibold tracking-tight` (was text-sm), description uses
  * `leading-relaxed` and a tighter max-width for readable two-line copy.
+ * Because the block is centered, `text-balance` evens the title's line
+ * lengths and `text-pretty` keeps the description free of orphan words.
  *
  * Compatible with all existing call sites (services list, page placeholder,
  * data-table no-results, error boundary). Data-table passes
@@ -61,9 +63,11 @@ export function EmptyState({
         </div>
       ) : null}
       <div className="space-y-1.5">
-        <h3 className="text-base font-semibold tracking-tight text-text-primary">{title}</h3>
+        <h3 className="text-balance text-base font-semibold tracking-tight text-text-primary">
+          {title}
+        </h3>
         {description ? (
-          <p className="mx-auto max-w-sm text-sm leading-relaxed text-text-secondary">
+          <p className="mx-auto max-w-sm text-pretty text-sm leading-relaxed text-text-secondary">
             {description}
           </p>
         ) : null}
