@@ -204,6 +204,18 @@
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
       "googlePersonalBusy": "Personal",
+      "viewLabel": "Calendar view",
+      "views": {
+        "sideBySide": "Side by side",
+        "week": "Week",
+        "list": "List"
+      },
+      "list": {
+        "barber": "Barber",
+        "amount": "Amount",
+        "emptyTitle": "No appointments",
+        "emptyDescription": "Nothing booked for this day."
+      },
       "reschedule": {
         "failedTitle": "Move failed",
         "conflict": "That slot conflicts with another appointment or blocked time.",

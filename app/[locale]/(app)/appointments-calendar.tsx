@@ -28,6 +28,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
+import { Tabs } from '@/components/ui/tabs';
+import { AppointmentsListView } from './appointments-list-view';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD, cn } from '@/lib/utils';
 import {
@@ -61,6 +63,8 @@ const BlockTimeFormModal = dynamic(
   () => import('./block-time-form-modal').then((m) => ({ default: m.BlockTimeFormModal })),
   { ssr: false },
 );
+
+export type CalendarView = 'side-by-side' | 'week' | 'list';
 
 export type CalendarAppointment = {
   id: string;
@@ -103,6 +107,13 @@ type Props = {
   locale: string;
   timezone: string;
   isoDate: string;
+  /**
+   * Phase 5 — seed view from the server (`?view=`). Defaults to
+   * Side-by-Side. The toggle below keeps `view` in local state; both
+   * views render against the same day-scoped dataset, so switching
+   * never triggers a refetch.
+   */
+  initialView?: CalendarView;
   barbers: BarberRow[];
   services: ServiceRow[];
   categories: ServiceCategoryRow[];
@@ -170,6 +181,7 @@ export function AppointmentsCalendar({
   locale,
   timezone,
   isoDate,
+  initialView = 'side-by-side',
   barbers,
   services,
   categories,
@@ -211,6 +223,10 @@ export function AppointmentsCalendar({
     return ticks;
   }, [startMin, endMin]);
 
+  // Phase 5 — Side-by-Side ⇄ List view toggle. Pure client state seeded
+  // from the server; switching never refetches (both views share the
+  // day-scoped dataset).
+  const [view, setView] = useState<CalendarView>(initialView);
   const [selectedBarbers, setSelectedBarbers] = useState<Set<string>>(
     () => new Set(barbers.map((b) => b.id)),
   );
@@ -326,6 +342,15 @@ export function AppointmentsCalendar({
       return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
     });
   }, [appointments, overrides]);
+
+  // Phase 5 — List view dataset. Honors the Barbers filter the same way
+  // the Side-by-Side grid does (via `selectedBarbers`), so toggling chips
+  // updates both views consistently. Already `start_at asc` from the
+  // server → chronological by default.
+  const listAppointments = useMemo(
+    () => effectiveAppointments.filter((a) => selectedBarbers.has(a.barber_id)),
+    [effectiveAppointments, selectedBarbers],
+  );
 
   // Pre-bucket appointments by barber so each column render is an O(1) lookup
   // instead of an O(appointments) scan.
@@ -660,6 +685,20 @@ export function AppointmentsCalendar({
       />
 
       <div className="space-y-6 p-6">
+        {/* Phase 5 — view toggle. Side-by-Side is the default; List is the
+            chronological table; Week is a sibling task, present but
+            disabled. Local state only — no refetch on switch. */}
+        <Tabs
+          aria-label={t('viewLabel')}
+          value={view}
+          onChange={setView}
+          items={[
+            { value: 'side-by-side', label: t('views.sideBySide') },
+            { value: 'week', label: t('views.week'), disabled: true },
+            { value: 'list', label: t('views.list'), count: listAppointments.length },
+          ]}
+        />
+
         {/* Phase 45 — onboarding hint. Auto-hides once setup is complete. */}
         {onboarding ? (
           <OnboardingCard
@@ -725,6 +764,7 @@ export function AppointmentsCalendar({
             container on bg-bg-base (pure dark) instead of bg-bg-surface
             (the gray-tinted surface). Appointments pop now because the
             grid recedes. */}
+        {view === 'side-by-side' && (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           {/* Phase 48 — calendar grid is now a "ghost" of itself. The
               previous /20-/40 borders read as visible white strokes
@@ -787,6 +827,17 @@ export function AppointmentsCalendar({
             </div>
           </div>
         </DndContext>
+        )}
+
+        {view === 'list' && (
+          <AppointmentsListView
+            appointments={listAppointments}
+            barbers={barbers}
+            timezone={timezone}
+            locale={locale}
+            onApptClick={(a) => setDrawer(a)}
+          />
+        )}
       </div>
 
       <AppointmentDetailDrawer

@@ -53,6 +53,10 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date ?? '') ? searchParams.date! : today;
   const dayStart = parseShopIsoDate(isoDate, timezone);
   const dayEnd = shopDayEnd(dayStart, timezone);
+  // Seed the calendar view from `?view=`. Only `list` overrides the
+  // Side-by-Side default; both views share the same day-scoped dataset, so
+  // this never changes the fetch below.
+  const initialView = searchParams.view === 'list' ? 'list' : 'side-by-side';
 
   // 3. Fetch barbers, services, categories, clients, hours, days off, appts, blocked.
   //
@@ -264,6 +268,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       locale={locale}
       timezone={timezone}
       isoDate={isoDate}
+      initialView={initialView}
       barbers={barbers}
       services={services}
       categories={categories}
