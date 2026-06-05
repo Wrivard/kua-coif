@@ -55,3 +55,8 @@ supabase/.temp/
 supabase/.branches/
 .bridgeforge/
 .oryon/
+
+# Claude Code local state — scheduler lock (.claude/scheduled_tasks.lock, rewritten
+# continuously) + Workflow agent worktrees. Tracking these keeps MAIN permanently dirty,
+# which stalls Oryon's merge-back and triggers false contamination alarms.
+.claude/
