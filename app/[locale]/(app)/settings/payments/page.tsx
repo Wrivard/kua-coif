@@ -1,26 +1,13 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentUser, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
+import { requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { stripeConfigured } from '@/lib/stripe/server';
 import { quickbooksConfigured } from '@/lib/quickbooks/server';
 import { getPlatformAppFeeBps } from '@/lib/stripe/platform-config';
 import { PaymentsClient } from './payments-client';
-import type { BusinessType } from '@/db/enums';
 import type { PaymentMode } from './schema';
 
 export const dynamic = 'force-dynamic';
-
-export type PaymentProfileRow = {
-  legal_name: string | null;
-  business_type: BusinessType | null;
-  tax_id_provided: boolean;
-  sin_provided: boolean;
-  dob: string | null;
-  verified: boolean;
-  destination_bank_name: string | null;
-  destination_last4: string | null;
-  created_at: string;
-};
 
 export type StripeConnectState = {
   /** Whether STRIPE_SECRET_KEY is set server-side. Drives whether the
@@ -58,20 +45,15 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
   // status, payment_mode, BPS, last-4 bank, etc. — read-side
   // disclosure even though no mutations succeed.
   await requireRoleInCurrentShop('owner');
-  const user = await getCurrentUser();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
-  const [{ data: profileData }, { data: shopData }] = await Promise.all([
-    supabase.from('payment_profiles').select('*').limit(1),
-    supabase
-      .from('shops')
-      .select(
-        'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status, quickbooks_refresh_token_expires_at, quickbooks_last_refreshed_at, payment_mode',
-      )
-      .limit(1),
-  ]);
-  const profile = ((profileData as PaymentProfileRow[] | null) ?? [])[0] ?? null;
+  const { data: shopData } = await supabase
+    .from('shops')
+    .select(
+      'stripe_account_id, stripe_connect_status, quickbooks_realm_id, quickbooks_connect_status, quickbooks_refresh_token_expires_at, quickbooks_last_refreshed_at, payment_mode',
+    )
+    .limit(1);
   const shopRow = ((shopData as Array<{
     stripe_account_id: string | null;
     stripe_connect_status: StripeConnectState['status'];
@@ -109,12 +91,6 @@ export default async function PaymentsPage({ params: { locale } }: { params: { l
 
   return (
     <PaymentsClient
-      profile={profile}
-      currentUser={{
-        email: user?.email ?? '',
-        fullName:
-          typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null,
-      }}
       stripe={stripe}
       quickbooks={quickbooks}
       paymentMode={paymentMode}
