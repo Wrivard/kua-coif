@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { decrypt, encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { refreshQbToken, quickbooksConfigured } from '@/lib/quickbooks/server';
 import { captureException } from '@/lib/observability';
+import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
  * Loop 46 (Phase 98 from AUDIT_PHASE70) — proactive QuickBooks
@@ -34,11 +35,10 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
+// Cron auth lives in one place (lib/security/cron-auth): fail-CLOSED in
+// production when CRON_SECRET is unset, constant-time bearer compare.
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / no-secret deployment
-  const header = req.headers.get('authorization');
-  return header === `Bearer ${secret}`;
+  return isCronAuthorized(req);
 }
 
 export async function GET(req: NextRequest) {

@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { encryptionConfigured } from '@/lib/crypto/aes';
 import { renewBarberCalendarSubscription } from '@/lib/google/sync';
 import { captureException } from '@/lib/observability';
+import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
  * Loop 51 (follow-up to P97 / Loop 50) — Google Calendar channel
@@ -34,11 +35,10 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+// Cron auth lives in one place (lib/security/cron-auth): fail-CLOSED in
+// production when CRON_SECRET is unset, constant-time bearer compare.
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / no-secret deployment
-  const header = req.headers.get('authorization');
-  return header === `Bearer ${secret}`;
+  return isCronAuthorized(req);
 }
 
 export async function GET(req: NextRequest) {

@@ -6,6 +6,7 @@ import { dispatchSms } from '@/lib/sms/dispatch';
 import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
 import { captureException } from '@/lib/observability';
+import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
  * Reminder cron — Phase 25c.
@@ -59,11 +60,10 @@ type ApptRow = {
   barber: { display_name: string } | null;
 };
 
+// Cron auth lives in one place (lib/security/cron-auth): fail-CLOSED in
+// production when CRON_SECRET is unset, constant-time bearer compare.
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / no-secret deployment
-  const header = req.headers.get('authorization');
-  return header === `Bearer ${secret}`;
+  return isCronAuthorized(req);
 }
 
 export async function GET(req: NextRequest) {
