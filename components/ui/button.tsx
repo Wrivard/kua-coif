@@ -35,16 +35,23 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 //   - Focus ring switches from soft accent to Vercel saturated blue.
 //   - hover:border-border-strong replaced with a slightly stronger
 //     shadow ring on hover.
+
+// UI Refresh — disciplined-accent + precision pass:
+//   - Disabled buttons are fully inert: every hover/press effect is gated
+//     behind `enabled:` so the accent glow / bg-shift / press-scale never
+//     lands on a non-actionable control.
+//   - Focus ring unified to `ring-focus` on all variants (danger included)
+//     for one consistent, high-visibility focus signal.
 const variants: Record<ButtonVariant, string> = {
   primary: cn(
     'bg-accent text-accent-fg shadow-sm',
-    'hover:bg-accent-hover hover:shadow-accent-glow',
-    'active:bg-accent-active',
+    'enabled:hover:bg-accent-hover enabled:hover:shadow-accent-glow',
+    'enabled:active:bg-accent-active',
     'focus-visible:ring-focus',
   ),
   secondary: cn(
     'bg-bg-surface text-text-primary shadow-sm',
-    'hover:bg-bg-surface-2 hover:shadow-border-strong',
+    'enabled:hover:bg-bg-surface-2 enabled:hover:shadow-border-strong',
     'focus-visible:ring-focus',
   ),
   // Tertiary — quiet, text-only tier. Starts muted and brightens on hover, so a
@@ -52,11 +59,15 @@ const variants: Record<ButtonVariant, string> = {
   // wall of equal-weight buttons. (UI Wave — accent discipline)
   tertiary: cn(
     'text-text-secondary',
-    'hover:bg-bg-surface-2 hover:text-text-primary',
+    'enabled:hover:bg-bg-surface-2 enabled:hover:text-text-primary',
     'focus-visible:ring-focus',
   ),
-  ghost: cn('text-text-primary', 'hover:bg-bg-surface-2', 'focus-visible:ring-focus'),
-  danger: cn('bg-danger text-white shadow-sm', 'hover:opacity-90', 'focus-visible:ring-danger'),
+  ghost: cn('text-text-primary', 'enabled:hover:bg-bg-surface-2', 'focus-visible:ring-focus'),
+  danger: cn(
+    'bg-danger text-white shadow-sm',
+    'enabled:hover:opacity-90',
+    'focus-visible:ring-focus',
+  ),
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -76,8 +87,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       className={cn(
         'inline-flex items-center justify-center gap-2 font-medium',
         'transition-all duration-150 ease-out-quint',
-        'active:scale-[0.98]',
-        'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        'enabled:active:scale-[0.98]',
+        'disabled:cursor-not-allowed disabled:opacity-50',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
         variants[variant],
         sizes[size],
