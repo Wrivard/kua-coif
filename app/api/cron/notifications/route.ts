@@ -11,8 +11,10 @@ import { isCronAuthorized } from '@/lib/security/cron-auth';
 /**
  * Reminder cron — Phase 25c.
  *
- * Configured to fire every 15 minutes by `vercel.json`. Two windows we
- * care about each tick:
+ * Scheduled every 15 minutes by GitHub Actions
+ * (.github/workflows/cron-notifications.yml) — NOT vercel.json: Vercel Hobby
+ * caps at 2 daily crons, so the 15-minute reminder cron lives in Actions. Two
+ * windows we care about each tick:
  *
  *   - `reminder_24h`: appointments starting in [now+23h45, now+24h15]
  *   - `reminder_1h`:  appointments starting in [now+0h45, now+1h15]
@@ -22,11 +24,10 @@ import { isCronAuthorized } from '@/lib/security/cron-auth';
  * `notification_sends` on success and `INSERT … ON CONFLICT DO NOTHING`
  * to belt-and-braces against duplicate sends if a tick gets retried.
  *
- * Security: Vercel cron triggers attach `Authorization: Bearer
- * <CRON_SECRET>` automatically when a `CRON_SECRET` env var is set on the
- * project. We reject any other caller with 401. Manually testing? Either
- * call with the right header, or omit `CRON_SECRET` from env and the
- * route runs unprotected (dev only).
+ * Security: the GitHub Actions workflow passes `Authorization: Bearer
+ * <CRON_SECRET>` via curl. We reject any other caller with 401. In
+ * production a missing CRON_SECRET is fail-CLOSED (see lib/security/cron-auth);
+ * outside production the route runs unprotected for local testing.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
