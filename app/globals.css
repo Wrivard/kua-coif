@@ -130,6 +130,12 @@
   --shadow-border: rgba(0, 0, 0, 0.08) 0 0 0 1px;
   --shadow-border-strong: rgba(0, 0, 0, 0.14) 0 0 0 1px;
 
+  /* Brand texture dot color (theme-aware). Painted at ~4% by the layer that
+     uses it, it gives ambient / hero surfaces a subtle dot-grid. Near-black on
+     the light canvas; white on dark. Replaces a hardcoded white dot that was
+     invisible on the light default (auth + booking layouts). */
+  --texture-dot: #171717;
+
   /* ─── Layout / Radius (Vercel granular scale) ─────────────────────────
    * Vercel's radius scale: 2 / 4 / 6 / 8 / 12 / 64 / 100 / 9999.
    * We expose the core values; pill (9999) is via `rounded-full`. */
@@ -233,6 +239,9 @@
   /* Shadow-as-border — white alphas (mirror of light) */
   --shadow-border: rgba(255, 255, 255, 0.1) 0 0 0 1px;
   --shadow-border-strong: rgba(255, 255, 255, 0.16) 0 0 0 1px;
+
+  /* Brand texture dot — white on the dark canvas (mirror of light). */
+  --texture-dot: #ffffff;
 
   /* Force dark color-scheme so native UI (scrollbars, form controls)
    * uses the OS dark variant. */
