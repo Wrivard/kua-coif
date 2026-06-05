@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { Download, FolderTree, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD } from '@/lib/utils';
 import type { ServiceCategoryRow, ServiceRow, TaxRow } from '@/db/rows';
+import { CategoryManagementModal } from './category-management-modal';
 import { ServiceFormModal } from './service-form-modal';
 import { deleteService, toggleServiceStatus } from './actions';
 
@@ -37,6 +38,7 @@ export function ServicesClient({
   const { show } = useToast();
 
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ServiceRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -194,6 +196,9 @@ export function ServicesClient({
         title={t('title')}
         actions={
           <>
+            <Button variant="secondary" onClick={() => setCategoriesOpen(true)} size="sm">
+              <FolderTree className="h-4 w-4" /> {t('manageCategories')}
+            </Button>
             <a
               href="/api/export/services"
               className="inline-flex h-8 items-center gap-2 rounded-sm border border-border bg-bg-surface px-3 text-xs font-medium text-text-primary hover:bg-bg-surface-2"
@@ -231,6 +236,14 @@ export function ServicesClient({
           taxes={taxes}
           existingTaxIds={mode.kind === 'edit' ? (taxIdsByService.get(mode.service.id) ?? []) : []}
           onClose={() => setMode({ kind: 'closed' })}
+        />
+      )}
+
+      {categoriesOpen && (
+        <CategoryManagementModal
+          categories={categories}
+          services={services}
+          onClose={() => setCategoriesOpen(false)}
         />
       )}
 

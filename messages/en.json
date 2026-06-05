@@ -319,6 +319,7 @@
       "title": "Services",
       "soon": "Services and pricing grid — Phase 4.",
       "addService": "Add a service",
+      "manageCategories": "Categories",
       "emptyTitle": "No services yet",
       "emptyHint": "Create categories first, then add your services.",
       "columns": {
@@ -358,6 +359,25 @@
         "updated": "Service updated",
         "deleted": "\"{name}\" deleted",
         "statusFlipped": "\"{name}\" status updated"
+      },
+      "categories": {
+        "title": "Service categories",
+        "description": "Add, rename or remove the categories services are grouped under.",
+        "addLabel": "New category name",
+        "addPlaceholder": "Category name",
+        "renameLabel": "Category name",
+        "empty": "No categories yet. Add your first one above.",
+        "serviceCount": "{count, plural, =0 {No services} one {# service} other {# services}}",
+        "confirmDelete": {
+          "title": "Delete this category?",
+          "description": "\"{name}\" will be permanently deleted. This action cannot be undone."
+        },
+        "toasts": {
+          "created": "Category added",
+          "renamed": "Category renamed",
+          "deleted": "\"{name}\" deleted",
+          "deleteBlocked": "\"{name}\" still has services. Reassign or remove them first."
+        }
       }
     },
     "barbers": {
@@ -1564,6 +1584,7 @@
       "add": "Add",
       "edit": "Edit",
       "confirm": "Confirm",
+      "close": "Close",
       "search": "Search",
       "export": "Export",
       "download": "Download"

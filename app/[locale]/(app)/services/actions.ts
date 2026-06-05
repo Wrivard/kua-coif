@@ -7,9 +7,12 @@ import { err, ok } from '@/lib/server-actions/result';
 import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import {
+  deleteServiceCategorySchema,
   deleteServiceSchema,
+  serviceCategorySchema,
   serviceSchema,
   toggleServiceStatusSchema,
+  updateServiceCategorySchema,
   updateServiceSchema,
 } from './schema';
 
@@ -249,5 +252,113 @@ export const toggleServiceStatus = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: next });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Service categories — lightweight name CRUD, mirroring the product
+// brands/categories taxonomy. RLS scopes every read/write to the active
+// shop, so we never pass shop_id to update/delete (only to insert).
+// ---------------------------------------------------------------------------
+export const createServiceCategory = withAction({
+  schema: serviceCategorySchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const supabase = db();
+    const { data, error } = await supabase
+      .from('service_categories')
+      .insert({ shop_id: ctx.shopId, name: input.name })
+      .select('id')
+      .single();
+    if (error || !data) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'insert',
+      entity: 'service_categories',
+      entityId: data.id,
+      diff: { after: input },
+    });
+
+    revalidatePath(SERVICES_PATH);
+    revalidatePublicShopSurfaces();
+    return ok({ id: data.id });
+  },
+});
+
+export const renameServiceCategory = withAction({
+  schema: updateServiceCategorySchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const { error } = await db()
+      .from('service_categories')
+      .update({ name: input.name })
+      .eq('id', input.id);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'service_categories',
+      entityId: input.id,
+      diff: { after: { name: input.name } },
+    });
+
+    revalidatePath(SERVICES_PATH);
+    revalidatePublicShopSurfaces();
+    return ok({ id: input.id });
+  },
+});
+
+export const deleteServiceCategory = withAction({
+  schema: deleteServiceCategorySchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const supabase = createSupabaseServerClient();
+
+    // Guard: block the delete while any service still references this
+    // category. Without this, the FK would either error opaquely or
+    // (depending on the constraint) orphan services. Surface a clean
+    // CONFLICT the client renders as a toast. `head: true` + `count`
+    // skips row payload — we only need the tally.
+    const { count, error: countError } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (
+            cols: string,
+            opts: { count: 'exact'; head: true },
+          ) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => Promise<{ count: number | null; error: unknown }>;
+          };
+        };
+      }
+    )
+      .from('services')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', input.id);
+
+    if (countError) return err('UNEXPECTED');
+    if ((count ?? 0) > 0) return err('CONFLICT');
+
+    const { error } = await db().from('service_categories').delete().eq('id', input.id);
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'service_categories',
+      entityId: input.id,
+      diff: { deleted: true },
+    });
+
+    revalidatePath(SERVICES_PATH);
+    revalidatePublicShopSurfaces();
+    return ok({ id: input.id });
   },
 });

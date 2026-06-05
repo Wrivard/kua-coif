@@ -36,3 +36,18 @@ export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
 
 export const deleteServiceSchema = z.object({ id: z.string().uuid() });
 export const toggleServiceStatusSchema = z.object({ id: z.string().uuid() });
+
+// ---------------------------------------------------------------------------
+// Service categories — single text field, lightweight CRUD mirroring the
+// product brands/categories taxonomy. Delete is guarded server-side: a
+// category still referenced by services returns CONFLICT.
+// ---------------------------------------------------------------------------
+export const serviceCategorySchema = z.object({
+  name: z.string().trim().min(1, 'NAME_REQUIRED').max(80),
+});
+export type ServiceCategoryInput = z.infer<typeof serviceCategorySchema>;
+
+export const updateServiceCategorySchema = serviceCategorySchema.extend({
+  id: z.string().uuid(),
+});
+export const deleteServiceCategorySchema = z.object({ id: z.string().uuid() });

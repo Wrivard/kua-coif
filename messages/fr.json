@@ -319,6 +319,7 @@
       "title": "Services",
       "soon": "Grille des services et tarifs — Phase 4.",
       "addService": "Ajouter un service",
+      "manageCategories": "Catégories",
       "emptyTitle": "Aucun service",
       "emptyHint": "Crée d'abord des catégories puis ajoute tes services.",
       "columns": {
@@ -358,6 +359,25 @@
         "updated": "Service mis à jour",
         "deleted": "« {name} » supprimé",
         "statusFlipped": "Statut de « {name} » mis à jour"
+      },
+      "categories": {
+        "title": "Catégories de services",
+        "description": "Ajoute, renomme ou supprime les catégories qui regroupent les services.",
+        "addLabel": "Nom de la nouvelle catégorie",
+        "addPlaceholder": "Nom de la catégorie",
+        "renameLabel": "Nom de la catégorie",
+        "empty": "Aucune catégorie. Ajoute la première ci-dessus.",
+        "serviceCount": "{count, plural, =0 {Aucun service} one {# service} other {# services}}",
+        "confirmDelete": {
+          "title": "Supprimer cette catégorie ?",
+          "description": "« {name} » sera supprimée définitivement. Cette action est irréversible."
+        },
+        "toasts": {
+          "created": "Catégorie ajoutée",
+          "renamed": "Catégorie renommée",
+          "deleted": "« {name} » supprimée",
+          "deleteBlocked": "« {name} » contient encore des services. Réassigne-les ou supprime-les d'abord."
+        }
       }
     },
     "barbers": {
@@ -1564,6 +1584,7 @@
       "add": "Ajouter",
       "edit": "Modifier",
       "confirm": "Confirmer",
+      "close": "Fermer",
       "search": "Rechercher",
       "export": "Exporter",
       "download": "Télécharger"
