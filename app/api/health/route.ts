@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { stripeConfigured } from '@/lib/stripe/server';
 
 /**
  * Health check for monitoring services (UptimeRobot, Vercel, custom alerts).
@@ -19,6 +20,13 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const startedAt = Date.now();
+  // Boolean-only Stripe config surface (never leak secret values). Lets
+  // monitoring catch a deploy where STRIPE_WEBHOOK_SECRET wasn't set — which
+  // silently drops every incoming Stripe event (the webhook fails loud now too).
+  const stripe = {
+    configured: stripeConfigured(),
+    webhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+  };
   const hasSupabaseEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
@@ -28,6 +36,7 @@ export async function GET() {
       {
         ok: true,
         supabase: 'skipped',
+        stripe,
         uptimeMs: Math.round(process.uptime() * 1000),
         timestamp: new Date().toISOString(),
       },
@@ -44,6 +53,7 @@ export async function GET() {
       {
         ok: true,
         supabase: 'ok',
+        stripe,
         latencyMs: Date.now() - startedAt,
         uptimeMs: Math.round(process.uptime() * 1000),
         timestamp: new Date().toISOString(),

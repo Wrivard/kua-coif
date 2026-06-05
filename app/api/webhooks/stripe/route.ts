@@ -41,6 +41,17 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
+    // Misconfiguration: STRIPE_SECRET_KEY is set (stripeConfigured passed) but
+    // the signing secret is missing, so we can't verify ANY event. Each one
+    // 500s and Stripe drops it after the 3-day retry window — a silent,
+    // multi-day payment/refund desync. Capture so it surfaces on the very
+    // first event instead of going unnoticed.
+    captureException(
+      new Error(
+        '[stripe-webhook] STRIPE_WEBHOOK_SECRET missing — incoming events cannot be verified',
+      ),
+      { tags: { layer: 'stripe-webhook', stage: 'config' } },
+    );
     return NextResponse.json({ ok: false, error: 'webhook_secret_missing' }, { status: 500 });
   }
 
