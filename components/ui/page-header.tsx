@@ -29,9 +29,10 @@ export function PageHeader({ title, subtitle, center, actions, switcher, classNa
       )}
     >
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-base font-semibold tracking-tight text-text-primary sm:text-xl">
-          {title}
-        </h1>
+        {/* Page titles use the display scale (24px / 600 / negative tracking,
+            all baked into `text-display-sm`) — the spec's intended page-title
+            size, which the old text-base/sm:text-xl undershot. */}
+        <h1 className="truncate text-display-sm text-text-primary">{title}</h1>
         {subtitle ? (
           // Phase H+8 — mt-0.5 → mt-1 so the subtitle sits a hair
           // further from the title; 2px → 4px reads as breathing room,
