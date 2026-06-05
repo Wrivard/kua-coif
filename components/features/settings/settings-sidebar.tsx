@@ -87,7 +87,7 @@ export function SettingsSidebar({ locale }: { locale: string }) {
                           className={cn(
                             'flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors',
                             active
-                              ? 'bg-accent-subtle font-medium text-text-primary'
+                              ? 'bg-bg-surface-2 font-medium text-text-primary'
                               : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
                           )}
                         >

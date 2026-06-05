@@ -39,7 +39,7 @@ export function Tabs<V extends string>({ value, onChange, items, className, ...r
               'relative -mb-px flex items-center gap-2 border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors',
               'focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
               active
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary',
               it.disabled && 'cursor-not-allowed opacity-50',
             )}
@@ -49,7 +49,7 @@ export function Tabs<V extends string>({ value, onChange, items, className, ...r
               <span
                 className={cn(
                   'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                  active ? 'bg-accent-subtle text-accent' : 'bg-bg-surface-2 text-text-muted',
+                  active ? 'bg-bg-surface-2 text-text-primary' : 'bg-bg-surface-2 text-text-muted',
                 )}
               >
                 {it.count}

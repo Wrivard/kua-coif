@@ -208,3 +208,11 @@
 - Améliorations UX wizard (Squire-style) : "Choose a professional first" optionnel, multi-service step "Anything to add", récap "Your order" dark, date strip + slots avec icônes sun/moon.
 - Stripe paiement online (post-MVP).
 - Estimation : 8–15h.
+
+## UI Refresh Wave — accent discipline (2026-06-05)
+
+> Throughline validé avec l'owner (« precision instrument, warm signature ») : réserver `--accent` + `shadow-accent-glow` aux **actions primaires et au statut live uniquement**, pour que l'accent devienne signifiant *parce qu'il est rare*.
+
+- **Les états actif/sélectionné de nav/onglets perdent l'accent** : l'item actif de la Sidebar principale (SidebarLink + KuaAdminLink), la sous-nav Settings (settings-sidebar), la nav super-admin, les onglets (tabs.tsx), et l'option sélectionnée du ShopSwitcher n'utilisent plus `bg-accent-subtle`/`text-accent`/`shadow-accent-glow`. Ils passent à un **marqueur structurel NEUTRE** — remplissage `bg-bg-surface-2` + `text-text-primary`, ou un soulignement `border-text-primary` pour les nav en onglets. Ça respecte le SPEC (« marqueur actif, jamais juste un changement de couleur de texte » : la barre/le soulignement EST le marqueur) tout en honorant la discipline d'accent. L'ancien état actif Phase 36 empilait un glow accent sur une barre laissée rendue (double accent) — les deux retirés, la barre est désormais neutre.
+- **Les contrôles de formulaire GARDENT l'accent** (Toggle on, Checkbox coché) : le SPEC est explicite (« on = accent », « coché = accent ») et l'accent est l'affordance on/sélectionné la plus claire pour un input interactif. Le « toggles » du throughline est lu comme les contrôles de *nav/segmented* en forme de toggle, pas les switches de formulaire. On GARDE l'accent sur `toggle.tsx` (checked) + `checkbox.tsx` (checked). Ambiguïté tranchée selon la règle SPEC « choisir l'option la plus simple qui respecte les maquettes, documenter, continuer ».
+- **Accent CONSERVÉ ailleurs** : Button primary, FAB, tuile logo Küa, variante `accent` du Badge, pastille d'initiales avatar (branding / action primaire / identité).

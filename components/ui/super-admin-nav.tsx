@@ -75,7 +75,7 @@ export function SuperAdminNav() {
               className={cn(
                 'inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-150',
                 active
-                  ? 'border-accent text-accent'
+                  ? 'border-text-primary text-text-primary'
                   : 'border-transparent text-text-secondary hover:text-text-primary',
               )}
             >

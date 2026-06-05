@@ -246,7 +246,7 @@ export function ShopSwitcher({
                   className={cn(
                     'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors',
                     isActive
-                      ? 'bg-accent-subtle text-accent'
+                      ? 'bg-bg-surface-2 text-text-primary'
                       : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                   )}
