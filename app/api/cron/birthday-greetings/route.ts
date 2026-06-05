@@ -246,6 +246,18 @@ export async function GET(req: NextRequest) {
     failed += 1;
   }
 
+  // Aggregate failure alert — see the reminders cron for the rationale: soft
+  // send-failures bump `failed` without throwing, so a fully-broken run would
+  // otherwise return a green 200. Surface it to Sentry.
+  if (failed > 0) {
+    captureException(
+      new Error(
+        `[cron-birthday] ${failed} send(s) failed this run (sent=${sent}, skipped=${skipped})`,
+      ),
+      { tags: { layer: 'cron-birthday', stage: 'run-summary' } },
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,

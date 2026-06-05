@@ -296,6 +296,20 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Aggregate failure alert. Individual soft send-failures (result.sent ===
+  // false for a non-'disabled' reason) only bump `failed` — they don't throw —
+  // so a run where the whole email/SMS pipeline is down would otherwise return
+  // a green 200 and go unnoticed. Surface the count so a broken automation is
+  // visible in Sentry on the very next tick.
+  if (failed > 0) {
+    captureException(
+      new Error(
+        `[cron-reminders] ${failed} send(s) failed this run (sent=${sent}, skipped=${skipped})`,
+      ),
+      { tags: { layer: 'cron-reminders', stage: 'run-summary' } },
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,
