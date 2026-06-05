@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   ci:
-    name: build · typecheck · lint
+    name: build · typecheck · lint · test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -41,6 +41,13 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Test (Vitest)
+        # Pin TZ so date-fns-tz shop-timezone math is reproducible — CI runners
+        # default to UTC; local dev may differ. (Roadmap Wave 0)
+        env:
+          TZ: America/Toronto
+        run: pnpm test
 
       - name: Lint
         run: pnpm lint
