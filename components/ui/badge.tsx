@@ -65,7 +65,14 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full',
+        // UI refresh wave — precision pass. Lock the pill to an exact
+        // height (leading-none + items-center, no line-box slack), keep
+        // a status label atomic so it never wraps (whitespace-nowrap),
+        // and sit true-centered against adjacent inline text/headings
+        // (align-middle). Pure layout/type — adds no color, so both the
+        // light and dark themes still resolve through the token classes
+        // below.
+        'inline-flex items-center whitespace-nowrap rounded-full align-middle leading-none',
         sizes[size],
         variants[variant],
         className,
