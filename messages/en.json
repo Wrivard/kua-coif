@@ -28,6 +28,8 @@
       "password": "Password",
       "submit": "Sign in",
       "submitting": "Signing in…",
+      "noAccount": "Don't have an account yet?",
+      "signupLink": "Create an account",
       "forgotLink": "Forgot your password?",
       "byInvitationOnly": "Access is by invitation only — your salon owner adds your email, then you receive a setup link.",
       "signedUpHint": "Account created. If email confirmation is enabled, check your inbox, then sign in."
