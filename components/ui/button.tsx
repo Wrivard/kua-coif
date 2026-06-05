@@ -3,7 +3,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -45,6 +45,14 @@ const variants: Record<ButtonVariant, string> = {
   secondary: cn(
     'bg-bg-surface text-text-primary shadow-sm',
     'hover:bg-bg-surface-2 hover:shadow-border-strong',
+    'focus-visible:ring-focus',
+  ),
+  // Tertiary — quiet, text-only tier. Starts muted and brightens on hover, so a
+  // dense toolbar's secondary actions visually recede instead of reading as a
+  // wall of equal-weight buttons. (UI Wave — accent discipline)
+  tertiary: cn(
+    'text-text-secondary',
+    'hover:bg-bg-surface-2 hover:text-text-primary',
     'focus-visible:ring-focus',
   ),
   ghost: cn('text-text-primary', 'hover:bg-bg-surface-2', 'focus-visible:ring-focus'),
