@@ -6,6 +6,7 @@ import { parseWidgetConfig } from '@/lib/business/widget-config';
 import type { TipsConfig } from '@/lib/business/tips';
 import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { BookingWizard, type BookingShop, type BookingHours } from './booking-wizard';
+import { ReviewsSection, type PublicReview } from './reviews-section';
 
 // Public booking page — cache the rendered output for 60s. The data we
 // surface (hours, services, barbers, days off) changes rarely; a one-minute
@@ -69,8 +70,8 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
 
   // 2. Concurrently fetch hours, days_off, barbers, services, categories.
   //    Phase E adds `tips_config` for the in-widget tip selector.
-  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes, tipsRes] = await Promise.all(
-    [
+  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes, tipsRes, reviewsRes] =
+    await Promise.all([
       supabase
         .from('shop_hours')
         .select('weekday, enabled, open_time, close_time')
@@ -99,8 +100,18 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
         )
         .eq('shop_id', shop.id)
         .limit(1),
-    ],
-  );
+      // Published reviews via the public-safe `reviews_public` view
+      // (security audit #6). The view already filters status='published'
+      // and exposes only safe columns (no client_id / barber_id). We cap
+      // at 20 most-recent rows: enough to compute a representative average
+      // + show a few snippets without paging the whole history.
+      supabase
+        .from('reviews_public')
+        .select('id, rating, comment, client_name, created_at')
+        .eq('shop_id', shop.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
 
   const hours = (hoursRes.data as BookingHours[] | null) ?? [];
   const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
@@ -112,6 +123,7 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
     (s) => s.status === 'enabled',
   );
   const categories = (categoriesRes.data as ServiceCategoryRow[] | null) ?? [];
+  const reviews = (reviewsRes.data as PublicReview[] | null) ?? [];
 
   // Schema.org structured data — Hairdresser (subtype of LocalBusiness)
   // helps Google show rich results for the shop's name, address, hours.
@@ -191,6 +203,10 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
         // conflate it with bare /embed loads.
         analyticsSource={null}
       />
+      {/* Social proof — published reviews surfaced below the wizard so
+          customers who are still deciding can read recent feedback. The
+          section self-hides when the shop has no published reviews. */}
+      <ReviewsSection reviews={reviews} locale={locale} />
     </>
   );
 }

@@ -1548,6 +1548,11 @@
         "description": "Tu recevras un rappel par courriel ou texto avant ta visite.",
         "redirecting": "Redirection en cours…",
         "redirectManual": "Clique ici si rien ne se passe."
+      },
+      "reviews": {
+        "title": "Ce que disent les clients",
+        "count": "{count, plural, one {# avis} other {# avis}}",
+        "by": "— {name}"
       }
     }
   },

@@ -1546,6 +1546,11 @@
         "description": "You'll receive a reminder via email or SMS before your visit.",
         "redirecting": "Redirecting…",
         "redirectManual": "Click here if nothing happens."
+      },
+      "reviews": {
+        "title": "What clients say",
+        "count": "{count, plural, one {# review} other {# reviews}}",
+        "by": "— {name}"
       }
     }
   },
