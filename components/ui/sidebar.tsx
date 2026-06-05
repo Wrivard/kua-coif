@@ -455,14 +455,17 @@ function KuaAdminLink({
         'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         active
-          ? 'bg-accent-subtle text-accent shadow-accent-glow'
+          ? // Accent discipline — mirrors SidebarLink: neutral active state
+            // (elevated fill + primary text) marked by the neutral left bar
+            // below; accent is reserved for primary actions / live status.
+            'bg-bg-surface-2 text-text-primary'
           : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
+          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-text-primary transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
@@ -500,18 +503,20 @@ function SidebarLink({
         'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         active
-          ? // Phase 36 — refined active state: subtle bg + accent text +
-            // a soft glow ring (4px) instead of the V1 left bar marker.
-            // The glow ring is `accent-subtle-strong` faded, picked up by
-            // `shadow-accent-glow` via tailwind config.
-            'bg-accent-subtle text-accent shadow-accent-glow'
+          ? // UI refresh — accent discipline: --accent + shadow-accent-glow are
+            // reserved for primary actions and live status, so the active nav
+            // item is NEUTRAL — an elevated fill + primary text/icon, marked by
+            // the neutral left bar below (a structural marker, not a colour
+            // shift). The old Phase 36 glow stacked on top of a bar that was in
+            // fact still rendered — double accent; both are gone now.
+            'bg-bg-surface-2 text-text-primary'
           : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
+          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-text-primary transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
