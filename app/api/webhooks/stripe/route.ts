@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { getStripe, stripeConfigured } from '@/lib/stripe/server';
 import { mapAccountToStatus } from '@/lib/stripe/connect';
-import { mapIntentStatus } from '@/lib/stripe/payments';
+import { mapIntentStatus, markRefundedByIntent } from '@/lib/stripe/payments';
 import { sendSlackDisputeNotification } from '@/lib/notifications/slack';
 import { captureException } from '@/lib/observability';
 import type Stripe from 'stripe';
@@ -292,10 +292,9 @@ async function persistPaymentStatus(intent: Stripe.PaymentIntent): Promise<void>
 async function persistRefundForIntent(intentId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createSupabaseServiceRoleClient() as any;
-  await admin
-    .from('appointments')
-    .update({ payment_status: 'refunded' })
-    .eq('payment_intent_id', intentId);
+  // Same shared writer the app-side refund call-sites use, so the webhook and
+  // synchronous writes can never drift apart.
+  await markRefundedByIntent(admin, intentId);
 }
 
 /**

@@ -225,6 +225,37 @@ export async function refundPaymentIntentFull({
 }
 
 /**
+ * Mark an appointment refunded by its PaymentIntent id.
+ *
+ * The Stripe `charge.refunded` webhook does this too, but relying on the
+ * webhook ALONE means a dropped/undelivered event leaves the row 'paid'
+ * forever — Stripe refunded the money while the app still shows paid,
+ * over-stating revenue and over-paying commission. So every app-side refund
+ * call-site writes synchronously through this same helper; the write is
+ * idempotent with the webhook (both set 'refunded').
+ *
+ * UNCONDITIONAL intent-id semantics (no payment_status guard) — must match the
+ * webhook writer so the two never diverge, and so a pending-deposit refund
+ * isn't skipped by a too-narrow `status='paid'` filter. Composes with the
+ * webhook's revertRefundForIntent, which flips 'refunded' -> 'paid' on a failed
+ * async refund (guarded on status='refunded').
+ *
+ * Takes the caller's Supabase client (service-role in the webhook, the
+ * request-scoped client in server actions) so this module stays Supabase-
+ * import-free.
+ */
+export async function markRefundedByIntent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  paymentIntentId: string,
+): Promise<void> {
+  await sb
+    .from('appointments')
+    .update({ payment_status: 'refunded' })
+    .eq('payment_intent_id', paymentIntentId);
+}
+
+/**
  * Phase A (Stripe hardening) — server-side PaymentIntent verification.
  *
  * The booking action receives `payment_intent_id` from the client and

@@ -11,7 +11,7 @@ import { logAuditAction } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { stripeConfigured } from '@/lib/stripe/server';
-import { refundPaymentIntentFull } from '@/lib/stripe/payments';
+import { markRefundedByIntent, refundPaymentIntentFull } from '@/lib/stripe/payments';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 
@@ -327,11 +327,11 @@ export async function cancelMyAppointment(
       try {
         await refundPaymentIntentFull({ paymentIntentId: appt.payment_intent_id });
         refunded = true;
-        // The webhook handler flips payment_status='refunded' on
-        // charge.refunded — we don't pre-write it here to avoid a
-        // double-write race. The customer sees a "refund issued"
-        // message; the row stays 'paid' for a few seconds until the
-        // webhook lands.
+        // Sync-write refunded status so a dropped/undelivered charge.refunded
+        // webhook can't leave the row 'paid' forever. Idempotent with the
+        // webhook (both set 'refunded'); composes with revertRefundForIntent
+        // on a failed async refund.
+        await markRefundedByIntent(supabase, appt.payment_intent_id);
       } catch (e) {
         // Refund failure is logged but doesn't block the cancel.
         // The salon owner can retry manually via the admin drawer.

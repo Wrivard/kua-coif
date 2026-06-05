@@ -27,7 +27,11 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 import { deleteAppointmentMirror, pushAppointment } from '@/lib/google/sync';
 import { stripeConfigured } from '@/lib/stripe/server';
-import { createDepositPaymentIntent, refundPaymentIntentFull } from '@/lib/stripe/payments';
+import {
+  createDepositPaymentIntent,
+  markRefundedByIntent,
+  refundPaymentIntentFull,
+} from '@/lib/stripe/payments';
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
 import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
@@ -688,6 +692,9 @@ export const cancelAppointment = withAction({
         // 'full' string fallback). Stripe-side dedup now works even
         // if a future caller passes the same amount explicitly.
         await refundPaymentIntentFull({ paymentIntentId: pre.payment_intent_id });
+        // Sync-write refunded status (idempotent with the charge.refunded
+        // webhook) so a dropped event can't leave the row 'paid'.
+        await markRefundedByIntent(rawDb(), pre.payment_intent_id);
         await logAuditAction({
           shopId: ctx.shopId,
           actorId: ctx.userId,
@@ -937,6 +944,9 @@ export const bulkCancelAppointments = withAction<
         const result = settled[i]!;
         if (result.status === 'fulfilled') {
           refundedCount += 1;
+          // Sync-write refunded status (idempotent with the webhook) so a
+          // dropped charge.refunded can't leave the row 'paid'.
+          await markRefundedByIntent(sb, refundable[i]!.payment_intent_id!);
         } else {
           captureException(result.reason, {
             tags: { layer: 'stripe-payments', action: 'bulkCancelAppointments.refund' },
@@ -1284,6 +1294,8 @@ export const refundAppointment = withAction({
 
     try {
       await refundPaymentIntentFull({ paymentIntentId: appt.payment_intent_id });
+      // Sync-write refunded status (idempotent with the webhook).
+      await markRefundedByIntent(sb, appt.payment_intent_id);
       await logAuditAction({
         shopId: ctx.shopId,
         actorId: ctx.userId,
