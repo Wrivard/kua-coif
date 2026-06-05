@@ -251,6 +251,7 @@
       },
       "toasts": {
         "created": "Appointment created",
+        "updated": "Appointment updated",
         "cancelled": "Appointment cancelled",
         "cancelledAndRefunded": "Cancelled and refunded",
         "refunded": "Refund issued"

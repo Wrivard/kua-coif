@@ -1,14 +1,15 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarSync, Link2, Receipt, RotateCcw, Sparkles, Star } from 'lucide-react';
+import { CalendarSync, Check, Link2, Receipt, RotateCcw, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/select';
 import { Drawer } from '@/components/ui/drawer';
 import { useToast } from '@/components/ui/toast';
 import { formatShopTime } from '@/lib/business/timezone';
-import { cancelAppointment, refundAppointment } from './actions';
+import { APPOINTMENT_STATUSES, type AppointmentStatus } from '@/db/enums';
+import { cancelAppointment, refundAppointment, updateAppointment } from './actions';
 import { generatePublicLinks } from './actions-public-links';
 import type { CalendarAppointment } from './appointments-calendar';
 
@@ -25,6 +26,29 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [status, setStatus] = useState<AppointmentStatus>(appointment?.status ?? 'booked');
+  const [notes, setNotes] = useState(appointment?.notes ?? '');
+  // Re-sync local edits when a different appointment is opened in the drawer.
+  useEffect(() => {
+    setStatus(appointment?.status ?? 'booked');
+    setNotes(appointment?.notes ?? '');
+  }, [appointment?.id, appointment?.status, appointment?.notes]);
+  const dirty =
+    appointment != null &&
+    (status !== appointment.status || (notes || null) !== (appointment.notes || null));
+
+  function onSave() {
+    if (!appointment || !dirty) return;
+    startTransition(async () => {
+      const result = await updateAppointment({ id: appointment.id, status, notes: notes || null });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.updated') });
+        onClose();
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
 
   const isCancelled = appointment?.status === 'cancelled' || appointment?.status === 'no_show';
 
@@ -226,12 +250,21 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
                 {t('status')}
               </p>
-              <Badge variant={isCancelled ? 'default' : 'success'}>
-                {t(`statuses.${appointment.status}`)}
-              </Badge>
+              <Select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
+                disabled={isPending}
+                aria-label={t('status')}
+              >
+                {APPOINTMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`statuses.${s}`)}
+                  </option>
+                ))}
+              </Select>
             </div>
           </div>
           <div>
@@ -247,14 +280,19 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               ))}
             </ul>
           </div>
-          {appointment.notes ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {t('notes')}
-              </p>
-              <p className="whitespace-pre-wrap text-text-secondary">{appointment.notes}</p>
-            </div>
-          ) : null}
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              {t('notes')}
+            </p>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isPending}
+              rows={3}
+              maxLength={2000}
+              className="w-full resize-y rounded-lg bg-bg-surface-2 px-3 py-2 text-sm text-text-secondary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
+            />
+          </div>
           <div className="flex items-center justify-between border-t border-border pt-3">
             <span className="text-xs uppercase tracking-wide text-text-muted">
               {appointment.source === 'online' ? t('online') : t('admin')}
@@ -313,7 +351,13 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               (review) / 365 days (/me), copied to your clipboard.
             </p>
           </div>
-          <p className="text-[10px] text-text-muted">{tCommon('actions.edit')} — V1.1</p>
+          {dirty ? (
+            <div className="flex justify-end border-t border-border pt-3">
+              <Button onClick={onSave} loading={isPending} size="sm">
+                <Check className="h-4 w-4" /> {tCommon('actions.save')}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Drawer>

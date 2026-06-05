@@ -253,6 +253,7 @@
       },
       "toasts": {
         "created": "Rendez-vous créé",
+        "updated": "Rendez-vous mis à jour",
         "cancelled": "Rendez-vous annulé",
         "cancelledAndRefunded": "Rendez-vous annulé et remboursé",
         "refunded": "Remboursement effectué"

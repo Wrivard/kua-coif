@@ -20,7 +20,14 @@ export const appointmentSchema = z.object({
 });
 export type AppointmentInput = z.infer<typeof appointmentSchema>;
 
-export const updateAppointmentSchema = appointmentSchema.extend({ id: z.string().uuid() });
+// Wave 1 — the detail drawer only edits status + notes, and the action's
+// run() only reads { id, status, notes }. The old appointmentSchema.extend
+// forced the drawer to fake a full create payload. Narrowed to what's used.
+export const updateAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(APPOINTMENT_STATUSES),
+  notes: appointmentSchema.shape.notes,
+});
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 
 export const cancelAppointmentSchema = z.object({
