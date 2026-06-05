@@ -27,6 +27,15 @@ const PUBLIC_PATH_PREFIXES = [
   '/kitchen-sink', // design system gallery — always accessible for review
   '/privacy', // legal — Loi 25 Quebec (Phase 9)
   '/terms',
+  // Token-authenticated customer self-service links — no session required; the
+  // page-level verifyToken() is the real security gate. Without these prefixes,
+  // every signed link the admin copies from the appointment drawer (self-
+  // service / review / receipt / reschedule) bounces a logged-out customer to
+  // /login and is unreachable. (Roadmap Wave 0)
+  '/me',
+  '/review',
+  '/receipt',
+  '/reschedule',
 ];
 
 function stripLocale(pathname: string): string {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { Download, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -193,9 +193,17 @@ export function ServicesClient({
       <PageHeader
         title={t('title')}
         actions={
-          <Button onClick={() => setMode({ kind: 'add' })} size="sm">
-            <Plus className="h-4 w-4" /> {t('addService')}
-          </Button>
+          <>
+            <a
+              href="/api/export/services"
+              className="inline-flex h-8 items-center gap-2 rounded-sm border border-border bg-bg-surface px-3 text-xs font-medium text-text-primary hover:bg-bg-surface-2"
+            >
+              <Download className="h-3.5 w-3.5" /> {tCommon('actions.export')}
+            </a>
+            <Button onClick={() => setMode({ kind: 'add' })} size="sm">
+              <Plus className="h-4 w-4" /> {t('addService')}
+            </Button>
+          </>
         }
       />
 

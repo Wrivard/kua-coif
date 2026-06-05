@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import Papa from 'papaparse';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth/server';
+import { sanitizeCsvRows } from '@/lib/security/csv';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -126,7 +127,10 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   }
 
   const rows = (result.data as Array<Record<string, unknown>> | null) ?? [];
-  const csv = Papa.unparse(rows, { quotes: true });
+  // Security: neutralize spreadsheet formula injection (OWASP). Cells such as
+  // client names/emails come from the public booking flow and could carry
+  // =cmd / +HYPERLINK / @SUM payloads that execute when the owner opens the CSV.
+  const csv = Papa.unparse(sanitizeCsvRows(rows), { quotes: true });
   const filename = `${entity}-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return new NextResponse(csv, {
