@@ -163,6 +163,7 @@ export function MobileSidebar({
               activeShopId={activeShopId}
               activeShopName={activeShopName}
               shopRows={shopRows}
+              className="min-w-0 flex-1"
             />
             <button
               type="button"

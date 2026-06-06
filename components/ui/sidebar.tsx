@@ -89,43 +89,61 @@ export function Sidebar({
       )}
       aria-label="Primary navigation"
     >
-      <div className="flex h-header-h items-center justify-between border-b border-border-soft px-3">
-        <Link href={`/${locale}/`} aria-label="Küa" className="flex shrink-0 items-center">
-          {expanded ? (
-            <Image
-              src="/logo.png"
-              alt="Küa"
-              width={84}
-              height={28}
-              priority
-              className="brand-logo h-7 w-auto"
-            />
-          ) : (
-            <Image
-              src="/logo-icon.png"
-              alt="Küa"
-              width={32}
-              height={32}
-              priority
-              className="brand-logo h-8 w-8 object-contain"
-            />
-          )}
-        </Link>
+      <div className="flex h-header-h flex-col justify-center border-b border-border-soft px-3">
         {expanded ? (
-          <ShopSwitcher
-            activeShopId={activeShopId}
-            activeShopName={activeShopName}
-            shopRows={shopRows}
-          />
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? t('collapseSidebar') : t('expandSidebar')}
-          className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          {expanded ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
-        </button>
+          // Expanded: logo wordmark on top, active-shop name underneath,
+          // collapse chevron parked top-right of the logo row.
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Link href={`/${locale}/`} aria-label="Küa" className="flex shrink-0 items-center">
+                <Image
+                  src="/logo.png"
+                  alt="Küa"
+                  width={84}
+                  height={28}
+                  priority
+                  className="brand-logo h-7 w-auto"
+                />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-label={t('collapseSidebar')}
+                className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+            </div>
+            <ShopSwitcher
+              activeShopId={activeShopId}
+              activeShopName={activeShopName}
+              shopRows={shopRows}
+              className="w-full"
+            />
+          </div>
+        ) : (
+          // Collapsed: icon mark stacked over the expand chevron.
+          <div className="flex flex-col items-center gap-1.5">
+            <Link href={`/${locale}/`} aria-label="Küa" className="flex shrink-0 items-center">
+              <Image
+                src="/logo-icon.png"
+                alt="Küa"
+                width={32}
+                height={32}
+                priority
+                className="brand-logo h-8 w-8 object-contain"
+              />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-label={t('expandSidebar')}
+              className="rounded p-1 text-text-muted transition-colors hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <SidebarNavInner
@@ -154,10 +172,14 @@ export function ShopSwitcher({
   activeShopId,
   activeShopName,
   shopRows,
+  className,
 }: {
   activeShopId: string | null;
   activeShopName: string | null;
   shopRows: Array<{ shop_id: string; name: string }>;
+  /** Layout classes from the caller (desktop stacks it full-width; mobile
+   *  lays it out in a row). Keeps the switcher layout-agnostic. */
+  className?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -207,7 +229,7 @@ export function ShopSwitcher({
   if (!hasMultiple) {
     return (
       <span
-        className="ml-2 truncate text-sm font-semibold text-text-primary"
+        className={cn('truncate text-sm font-semibold text-text-primary', className)}
         title={activeShopName ?? undefined}
       >
         {activeShopName ?? 'Küa'}
@@ -216,7 +238,7 @@ export function ShopSwitcher({
   }
 
   return (
-    <div ref={wrapperRef} className="relative ml-2 min-w-0 flex-1">
+    <div ref={wrapperRef} className={cn('relative min-w-0', className)}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
