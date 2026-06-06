@@ -174,21 +174,24 @@ export function statusToColor(status: AppointmentStatus): string {
     // arrived = in the chair right now: the loudest block (green fill + success spine).
     case 'arrived':
       return 'bg-appt-green border-l-success';
-    // confirmed = a locked-in yes: brand accent spine.
+    // confirmed = a locked-in yes: faint brand-sage fill + accent spine
+    // (was bg-appt-purple, off-brand lavender after the sage rebrand).
     case 'confirmed':
-      return 'bg-appt-purple border-l-accent';
-    // completed = done and settled: muted surface, success spine.
+      return 'bg-accent-subtle border-l-accent';
+    // completed = done and settled: muted surface, success spine. The
+    // "done" read comes from muted block text, NOT block-wide opacity
+    // (which crushed text contrast below AA).
     case 'completed':
-      return 'bg-bg-surface-2 border-l-success opacity-75';
+      return 'bg-bg-surface-2 border-l-success';
     // booked = tentative: cool info blue.
     case 'booked':
       return 'bg-appt-blue border-l-info';
     // no_show = needs attention: warning.
     case 'no_show':
-      return 'bg-warning-subtle border-l-warning opacity-90';
-    // cancelled = ghosted out.
+      return 'bg-warning-subtle border-l-warning';
+    // cancelled = ghosted out (via muted + struck text, not opacity).
     case 'cancelled':
-      return 'bg-bg-surface-2 border-l-border opacity-50';
+      return 'bg-bg-surface-2 border-l-border';
     default:
       return 'bg-appt-blue border-l-info';
   }
@@ -1160,7 +1163,7 @@ function BarberColumn({
                 top: `${top}px`,
                 height: `${height}px`,
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,0.035) 6px, rgba(255,255,255,0.035) 12px)',
+                  'repeating-linear-gradient(45deg, transparent, transparent 6px, var(--dot-grid) 6px, var(--dot-grid) 12px)',
               }}
               onClick={(e) => e.stopPropagation()}
               title={t('googlePersonalBusy')}
@@ -1229,6 +1232,10 @@ function DraggableAppointmentBlock({
     opacity: isDragging ? 0.9 : undefined,
     cursor: isTerminal ? 'default' : isDragging ? 'grabbing' : 'grab',
   };
+  // Completed/cancelled read as inactive via MUTED TEXT (not block-wide
+  // opacity, which crushed contrast below AA); cancelled also gets a strike.
+  const dimmed = appointment.status === 'completed' || appointment.status === 'cancelled';
+  const struck = appointment.status === 'cancelled';
   return (
     <button
       ref={setNodeRef}
@@ -1249,7 +1256,7 @@ function DraggableAppointmentBlock({
         // to match the new blocked/Google overlay spacing, shadow-sm
         // for elevation off the now-flatter grid. Hover lifts the
         // shadow to shadow-md so the block reads as "clickable card".
-        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-warm-md',
+        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
         isDragging && 'shadow-warm-lg ring-2 ring-accent',
         cls,
       )}
@@ -1257,7 +1264,13 @@ function DraggableAppointmentBlock({
       title={`${appointment.client_name}, ${formatShopTime(appointment.start_at, timezone, 'HH:mm')}–${formatShopTime(appointment.end_at, timezone, 'HH:mm')}`}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="truncate text-[13px] font-semibold leading-tight text-text-primary">
+        <span
+          className={cn(
+            'truncate text-[13px] font-semibold leading-tight',
+            dimmed ? 'text-text-muted' : 'text-text-primary',
+            struck && 'line-through',
+          )}
+        >
           {appointment.client_name}
         </span>
         {/* Loop 37 (P114) — block timestamp in mono for column-aligned
@@ -1266,7 +1279,9 @@ function DraggableAppointmentBlock({
           {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
         </span>
       </div>
-      <div className="truncate text-[10px] text-text-secondary">
+      <div
+        className={cn('truncate text-[10px]', dimmed ? 'text-text-muted' : 'text-text-secondary')}
+      >
         {appointment.services.map((s) => s.name).join(' + ')}
       </div>
       {appointment.source === 'online' ? (

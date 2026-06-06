@@ -134,7 +134,15 @@ export function AppointmentsWeekView({
                       title={`${a.client_name} — ${formatShopTime(a.start_at, timezone, 'HH:mm')}–${formatShopTime(a.end_at, timezone, 'HH:mm')}`}
                     >
                       <div className="flex items-start justify-between gap-1">
-                        <span className="truncate font-semibold text-text-primary">
+                        <span
+                          className={cn(
+                            'truncate font-semibold',
+                            a.status === 'completed' || a.status === 'cancelled'
+                              ? 'text-text-muted'
+                              : 'text-text-primary',
+                            a.status === 'cancelled' && 'line-through',
+                          )}
+                        >
                           {a.client_name}
                         </span>
                         <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-secondary">
