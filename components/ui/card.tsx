@@ -26,7 +26,7 @@ export function CardHeader({ className, ...rest }: DivProps) {
         // Phase H+8 — py-5 → py-6 to match the Card breathing-room
         // uplift. Pairs with CardBody's py-6 so header + body share
         // the same vertical rhythm.
-        'flex items-center justify-between gap-4 border-b border-border px-6 py-6',
+        'flex items-center justify-between gap-4 border-b border-border-soft px-6 py-5',
         className,
       )}
       {...rest}
@@ -37,7 +37,7 @@ export function CardHeader({ className, ...rest }: DivProps) {
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn('text-sm font-semibold tracking-tight text-text-primary', className)}
+      className={cn('text-base font-semibold tracking-tight text-text-primary', className)}
       {...rest}
     />
   );
@@ -57,7 +57,7 @@ export function CardFooter({ className, ...rest }: DivProps) {
         // Phase H+8 — py-4 → py-5 so footer rhythm sits midway between
         // header/body (py-6) and the underlying border. Footers usually
         // hold a single action row, so less padding than body is right.
-        'flex items-center justify-end gap-2 border-t border-border px-6 py-5',
+        'flex items-center justify-end gap-2 border-t border-border-soft px-6 py-5',
         className,
       )}
       {...rest}

@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils';
 
 type Props = {
   title: ReactNode;
+  /** Small uppercase overline above the title (refonte masthead lockup). */
+  eyebrow?: ReactNode;
   /** Optional second line shown under the title, smaller and muted. */
   subtitle?: ReactNode;
   /** Optional centered slot — typically a SearchBar. */
@@ -14,7 +16,15 @@ type Props = {
   className?: string;
 };
 
-export function PageHeader({ title, subtitle, center, actions, switcher, className }: Props) {
+export function PageHeader({
+  title,
+  eyebrow,
+  subtitle,
+  center,
+  actions,
+  switcher,
+  className,
+}: Props) {
   return (
     <header
       className={cn(
@@ -29,15 +39,15 @@ export function PageHeader({ title, subtitle, center, actions, switcher, classNa
       )}
     >
       <div className="min-w-0 flex-1">
-        {/* Page titles use the display scale (24px / 600 / negative tracking,
-            all baked into `text-display-sm`) — the spec's intended page-title
-            size, which the old text-base/sm:text-xl undershot. */}
-        <h1 className="truncate text-display-sm text-text-primary">{title}</h1>
+        {/* Refonte masthead: an optional uppercase eyebrow over a
+            display-md title, with a mono/tabular subtitle. The two-line
+            lockup + larger title give every screen a confident anchor. */}
+        {eyebrow ? <p className="type-eyebrow mb-1 truncate">{eyebrow}</p> : null}
+        <h1 className="truncate text-display-md text-text-primary">{title}</h1>
         {subtitle ? (
-          // Phase H+8 — mt-0.5 → mt-1 so the subtitle sits a hair
-          // further from the title; 2px → 4px reads as breathing room,
-          // not a typo.
-          <p className="mt-1 truncate text-[11px] text-text-muted sm:text-xs">{subtitle}</p>
+          <p className="mt-1 truncate text-[11px] tabular-nums text-text-muted sm:text-xs">
+            {subtitle}
+          </p>
         ) : null}
       </div>
       {/* Center slot hides under `sm` — there's no horizontal room for it
