@@ -83,8 +83,8 @@ export function Modal({
         //   - `shadow-xl` stays — already a multi-layer stack defined
         //     in globals.css. No CSS border, shadow-as-border handles it.
         className={cn(
-          'flex w-full flex-col bg-bg-elevated text-text-primary shadow-xl',
-          'max-h-[92vh] rounded-b-none rounded-t-2xl md:max-h-[88vh] md:rounded-lg',
+          'flex w-full flex-col bg-bg-elevated text-text-primary shadow-modal',
+          'max-h-[92vh] rounded-b-none rounded-t-xl md:max-h-[88vh] md:rounded-lg',
           'animate-modal-content',
           className,
         )}
@@ -99,7 +99,7 @@ export function Modal({
           <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
             <div className="min-w-0 flex-1">
               {title ? (
-                <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-text-primary">{title}</h2>
               ) : null}
               {description ? (
                 <p className="mt-1.5 text-sm text-text-secondary">{description}</p>

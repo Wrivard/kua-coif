@@ -41,7 +41,7 @@ export function EmptyState({
   const haloClasses =
     tone === 'danger'
       ? 'bg-danger/10 text-danger ring-1 ring-inset ring-danger/15'
-      : 'bg-accent-subtle text-accent ring-1 ring-inset ring-accent/15';
+      : 'bg-accent-subtle text-accent shadow-accent-glow ring-1 ring-inset ring-accent/15';
   return (
     <div
       className={cn(
@@ -56,16 +56,14 @@ export function EmptyState({
     >
       {icon ? (
         <div
-          className={cn('flex h-14 w-14 items-center justify-center rounded-full', haloClasses)}
+          className={cn('flex h-16 w-16 items-center justify-center rounded-full', haloClasses)}
           aria-hidden
         >
           {icon}
         </div>
       ) : null}
       <div className="space-y-1.5">
-        <h3 className="text-balance text-base font-semibold tracking-tight text-text-primary">
-          {title}
-        </h3>
+        <h3 className="text-balance text-display-sm text-text-primary">{title}</h3>
         {description ? (
           <p className="mx-auto max-w-sm text-pretty text-sm leading-relaxed text-text-secondary">
             {description}

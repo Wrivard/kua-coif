@@ -55,7 +55,7 @@ export function SectionSwitcher<V extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          'inline-flex h-10 items-center gap-2 rounded border border-border bg-bg-surface px-3 text-sm text-text-primary',
+          'inline-flex h-10 items-center gap-2 rounded-md border border-border bg-bg-surface px-3 text-sm text-text-primary',
           'hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         )}
       >
@@ -67,7 +67,7 @@ export function SectionSwitcher<V extends string>({
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 z-40 mt-1 w-60 overflow-hidden rounded border border-border bg-bg-elevated shadow-lg"
+          className="absolute right-0 z-40 mt-1 w-60 overflow-hidden rounded-lg border border-border-soft bg-bg-elevated p-1 shadow-warm-md"
         >
           {options.map((opt) => {
             const active = opt.value === value;
@@ -82,7 +82,7 @@ export function SectionSwitcher<V extends string>({
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2.5 text-left text-sm transition-colors last:border-b-0',
+                    'flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors',
                     'focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-1 focus-visible:ring-focus',
                     active
                       ? 'bg-bg-surface-2 text-text-primary'

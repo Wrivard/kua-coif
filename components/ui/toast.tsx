@@ -22,11 +22,27 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const variantStyles: Record<ToastVariant, { border: string; icon: ReactNode }> = {
-  success: { border: 'border-l-success', icon: <CheckCircle2 className="h-4 w-4 text-success" /> },
-  info: { border: 'border-l-info', icon: <Info className="h-4 w-4 text-info" /> },
-  warning: { border: 'border-l-warning', icon: <AlertCircle className="h-4 w-4 text-warning" /> },
-  danger: { border: 'border-l-danger', icon: <XCircle className="h-4 w-4 text-danger" /> },
+const variantStyles: Record<ToastVariant, { border: string; halo: string; icon: ReactNode }> = {
+  success: {
+    border: 'border-l-success',
+    halo: 'bg-success-subtle',
+    icon: <CheckCircle2 className="h-4 w-4 text-success" />,
+  },
+  info: {
+    border: 'border-l-info',
+    halo: 'bg-info-subtle',
+    icon: <Info className="h-4 w-4 text-info" />,
+  },
+  warning: {
+    border: 'border-l-warning',
+    halo: 'bg-warning-subtle',
+    icon: <AlertCircle className="h-4 w-4 text-warning" />,
+  },
+  danger: {
+    border: 'border-l-danger',
+    halo: 'bg-danger-subtle',
+    icon: <XCircle className="h-4 w-4 text-danger" />,
+  },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -61,7 +77,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     return () => window.clearTimeout(id);
   }, [toast.duration, onDismiss]);
 
-  const { border, icon } = variantStyles[toast.variant];
+  const { border, icon, halo } = variantStyles[toast.variant];
 
   return (
     <div
@@ -70,12 +86,19 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         // Phase 36 — refined: rounded-lg + shadow-lg (drop + inset
         // highlight). Slide-in animation tuned to 200ms ease-out-quint
         // in globals.css.
-        'pointer-events-auto flex items-start gap-3 rounded-lg border border-l-4 border-border bg-bg-elevated px-4 py-3 shadow-lg',
+        'pointer-events-auto flex items-start gap-3 rounded-lg border border-l-4 border-border bg-bg-elevated px-4 py-3 shadow-warm-lg',
         'animate-toast-in',
         border,
       )}
     >
-      <span className="mt-0.5">{icon}</span>
+      <span
+        className={cn(
+          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+          halo,
+        )}
+      >
+        {icon}
+      </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-text-primary">{toast.title}</p>
         {toast.description ? (
