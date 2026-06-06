@@ -144,22 +144,22 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
       // know the upload landed was to re-open the form). Falls back
       // to a 24×24 initial chip when avatar_url is null.
       cell: (r) => (
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-3">
           {r.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={r.avatar_url}
               alt=""
-              width={24}
-              height={24}
-              className="h-6 w-6 shrink-0 rounded-full object-cover"
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-inset ring-border"
             />
           ) : (
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent">
+            <span className="ring-accent/15 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent ring-1 ring-inset">
               {initialsFor(r.display_name)}
             </span>
           )}
-          <span className="font-medium">{r.display_name}</span>
+          <span className="font-medium text-text-primary">{r.display_name}</span>
         </span>
       ),
       sortable: true,
