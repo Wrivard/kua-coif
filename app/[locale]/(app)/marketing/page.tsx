@@ -99,7 +99,7 @@ export default async function MarketingPage({
                   <div
                     className={
                       card.featured
-                        ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent'
+                        ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent-text'
                         : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-bg-surface-2 text-text-secondary'
                     }
                   >

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { selectShop } from '../../actions-shop-switcher';
@@ -74,11 +75,7 @@ export function ActiveShopClient({
                   <p className="text-[11px] uppercase tracking-wide text-text-muted">{r.role}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isCurrent ? (
-                    <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-text">
-                      Current
-                    </span>
-                  ) : null}
+                  {isCurrent ? <Badge variant="accent">Current</Badge> : null}
                   {isPicked ? <CheckCircle2 className="h-5 w-5 text-accent" aria-hidden /> : null}
                 </div>
               </button>

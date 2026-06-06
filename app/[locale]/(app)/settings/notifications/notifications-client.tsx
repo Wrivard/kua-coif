@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { Input, Label } from '@/components/ui/input';
@@ -426,9 +427,9 @@ export function NotificationsClient({ state }: Props) {
             title={t('twilio.title')}
             actions={
               twilioConfigured ? (
-                <span className="bg-success/15 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                <Badge variant="success">
                   <CheckCircle2 className="h-3 w-3" /> {t('twilio.connected')}
-                </span>
+                </Badge>
               ) : null
             }
           />
@@ -548,9 +549,9 @@ export function NotificationsClient({ state }: Props) {
             title={t('slack.title')}
             actions={
               slackConfigured ? (
-                <span className="bg-success/15 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                <Badge variant="success">
                   <CheckCircle2 className="h-3 w-3" /> {t('slack.connected')}
-                </span>
+                </Badge>
               ) : null
             }
           />

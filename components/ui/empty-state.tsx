@@ -41,7 +41,7 @@ export function EmptyState({
   const haloClasses =
     tone === 'danger'
       ? 'bg-danger/10 text-danger ring-1 ring-inset ring-danger/15'
-      : 'bg-accent-subtle text-accent shadow-accent-glow ring-1 ring-inset ring-accent/15';
+      : 'bg-accent-subtle text-accent-text shadow-accent-glow ring-1 ring-inset ring-accent/15';
   return (
     <div
       className={cn(
