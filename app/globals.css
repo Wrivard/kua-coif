@@ -153,7 +153,7 @@
    * Vercel's radius scale: 2 / 4 / 6 / 8 / 12 / 64 / 100 / 9999.
    * We expose the core values; pill (9999) is via `rounded-full`. */
   --sidebar-w: 64px;
-  --sidebar-w-open: 220px;
+  --sidebar-w-open: 248px;
   --header-h: 72px;
   --radius-2xs: 2px; /* inline code, micro elements */
   --radius-xs: 4px; /* small chips */

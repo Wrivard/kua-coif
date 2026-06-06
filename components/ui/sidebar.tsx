@@ -74,7 +74,7 @@ export function Sidebar({
 }: Props) {
   const pathname = usePathname();
   const t = useTranslations('nav');
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const currentPath = stripLocale(pathname, locales);
 
@@ -89,10 +89,10 @@ export function Sidebar({
       )}
       aria-label="Primary navigation"
     >
-      <div className="flex h-header-h items-center justify-between border-b border-border px-3">
+      <div className="flex h-header-h items-center justify-between border-b border-border-soft px-3">
         <Link
           href={`/${locale}/`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-sm"
           aria-label="Küa"
         >
           <span className="text-sm font-semibold">K</span>
@@ -299,7 +299,7 @@ export function SidebarNavInner({
 
   return (
     <>
-      <nav className="flex-1 overflow-y-auto py-3" aria-label="Main">
+      <nav className="flex-1 overflow-y-auto py-4" aria-label="Main">
         <ul className="flex flex-col gap-1 px-2">
           {navItems.map((item) => (
             <li key={item.labelKey}>
@@ -330,7 +330,7 @@ export function SidebarNavInner({
         </ul>
       </nav>
 
-      <div className="space-y-2 border-t border-border px-2 py-3">
+      <div className="space-y-2 border-t border-border-soft px-2 py-3">
         {user ? (
           <div
             className={cn(
@@ -455,17 +455,15 @@ function KuaAdminLink({
         'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         active
-          ? // Accent discipline — mirrors SidebarLink: neutral active state
-            // (elevated fill + primary text) marked by the neutral left bar
-            // below; accent is reserved for primary actions / live status.
-            'bg-bg-surface-2 text-text-primary'
+          ? // Mirrors SidebarLink (refonte): elevated pill plus accent location bar.
+            'bg-bg-surface-2 text-text-primary shadow-sm'
           : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-text-primary transition-opacity duration-150',
+          'absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
@@ -503,20 +501,19 @@ function SidebarLink({
         'relative flex h-10 items-center gap-3 rounded-lg px-2 transition-colors duration-150 ease-out-quint',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         active
-          ? // UI refresh — accent discipline: --accent + shadow-accent-glow are
-            // reserved for primary actions and live status, so the active nav
-            // item is NEUTRAL — an elevated fill + primary text/icon, marked by
-            // the neutral left bar below (a structural marker, not a colour
-            // shift). The old Phase 36 glow stacked on top of a bar that was in
-            // fact still rendered — double accent; both are gone now.
-            'bg-bg-surface-2 text-text-primary'
+          ? // Refonte (Vercel-grade): active = an elevated pill (surface-2 plus
+            // shadow-sm depth) with high-contrast primary text, marked by a
+            // crisp accent left bar. The accent here is the "you are here" live
+            // location signal (the carve-out the accent discipline allows) and
+            // gives the otherwise-monochrome rail a confident brand beat.
+            'bg-bg-surface-2 text-text-primary shadow-sm'
           : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-text-primary transition-opacity duration-150',
+          'absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
