@@ -149,6 +149,16 @@
      invisible on the light default (auth + booking layouts). */
   --texture-dot: #171717;
 
+  /* ─── Refonte (revamp plan Step 0) — deeper elevation, accent beat, atmosphere ── */
+  --shadow-modal:
+    rgba(0, 0, 0, 0.1) 0 0 0 1px, rgba(0, 0, 0, 0.12) 0 12px 24px,
+    rgba(0, 0, 0, 0.08) 0 28px 48px -16px;
+  --shadow-accent-md:
+    rgba(139, 92, 246, 0.2) 0 0 0 1px, rgba(139, 92, 246, 0.1) 0 4px 12px -2px,
+    rgba(139, 92, 246, 0.06) 0 12px 24px -8px;
+  --hero-glow: rgba(40, 30, 24, 0.05); /* warm near-black radial, NEUTRAL not accent (C5) */
+  --dot-grid: rgba(0, 0, 0, 0.045); /* pre-baked dot-grid color for .bg-texture-dots */
+
   /* ─── Layout / Radius (Vercel granular scale) ─────────────────────────
    * Vercel's radius scale: 2 / 4 / 6 / 8 / 12 / 64 / 100 / 9999.
    * We expose the core values; pill (9999) is via `rounded-full`. */
@@ -267,6 +277,16 @@
   /* Brand texture dot — white on the dark canvas (mirror of light). */
   --texture-dot: #ffffff;
 
+  /* Refonte Step 0 — dark mirrors (C8: shipped in the same commit). */
+  --shadow-modal:
+    rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.5) 0 12px 24px,
+    rgba(0, 0, 0, 0.4) 0 28px 48px -16px;
+  --shadow-accent-md:
+    rgba(139, 92, 246, 0.3) 0 0 0 1px, rgba(139, 92, 246, 0.18) 0 4px 12px -2px,
+    rgba(139, 92, 246, 0.1) 0 12px 24px -8px;
+  --hero-glow: rgba(255, 240, 225, 0.04);
+  --dot-grid: rgba(255, 255, 255, 0.04);
+
   /* Force dark color-scheme so native UI (scrollbars, form controls)
    * uses the OS dark variant. */
   color-scheme: dark;
@@ -308,6 +328,39 @@ h2 {
 }
 h3 {
   letter-spacing: -0.015em;
+}
+
+/* =========================================================================
+ * REFONTE (revamp plan) — atmosphere utilities, hero surface, type
+ * conventions. In @layer components so plain utilities still override.
+ * ========================================================================= */
+@layer components {
+  /* Neutral dot-grid texture (C5: never accent). */
+  .bg-texture-dots {
+    background-image: radial-gradient(var(--dot-grid) 0.75px, transparent 0.75px);
+    background-size: 16px 16px;
+  }
+  /* Neutral / warm radial atmosphere (C5). */
+  .bg-hero-glow {
+    background-image: radial-gradient(60% 60% at 50% 0%, var(--hero-glow) 0%, transparent 70%);
+  }
+  /* The single hero surface (C4): rounded-xl + warm elevation tier. */
+  .surface-hero {
+    @apply relative overflow-hidden rounded-xl bg-bg-surface shadow-warm-md;
+  }
+  /* Type conventions (plan 1.1 / 2.3) — deploy the display scale boldly. */
+  .type-page-title {
+    @apply text-display-md text-text-primary;
+  }
+  .type-section-title {
+    @apply text-display-sm text-text-primary;
+  }
+  .type-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted;
+  }
+  .type-metric {
+    @apply font-mono tabular-nums tracking-tight;
+  }
 }
 
 /* ─── Scrollbars — discrete, light-themed ─────────────────────────────── */

@@ -84,6 +84,9 @@ const config: Config = {
         'border-strong': 'var(--shadow-border-strong)',
         // Glow for hover on accent buttons.
         'accent-glow': 'var(--accent-glow)',
+        // Refonte Step 0 — deepest modal ambient + the one accent-beat elevation.
+        modal: 'var(--shadow-modal)',
+        'accent-md': 'var(--shadow-accent-md)',
       },
       spacing: {
         'sidebar-w': 'var(--sidebar-w)',
