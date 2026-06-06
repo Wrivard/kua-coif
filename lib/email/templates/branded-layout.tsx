@@ -1,13 +1,4 @@
-import {
-  Body,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Body, Container, Head, Hr, Html, Preview, Section, Text } from '@react-email/components';
 import type { ReactNode } from 'react';
 
 /**
@@ -165,7 +156,9 @@ export function BrandedEmailLayout({
               {footnote}
             </Text>
           ) : null}
-          <Text style={{ color: emailPalette.textMuted, fontSize: 13, margin: 0 }}>{signature}</Text>
+          <Text style={{ color: emailPalette.textMuted, fontSize: 13, margin: 0 }}>
+            {signature}
+          </Text>
           <Text
             style={{
               color: accent,

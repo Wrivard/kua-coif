@@ -648,7 +648,7 @@ export function AppointmentsCalendar({
       <PageHeader
         title={t('title')}
         subtitle={
-          <span className="text-xl font-semibold tracking-tight tabular-nums text-text-primary">
+          <span className="text-xl font-semibold tabular-nums tracking-tight text-text-primary">
             {formatHeaderDate(dayRef, locale === 'fr' ? 'fr' : 'en', timezone)}
           </span>
         }
@@ -1047,10 +1047,7 @@ function BarberColumn({
           plain accent dot; accent-glow is reserved for primary actions
           and live status, not a decorative identity marker. */}
       <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-4">
-        <span
-          className="inline-block h-2 w-2 rounded-full bg-accent"
-          aria-hidden
-        />
+        <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
         <span className="truncate text-sm font-semibold text-text-primary">
           {barber.display_name}
         </span>

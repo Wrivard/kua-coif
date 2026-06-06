@@ -9,11 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import type { ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import {
-  createServiceCategory,
-  deleteServiceCategory,
-  renameServiceCategory,
-} from './actions';
+import { createServiceCategory, deleteServiceCategory, renameServiceCategory } from './actions';
 
 type Props = {
   categories: ServiceCategoryRow[];

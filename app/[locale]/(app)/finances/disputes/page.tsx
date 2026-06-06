@@ -166,7 +166,9 @@ export default async function DisputesPage({ params: { locale } }: { params: { l
                           <td
                             className={`px-3 py-3 ${evidenceDueClass(d.evidence_due_by, d.status)}`}
                           >
-                            {d.evidence_due_by ? formatDate(d.evidence_due_by) : t('evidenceDue.none')}
+                            {d.evidence_due_by
+                              ? formatDate(d.evidence_due_by)
+                              : t('evidenceDue.none')}
                           </td>
                           <td className="px-3 py-3">
                             {/* The calendar drawer opens from client-side

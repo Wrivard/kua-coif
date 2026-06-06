@@ -51,11 +51,13 @@ describe('i18n parity (en.json ⇄ fr.json)', () => {
     const missingInEn = [...frKeys].filter((k) => !enKeys.has(k)).sort();
     const missingInFr = [...enKeys].filter((k) => !frKeys.has(k)).sort();
 
-    expect(missingInEn, `keys in fr.json but missing from en.json: ${missingInEn.join(', ')}`).toEqual(
-      [],
-    );
-    expect(missingInFr, `keys in en.json but missing from fr.json: ${missingInFr.join(', ')}`).toEqual(
-      [],
-    );
+    expect(
+      missingInEn,
+      `keys in fr.json but missing from en.json: ${missingInEn.join(', ')}`,
+    ).toEqual([]);
+    expect(
+      missingInFr,
+      `keys in en.json but missing from fr.json: ${missingInFr.join(', ')}`,
+    ).toEqual([]);
   });
 });

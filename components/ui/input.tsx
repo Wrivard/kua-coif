@@ -74,7 +74,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         className={cn(
-          'h-full flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted tabular-nums',
+          'h-full flex-1 bg-transparent px-3 text-sm tabular-nums text-text-primary placeholder:text-text-muted',
           'focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
         )}
         {...rest}

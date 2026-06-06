@@ -69,7 +69,8 @@ export function AppointmentsListView({
       // the chronological list.
       cell: (a) => (
         <span className="font-mono tabular-nums text-text-secondary">
-          {formatShopTime(a.start_at, timezone, 'HH:mm')}–{formatShopTime(a.end_at, timezone, 'HH:mm')}
+          {formatShopTime(a.start_at, timezone, 'HH:mm')}–
+          {formatShopTime(a.end_at, timezone, 'HH:mm')}
         </span>
       ),
       sortable: true,

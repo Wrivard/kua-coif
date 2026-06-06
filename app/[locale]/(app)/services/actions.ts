@@ -371,10 +371,7 @@ export const deleteServiceCategory = withAction({
             cols: string,
             opts: { count: 'exact'; head: true },
           ) => {
-            eq: (
-              k: string,
-              v: string,
-            ) => Promise<{ count: number | null; error: unknown }>;
+            eq: (k: string, v: string) => Promise<{ count: number | null; error: unknown }>;
           };
         };
       }

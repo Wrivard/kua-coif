@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useTranslations } from 'next-intl';
 import { Download, FolderTree, GripVertical, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import {
@@ -338,7 +345,9 @@ export function ServicesClient({
                         </button>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
-                            <span className="text-sm font-medium text-text-primary">{row.name}</span>
+                            <span className="text-sm font-medium text-text-primary">
+                              {row.name}
+                            </span>
                             {row.status === 'enabled' ? (
                               <Badge variant="success">{t('status.enabled')}</Badge>
                             ) : (
@@ -364,7 +373,9 @@ export function ServicesClient({
                               {t('columns.category')}
                             </span>
                             <span className="min-w-0 truncate text-right text-text-primary">
-                              {row.category_id ? (categoryById.get(row.category_id)?.name ?? '—') : '—'}
+                              {row.category_id
+                                ? (categoryById.get(row.category_id)?.name ?? '—')
+                                : '—'}
                             </span>
                           </div>
                           <div className="mt-2 flex justify-end">{renderActions(row)}</div>
@@ -438,8 +449,15 @@ function SortableServiceRow({
   id: string;
   children: (props: SortableRenderProps) => ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -448,11 +466,7 @@ function SortableServiceRow({
   };
 
   return (
-    <tr
-      ref={setNodeRef}
-      style={style}
-      className="border-b border-border last:border-b-0"
-    >
+    <tr ref={setNodeRef} style={style} className="border-b border-border last:border-b-0">
       {children({
         attributes,
         listeners,
@@ -470,8 +484,15 @@ function SortableServiceCard({
   id: string;
   children: (props: SortableRenderProps) => ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),

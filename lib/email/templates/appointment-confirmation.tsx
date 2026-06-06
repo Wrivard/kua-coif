@@ -1,5 +1,10 @@
 import { Heading, Hr, Section, Text } from '@react-email/components';
-import { BrandedEmailLayout, DEFAULT_EMAIL_ACCENT, EmailLabel, emailPalette } from './branded-layout';
+import {
+  BrandedEmailLayout,
+  DEFAULT_EMAIL_ACCENT,
+  EmailLabel,
+  emailPalette,
+} from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 import { formatCurrencyCAD } from '@/lib/utils';
 
@@ -250,7 +255,9 @@ export function AppointmentConfirmation({
           </Section>
         </>
       ) : (
-        <Text style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}>
+        <Text
+          style={{ color: emailPalette.textMuted, fontSize: 13, lineHeight: 1.5, marginTop: 16 }}
+        >
           {L.outro}
         </Text>
       )}

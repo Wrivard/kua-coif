@@ -1,5 +1,10 @@
 import { Button, Heading, Hr, Section, Text } from '@react-email/components';
-import { BrandedEmailLayout, DEFAULT_EMAIL_ACCENT, EmailLabel, emailPalette } from './branded-layout';
+import {
+  BrandedEmailLayout,
+  DEFAULT_EMAIL_ACCENT,
+  EmailLabel,
+  emailPalette,
+} from './branded-layout';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 
 /**
