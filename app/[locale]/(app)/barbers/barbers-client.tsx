@@ -156,7 +156,7 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
               className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-inset ring-border"
             />
           ) : (
-            <span className="ring-accent/15 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent ring-1 ring-inset">
+            <span className="ring-accent/15 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent-text ring-1 ring-inset">
               {initialsFor(r.display_name)}
             </span>
           )}

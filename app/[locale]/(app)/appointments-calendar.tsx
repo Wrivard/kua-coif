@@ -1055,7 +1055,7 @@ function BarberColumn({
       <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-3">
         <span
           aria-hidden
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent-text"
         >
           {barber.display_name
             .split(' ')

@@ -595,7 +595,7 @@ function Avatar({
       .map((p) => p[0]!.toUpperCase())
       .join('') || '?';
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent">
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent-text">
       {initials}
     </span>
   );

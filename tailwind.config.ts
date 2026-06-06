@@ -23,12 +23,14 @@ const config: Config = {
         'text-muted': 'var(--text-muted)',
         'text-disabled': 'var(--text-disabled)',
 
-        // ─── Accent (Küa purple — single source of truth) ────────────
+        // ─── Accent (Küa sage — single source of truth) ──────────────
         accent: {
           DEFAULT: 'var(--accent)',
           hover: 'var(--accent-hover)',
           active: 'var(--accent-active)',
           fg: 'var(--accent-fg)',
+          // text-on-tint variant (darker; AA on accent-subtle / surface-2)
+          text: 'var(--accent-text)',
           subtle: 'var(--accent-subtle)',
           'subtle-strong': 'var(--accent-subtle-strong)',
           ring: 'var(--accent-ring)',

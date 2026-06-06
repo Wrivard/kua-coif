@@ -68,6 +68,10 @@
   --accent-subtle-strong: rgba(79, 125, 94, 0.14);
   --accent-glow: 0 0 0 4px rgba(79, 125, 94, 0.16);
   --accent-ring: rgba(79, 125, 94, 0.45);
+  /* Darker sage for accent-colored TEXT on tinted/elevated surfaces
+   * (accent-subtle, bg-surface-2): plain --accent only hits ~4.1:1 there,
+   * this clears AA (~7.3:1 on white). Use for text-on-tint, not fills. */
+  --accent-text: #3a5e46;
 
   /* ─── Focus ring (Vercel saturated blue — accessibility) ─────────────
    * Replaces the soft accent ring. Vercel's choice — same-blue-on-any-bg
@@ -79,9 +83,9 @@
   /* ─── Status colors ──────────────────────────────────────────────────
    * Same hex values, lighter -subtle backgrounds since we sit on white
    * (the previous 12% alpha would over-saturate the light canvas). */
-  --success: #16a34a; /* green-600 — slightly darker for light bg contrast */
+  --success: #15803d; /* green-700 — WCAG AA for badge + on-canvas text on white/-subtle */
   --success-subtle: rgba(34, 197, 94, 0.1);
-  --warning: #d97706; /* amber-600 */
+  --warning: #b45309; /* amber-700 — WCAG AA on white + amber-subtle */
   --warning-subtle: rgba(245, 158, 11, 0.12);
   --danger: #dc2626; /* red-600 */
   --danger-subtle: rgba(239, 68, 68, 0.1);
@@ -213,7 +217,7 @@
   /* ─── Text (inverted gray scale) ────────────────────────────────────── */
   --text-primary: #f5f5f5; /* near-white headings */
   --text-secondary: #a3a3a3; /* Gray 400 — body */
-  --text-muted: #737373; /* Gray 500 — captions */
+  --text-muted: #8a8a8a; /* lightened from #737373 so 12-14px captions clear AA on #0a0a0a */
   --text-disabled: #525252; /* Gray 600 — disabled */
 
   /* ─── Accent — sage shifted lighter for dark-canvas legibility ─────── */
@@ -225,6 +229,8 @@
   --accent-subtle-strong: rgba(143, 184, 154, 0.2);
   --accent-glow: 0 0 0 4px rgba(143, 184, 154, 0.2);
   --accent-ring: rgba(143, 184, 154, 0.55);
+  /* On the dark canvas the light sage already reads on tints; keep it. */
+  --accent-text: #8fb89a;
 
   /* ─── Focus ring (Vercel blue, brightened for dark) ─────────────────── */
   --focus-ring: hsla(212, 100%, 60%, 1);

@@ -75,7 +75,7 @@ export function ActiveShopClient({
                 </div>
                 <div className="flex items-center gap-2">
                   {isCurrent ? (
-                    <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                    <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-text">
                       Current
                     </span>
                   ) : null}

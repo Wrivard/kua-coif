@@ -30,13 +30,15 @@ type Props = HTMLAttributes<HTMLSpanElement> & {
 // the "glass pill" look.
 const variants: Record<BadgeVariant, string> = {
   default: 'bg-bg-surface-2 text-text-secondary ring-1 ring-inset ring-border',
-  accent: 'bg-accent-subtle text-accent ring-1 ring-inset ring-accent/20',
+  accent: 'bg-accent-subtle text-accent-text ring-1 ring-inset ring-accent/20',
   success: 'bg-success-subtle text-success ring-1 ring-inset ring-success/20',
   warning: 'bg-warning-subtle text-warning ring-1 ring-inset ring-warning/20',
   danger: 'bg-danger-subtle text-danger ring-1 ring-inset ring-danger/20',
   info: 'bg-info-subtle text-info ring-1 ring-inset ring-info/20',
-  // "New" pill on User Settings — light-blue with dark text per annexe Image 1.
-  new: 'bg-info text-black',
+  // "New" pill on User Settings. Was bg-info + text-black, which fails AA in
+  // BOTH themes (black on blue-600 light = 3.6:1; white would fail blue-500
+  // dark). The tinted info pill clears AA on light + dark and reads as "new".
+  new: 'bg-info-subtle text-info ring-1 ring-inset ring-info/20',
 };
 
 // Loop 47 — size classes. `sm` matches the historical inline pill;
