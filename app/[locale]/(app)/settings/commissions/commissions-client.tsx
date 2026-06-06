@@ -30,6 +30,7 @@ export function CommissionsClient({
   tiers: CommissionTierRow[];
 }) {
   const t = useTranslations('pages.settings.commissions');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -127,6 +128,7 @@ export function CommissionsClient({
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <Button onClick={onSave} loading={isPending} size="sm">
@@ -148,7 +150,7 @@ export function CommissionsClient({
           <Toggle checked={cumulative} onChange={setCumulative} label={t('cumulative')} />
         </div>
 
-        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-sm">
+        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-warm-md">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-bg-surface text-text-muted">
