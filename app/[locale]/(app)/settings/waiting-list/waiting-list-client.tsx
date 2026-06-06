@@ -7,11 +7,12 @@ import { useTranslations } from 'next-intl';
 import { BellRing, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { SectionMasthead } from '@/components/ui/section-masthead';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import { deleteWaitlistEntry, updateWaitlistEntryStatus, upsertWaitingList } from './actions';
 // Loop 59 hotfix — schema + type live in `./schema` not `./actions`
 // because the latter is `'use server'` and the bundler strips
@@ -44,6 +45,7 @@ export function WaitingListClient({
   barbers: Array<{ id: string; display_name: string }>;
 }) {
   const t = useTranslations('pages.settings.waitingList');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -100,43 +102,39 @@ export function WaitingListClient({
 
   return (
     <>
-      <PageHeader title={t('title')} />
-      <div className="space-y-6 p-6">
+      <PageHeader eyebrow={tNav('title')} title={t('title')} />
+      <div className="space-y-8 p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="max-w-xl" noValidate>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('configTitle')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-5">
-              <Toggle
-                checked={enabled}
-                onChange={(v) => setValue('enabled', v, { shouldDirty: true })}
-                label={t('form.enabled')}
-              />
+          <section className={cn('surface-hero space-y-5 p-6', enabled && 'ring-accent/40 ring-1')}>
+            <SectionMasthead title={t('configTitle')} />
+            <Toggle
+              checked={enabled}
+              onChange={(v) => setValue('enabled', v, { shouldDirty: true })}
+              label={t('form.enabled')}
+            />
 
-              <div>
-                <Label htmlFor="threshold_hours">{t('form.threshold')}</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="threshold_hours"
-                    type="number"
-                    min={0}
-                    max={72}
-                    className="w-24"
-                    disabled={!enabled}
-                    {...register('threshold_hours', { valueAsNumber: true })}
-                  />
-                  <span className="text-sm text-text-secondary">{t('form.hours')}</span>
-                </div>
+            <div>
+              <Label htmlFor="threshold_hours">{t('form.threshold')}</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="threshold_hours"
+                  type="number"
+                  min={0}
+                  max={72}
+                  className="w-24"
+                  disabled={!enabled}
+                  {...register('threshold_hours', { valueAsNumber: true })}
+                />
+                <span className="text-sm text-text-secondary">{t('form.hours')}</span>
               </div>
+            </div>
 
-              <div className="flex justify-end pt-2">
-                <Button type="submit" loading={isPending}>
-                  {tCommon('actions.save')}
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" loading={isPending}>
+                {tCommon('actions.save')}
+              </Button>
+            </div>
+          </section>
         </form>
 
         {/* Entries list — Phase 53. The admin works this manually until
@@ -144,12 +142,14 @@ export function WaitingListClient({
             existing Badge variants; row actions are the trio
             (notified / cancelled / delete) and the buttons disable on
             terminal states so the admin doesn't accidentally re-mark. */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('entries.title')}</CardTitle>
-            <Badge variant="default">{waitingCount}</Badge>
-          </CardHeader>
-          <CardBody>
+        <section className="border-t border-border pt-8">
+          <SectionMasthead
+            title={t('entries.title')}
+            actions={
+              <Badge variant={waitingCount > 0 ? 'accent' : 'default'}>{waitingCount}</Badge>
+            }
+          />
+          <div className="mt-6">
             {entries.length === 0 ? (
               <p className="text-sm text-text-muted">{t('entries.empty')}</p>
             ) : (
@@ -196,7 +196,7 @@ export function WaitingListClient({
                           <td className="py-2 text-text-secondary">
                             {e.date_window_start === e.date_window_end
                               ? e.date_window_start
-                              : `${e.date_window_start} → ${e.date_window_end}`}
+                              : `${e.date_window_start} – ${e.date_window_end}`}
                           </td>
                           <td className="py-2 text-text-secondary">{barber}</td>
                           <td className="py-2">
@@ -240,8 +240,8 @@ export function WaitingListClient({
                 </table>
               </div>
             )}
-          </CardBody>
-        </Card>
+          </div>
+        </section>
       </div>
     </>
   );
