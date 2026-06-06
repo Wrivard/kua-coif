@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
@@ -23,6 +24,7 @@ export function DiscountsClient({
   discounts: DiscountRow[];
 }) {
   const t = useTranslations('pages.settings.discounts');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -53,10 +55,13 @@ export function DiscountsClient({
     {
       id: 'value',
       header: t('columns.value'),
-      cell: (r) =>
-        r.type === 'percent'
-          ? `${r.value}%`
-          : formatCurrencyCAD(r.value, locale === 'fr' ? 'fr' : 'en'),
+      cell: (r) => (
+        <span className="font-medium tabular-nums text-accent">
+          {r.type === 'percent'
+            ? `${r.value}%`
+            : formatCurrencyCAD(r.value, locale === 'fr' ? 'fr' : 'en')}
+        </span>
+      ),
       sortable: true,
       sortValue: (r) => r.value,
       align: 'right',
@@ -65,7 +70,7 @@ export function DiscountsClient({
     {
       id: 'assignment',
       header: t('columns.assignment'),
-      cell: (r) => t(`assignment.${r.assignment}`),
+      cell: (r) => <Badge variant="default">{t(`assignment.${r.assignment}`)}</Badge>,
       width: '160px',
     },
     {
@@ -82,7 +87,7 @@ export function DiscountsClient({
               e.stopPropagation();
               setMode({ kind: 'edit', discount: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -93,7 +98,7 @@ export function DiscountsClient({
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -105,6 +110,7 @@ export function DiscountsClient({
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <Button onClick={() => setMode({ kind: 'add' })} size="sm">
