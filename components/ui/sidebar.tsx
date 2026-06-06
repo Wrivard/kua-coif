@@ -101,9 +101,14 @@ export function Sidebar({
               className="brand-logo h-7 w-auto"
             />
           ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-sm">
-              <span className="text-sm font-semibold">K</span>
-            </span>
+            <Image
+              src="/logo-icon.png"
+              alt="Küa"
+              width={32}
+              height={32}
+              priority
+              className="brand-logo h-8 w-8 object-contain"
+            />
           )}
         </Link>
         {expanded ? (
