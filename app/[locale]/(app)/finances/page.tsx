@@ -6,6 +6,8 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrencyCAD } from '@/lib/utils';
+import { shopIsoDate } from '@/lib/business/timezone';
+import { RevenueTrendChart } from '@/components/ui/revenue-trend-chart';
 import {
   computeCommission,
   tierConfigFromRow,
@@ -61,7 +63,7 @@ export default async function FinancesPage({
   const [apptsRes, clientsRes] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, barber_id, total_amount, status')
+      .select('id, barber_id, total_amount, status, start_at')
       .eq('status', 'completed')
       .gte('start_at', rangeStart.toISOString())
       .lt('start_at', rangeEnd.toISOString()),
@@ -73,6 +75,7 @@ export default async function FinancesPage({
     barber_id: string;
     total_amount: number;
     status: string;
+    start_at: string;
   };
   type ClientRow = { id: string; loyalty_balance_cents: number };
 
@@ -245,6 +248,25 @@ export default async function FinancesPage({
   // table (both arrays are sorted revenue-desc, so [0] is the max).
   const maxBarberRevenue = barberRows[0]?.revenue ?? 0;
   const maxCategoryRevenue = categoryRows[0]?.revenue ?? 0;
+
+  // ── Daily revenue trend ───────────────────────────────────────────
+  // Bucket completed-appointment revenue by the shop-local calendar day,
+  // then fill every day in the range (including zero days) so the area
+  // chart reads as a continuous timeline rather than skipping gaps.
+  const revenueByDay = new Map<string, number>();
+  for (const a of appts) {
+    const iso = shopIsoDate(new Date(a.start_at), timezone);
+    revenueByDay.set(iso, (revenueByDay.get(iso) ?? 0) + Number(a.total_amount ?? 0));
+  }
+  const trendLabelFmt = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-CA' : 'en-CA', {
+    month: 'short',
+    day: 'numeric',
+  });
+  const trendData = enumerateDays(rangeStartIso, rangeEndIso).map((iso) => ({
+    iso,
+    label: trendLabelFmt.format(new Date(`${iso}T12:00:00Z`)),
+    revenue: revenueByDay.get(iso) ?? 0,
+  }));
   const subtitle = formatRangeLabel(
     rangeStartIso,
     rangeEndIso,
@@ -367,6 +389,24 @@ export default async function FinancesPage({
             />
           </div>
         </div>
+
+        {/* Revenue trend — daily completed-appointment revenue across the
+            range. Rendered only when there's revenue to show; an all-zero
+            chart reads as broken, so we fall through to the tables. */}
+        {grossRevenue > 0 && trendData.length >= 2 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('trend.title')}</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <RevenueTrendChart
+                data={trendData}
+                formatCurrency={fmtCAD}
+                ariaLabel={t('trend.title')}
+              />
+            </CardBody>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -548,6 +588,23 @@ function Kpi({ label, value }: { label: string; value: string }) {
       </CardBody>
     </Card>
   );
+}
+
+/**
+ * Enumerate every calendar day in [startIso, endIso] inclusive as
+ * YYYY-MM-DD strings. Steps in UTC (86,400,000 ms) so DST never skips or
+ * doubles a day, and caps at 366 entries so a pathological range can't
+ * balloon the chart payload.
+ */
+function enumerateDays(startIso: string, endIso: string): string[] {
+  const out: string[] = [];
+  const start = new Date(`${startIso}T00:00:00Z`);
+  const end = new Date(`${endIso}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return out;
+  for (let d = start, i = 0; d <= end && i < 366; d = new Date(d.getTime() + 86_400_000), i++) {
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
 }
 
 /**

@@ -733,6 +733,9 @@
         "apply": "Apply",
         "thisMonth": "This month"
       },
+      "trend": {
+        "title": "Revenue trend"
+      },
       "kpis": {
         "grossRevenue": "Gross revenue",
         "completedAppointments": "Completed appointments",

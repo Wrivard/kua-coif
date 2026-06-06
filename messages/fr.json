@@ -733,6 +733,9 @@
         "apply": "Appliquer",
         "thisMonth": "Ce mois-ci"
       },
+      "trend": {
+        "title": "Évolution du chiffre d'affaires"
+      },
       "kpis": {
         "grossRevenue": "Revenu brut",
         "completedAppointments": "RDV complétés",
