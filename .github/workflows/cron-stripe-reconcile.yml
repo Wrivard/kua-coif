@@ -1,0 +1,49 @@
+name: Cron · stripe reconcile (hourly)
+
+# Vercel Hobby allows only 2 daily crons (used by quickbooks-refresh +
+# google-channel-renew in vercel.json), so — like the notifications and
+# birthday-greetings crons — this safety-net runs from GitHub Actions
+# instead. It pings the deployed /api/cron/stripe-reconcile endpoint with
+# the shared bearer secret; the route does the real work (re-deriving
+# payment_status for rows whose Stripe webhook was missed). Reuses the
+# existing APP_URL + CRON_SECRET repo secrets — no new secrets needed.
+
+on:
+  schedule:
+    # Hourly at :17 to avoid colliding with the on-the-hour crons. A missed
+    # webhook is rare and Stripe retries for 3 days, so hourly is ample.
+    - cron: '17 * * * *'
+  workflow_dispatch: {} # manual fire from the Actions UI for testing
+
+# Don't stack runs — if a previous reconcile is still going, drop the new one.
+concurrency:
+  group: cron-stripe-reconcile
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Trigger /api/cron/stripe-reconcile
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: GET cron endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Fail loudly if the secrets aren't set rather than hitting the
+          # endpoint unauthenticated.
+          if [ -z "${APP_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::error::APP_URL or CRON_SECRET secret is missing on the repo. Set both in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # --fail-with-body makes curl exit non-zero on 4xx/5xx AND print
+          # the body, so a 401 (bad secret) or 500 (bug) surfaces in the log.
+          curl --fail-with-body \
+               --silent \
+               --show-error \
+               --max-time 60 \
+               --header "Authorization: Bearer ${CRON_SECRET}" \
+               "${APP_URL}/api/cron/stripe-reconcile"
