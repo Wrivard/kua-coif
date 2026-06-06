@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
+import { SectionMasthead } from '@/components/ui/section-masthead';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
 import {
   clearSenderConfig,
   clearTwilioConfig,
@@ -57,6 +57,7 @@ const AUTOMATION_ORDER: AutomationRow['kind'][] = [
 
 export function NotificationsClient({ state }: Props) {
   const t = useTranslations('pages.settings.notifications');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -287,157 +288,155 @@ export function NotificationsClient({ state }: Props) {
 
   return (
     <>
-      <PageHeader title={t('title')} subtitle={t('subtitle')} />
+      <PageHeader eyebrow={tNav('title')} title={t('title')} subtitle={t('subtitle')} />
 
-      <div className="space-y-6 p-6">
-        {/* ── Sender config ─────────────────────────────────────────── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('sender.title')}</CardTitle>
-          </CardHeader>
-          <CardBody className="space-y-5">
-            <p className="text-sm text-text-secondary">{t('sender.description')}</p>
+      <div className="space-y-8 p-6">
+        {/* ── Sender config — the page's single hero beat ───────────── */}
+        <section className="surface-hero space-y-5 p-6">
+          <SectionMasthead title={t('sender.title')} />
+          <p className="text-sm text-text-secondary">{t('sender.description')}</p>
 
-            {!state.encryptionReady ? (
-              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded border px-3 py-2 text-xs text-warning">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                <span>{t('errors.encryptionMissing')}</span>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="from_name">{t('sender.fromName')}</Label>
-                <Input
-                  id="from_name"
-                  value={form.fromName}
-                  onChange={(e) => setField('fromName', e.target.value)}
-                  placeholder="Salon Axum"
-                  autoComplete="organization"
-                />
-              </div>
-              <div>
-                <Label htmlFor="from_email" required>
-                  {t('sender.fromEmail')}
-                </Label>
-                <Input
-                  id="from_email"
-                  type="email"
-                  value={form.fromEmail}
-                  onChange={(e) => setField('fromEmail', e.target.value)}
-                  placeholder="noreply@salonaxum.com"
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label htmlFor="smtp_host" required>
-                  {t('sender.smtpHost')}
-                </Label>
-                <Input
-                  id="smtp_host"
-                  value={form.smtpHost}
-                  onChange={(e) => setField('smtpHost', e.target.value)}
-                  placeholder="smtp.gmail.com"
-                />
-                <p className="mt-1 text-xs text-text-muted">{t('sender.smtpHostHint')}</p>
-              </div>
-              <div>
-                <Label htmlFor="smtp_port" required>
-                  {t('sender.smtpPort')}
-                </Label>
-                <Input
-                  id="smtp_port"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={form.smtpPort}
-                  onChange={(e) => setField('smtpPort', Number(e.target.value || 0))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="smtp_user" required>
-                  {t('sender.smtpUser')}
-                </Label>
-                <Input
-                  id="smtp_user"
-                  value={form.smtpUser}
-                  onChange={(e) => setField('smtpUser', e.target.value)}
-                  placeholder="noreply@salonaxum.com"
-                  autoComplete="username"
-                />
-              </div>
-              <div>
-                <Label htmlFor="smtp_password" required={!hasPassword}>
-                  {t('sender.smtpPassword')}
-                </Label>
-                <Input
-                  id="smtp_password"
-                  type="password"
-                  value={form.smtpPassword}
-                  onChange={(e) => setField('smtpPassword', e.target.value)}
-                  placeholder={hasPassword ? t('sender.passwordKept') : ''}
-                  autoComplete="new-password"
-                />
-                <p className="mt-1 text-xs text-text-muted">{t('sender.smtpPasswordHint')}</p>
-              </div>
+          {!state.encryptionReady ? (
+            <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{t('errors.encryptionMissing')}</span>
             </div>
+          ) : null}
 
-            {testResult.kind === 'ok' ? (
-              <div className="border-success/40 bg-success/10 flex items-center gap-2 rounded border px-3 py-2 text-xs text-success">
-                <CheckCircle2 className="h-4 w-4" aria-hidden /> {t('test.success')}
-              </div>
-            ) : null}
-            {testResult.kind === 'error' ? (
-              <div className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger">
-                <p className="font-medium">{t('test.failure')}</p>
-                {testResult.message ? <p className="mt-1 font-mono">{testResult.message}</p> : null}
-              </div>
-            ) : null}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="from_name">{t('sender.fromName')}</Label>
+              <Input
+                id="from_name"
+                value={form.fromName}
+                onChange={(e) => setField('fromName', e.target.value)}
+                placeholder="Salon Axum"
+                autoComplete="organization"
+              />
+            </div>
+            <div>
+              <Label htmlFor="from_email" required>
+                {t('sender.fromEmail')}
+              </Label>
+              <Input
+                id="from_email"
+                type="email"
+                value={form.fromEmail}
+                onChange={(e) => setField('fromEmail', e.target.value)}
+                placeholder="noreply@salonaxum.com"
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <Label htmlFor="smtp_host" required>
+                {t('sender.smtpHost')}
+              </Label>
+              <Input
+                id="smtp_host"
+                value={form.smtpHost}
+                onChange={(e) => setField('smtpHost', e.target.value)}
+                placeholder="smtp.gmail.com"
+              />
+              <p className="mt-1 text-xs text-text-muted">{t('sender.smtpHostHint')}</p>
+            </div>
+            <div>
+              <Label htmlFor="smtp_port" required>
+                {t('sender.smtpPort')}
+              </Label>
+              <Input
+                id="smtp_port"
+                type="number"
+                min={1}
+                max={65535}
+                value={form.smtpPort}
+                onChange={(e) => setField('smtpPort', Number(e.target.value || 0))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="smtp_user" required>
+                {t('sender.smtpUser')}
+              </Label>
+              <Input
+                id="smtp_user"
+                value={form.smtpUser}
+                onChange={(e) => setField('smtpUser', e.target.value)}
+                placeholder="noreply@salonaxum.com"
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <Label htmlFor="smtp_password" required={!hasPassword}>
+                {t('sender.smtpPassword')}
+              </Label>
+              <Input
+                id="smtp_password"
+                type="password"
+                value={form.smtpPassword}
+                onChange={(e) => setField('smtpPassword', e.target.value)}
+                placeholder={hasPassword ? t('sender.passwordKept') : ''}
+                autoComplete="new-password"
+              />
+              <p className="mt-1 text-xs text-text-muted">{t('sender.smtpPasswordHint')}</p>
+            </div>
+          </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              <div className="flex items-center gap-2">
+          {testResult.kind === 'ok' ? (
+            <div className="border-success/40 bg-success/10 flex items-center gap-2 rounded-md border px-3 py-2 text-xs text-success">
+              <CheckCircle2 className="h-4 w-4" aria-hidden /> {t('test.success')}
+            </div>
+          ) : null}
+          {testResult.kind === 'error' ? (
+            <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
+              <p className="font-medium">{t('test.failure')}</p>
+              {testResult.message ? <p className="mt-1 font-mono">{testResult.message}</p> : null}
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onTestConnection}
+                loading={testing}
+                disabled={saving}
+              >
+                <Send className="h-4 w-4" /> {t('test.button')}
+              </Button>
+              {hasPassword ? (
                 <Button
                   type="button"
-                  variant="secondary"
-                  onClick={onTestConnection}
-                  loading={testing}
-                  disabled={saving}
+                  variant="ghost"
+                  onClick={onDisconnect}
+                  disabled={saving || testing}
                 >
-                  <Send className="h-4 w-4" /> {t('test.button')}
+                  {t('sender.disconnect')}
                 </Button>
-                {hasPassword ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={onDisconnect}
-                    disabled={saving || testing}
-                  >
-                    {t('sender.disconnect')}
-                  </Button>
-                ) : null}
-              </div>
-              <Button type="button" onClick={onSaveConfig} loading={saving}>
-                {tCommon('actions.save')}
-              </Button>
+              ) : null}
             </div>
-          </CardBody>
-        </Card>
+            <Button type="button" onClick={onSaveConfig} loading={saving}>
+              {tCommon('actions.save')}
+            </Button>
+          </div>
+        </section>
 
         {/* ── Loop 56 (P100 slice 4) — Twilio SMS credentials ─────── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('twilio.title')}</CardTitle>
-            {twilioConfigured ? (
-              <span className="bg-success/15 ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
-                <CheckCircle2 className="h-3 w-3" /> {t('twilio.connected')}
-              </span>
-            ) : null}
-          </CardHeader>
-          <CardBody className="space-y-5">
+        <section className="border-t border-border pt-8">
+          <SectionMasthead
+            title={t('twilio.title')}
+            actions={
+              twilioConfigured ? (
+                <span className="bg-success/15 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                  <CheckCircle2 className="h-3 w-3" /> {t('twilio.connected')}
+                </span>
+              ) : null
+            }
+          />
+          <div className="mt-6 space-y-5">
             <p className="text-sm text-text-secondary">{t('twilio.description')}</p>
 
             {!state.encryptionReady ? (
-              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded border px-3 py-2 text-xs text-warning">
+              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('errors.encryptionMissing')}</span>
               </div>
@@ -500,13 +499,13 @@ export function NotificationsClient({ state }: Props) {
             </div>
 
             {twilioTestResult.kind === 'ok' ? (
-              <div className="border-success/40 bg-success/10 flex items-start gap-2 rounded border px-3 py-2 text-xs text-success">
+              <div className="border-success/40 bg-success/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('testTwilio.success', { sid: twilioTestResult.sid })}</span>
               </div>
             ) : null}
             {twilioTestResult.kind === 'error' ? (
-              <div className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger">
+              <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
                 <p className="font-medium">{t('testTwilio.failure')}</p>
                 {twilioTestResult.message ? (
                   <p className="mt-1 font-mono">{twilioTestResult.message}</p>
@@ -540,20 +539,22 @@ export function NotificationsClient({ state }: Props) {
                 {tCommon('actions.save')}
               </Button>
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </section>
 
         {/* ── Loop 33 (P90) — Slack webhook for owner notifications ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('slack.title')}</CardTitle>
-            {slackConfigured ? (
-              <span className="bg-success/15 ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
-                <CheckCircle2 className="h-3 w-3" /> {t('slack.connected')}
-              </span>
-            ) : null}
-          </CardHeader>
-          <CardBody className="space-y-4">
+        <section className="border-t border-border pt-8">
+          <SectionMasthead
+            title={t('slack.title')}
+            actions={
+              slackConfigured ? (
+                <span className="bg-success/15 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-success">
+                  <CheckCircle2 className="h-3 w-3" /> {t('slack.connected')}
+                </span>
+              ) : null
+            }
+          />
+          <div className="mt-6 space-y-4">
             <p className="text-sm text-text-secondary">{t('slack.description')}</p>
             <div>
               <Label htmlFor="slack_webhook_url">{t('slack.urlLabel')}</Label>
@@ -588,19 +589,17 @@ export function NotificationsClient({ state }: Props) {
                 {tCommon('actions.save')}
               </Button>
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </section>
 
         {/* ── Automations ───────────────────────────────────────────── */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('automations.title')}</CardTitle>
-          </CardHeader>
-          <CardBody>
+        <section className="border-t border-border pt-8">
+          <SectionMasthead title={t('automations.title')} />
+          <div className="mt-6">
             <p className="mb-4 text-sm text-text-secondary">{t('automations.description')}</p>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-[10px] uppercase tracking-wide text-text-muted">
+                <tr className="type-eyebrow border-b border-border">
                   <th className="py-3 text-left">{t('automations.columns.kind')}</th>
                   <th className="w-24 py-3 text-center">{t('automations.columns.email')}</th>
                   <th className="w-32 py-3 text-center">{t('automations.columns.sms')}</th>
@@ -630,7 +629,7 @@ export function NotificationsClient({ state }: Props) {
                             disabled={saving}
                           />
                         ) : (
-                          <span className="text-xs text-text-muted">—</span>
+                          <EmptyCell />
                         )}
                       </td>
                       <td className="py-3 text-center">
@@ -642,16 +641,12 @@ export function NotificationsClient({ state }: Props) {
                               disabled={saving}
                             />
                           ) : (
-                            <span
-                              className={cn(
-                                'inline-flex h-6 w-11 items-center rounded-full border border-border bg-bg-surface-2 opacity-50',
-                              )}
-                              aria-label="SMS disabled — configure Twilio above"
-                              title={t('automations.smsTooltip')}
-                            />
+                            <span className="inline-flex" title={t('automations.smsTooltip')}>
+                              <Toggle checked={smsRow.enabled} onChange={() => {}} disabled />
+                            </span>
                           )
                         ) : (
-                          <span className="text-xs text-text-muted">—</span>
+                          <EmptyCell />
                         )}
                       </td>
                     </tr>
@@ -659,8 +654,8 @@ export function NotificationsClient({ state }: Props) {
                 })}
               </tbody>
             </table>
-          </CardBody>
-        </Card>
+          </div>
+        </section>
       </div>
     </>
   );
