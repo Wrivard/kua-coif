@@ -13,6 +13,7 @@ import { Download, FolderTree, GripVertical, Pencil, Plus, Power, Trash2 } from 
 import { EmptyCell } from '@/components/ui/empty-cell';
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -22,6 +23,7 @@ import {
 import {
   SortableContext,
   arrayMove,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -75,7 +77,13 @@ export function ServicesClient({
 
   // A small activation distance so clicking the action icons / a row never
   // gets swallowed as the start of a drag.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Keyboard drag: focus a grip handle, Space to lift, arrows to reorder,
+    // Space to drop. The grip <button> already carries dnd-kit's attributes
+    // + listeners, so this is the only missing piece for keyboard reorder.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const taxById = useMemo(() => new Map(taxes.map((x) => [x.id, x])), [taxes]);

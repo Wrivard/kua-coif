@@ -260,10 +260,23 @@ export function DataTable<Row>({
               sortedData.map((row, idx) => (
                 <tr
                   key={getRowKey(row, idx)}
+                  role={onRowClick ? 'button' : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
                   className={cn(
                     'border-b border-border-soft transition-colors last:border-b-0',
-                    onRowClick && 'cursor-pointer hover:bg-bg-surface-2',
+                    onRowClick &&
+                      'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
                   )}
                 >
                   {reorderable && (
@@ -483,10 +496,23 @@ function VirtualizedRows<Row>({
         return (
           <tr
             key={getRowKey(row, vRow.index)}
+            role={onRowClick ? 'button' : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
+            onKeyDown={
+              onRowClick
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onRowClick(row);
+                    }
+                  }
+                : undefined
+            }
             className={cn(
               'border-b border-border transition-colors last:border-b-0',
-              onRowClick && 'cursor-pointer hover:bg-bg-surface-2',
+              onRowClick &&
+                'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
             )}
           >
             {reorderable && (
