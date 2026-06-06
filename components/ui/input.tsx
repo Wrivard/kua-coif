@@ -30,8 +30,8 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
 // saturated blue) — replaces the soft accent ring.
 const baseField =
   'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted tabular-nums ' +
-  'rounded-lg px-3 shadow-sm ' +
-  'transition-colors duration-150 ease-out-quint ' +
+  'rounded-lg px-3 shadow-sm hover:shadow-warm-sm ' +
+  'transition duration-150 ease-out-quint ' +
   'focus:outline-none focus:ring-2 focus:ring-focus ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -59,8 +59,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         // The prefix/suffix dividers (border-r / border-l on the inner
         // spans) stay — those are INTERNAL dividers, not the outer
         // frame.
-        'flex h-10 w-full items-center rounded-lg bg-bg-surface-2 shadow-sm',
-        'transition-colors duration-150 ease-out-quint',
+        'flex h-10 w-full items-center rounded-lg bg-bg-surface-2 shadow-sm hover:shadow-warm-sm',
+        'transition duration-150 ease-out-quint',
         'focus-within:ring-2 focus-within:ring-focus',
         invalid && 'ring-1 ring-danger focus-within:ring-2',
         className,
@@ -98,8 +98,8 @@ export const Textarea = forwardRef<
       rows={rows}
       className={cn(
         'w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted',
-        'rounded-lg px-3 py-2 shadow-sm',
-        'transition-colors duration-150 ease-out-quint',
+        'rounded-lg px-3 py-2 shadow-sm hover:shadow-warm-sm',
+        'transition duration-150 ease-out-quint',
         'focus:outline-none focus:ring-2 focus:ring-focus',
         'disabled:cursor-not-allowed disabled:opacity-50',
         invalid && invalidField,
