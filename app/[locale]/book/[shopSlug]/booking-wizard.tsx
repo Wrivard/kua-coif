@@ -1893,9 +1893,7 @@ function TipSelector({
 
   return (
     <div className="space-y-2 rounded-lg border border-border bg-bg-base p-4 shadow-warm-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-        {t('steps.contact.tipTitle')}
-      </p>
+      <p className="type-eyebrow">{t('steps.contact.tipTitle')}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {suggestions.map((sug, i) => {
           const isSelected = selection === `tier:${i}`;
@@ -1905,7 +1903,7 @@ function TipSelector({
               type="button"
               onClick={() => pickTier(i as 0 | 1 | 2 | 3)}
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-sm border px-3 py-2 text-sm transition',
+                'flex flex-col items-center gap-0.5 rounded-md border px-3 py-2 text-sm shadow-warm-sm transition-all duration-150 ease-out-quint active:scale-[0.97]',
                 isSelected
                   ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
                   : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
@@ -1922,7 +1920,7 @@ function TipSelector({
           type="button"
           onClick={pickCustom}
           className={cn(
-            'rounded-sm border px-3 py-1.5 text-xs transition',
+            'rounded-md border px-3 py-1.5 text-xs transition-all duration-150 ease-out-quint active:scale-[0.97]',
             selection === 'custom'
               ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
               : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
@@ -1934,7 +1932,7 @@ function TipSelector({
           type="button"
           onClick={pickNone}
           className={cn(
-            'rounded-sm border px-3 py-1.5 text-xs transition',
+            'rounded-md border px-3 py-1.5 text-xs transition-all duration-150 ease-out-quint active:scale-[0.97]',
             selection === 'none'
               ? 'border-accent bg-accent-subtle font-semibold text-text-primary'
               : 'border-border bg-bg-surface text-text-secondary hover:border-accent-ring hover:text-text-primary',
