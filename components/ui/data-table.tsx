@@ -55,8 +55,8 @@ type Props<Row> = {
    * regular full render until it explicitly asks for virtualization.
    */
   virtualize?: boolean;
-  /** Pixel height per row. Defaults to 48 — matches the
-   *  `px-4 py-3 text-sm` row padding used by every table. Override
+  /** Pixel height per row. Defaults to 56 — matches the
+   *  `px-4 py-4 text-sm` row padding used by every table. Override
    *  if the table renders taller rows (e.g., avatar chips). */
   estimatedRowHeight?: number;
   /** Viewport height when virtualization is on. Defaults to 600px;
@@ -75,7 +75,7 @@ export function DataTable<Row>({
   className,
   loading,
   virtualize = false,
-  estimatedRowHeight = 48,
+  estimatedRowHeight = 56,
   virtualizedMaxHeight = 600,
 }: Props<Row>) {
   const t = useTranslations('common.table');
@@ -136,7 +136,7 @@ export function DataTable<Row>({
       >
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-bg-surface">
-            <tr className="border-b border-border">
+            <tr className="border-b border-border-strong">
               {reorderable && <th className="w-8" />}
               {columns.map((col) => {
                 const isSorted = sort?.id === col.id;
@@ -197,13 +197,16 @@ export function DataTable<Row>({
               // 5 rows × column count gives the right visual weight on
               // most tables without being noisy.
               Array.from({ length: 5 }).map((_, rowIdx) => (
-                <tr key={`skeleton-${rowIdx}`} className="border-b border-border last:border-b-0">
+                <tr
+                  key={`skeleton-${rowIdx}`}
+                  className="border-b border-border-soft last:border-b-0"
+                >
                   {reorderable && <td className="w-8 px-2" />}
                   {columns.map((col, colIdx) => (
                     <td
                       key={col.id}
                       className={cn(
-                        'px-4 py-3',
+                        'px-4 py-4',
                         col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                       )}
@@ -246,7 +249,7 @@ export function DataTable<Row>({
                   key={getRowKey(row, idx)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
-                    'border-b border-border transition-colors last:border-b-0',
+                    'border-b border-border-soft transition-colors last:border-b-0',
                     onRowClick && 'cursor-pointer hover:bg-bg-surface-2',
                   )}
                 >
@@ -259,7 +262,7 @@ export function DataTable<Row>({
                     <td
                       key={col.id}
                       className={cn(
-                        'px-4 py-3 text-sm text-text-primary',
+                        'px-4 py-4 text-sm text-text-primary',
                         col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                         col.className,
@@ -287,7 +290,7 @@ export function DataTable<Row>({
           Array.from({ length: 4 }).map((_, i) => (
             <div
               key={`m-skeleton-${i}`}
-              className="border-b border-border px-4 py-3 last:border-b-0"
+              className="border-b border-border-soft px-4 py-3 last:border-b-0"
             >
               <Skeleton className="mb-2 h-4 w-40" />
               <Skeleton className="mb-1 h-3 w-32" />
@@ -321,7 +324,7 @@ export function DataTable<Row>({
                     : undefined
                 }
                 className={cn(
-                  'block border-b border-border px-4 py-3 transition-colors last:border-b-0',
+                  'block border-b border-border-soft px-4 py-3 transition-colors last:border-b-0',
                   clickable &&
                     'cursor-pointer hover:bg-bg-surface-2 focus:outline-none focus-visible:bg-bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
                 )}
@@ -375,7 +378,7 @@ export function DataTable<Row>({
       </div>
 
       {pagination ? (
-        <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-text-muted">
+        <div className="flex items-center justify-between border-t border-border-soft px-4 py-3 text-xs text-text-muted">
           <span>
             {t('pageOf', {
               page: pagination.page,
