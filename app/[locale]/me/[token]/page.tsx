@@ -57,13 +57,35 @@ export default async function MePage({
   if (!client) notFound();
   if (client.anonymized_at) notFound();
 
-  const shopRes = await supabase
-    .from('shops')
+  // These three reads all key off the already-resolved `client` (shop_id
+  // and id) and are independent of each other, so fire them together
+  // instead of serially — turns 3 round-trips into 1 wall-clock wait.
+  const [shopRes, apptCountRes, upcomingRes] = await Promise.all([
     // Phase G — `timezone` added so the upcoming-appointments card can
     // format the start_at in the shop's local clock.
-    .select('name, email, phone, timezone')
-    .eq('id', client.shop_id)
-    .limit(1);
+    supabase.from('shops').select('name, email, phone, timezone').eq('id', client.shop_id).limit(1),
+    // Count completed appointments — used as a "X visits" stat on the page.
+    supabase
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', client.id)
+      .eq('status', 'completed'),
+    // Phase G — upcoming appointments (status in {booked, confirmed} AND
+    // start_at in the future). These power the self-cancel UI; each row
+    // gets a Cancel button on the client. Capped at 10 because a
+    // customer with more than 10 future bookings is an edge case and the
+    // page is already pretty long.
+    supabase
+      .from('appointments')
+      .select(
+        'id, start_at, end_at, status, total_amount, payment_status, payment_intent_id, barber:barbers(display_name), services:appointment_services(services(name, duration_min))',
+      )
+      .eq('client_id', client.id)
+      .in('status', ['booked', 'confirmed'])
+      .gte('start_at', new Date().toISOString())
+      .order('start_at', { ascending: true })
+      .limit(10),
+  ]);
   const shop =
     ((shopRes.data as Array<{
       name: string;
@@ -71,30 +93,7 @@ export default async function MePage({
       phone: string | null;
       timezone: string;
     }> | null) ?? [])[0] ?? null;
-
-  // Count completed appointments — used as a "X visits" stat on the page.
-  const apptCountRes = await supabase
-    .from('appointments')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_id', client.id)
-    .eq('status', 'completed');
   const completedCount = (apptCountRes.count as number | null) ?? 0;
-
-  // Phase G — upcoming appointments (status in {booked, confirmed} AND
-  // start_at in the future). These power the self-cancel UI; each row
-  // gets a Cancel button on the client. Capped at 10 because a
-  // customer with more than 10 future bookings is an edge case and the
-  // page is already pretty long.
-  const upcomingRes = await supabase
-    .from('appointments')
-    .select(
-      'id, start_at, end_at, status, total_amount, payment_status, payment_intent_id, barber:barbers(display_name), services:appointment_services(services(name, duration_min))',
-    )
-    .eq('client_id', client.id)
-    .in('status', ['booked', 'confirmed'])
-    .gte('start_at', new Date().toISOString())
-    .order('start_at', { ascending: true })
-    .limit(10);
   type UpcomingRow = {
     id: string;
     start_at: string;
