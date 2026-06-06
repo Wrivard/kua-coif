@@ -56,13 +56,13 @@ export function RadioGroup<V extends string>({
                 checked={isChecked}
                 disabled={opt.disabled}
                 onChange={() => onChange(opt.value)}
-                className="peer h-4 w-4 cursor-pointer appearance-none rounded-full border border-border bg-bg-surface-2 checked:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed"
+                className="peer h-4 w-4 cursor-pointer appearance-none rounded-full border border-border bg-bg-surface-2 transition-all duration-150 ease-out-quint checked:border-accent hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base active:scale-90 disabled:cursor-not-allowed"
               />
               <span
                 aria-hidden
                 className={cn(
-                  'pointer-events-none absolute inset-1 rounded-full bg-accent',
-                  isChecked ? 'opacity-100' : 'opacity-0',
+                  'pointer-events-none absolute inset-1 rounded-full bg-accent transition-all duration-150',
+                  isChecked ? 'scale-100 opacity-100' : 'scale-0 opacity-0',
                 )}
               />
             </span>

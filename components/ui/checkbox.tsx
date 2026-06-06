@@ -20,12 +20,12 @@ export const Checkbox = forwardRef<HTMLInputElement, Props>(function Checkbox(
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-bg-surface-2 transition-colors duration-150 ease-out-quint checked:border-accent checked:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
+        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-bg-surface-2 transition-all duration-150 ease-out-quint checked:border-accent checked:bg-accent hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
         {...rest}
       />
       <Check
         aria-hidden
-        className="pointer-events-none absolute inset-0 m-auto h-3 w-3 text-accent-fg opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+        className="pointer-events-none absolute inset-0 m-auto h-3 w-3 scale-50 text-accent-fg opacity-0 transition-all duration-150 peer-checked:scale-100 peer-checked:opacity-100"
       />
     </span>
   );
