@@ -181,7 +181,8 @@ export function MeClient({
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{L.hello}</h1>
+        <p className="type-eyebrow">{shop.name}</p>
+        <h1 className="text-display-md text-text-primary">{L.hello}</h1>
         <p className="text-sm text-text-secondary">{L.intro}</p>
       </header>
 
@@ -238,26 +239,20 @@ export function MeClient({
         </CardBody>
       </Card>
 
-      {/* Loyalty */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <span className="inline-flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-accent" />
-              {L.loyaltyTitle}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="space-y-2">
-          <p className="text-3xl font-semibold tracking-tight text-text-primary">
-            {formatCurrencyCAD(client.loyaltyBalanceCents / 100, isFr ? 'fr' : 'en')}
-          </p>
-          <p className="text-xs text-text-secondary">{L.loyaltyHint}</p>
-          <p className="text-xs text-text-muted">
-            {client.completedCount} {L.visits}
-          </p>
-        </CardBody>
-      </Card>
+      {/* Loyalty — the page's single hero beat. */}
+      <div className="surface-hero space-y-2 p-6">
+        <p className="type-eyebrow inline-flex items-center gap-2 text-accent">
+          <Sparkles className="h-4 w-4" />
+          {L.loyaltyTitle}
+        </p>
+        <p className="text-display-lg tabular-nums text-text-primary">
+          {formatCurrencyCAD(client.loyaltyBalanceCents / 100, isFr ? 'fr' : 'en')}
+        </p>
+        <p className="text-xs text-text-secondary">{L.loyaltyHint}</p>
+        <p className="text-xs text-text-muted">
+          {client.completedCount} {L.visits}
+        </p>
+      </div>
 
       {/* Loi 25 self-export */}
       <Card>
