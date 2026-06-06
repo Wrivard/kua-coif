@@ -33,6 +33,7 @@ import {
   refundPaymentIntentFull,
 } from '@/lib/stripe/payments';
 import { awardLoyaltyOnCompletion } from '@/lib/business/loyalty';
+import { sendReviewRequestOnCompletion } from '@/lib/business/review-request';
 import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
 import { pushAppointmentToQuickbooks } from '@/lib/quickbooks/sync';
@@ -380,6 +381,15 @@ export const updateAppointment = withAction({
       // backfill unsynced completes. Skipped silently when the
       // shop hasn't connected QB.
       void pushAppointmentToQuickbooks({ appointmentId: id, shopId: ctx.shopId });
+      // Loop 64 — ask the client for a review on the same transition.
+      // Best-effort + idempotent (one ask per appointment via the
+      // client_marketing_sends ledger), so a Resend outage or a
+      // re-toggle never fails or duplicates the status update.
+      void sendReviewRequestOnCompletion({
+        shopId: ctx.shopId,
+        appointmentId: id,
+        clientId: prior.client_id,
+      });
     }
 
     revalidatePath(APPOINTMENTS_PATH);
