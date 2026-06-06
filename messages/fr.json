@@ -643,11 +643,11 @@
           "link": "Stripe"
         },
         "evidenceDue": {
-          "none": "—"
+          "none": "Aucun"
         },
         "appointment": {
           "linked": "Associé",
-          "none": "—"
+          "none": "Aucun"
         },
         "link": {
           "stripe": "Ouvrir dans Stripe"

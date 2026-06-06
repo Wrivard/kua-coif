@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { SectionSwitcher } from '@/components/ui/section-switcher';
 import { useToast } from '@/components/ui/toast';
@@ -166,14 +167,14 @@ export function ProductsClient({
     {
       id: 'sku',
       header: t('columns.sku'),
-      cell: (r) => r.sku ?? <span className="text-text-muted">—</span>,
+      cell: (r) => r.sku ?? <EmptyCell />,
     },
     {
       id: 'tax',
       header: t('columns.tax'),
       cell: (r) => {
         const ids = taxIdsByProduct.get(r.id) ?? [];
-        if (ids.length === 0) return <span className="text-text-muted">—</span>;
+        if (ids.length === 0) return <EmptyCell />;
         return (
           <div className="flex flex-col text-xs text-text-secondary">
             {ids.map((id) => {
@@ -192,14 +193,12 @@ export function ProductsClient({
     {
       id: 'category',
       header: t('columns.category'),
-      cell: (r) =>
-        categoryById.get(r.category_id ?? '')?.name ?? <span className="text-text-muted">—</span>,
+      cell: (r) => categoryById.get(r.category_id ?? '')?.name ?? <EmptyCell />,
     },
     {
       id: 'brand',
       header: t('columns.brand'),
-      cell: (r) =>
-        brandById.get(r.brand_id ?? '')?.name ?? <span className="text-text-muted">—</span>,
+      cell: (r) => brandById.get(r.brand_id ?? '')?.name ?? <EmptyCell />,
     },
     {
       id: 'actions',

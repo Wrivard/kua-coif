@@ -1,6 +1,7 @@
 'use client';
 
 import { Input } from './input';
+import { EmptyCell } from './empty-cell';
 import { cn } from '@/lib/utils';
 
 export type DateRangeValue = {
@@ -37,7 +38,7 @@ export function DateRangePicker({
           className="h-10 w-40"
         />
       </div>
-      <span className="text-text-muted">—</span>
+      <EmptyCell />
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           {labels.end}

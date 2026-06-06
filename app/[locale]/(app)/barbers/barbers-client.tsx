@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Tabs } from '@/components/ui/tabs';
@@ -168,7 +169,7 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
     {
       id: 'email',
       header: t('columns.email'),
-      cell: (r) => r.email ?? <span className="text-text-muted">—</span>,
+      cell: (r) => r.email ?? <EmptyCell />,
     },
     {
       id: 'phone',
@@ -176,16 +177,12 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
       // Loop 37 (P114) — phone numbers in mono so the +1 ### ### ####
       // blocks line up column-wise across all rows.
       cell: (r) =>
-        r.phone ? (
-          <span className="font-mono tabular-nums">{r.phone}</span>
-        ) : (
-          <span className="text-text-muted">—</span>
-        ),
+        r.phone ? <span className="font-mono tabular-nums">{r.phone}</span> : <EmptyCell />,
     },
     {
       id: 'personnel',
       header: t('columns.personnelId'),
-      cell: (r) => r.personnel_id ?? <span className="text-text-muted">—</span>,
+      cell: (r) => r.personnel_id ?? <EmptyCell />,
     },
     // Phase 34 — Google Calendar connection column. Hidden when the
     // feature isn't configured server-side (env vars missing).

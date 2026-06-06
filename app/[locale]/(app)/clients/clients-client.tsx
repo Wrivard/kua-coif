@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
@@ -163,7 +164,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     {
       id: 'email',
       header: t('columns.email'),
-      cell: (r) => r.email ?? <span className="text-text-muted">—</span>,
+      cell: (r) => r.email ?? <EmptyCell />,
     },
     {
       id: 'phone',
@@ -171,11 +172,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
       // Loop 37 (P114) — phone numbers are technical labels; mono font
       // makes the +1 ### ### #### blocks line up across the table.
       cell: (r) =>
-        r.phone ? (
-          <span className="font-mono tabular-nums">{r.phone}</span>
-        ) : (
-          <span className="text-text-muted">—</span>
-        ),
+        r.phone ? <span className="font-mono tabular-nums">{r.phone}</span> : <EmptyCell />,
     },
     {
       id: 'actions',

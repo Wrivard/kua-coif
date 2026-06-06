@@ -643,11 +643,11 @@
           "link": "Stripe"
         },
         "evidenceDue": {
-          "none": "—"
+          "none": "None"
         },
         "appointment": {
           "linked": "Linked",
-          "none": "—"
+          "none": "None"
         },
         "link": {
           "stripe": "Open in Stripe"
