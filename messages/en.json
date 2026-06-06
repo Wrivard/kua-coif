@@ -448,6 +448,11 @@
       "title": "Products",
       "soon": "Inventory, brands, categories — Phase 4.",
       "summary": "Retail value {retail} · Supply value {wholesale} · {low} low-stock",
+      "stats": {
+        "retail": "Retail value",
+        "wholesale": "Supply value",
+        "lowInventory": "Low stock"
+      },
       "view": "VIEW",
       "viewLabels": {
         "products": "Products",

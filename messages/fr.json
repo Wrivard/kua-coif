@@ -448,6 +448,11 @@
       "title": "Produits",
       "soon": "Inventaire, marques, catégories — Phase 4.",
       "summary": "Valeur détail {retail} · Valeur fournisseur {wholesale} · {low} sous le seuil",
+      "stats": {
+        "retail": "Valeur détail",
+        "wholesale": "Valeur fournisseur",
+        "lowInventory": "Sous le seuil"
+      },
       "view": "VUE",
       "viewLabels": {
         "products": "Produits",

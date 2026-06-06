@@ -328,13 +328,26 @@ export function ProductsClient({
 
       <div className="space-y-6 p-6">
         {view === 'products' ? (
-          <p className="text-xs text-text-muted">
-            {t('summary', {
-              retail: formatCurrencyCAD(retailValue, locale === 'fr' ? 'fr' : 'en'),
-              wholesale: formatCurrencyCAD(wholesaleValue, locale === 'fr' ? 'fr' : 'en'),
-              low: lowInventoryCount,
-            })}
-          </p>
+          <div className="flex flex-wrap items-end gap-x-10 gap-y-4" data-reveal>
+            <div>
+              <p className="type-eyebrow">{t('stats.retail')}</p>
+              <p className="type-metric mt-1 text-display-lg text-text-primary">
+                {formatCurrencyCAD(retailValue, locale === 'fr' ? 'fr' : 'en')}
+              </p>
+            </div>
+            <div>
+              <p className="type-eyebrow">{t('stats.wholesale')}</p>
+              <p className="type-metric mt-1 text-display-sm text-text-secondary">
+                {formatCurrencyCAD(wholesaleValue, locale === 'fr' ? 'fr' : 'en')}
+              </p>
+            </div>
+            {lowInventoryCount > 0 ? (
+              <div>
+                <p className="type-eyebrow">{t('stats.lowInventory')}</p>
+                <p className="type-metric mt-1 text-display-sm text-danger">{lowInventoryCount}</p>
+              </div>
+            ) : null}
+          </div>
         ) : null}
         {view === 'products' && (
           <DataTable
