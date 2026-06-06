@@ -41,13 +41,16 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
     if (clientIds.length > 0) {
       const res = await supabase
         .from('clients')
-        .select('*')
+        .select('id, first_name, last_name, email, phone, date_of_birth, notes')
         .in('id', clientIds)
         .order('first_name', { ascending: true });
       clients = (res.data as ClientRow[] | null) ?? [];
     }
   } else {
-    const res = await supabase.from('clients').select('*').order('first_name', { ascending: true });
+    const res = await supabase
+      .from('clients')
+      .select('id, first_name, last_name, email, phone, date_of_birth, notes')
+      .order('first_name', { ascending: true });
     clients = (res.data as ClientRow[] | null) ?? [];
   }
 

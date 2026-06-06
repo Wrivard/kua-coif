@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { ArchiveRestore, Check, Download, Pencil, Plus, Trash2, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -147,8 +148,7 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
       cell: (r) => (
         <span className="inline-flex items-center gap-3">
           {r.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={r.avatar_url}
               alt=""
               width={32}

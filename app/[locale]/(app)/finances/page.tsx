@@ -100,24 +100,48 @@ export default async function FinancesPage({
     byBarber.set(a.barber_id, bucket);
   }
   const barberIds = Array.from(byBarber.keys());
-  let barberRows: Array<{ id: string; display_name: string; count: number; revenue: number }> = [];
-  if (barberIds.length > 0) {
-    const namesRes = await supabase.from('barbers').select('id, display_name').in('id', barberIds);
-    const names = new Map(
-      ((namesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map((b) => [
-        b.id,
-        b.display_name,
-      ]),
-    );
-    barberRows = barberIds
-      .map((id) => ({
-        id,
-        display_name: names.get(id) ?? '?',
-        count: byBarber.get(id)!.count,
-        revenue: byBarber.get(id)!.revenue,
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-  }
+  const apptIds = appts.map((a) => a.id);
+
+  // Perf: barber names, per-service line items, and commission tiers all
+  // depend only on ids we already have (barberIds / apptIds) — fetch them in
+  // ONE parallel round instead of three serial blocks. Service→category
+  // resolution stays sequential after the line items (it needs the service
+  // ids those rows reference).
+  const [barberNamesRes, apptSvcsRes, tiersRes] = await Promise.all([
+    barberIds.length > 0
+      ? supabase.from('barbers').select('id, display_name').in('id', barberIds)
+      : Promise.resolve({ data: [] }),
+    apptIds.length > 0
+      ? supabase
+          .from('appointment_services')
+          .select('appointment_id, service_id, price_snapshot')
+          .in('appointment_id', apptIds)
+      : Promise.resolve({ data: [] }),
+    barberIds.length > 0
+      ? supabase
+          .from('commission_tiers')
+          .select(
+            'barber_id, scope, cumulative, tier1_threshold, tier1_pct, tier2_threshold, tier2_pct, tier3_threshold, tier3_pct, tier4_threshold, tier4_pct, tier5_threshold, tier5_pct',
+          )
+          .eq('scope', 'services')
+          .in('barber_id', barberIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const barberNames = new Map(
+    ((barberNamesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map((b) => [
+      b.id,
+      b.display_name,
+    ]),
+  );
+  const barberRows = barberIds
+    .map((id) => ({
+      id,
+      display_name: barberNames.get(id) ?? '?',
+      count: byBarber.get(id)!.count,
+      revenue: byBarber.get(id)!.revenue,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
 
   // ── Sales per category (Phase 51) ─────────────────────────────────
   // Three-step join — appointment_services × services × service_categories.
@@ -126,25 +150,19 @@ export default async function FinancesPage({
   // the per-service amount captured at booking time; summing it gives a
   // truthful revenue figure that doesn't double-count promos or loyalty
   // (those discount the appointment total but not the line items).
-  const apptIds = appts.map((a) => a.id);
+  type LinkRow = {
+    appointment_id: string;
+    service_id: string;
+    price_snapshot: number;
+  };
+  const links = (apptSvcsRes.data as LinkRow[] | null) ?? [];
   let categoryRows: Array<{
     id: string | null;
     name: string;
     revenue: number;
     apptCount: number;
   }> = [];
-  if (apptIds.length > 0) {
-    const apptSvcsRes = await supabase
-      .from('appointment_services')
-      .select('appointment_id, service_id, price_snapshot')
-      .in('appointment_id', apptIds);
-    type LinkRow = {
-      appointment_id: string;
-      service_id: string;
-      price_snapshot: number;
-    };
-    const links = (apptSvcsRes.data as LinkRow[] | null) ?? [];
-
+  if (links.length > 0) {
     const serviceIds = Array.from(new Set(links.map((l) => l.service_id)));
     let catByService = new Map<string, string | null>();
     let categoryNames = new Map<string | null, string>();
@@ -196,52 +214,35 @@ export default async function FinancesPage({
   // scoped commission_tiers row and run it through `computeCommission`.
   // Barbers with no tiers row, or a row with every tier at (0, 0%),
   // surface as commission=0 — same semantic as the spec ("not configured").
-  let commissionRows: Array<{
-    barberId: string;
-    barberName: string;
-    revenue: number;
-    commission: number;
-    effectivePct: number;
-    cumulative: boolean;
-  }> = [];
-  if (barberIds.length > 0) {
-    const tiersRes = await supabase
-      .from('commission_tiers')
-      .select(
-        'barber_id, scope, cumulative, tier1_threshold, tier1_pct, tier2_threshold, tier2_pct, tier3_threshold, tier3_pct, tier4_threshold, tier4_pct, tier5_threshold, tier5_pct',
-      )
-      .eq('scope', 'services')
-      .in('barber_id', barberIds);
-    const tiersRows =
-      (tiersRes.data as Array<CommissionTierDbRow & { barber_id: string }> | null) ?? [];
-    const tiersByBarber = new Map(tiersRows.map((r) => [r.barber_id, tierConfigFromRow(r)]));
-    const cumulativeByBarber = new Map(tiersRows.map((r) => [r.barber_id, r.cumulative]));
-    commissionRows = barberRows
-      .map((b) => {
-        const config = tiersByBarber.get(b.id);
-        if (!config) {
-          return {
-            barberId: b.id,
-            barberName: b.display_name,
-            revenue: b.revenue,
-            commission: 0,
-            effectivePct: 0,
-            cumulative: false,
-          };
-        }
-        const commission = computeCommission(b.revenue, config);
+  const tiersRows =
+    (tiersRes.data as Array<CommissionTierDbRow & { barber_id: string }> | null) ?? [];
+  const tiersByBarber = new Map(tiersRows.map((r) => [r.barber_id, tierConfigFromRow(r)]));
+  const cumulativeByBarber = new Map(tiersRows.map((r) => [r.barber_id, r.cumulative]));
+  const commissionRows = barberRows
+    .map((b) => {
+      const config = tiersByBarber.get(b.id);
+      if (!config) {
         return {
           barberId: b.id,
           barberName: b.display_name,
           revenue: b.revenue,
-          commission,
-          effectivePct: b.revenue > 0 ? (commission / b.revenue) * 100 : 0,
-          cumulative: cumulativeByBarber.get(b.id) ?? false,
+          commission: 0,
+          effectivePct: 0,
+          cumulative: false,
         };
-      })
-      // Sort by commission desc, then revenue desc as a tiebreak.
-      .sort((a, b) => b.commission - a.commission || b.revenue - a.revenue);
-  }
+      }
+      const commission = computeCommission(b.revenue, config);
+      return {
+        barberId: b.id,
+        barberName: b.display_name,
+        revenue: b.revenue,
+        commission,
+        effectivePct: b.revenue > 0 ? (commission / b.revenue) * 100 : 0,
+        cumulative: cumulativeByBarber.get(b.id) ?? false,
+      };
+    })
+    // Sort by commission desc, then revenue desc as a tiebreak.
+    .sort((a, b) => b.commission - a.commission || b.revenue - a.revenue);
 
   const fmtCAD = (n: number) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en');
   // Share-of-revenue bar widths are relative to the top performer in each

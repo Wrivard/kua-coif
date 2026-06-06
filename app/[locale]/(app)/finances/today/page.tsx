@@ -64,24 +64,6 @@ export default async function CloseOutPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
 
-  // Loop 26 self-review fix — `getCurrentShop()` returns a tight
-  // cached projection (id/name/timezone/industry only) so the cash-
-  // drawer balance has to be pulled directly. We could extend the
-  // cache, but that's a hot helper used everywhere and we don't want
-  // to pay an extra column on every page load just for this report.
-  let cashDrawerStart = 0;
-  if (shop?.id) {
-    const drawerRes = await supabase
-      .from('shops')
-      .select('default_cash_drawer_balance')
-      .eq('id', shop.id)
-      .single();
-    cashDrawerStart = Number(
-      (drawerRes.data as { default_cash_drawer_balance: number | null } | null)
-        ?.default_cash_drawer_balance ?? 0,
-    );
-  }
-
   // ── Day resolution ────────────────────────────────────────────────
   // ?date=YYYY-MM-DD overrides; otherwise today in shop tz.
   const isoToday = shopIsoDate(new Date(), timezone);
@@ -92,17 +74,28 @@ export default async function CloseOutPage({
   const dayEnd = shopDayEnd(dayStart, timezone);
   const isToday = dateIso === isoToday;
 
-  // Pull the full appointment set for the day — both completed (revenue
-  // counts) and non-completed (outstanding bookings). We need notes too
-  // for the per-row outstanding table (so the owner sees client names).
-  const apptsRes = await supabase
-    .from('appointments')
-    .select(
-      'id, barber_id, client_id, total_amount, status, payment_status, tip_amount_cents, source, start_at, end_at',
-    )
-    .gte('start_at', dayStart.toISOString())
-    .lt('start_at', dayEnd.toISOString())
-    .order('start_at', { ascending: true });
+  // Perf: the cash-drawer balance (a single `shops` column not in the
+  // cached projection) and the day's appointment set are independent —
+  // fetch them in one parallel round instead of two serial hops. The
+  // appointment set covers both completed (revenue) and non-completed
+  // (outstanding) rows; we resolve names for them below.
+  const [drawerRes, apptsRes] = await Promise.all([
+    shop?.id
+      ? supabase.from('shops').select('default_cash_drawer_balance').eq('id', shop.id).single()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('appointments')
+      .select(
+        'id, barber_id, client_id, total_amount, status, payment_status, tip_amount_cents, source, start_at, end_at',
+      )
+      .gte('start_at', dayStart.toISOString())
+      .lt('start_at', dayEnd.toISOString())
+      .order('start_at', { ascending: true }),
+  ]);
+  const cashDrawerStart = Number(
+    (drawerRes.data as { default_cash_drawer_balance: number | null } | null)
+      ?.default_cash_drawer_balance ?? 0,
+  );
 
   type ApptRow = {
     id: string;
@@ -167,76 +160,57 @@ export default async function CloseOutPage({
     byBarber.set(a.barber_id, bucket);
   }
   const barberIds = Array.from(byBarber.keys());
-  let barberRows: Array<{
-    id: string;
-    display_name: string;
-    count: number;
-    revenue: number;
-    tips: number;
-    total: number;
-  }> = [];
-  if (barberIds.length > 0) {
-    const namesRes = await supabase.from('barbers').select('id, display_name').in('id', barberIds);
-    const names = new Map(
-      ((namesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map(
-        (b) => [b.id, b.display_name] as const,
-      ),
-    );
-    barberRows = barberIds
-      .map((id) => {
-        const b = byBarber.get(id)!;
-        return {
-          id,
-          display_name: names.get(id) ?? '?',
-          count: b.count,
-          revenue: b.revenue,
-          tips: b.tips,
-          total: b.revenue + b.tips,
-        };
-      })
-      .sort((a, b) => b.total - a.total);
-  }
 
-  // ── Outstanding bookings client names ─────────────────────────────
-  // Only resolve client names for the outstanding table — the rest
-  // works fine with just barber_id. Keeps the payload small on a busy
-  // day with 50+ completed appointments.
+  // Perf: resolve every name lookup in ONE parallel round. The completed-
+  // barber and outstanding-barber lookups both hit `barbers`, so they merge
+  // into a single `.in()` over the union of ids; the client-name lookup
+  // runs alongside it (was 2-3 serial hops).
   const outstandingClientIds = Array.from(
     new Set(outstanding.map((o) => o.client_id).filter((id): id is string => Boolean(id))),
   );
-  let clientNameById = new Map<string, string>();
-  if (outstandingClientIds.length > 0) {
-    const clientsRes = await supabase
-      .from('clients')
-      .select('id, first_name, last_name')
-      .in('id', outstandingClientIds);
-    clientNameById = new Map(
-      (
-        (clientsRes.data as Array<{
-          id: string;
-          first_name: string;
-          last_name: string | null;
-        }> | null) ?? []
-      ).map((c) => [c.id, `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`]),
-    );
-  }
-  const outstandingBarberIds = Array.from(new Set(outstanding.map((o) => o.barber_id)));
-  let outstandingBarberNames = new Map<string, string>();
-  if (outstandingBarberIds.length > 0) {
-    const obRes = await supabase
-      .from('barbers')
-      .select('id, display_name')
-      .in('id', outstandingBarberIds);
-    outstandingBarberNames = new Map(
-      ((obRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map(
-        (b) => [b.id, b.display_name] as const,
-      ),
-    );
-  }
+  const allBarberIds = Array.from(new Set([...barberIds, ...outstanding.map((o) => o.barber_id)]));
+
+  const [barberNamesRes, clientNamesRes] = await Promise.all([
+    allBarberIds.length > 0
+      ? supabase.from('barbers').select('id, display_name').in('id', allBarberIds)
+      : Promise.resolve({ data: [] }),
+    outstandingClientIds.length > 0
+      ? supabase.from('clients').select('id, first_name, last_name').in('id', outstandingClientIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const barberNameById = new Map(
+    ((barberNamesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map(
+      (b) => [b.id, b.display_name] as const,
+    ),
+  );
+  const clientNameById = new Map(
+    (
+      (clientNamesRes.data as Array<{
+        id: string;
+        first_name: string;
+        last_name: string | null;
+      }> | null) ?? []
+    ).map((c) => [c.id, `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`]),
+  );
+
+  const barberRows = barberIds
+    .map((id) => {
+      const b = byBarber.get(id)!;
+      return {
+        id,
+        display_name: barberNameById.get(id) ?? '?',
+        count: b.count,
+        revenue: b.revenue,
+        tips: b.tips,
+        total: b.revenue + b.tips,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
   const outstandingRows = outstanding.map((o) => ({
     id: o.id,
     clientName: o.client_id ? (clientNameById.get(o.client_id) ?? '–') : '–',
-    barberName: outstandingBarberNames.get(o.barber_id) ?? '?',
+    barberName: barberNameById.get(o.barber_id) ?? '?',
     start_at: o.start_at,
     end_at: o.end_at,
     status: o.status,

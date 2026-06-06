@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -1475,8 +1476,13 @@ function OrderRecap({
       </p>
       <div className="mt-2 flex items-center gap-3">
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+          <Image
+            src={avatarUrl}
+            alt=""
+            width={44}
+            height={44}
+            className="h-11 w-11 shrink-0 rounded-full object-cover"
+          />
         ) : (
           <span
             aria-hidden
