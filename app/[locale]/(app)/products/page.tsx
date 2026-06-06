@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
+import { getCachedTaxes } from '@/lib/data/taxes';
 import type { ProductBrandRow, ProductCategoryRow, ProductRow, TaxRow } from '@/db/rows';
 import { ProductsClient } from './products-client';
 
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function ProductsPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
+  const shopId = await getCurrentShopId();
 
   const supabase = createSupabaseServerClient();
   const sb = supabase as unknown as {
@@ -22,19 +24,20 @@ export default async function ProductsPage({ params: { locale } }: { params: { l
     };
   };
 
-  const [productsResult, brandsResult, categoriesResult, taxesResult, linksResult] =
-    await Promise.all([
-      sb.from('products').select('*').order('name', { ascending: true }),
-      sb.from('product_brands').select('*').order('name', { ascending: true }),
-      sb.from('product_categories').select('*').order('name', { ascending: true }),
-      sb.from('taxes').select('*').order('name', { ascending: true }),
-      sb.from('product_taxes').select('*').order('product_id', { ascending: true }),
-    ]);
+  // Taxes come from the shared Data Cache (getCachedTaxes) — the same rows
+  // /settings/taxes caches, busted by the tax mutations; the rest are
+  // per-request reads, all run in one parallel round.
+  const [productsResult, brandsResult, categoriesResult, taxes, linksResult] = await Promise.all([
+    sb.from('products').select('*').order('name', { ascending: true }),
+    sb.from('product_brands').select('*').order('name', { ascending: true }),
+    sb.from('product_categories').select('*').order('name', { ascending: true }),
+    shopId ? getCachedTaxes(shopId) : Promise.resolve([] as TaxRow[]),
+    sb.from('product_taxes').select('*').order('product_id', { ascending: true }),
+  ]);
 
   const products = (productsResult.data as ProductRow[] | null) ?? [];
   const brands = (brandsResult.data as ProductBrandRow[] | null) ?? [];
   const categories = (categoriesResult.data as ProductCategoryRow[] | null) ?? [];
-  const taxes = (taxesResult.data as TaxRow[] | null) ?? [];
   const links = (linksResult.data as Array<{ product_id: string; tax_id: string }> | null) ?? [];
 
   return (

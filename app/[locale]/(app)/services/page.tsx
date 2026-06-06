@@ -1,7 +1,8 @@
 import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
+import { getCachedTaxes } from '@/lib/data/taxes';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Construction } from 'lucide-react';
@@ -17,6 +18,7 @@ export default async function ServicesPage({ params: { locale } }: Props) {
 
   // Auth + shop scope. If the user has no confirmed shop, redirect away.
   await requireShopMember({ locale });
+  const shopId = await getCurrentShopId();
 
   const supabase = createSupabaseServerClient();
   const sb = supabase as unknown as {
@@ -30,18 +32,17 @@ export default async function ServicesPage({ params: { locale } }: Props) {
     };
   };
 
-  // Three lightweight reads; each is RLS-protected so we don't pass shop_id
-  // explicitly. Could be parallelized via Promise.all if it ever becomes hot.
-  const [servicesResult, categoriesResult, taxesResult, linksResult] = await Promise.all([
+  // Taxes come from the shared Data Cache (getCachedTaxes), busted by the tax
+  // mutations; the service rows + link tables are per-request, parallelized.
+  const [servicesResult, categoriesResult, taxes, linksResult] = await Promise.all([
     sb.from('services').select('*').order('sort_order', { ascending: true }),
     sb.from('service_categories').select('*').order('sort_order', { ascending: true }),
-    sb.from('taxes').select('*').order('name', { ascending: true }),
+    shopId ? getCachedTaxes(shopId) : Promise.resolve([] as TaxRow[]),
     sb.from('service_taxes').select('*').order('service_id', { ascending: true }),
   ]);
 
   const services = (servicesResult.data as ServiceRow[] | null) ?? [];
   const categories = (categoriesResult.data as ServiceCategoryRow[] | null) ?? [];
-  const taxes = (taxesResult.data as TaxRow[] | null) ?? [];
   const links = (linksResult.data as Array<{ service_id: string; tax_id: string }> | null) ?? [];
 
   return (
