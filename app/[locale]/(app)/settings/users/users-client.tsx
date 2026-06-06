@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { FieldHint, Input, Label } from '@/components/ui/input';
+import { RowActions } from '@/components/ui/row-actions';
 import { Modal } from '@/components/ui/modal';
 import { PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
@@ -90,32 +91,25 @@ export function UsersClient({ members }: { members: MemberView[] }) {
       width: '90px',
       align: 'right',
       cell: (m) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMode({ kind: 'edit', member: m });
-            }}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          {m.status !== 'deleted' && (
-            <button
-              type="button"
-              aria-label={t('remove')}
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirmRemove(m);
-              }}
-              className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <RowActions
+          actions={[
+            {
+              icon: Pencil,
+              label: tCommon('actions.edit'),
+              onClick: () => setMode({ kind: 'edit', member: m }),
+            },
+            ...(m.status !== 'deleted'
+              ? [
+                  {
+                    icon: Trash2,
+                    label: t('remove'),
+                    tone: 'danger' as const,
+                    onClick: () => setConfirmRemove(m),
+                  },
+                ]
+              : []),
+          ]}
+        />
       ),
     },
   ];

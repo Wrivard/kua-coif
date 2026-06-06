@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { PageHeader } from '@/components/ui/page-header';
+import { RowActions } from '@/components/ui/row-actions';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD } from '@/lib/utils';
 import type { DiscountRow } from '@/db/rows';
@@ -79,30 +80,21 @@ export function DiscountsClient({
       width: '90px',
       align: 'right',
       cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMode({ kind: 'edit', discount: r });
-            }}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(r);
-            }}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <RowActions
+          actions={[
+            {
+              icon: Pencil,
+              label: tCommon('actions.edit'),
+              onClick: () => setMode({ kind: 'edit', discount: r }),
+            },
+            {
+              icon: Trash2,
+              label: tCommon('actions.delete'),
+              tone: 'danger',
+              onClick: () => setConfirmDelete(r),
+            },
+          ]}
+        />
       ),
     },
   ];

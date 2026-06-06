@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
+import { RowActions } from '@/components/ui/row-actions';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { MoneyInput } from '@/components/ui/money-input';
@@ -122,30 +123,21 @@ export function PromoCodesClient({
       width: '90px',
       align: 'right',
       cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMode({ kind: 'edit', promo: r });
-            }}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(r);
-            }}
-            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <RowActions
+          actions={[
+            {
+              icon: Pencil,
+              label: tCommon('actions.edit'),
+              onClick: () => setMode({ kind: 'edit', promo: r }),
+            },
+            {
+              icon: Trash2,
+              label: tCommon('actions.delete'),
+              tone: 'danger',
+              onClick: () => setConfirmDelete(r),
+            },
+          ]}
+        />
       ),
     },
   ];

@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
+import { RowActions } from '@/components/ui/row-actions';
 import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -180,55 +181,35 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
       width: '150px',
       align: 'right',
       cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMode({ kind: 'edit', client: r });
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          {/* Phase 40 — Loi 25 actions */}
-          <button
-            type="button"
-            aria-label={t('actions.exportData')}
-            title={t('actions.exportData')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onExport(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <FileDown className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('actions.anonymize')}
-            title={t('actions.anonymize')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAnonymize(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <UserX className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <RowActions
+          actions={[
+            {
+              icon: Pencil,
+              label: tCommon('actions.edit'),
+              onClick: () => setMode({ kind: 'edit', client: r }),
+            },
+            // Phase 40 — Loi 25 actions (export + anonymize)
+            {
+              icon: FileDown,
+              label: t('actions.exportData'),
+              title: t('actions.exportData'),
+              onClick: () => onExport(r),
+            },
+            {
+              icon: UserX,
+              label: t('actions.anonymize'),
+              title: t('actions.anonymize'),
+              tone: 'warning',
+              onClick: () => onAnonymize(r),
+            },
+            {
+              icon: Trash2,
+              label: tCommon('actions.delete'),
+              tone: 'danger',
+              onClick: () => setConfirmDelete(r),
+            },
+          ]}
+        />
       ),
     },
   ];

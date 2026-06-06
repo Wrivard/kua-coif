@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
+import { RowActions } from '@/components/ui/row-actions';
 import { SectionSwitcher } from '@/components/ui/section-switcher';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD } from '@/lib/utils';
@@ -206,30 +207,21 @@ export function ProductsClient({
       width: '90px',
       align: 'right',
       cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setProductMode({ kind: 'edit', product: r });
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete({ kind: 'product', row: r });
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <RowActions
+          actions={[
+            {
+              icon: Pencil,
+              label: tCommon('actions.edit'),
+              onClick: () => setProductMode({ kind: 'edit', product: r }),
+            },
+            {
+              icon: Trash2,
+              label: tCommon('actions.delete'),
+              tone: 'danger',
+              onClick: () => setConfirmDelete({ kind: 'product', row: r }),
+            },
+          ]}
+        />
       ),
     },
   ];
@@ -252,30 +244,17 @@ export function ProductsClient({
       width: '90px',
       align: 'right',
       cell: (r) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label={tCommon('actions.edit')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={tCommon('actions.delete')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(r);
-            }}
-            className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <RowActions
+          actions={[
+            { icon: Pencil, label: tCommon('actions.edit'), onClick: () => onEdit(r) },
+            {
+              icon: Trash2,
+              label: tCommon('actions.delete'),
+              tone: 'danger',
+              onClick: () => onDelete(r),
+            },
+          ]}
+        />
       ),
     },
   ];

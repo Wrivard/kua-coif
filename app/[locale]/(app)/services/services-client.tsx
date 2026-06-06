@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { RowActions } from '@/components/ui/row-actions';
 import { useToast } from '@/components/ui/toast';
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import type { ServiceCategoryRow, ServiceRow, TaxRow } from '@/db/rows';
@@ -163,32 +164,22 @@ export function ServicesClient({
 
   function renderActions(r: ServiceRow) {
     return (
-      <div className="flex items-center justify-end gap-1">
-        <button
-          type="button"
-          aria-label={tCommon('actions.edit')}
-          onClick={() => setMode({ kind: 'edit', service: r })}
-          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label={t('actions.toggleStatus')}
-          onClick={() => onToggleStatus(r)}
-          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          <Power className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label={tCommon('actions.delete')}
-          onClick={() => setConfirmDelete(r)}
-          className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
+      <RowActions
+        actions={[
+          {
+            icon: Pencil,
+            label: tCommon('actions.edit'),
+            onClick: () => setMode({ kind: 'edit', service: r }),
+          },
+          { icon: Power, label: t('actions.toggleStatus'), onClick: () => onToggleStatus(r) },
+          {
+            icon: Trash2,
+            label: tCommon('actions.delete'),
+            tone: 'danger',
+            onClick: () => setConfirmDelete(r),
+          },
+        ]}
+      />
     );
   }
 
