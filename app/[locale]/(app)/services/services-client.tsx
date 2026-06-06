@@ -137,7 +137,7 @@ export function ServicesClient({
 
   function renderTaxCell(r: ServiceRow) {
     const ids = taxIdsByService.get(r.id) ?? [];
-    if (ids.length === 0) return <span className="text-text-muted">—</span>;
+    if (ids.length === 0) return <EmptyCell />;
     return (
       <div className="flex flex-col text-xs text-text-secondary">
         {ids.map((id) => {
@@ -301,7 +301,7 @@ export function ServicesClient({
                                   {categoryById.get(row.category_id)?.name ?? <EmptyCell />}
                                 </span>
                               ) : (
-                                <span className="text-text-muted">—</span>
+                                <EmptyCell />
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm text-text-primary">

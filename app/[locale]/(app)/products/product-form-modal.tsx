@@ -129,7 +129,7 @@ export function ProductFormModal({
         <div>
           <Label htmlFor="brand_id">{t('form.brand')}</Label>
           <Select id="brand_id" {...register('brand_id')}>
-            <option value="">—</option>
+            <option value=""></option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -141,7 +141,7 @@ export function ProductFormModal({
         <div>
           <Label htmlFor="category_id">{t('form.category')}</Label>
           <Select id="category_id" {...register('category_id')}>
-            <option value="">—</option>
+            <option value=""></option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
