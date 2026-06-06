@@ -171,17 +171,26 @@ function timeToMinutes(t: string | null | undefined): number | null {
 
 export function statusToColor(status: AppointmentStatus): string {
   switch (status) {
-    case 'confirmed':
+    // arrived = in the chair right now: the loudest block (green fill + success spine).
     case 'arrived':
-    case 'completed':
       return 'bg-appt-green border-l-success';
+    // confirmed = a locked-in yes: brand accent spine.
+    case 'confirmed':
+      return 'bg-appt-purple border-l-accent';
+    // completed = done and settled: muted surface, success spine.
+    case 'completed':
+      return 'bg-bg-surface-2 border-l-success opacity-75';
+    // booked = tentative: cool info blue.
     case 'booked':
       return 'bg-appt-blue border-l-info';
-    case 'cancelled':
+    // no_show = needs attention: warning.
     case 'no_show':
-      return 'bg-bg-surface-2 border-l-border opacity-60';
+      return 'bg-warning-subtle border-l-warning opacity-90';
+    // cancelled = ghosted out.
+    case 'cancelled':
+      return 'bg-bg-surface-2 border-l-border opacity-50';
     default:
-      return 'bg-appt-purple border-l-accent';
+      return 'bg-appt-blue border-l-info';
   }
 }
 
@@ -1236,7 +1245,9 @@ function DraggableAppointmentBlock({
       title={`${appointment.client_name}, ${formatShopTime(appointment.start_at, timezone, 'HH:mm')}–${formatShopTime(appointment.end_at, timezone, 'HH:mm')}`}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="truncate font-semibold text-text-primary">{appointment.client_name}</span>
+        <span className="truncate text-[13px] font-semibold leading-tight text-text-primary">
+          {appointment.client_name}
+        </span>
         {/* Loop 37 (P114) — block timestamp in mono for column-aligned
             readability across the day's appointments. */}
         <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-secondary">
