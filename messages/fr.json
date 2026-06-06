@@ -1145,6 +1145,7 @@
           "transactionBased": "Basé sur transactions",
           "valueBased": "Basé sur la valeur",
           "goalCount": "Nombre de transactions pour atteindre l’objectif",
+          "goalValueAmount": "Dépense totale pour atteindre l’objectif ($)",
           "minTransactionAmount": "Montant minimum par transaction",
           "rewardAmount": "Montant de la récompense",
           "includeProductSales": "Inclure les ventes de produits",

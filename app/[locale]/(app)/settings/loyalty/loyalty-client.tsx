@@ -87,7 +87,9 @@ export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <Label htmlFor="goal_count">{t('form.goalCount')}</Label>
+            <Label htmlFor="goal_count">
+              {type === 'value' ? t('form.goalValueAmount') : t('form.goalCount')}
+            </Label>
             <Input
               id="goal_count"
               type="number"

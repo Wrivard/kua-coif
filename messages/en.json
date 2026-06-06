@@ -1145,6 +1145,7 @@
           "transactionBased": "Transaction-based",
           "valueBased": "Value-based",
           "goalCount": "Number of transactions to reach the goal",
+          "goalValueAmount": "Total spend to reach the goal ($)",
           "minTransactionAmount": "Minimum amount per transaction",
           "rewardAmount": "Reward amount",
           "includeProductSales": "Include product sales",

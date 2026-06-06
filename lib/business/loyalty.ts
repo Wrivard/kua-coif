@@ -15,8 +15,12 @@
  *   - include_product_sales     — currently ignored (V1.5 retail integration)
  *   - include_tips              — same
  *
- * V1 only implements `type='transaction'`. `type='value'` (loyalty by
- * spend) lands in V1.5 once the booking flow surfaces tip + tax.
+ * Both `type='transaction'` (count qualifying visits) and `type='value'`
+ * (accumulate dollars spent toward a dollar goal) are implemented. In
+ * value mode `loyalty_counter` stores cumulative CENTS spent (not a visit
+ * count) and `goal_count` is read as the dollar goal; product/tips
+ * inclusion flags remain deferred (the caller decides what totalAmount
+ * includes).
  *
  * Best-effort by design: a loyalty update failure must NEVER fail the
  * underlying appointment status update. Errors are captured to Sentry.
@@ -96,9 +100,39 @@ async function resolveLoyaltyConfig(shopId: string): Promise<LoyaltyConfig | nul
     .maybeSingle();
   const row = res.data as LoyaltyConfig | null;
   if (!row || !row.enabled || row.goal_count <= 0) return null;
-  // V1 only supports transaction-based; value-based comes V1.5.
-  if (row.type !== 'transaction') return null;
   return row;
+}
+
+/**
+ * Pure reward calculation (no I/O) — the unit-testable core of the loyalty
+ * engine. Transaction mode counts qualifying visits (+1 each, reset on a
+ * hit). Value mode accumulates dollars spent — `currentCounter` carries
+ * cumulative CENTS and `goalCount` is read as the dollar goal — carrying
+ * the remainder past the goal so a large ticket keeps its progress. At
+ * most one reward is granted per completion.
+ */
+export function computeLoyaltyProgress(args: {
+  type: 'transaction' | 'value';
+  currentCounter: number;
+  goalCount: number;
+  rewardAmount: number;
+  totalAmount: number;
+}): { nextCounter: number; goalReached: boolean; rewardCents: number } {
+  let nextCounter: number;
+  let goalReached: boolean;
+  if (args.type === 'value') {
+    const spentCents = Math.round(args.totalAmount * 100);
+    const goalCents = Math.round(args.goalCount * 100);
+    const accumulated = args.currentCounter + spentCents;
+    goalReached = goalCents > 0 && accumulated >= goalCents;
+    nextCounter = goalReached ? accumulated - goalCents : accumulated;
+  } else {
+    const incremented = args.currentCounter + 1;
+    goalReached = incremented >= args.goalCount;
+    nextCounter = goalReached ? 0 : incremented;
+  }
+  const rewardCents = goalReached ? Math.round(args.rewardAmount * 100) : 0;
+  return { nextCounter, goalReached, rewardCents };
 }
 
 /**
@@ -146,16 +180,20 @@ export async function awardLoyaltyOnCompletion({
     } | null;
     if (!client) return;
 
-    const nextCounter = client.loyalty_counter + 1;
-    const goalReached = nextCounter >= config.goal_count;
-    const rewardCents = goalReached ? Math.round(config.reward_amount * 100) : 0;
+    const { nextCounter, goalReached, rewardCents } = computeLoyaltyProgress({
+      type: config.type,
+      currentCounter: client.loyalty_counter,
+      goalCount: config.goal_count,
+      rewardAmount: config.reward_amount,
+      totalAmount,
+    });
 
     // Loop 35 (P1.92) — extend the balance expiry to one year out
     // whenever a reward is granted. A regular customer's clock keeps
     // resetting; an inactive customer's runs out. No change to the
     // expiry timestamp when no reward is granted on this visit.
     const patch: Record<string, unknown> = {
-      loyalty_counter: goalReached ? 0 : nextCounter,
+      loyalty_counter: nextCounter,
       loyalty_balance_cents: client.loyalty_balance_cents + rewardCents,
     };
     if (rewardCents > 0) {
