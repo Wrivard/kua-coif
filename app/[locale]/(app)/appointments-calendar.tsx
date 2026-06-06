@@ -1049,17 +1049,29 @@ function BarberColumn({
   const showNow = nowMin !== null && nowMin >= startMin && nowMin <= endMin;
   return (
     <div className="min-w-[180px] flex-1 border-r border-border-faint last:border-r-0">
-      {/* Header — Phase 48: solid bg-bg-surface-2 (no opacity) is the
-          real separator from the body. The bg-shift between header
-          (surface-2) and body (base) carries the divider; the drawn
-          border-b is just a whisper of definition. The pastille is a
-          plain accent dot; accent-glow is reserved for primary actions
-          and live status, not a decorative identity marker. */}
-      <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-4">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />
-        <span className="truncate text-sm font-semibold text-text-primary">
+      {/* Header — solid bg-bg-surface-2 carries the divider from the body.
+          Refonte (5b): the lane reads as a PERSON's column — an accent-tinted
+          initials avatar + name + a mono count chip showing the day's load. */}
+      <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-3">
+        <span
+          aria-hidden
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[10px] font-semibold text-accent"
+        >
+          {barber.display_name
+            .split(' ')
+            .map((w) => w[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">
           {barber.display_name}
         </span>
+        {barberAppts.length > 0 ? (
+          <span className="shrink-0 rounded-full bg-bg-surface px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-text-secondary">
+            {barberAppts.length}
+          </span>
+        ) : null}
       </div>
       <div
         ref={setNodeRef}
