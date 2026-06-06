@@ -32,6 +32,7 @@ type Mode = { kind: 'closed' } | { kind: 'invite' } | { kind: 'edit'; member: Me
 
 export function UsersClient({ members }: { members: MemberView[] }) {
   const t = useTranslations('pages.settings.users');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -97,7 +98,7 @@ export function UsersClient({ members }: { members: MemberView[] }) {
               e.stopPropagation();
               setMode({ kind: 'edit', member: m });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -109,7 +110,7 @@ export function UsersClient({ members }: { members: MemberView[] }) {
                 e.stopPropagation();
                 setConfirmRemove(m);
               }}
-              className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+              className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -122,6 +123,7 @@ export function UsersClient({ members }: { members: MemberView[] }) {
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <Button onClick={() => setMode({ kind: 'invite' })} size="sm">

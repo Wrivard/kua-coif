@@ -17,6 +17,7 @@ type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; tax: TaxRow }
 
 export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
   const t = useTranslations('pages.settings.taxes');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -62,7 +63,7 @@ export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
     {
       id: 'percentage',
       header: t('columns.percentage'),
-      cell: (r) => `${r.percentage}%`,
+      cell: (r) => <span className="font-medium tabular-nums">{r.percentage}%</span>,
       align: 'right',
       width: '120px',
     },
@@ -116,7 +117,7 @@ export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
               e.stopPropagation();
               setMode({ kind: 'edit', tax: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -127,7 +128,7 @@ export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -139,6 +140,7 @@ export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <Button onClick={() => setMode({ kind: 'add' })} size="sm">
@@ -152,6 +154,7 @@ export function TaxesClient({ taxes }: { taxes: TaxRow[] }) {
           columns={columns}
           data={taxes}
           getRowKey={(r) => r.id}
+          density="compact"
           emptyState={{ title: t('emptyTitle'), description: t('emptyHint') }}
         />
       </div>
