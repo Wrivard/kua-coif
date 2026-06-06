@@ -29,7 +29,7 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
 // Focus state uses `focus:ring-2 ring-focus` per Phase 78 (Vercel
 // saturated blue) — replaces the soft accent ring.
 const baseField =
-  'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted ' +
+  'h-10 w-full bg-bg-surface-2 text-sm text-text-primary placeholder:text-text-muted tabular-nums ' +
   'rounded-lg px-3 shadow-sm ' +
   'transition-colors duration-150 ease-out-quint ' +
   'focus:outline-none focus:ring-2 focus:ring-focus ' +
@@ -74,7 +74,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         className={cn(
-          'h-full flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted',
+          'h-full flex-1 bg-transparent px-3 text-sm text-text-primary placeholder:text-text-muted tabular-nums',
           'focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
         )}
         {...rest}
