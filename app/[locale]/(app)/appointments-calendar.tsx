@@ -647,7 +647,11 @@ export function AppointmentsCalendar({
     <>
       <PageHeader
         title={t('title')}
-        subtitle={formatHeaderDate(dayRef, locale === 'fr' ? 'fr' : 'en', timezone)}
+        subtitle={
+          <span className="text-xl font-semibold tracking-tight tabular-nums text-text-primary">
+            {formatHeaderDate(dayRef, locale === 'fr' ? 'fr' : 'en', timezone)}
+          </span>
+        }
         center={
           <div className="flex items-center gap-2">
             <button
@@ -810,7 +814,7 @@ export function AppointmentsCalendar({
               against bg-base. We replaced them with /8-/15 ranges + a
               shadow-sm to lift the surface. The grid still segments the
               day visually but doesn't compete with the appointments. */}
-            <div className="overflow-x-auto rounded-lg bg-bg-base shadow-sm">
+            <div className="overflow-x-auto rounded-lg bg-bg-base shadow-warm-sm">
               <div className="flex min-w-[600px]">
                 {/* Time axis — labels centered on the hour line
                   (-translate-y-1/2) so the visual rhythm is
@@ -1039,12 +1043,12 @@ function BarberColumn({
       {/* Header — Phase 48: solid bg-bg-surface-2 (no opacity) is the
           real separator from the body. The bg-shift between header
           (surface-2) and body (base) carries the divider; the drawn
-          border-b is just a whisper of definition. The pastille uses
-          shadow-accent-glow so it reads as the barber's identity marker,
-          not a decorative dot. */}
+          border-b is just a whisper of definition. The pastille is a
+          plain accent dot; accent-glow is reserved for primary actions
+          and live status, not a decorative identity marker. */}
       <div className="flex h-12 items-center gap-2.5 border-b border-border-soft bg-bg-surface-2 px-4">
         <span
-          className="inline-block h-2 w-2 rounded-full bg-accent shadow-accent-glow"
+          className="inline-block h-2 w-2 rounded-full bg-accent"
           aria-hidden
         />
         <span className="truncate text-sm font-semibold text-text-primary">
@@ -1092,8 +1096,8 @@ function BarberColumn({
             style={{ top: `${(nowMin! - startMin) * PX_PER_MIN}px` }}
             aria-hidden
           >
-            <div className="absolute -left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_4px_rgba(139,92,246,0.2)]" />
-            <div className="border-accent/70 border-t" />
+            <div className="absolute -left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-accent-glow" />
+            <div className="border-t border-accent-ring" />
           </div>
         ) : null}
 
@@ -1227,12 +1231,12 @@ function DraggableAppointmentBlock({
         // to match the new blocked/Google overlay spacing, shadow-sm
         // for elevation off the now-flatter grid. Hover lifts the
         // shadow to shadow-md so the block reads as "clickable card".
-        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-md',
-        isDragging && 'shadow-lg ring-2 ring-accent',
+        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-warm-md',
+        isDragging && 'shadow-warm-lg ring-2 ring-accent',
         cls,
       )}
       style={style}
-      title={`${appointment.client_name} — ${formatShopTime(appointment.start_at, timezone, 'HH:mm')}–${formatShopTime(appointment.end_at, timezone, 'HH:mm')}`}
+      title={`${appointment.client_name}, ${formatShopTime(appointment.start_at, timezone, 'HH:mm')}–${formatShopTime(appointment.end_at, timezone, 'HH:mm')}`}
     >
       <div className="flex items-start justify-between gap-1">
         <span className="truncate font-semibold text-text-primary">{appointment.client_name}</span>
