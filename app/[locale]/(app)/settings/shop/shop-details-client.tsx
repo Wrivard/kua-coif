@@ -5,12 +5,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { MoneyInput } from '@/components/ui/money-input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { SectionMasthead } from '@/components/ui/section-masthead';
 import { Select } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
@@ -53,6 +53,7 @@ const COMMON_TIMEZONES = [
 
 export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: ShopHourRow[] }) {
   const t = useTranslations('pages.settings.shop');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -137,15 +138,17 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
 
   return (
     <>
-      <PageHeader title={t('title')} />
-      <div className="max-w-4xl space-y-6 p-6">
-        {/* ─── Identity ──────────────────────────────────────────────────── */}
-        <form onSubmit={detailsForm.handleSubmit(onDetailsSubmit)} className="space-y-6" noValidate>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.identity')}</CardTitle>
-            </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <PageHeader
+        eyebrow={tNav('title')}
+        title={t('title')}
+        subtitle={[shop.name, shop.municipality].filter(Boolean).join(' · ')}
+      />
+      <div className="max-w-4xl space-y-10 p-6">
+        {/* ─── Identity — the page's single hero beat (.surface-hero) ────── */}
+        <form onSubmit={detailsForm.handleSubmit(onDetailsSubmit)} className="space-y-8" noValidate>
+          <section className="surface-hero p-6">
+            <SectionMasthead title={t('sections.identity')} />
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
                 <Label htmlFor="name" required>
                   {t('form.name')}
@@ -218,15 +221,13 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                 <Label htmlFor="description">{t('form.description')}</Label>
                 <Textarea id="description" rows={2} {...detailsForm.register('description')} />
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </section>
 
           {/* ─── Location ────────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.location')}</CardTitle>
-            </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="border-t border-border pt-8">
+            <SectionMasthead title={t('sections.location')} />
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
                 <Label htmlFor="country">{t('form.country')}</Label>
                 <Input id="country" {...detailsForm.register('country')} />
@@ -251,15 +252,13 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                 <Label htmlFor="postal_code">{t('form.postalCode')}</Label>
                 <Input id="postal_code" {...detailsForm.register('postal_code')} />
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </section>
 
           {/* ─── Options ─────────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.options')}</CardTitle>
-            </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="border-t border-border pt-8">
+            <SectionMasthead title={t('sections.options')} />
+            <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
               <Toggle
                 checked={detailsForm.watch('age_21_only')}
                 onChange={(v) => detailsForm.setValue('age_21_only', v, { shouldDirty: true })}
@@ -306,18 +305,16 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                   ))}
                 </Select>
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </section>
 
           {/* Phase 64 — Marketing banner on /book/[shopSlug]. Toggle +
               280-char short message shown above the public booking
               wizard. Keeps shop owners in control of their messaging
               without us needing a CMS. */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.marketing')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
+          <section className="border-t border-border pt-8">
+            <SectionMasthead title={t('sections.marketing')} />
+            <div className="mt-6 space-y-4">
               <Toggle
                 checked={detailsForm.watch('marketing_banner_enabled')}
                 onChange={(v) =>
@@ -336,19 +333,17 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                 />
                 <FieldHint>{t('marketing.hint')}</FieldHint>
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </section>
 
           {/* Phase 62 — Transactional email branding. When set, the
               shop's logo + accent color appear in confirmation /
               reminder emails so they feel like they came from the
               salon, not the platform. Both nullable — empty falls back
               to the Küa default. */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.emailBranding')}</CardTitle>
-            </CardHeader>
-            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="border-t border-border pt-8">
+            <SectionMasthead title={t('sections.emailBranding')} />
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
                 <Label htmlFor="email_logo_url">{t('emailBranding.logoUrl')}</Label>
                 {/* Loop 43 (P120) — file-picker uploads to
@@ -394,8 +389,8 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                 />
                 <FieldHint>{t('emailBranding.colorHint')}</FieldHint>
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </section>
 
           <div className="flex justify-end">
             <Button type="submit" loading={isPending}>
@@ -405,58 +400,54 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
         </form>
 
         {/* ─── Schedule (separate submit) ─────────────────────────────── */}
-        <form onSubmit={onHoursSubmit}>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('sections.schedule')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-2">
-              {hoursState.map((h, idx) => (
-                <div
-                  key={h.weekday}
-                  className="grid grid-cols-1 items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0 md:grid-cols-[140px_1fr_1fr_1fr]"
-                >
-                  <Toggle
-                    checked={h.enabled}
-                    onChange={(v) => {
+        <form onSubmit={onHoursSubmit} className="border-t border-border pt-8">
+          <SectionMasthead title={t('sections.schedule')} />
+          <div className="mt-6 space-y-2">
+            {hoursState.map((h, idx) => (
+              <div
+                key={h.weekday}
+                className="grid grid-cols-1 items-center gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0 md:grid-cols-[140px_1fr_1fr_1fr]"
+              >
+                <Toggle
+                  checked={h.enabled}
+                  onChange={(v) => {
+                    const next = [...hoursState];
+                    next[idx] = { ...next[idx]!, enabled: v };
+                    setHoursState(next);
+                  }}
+                  label={t(`weekdays.${WEEKDAYS[h.weekday]}`)}
+                />
+                <div>
+                  <Label htmlFor={`open-${h.weekday}`}>{t('form.open')}</Label>
+                  <Input
+                    id={`open-${h.weekday}`}
+                    type="time"
+                    disabled={!h.enabled}
+                    value={h.open_time ?? ''}
+                    onChange={(e) => {
                       const next = [...hoursState];
-                      next[idx] = { ...next[idx]!, enabled: v };
+                      next[idx] = { ...next[idx]!, open_time: e.target.value || null };
                       setHoursState(next);
                     }}
-                    label={t(`weekdays.${WEEKDAYS[h.weekday]}`)}
                   />
-                  <div>
-                    <Label htmlFor={`open-${h.weekday}`}>{t('form.open')}</Label>
-                    <Input
-                      id={`open-${h.weekday}`}
-                      type="time"
-                      disabled={!h.enabled}
-                      value={h.open_time ?? ''}
-                      onChange={(e) => {
-                        const next = [...hoursState];
-                        next[idx] = { ...next[idx]!, open_time: e.target.value || null };
-                        setHoursState(next);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`close-${h.weekday}`}>{t('form.close')}</Label>
-                    <Input
-                      id={`close-${h.weekday}`}
-                      type="time"
-                      disabled={!h.enabled}
-                      value={h.close_time ?? ''}
-                      onChange={(e) => {
-                        const next = [...hoursState];
-                        next[idx] = { ...next[idx]!, close_time: e.target.value || null };
-                        setHoursState(next);
-                      }}
-                    />
-                  </div>
                 </div>
-              ))}
-            </CardBody>
-          </Card>
+                <div>
+                  <Label htmlFor={`close-${h.weekday}`}>{t('form.close')}</Label>
+                  <Input
+                    id={`close-${h.weekday}`}
+                    type="time"
+                    disabled={!h.enabled}
+                    value={h.close_time ?? ''}
+                    onChange={(e) => {
+                      const next = [...hoursState];
+                      next[idx] = { ...next[idx]!, close_time: e.target.value || null };
+                      setHoursState(next);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
           <div className="mt-4 flex justify-end">
             <Button type="submit" loading={isPending}>
               {tCommon('actions.save')}
