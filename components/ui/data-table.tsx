@@ -62,6 +62,12 @@ type Props<Row> = {
   /** Viewport height when virtualization is on. Defaults to 600px;
    *  the scrollable region inside the card. */
   virtualizedMaxHeight?: number;
+  /**
+   * Density tier. 'comfortable' (default) keeps the existing padding on
+   * every table; 'compact' tightens header + body cells for dense
+   * settings matrices (taxes, waiting-list) without changing logic.
+   */
+  density?: 'comfortable' | 'compact';
 };
 
 export function DataTable<Row>({
@@ -77,8 +83,13 @@ export function DataTable<Row>({
   virtualize = false,
   estimatedRowHeight = 56,
   virtualizedMaxHeight = 600,
+  density = 'comfortable',
 }: Props<Row>) {
   const t = useTranslations('common.table');
+  // Density tier — 'comfortable' default preserves every existing table's
+  // padding; 'compact' tightens cells for dense settings tables.
+  const cellPadding = density === 'compact' ? 'px-3 py-2' : 'px-4 py-4';
+  const headPadding = density === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
   const [sort, setSort] = useState<{ id: string; dir: SortDirection } | null>(null);
   // Loop 45 — scroll container ref consumed by react-virtual. Only
   // used on the virtualized desktop path; the parent div otherwise
@@ -154,7 +165,8 @@ export function DataTable<Row>({
                         : undefined
                     }
                     className={cn(
-                      'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted',
+                      headPadding,
+                      'text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted',
                       col.align === 'right' && 'text-right tabular-nums',
                       col.align === 'center' && 'text-center',
                       col.headerClassName,
@@ -206,7 +218,7 @@ export function DataTable<Row>({
                     <td
                       key={col.id}
                       className={cn(
-                        'px-4 py-4',
+                        cellPadding,
                         col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                       )}
@@ -242,6 +254,7 @@ export function DataTable<Row>({
                 reorderable={!!reorderable}
                 onRowClick={onRowClick}
                 getRowKey={getRowKey}
+                cellPadding={cellPadding}
               />
             ) : (
               sortedData.map((row, idx) => (
@@ -262,7 +275,8 @@ export function DataTable<Row>({
                     <td
                       key={col.id}
                       className={cn(
-                        'px-4 py-4 text-sm text-text-primary',
+                        cellPadding,
+                        'text-sm text-text-primary',
                         col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                         col.className,
@@ -438,6 +452,7 @@ function VirtualizedRows<Row>({
   reorderable,
   onRowClick,
   getRowKey,
+  cellPadding,
 }: {
   virtualItems: ReturnType<ReturnType<typeof useVirtualizer>['getVirtualItems']>;
   totalSize: number;
@@ -446,6 +461,7 @@ function VirtualizedRows<Row>({
   reorderable: boolean;
   onRowClick?: (row: Row) => void;
   getRowKey: (row: Row, index: number) => string;
+  cellPadding: string;
 }) {
   // The spacer row enforces total scroll height. Subtract the height
   // of the last visible row's bottom offset so the scrollbar lands
@@ -482,7 +498,8 @@ function VirtualizedRows<Row>({
               <td
                 key={col.id}
                 className={cn(
-                  'px-4 py-3 text-sm text-text-primary',
+                  cellPadding,
+                  'text-sm text-text-primary',
                   col.align === 'right' && 'text-right tabular-nums',
                   col.align === 'center' && 'text-center',
                   col.className,
