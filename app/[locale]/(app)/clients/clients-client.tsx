@@ -10,6 +10,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { PageHeader } from '@/components/ui/page-header';
 import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import type { ClientRow } from '@/db/rows';
 import { ClientFormModal } from './client-form-modal';
 import { anonymizeClient, deleteClient, exportClient } from './actions';
@@ -77,6 +78,12 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
       return true;
     });
   }, [clients, search, letterFilter, showDupesOnly, duplicateIds]);
+
+  // Letters that actually have a client, for dimming empty letters in the A-Z bar.
+  const lettersWithClients = useMemo(
+    () => new Set(clients.map((c) => (c.first_name[0] ?? '').toUpperCase())),
+    [clients],
+  );
 
   const pageRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -267,37 +274,47 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
       />
 
       <div className="space-y-6 p-6">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          className="flex flex-wrap items-center gap-0.5 rounded-lg bg-bg-surface p-1 shadow-border"
+          data-reveal
+        >
           <button
             type="button"
             onClick={() => {
               setLetterFilter(null);
               setPage(1);
             }}
-            className={`rounded-sm border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
+            aria-pressed={letterFilter === null}
+            className={cn(
+              'rounded-md px-2.5 py-1 font-mono text-xs font-semibold uppercase tracking-wide transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
               letterFilter === null
-                ? 'border-accent bg-accent-subtle text-accent'
-                : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
-            }`}
+                ? 'bg-accent text-accent-fg shadow-accent-glow'
+                : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+            )}
           >
             {t('all')}
           </button>
           {ALPHABET.map((letter) => {
             const active = letterFilter === letter;
+            const hasClients = lettersWithClients.has(letter);
             return (
               <button
                 key={letter}
                 type="button"
+                disabled={!hasClients}
                 onClick={() => {
                   setLetterFilter(active ? null : letter);
                   setPage(1);
                 }}
                 aria-pressed={active}
-                className={`h-7 w-7 rounded-sm border text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
+                className={cn(
+                  'h-7 w-7 rounded-md font-mono text-xs font-semibold transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
                   active
-                    ? 'border-accent bg-accent text-accent-fg'
-                    : 'border-border text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
-                }`}
+                    ? 'bg-accent text-accent-fg shadow-accent-glow'
+                    : hasClients
+                      ? 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
+                      : 'cursor-not-allowed text-text-disabled',
+                )}
               >
                 {letter}
               </button>
