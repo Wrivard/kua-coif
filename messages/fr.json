@@ -1579,7 +1579,7 @@
       "reviews": {
         "title": "Ce que disent les clients",
         "count": "{count, plural, one {# avis} other {# avis}}",
-        "by": "— {name}"
+        "by": "- {name}"
       }
     }
   },

@@ -735,7 +735,7 @@ export function BookingWizard({
         })}
       </ol>
 
-      <div className="rounded-xl border border-border bg-bg-surface p-5 shadow-md sm:p-6">
+      <div className="rounded-xl border border-border bg-bg-surface p-5 shadow-warm-md sm:p-6">
         {/* ─── Step 1 & 2 — order depends on `show_professional_first` ── */}
         {state.step <= 2 && kindForStep(state.step) === 'service' && (
           <ServiceStep
@@ -962,7 +962,7 @@ export function BookingWizard({
                 line collapses to a single value when the customer pays
                 full price; splits into "subtotal / credit / total" when
                 a balance is auto-applied. */}
-            <div className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-sm">
+            <div className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-warm-sm">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                 {t('summary.title')}
               </p>
@@ -1080,7 +1080,7 @@ export function BookingWizard({
             <p className="text-sm text-text-secondary">
               {postBookingMessage ?? t('done.description')}
             </p>
-            <div className="rounded-lg border border-border bg-bg-base p-4 text-left text-sm shadow-sm">
+            <div className="rounded-lg border border-border bg-bg-base p-4 text-left text-sm shadow-warm-sm">
               <p className="font-medium text-text-primary">
                 {selectedServices.map((s) => s.name).join(' + ')}
               </p>
@@ -1148,7 +1148,7 @@ export function BookingWizard({
           sees what they're committing to as they scroll the service list.
           Frosted glass treatment matches the page-header pattern. */}
       {state.step < 4 && selectedServices.length > 0 ? (
-        <div className="bg-bg-surface/90 sticky bottom-3 z-10 rounded-xl border border-border px-4 py-3 text-sm shadow-lg backdrop-blur-xl">
+        <div className="bg-bg-surface/90 sticky bottom-3 z-10 rounded-xl border border-border px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">
               {selectedServices.length} {t('summary.servicesLabel')}
@@ -1228,7 +1228,7 @@ function ServiceStep({
           and the inner rows lose their flat-rectangle look for proper
           rounded-lg surfaces with a subtle border to separate from the bg. */}
       {hasSelection ? (
-        <div className="border-accent/25 ring-accent/10 rounded-lg border bg-accent-subtle p-3 shadow-sm ring-1 ring-inset">
+        <div className="border-accent/25 ring-accent/10 rounded-lg border bg-accent-subtle p-3 shadow-warm-sm ring-1 ring-inset">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
             {allowMultiService ? t('steps.service.selectedPlural') : t('steps.service.selected')}
           </p>
@@ -1236,7 +1236,7 @@ function ServiceStep({
             {selectedServices.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-bg-base px-3 py-2.5 text-sm shadow-sm"
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-bg-base px-3 py-2.5 text-sm shadow-warm-sm"
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-text-primary">{s.name}</p>
@@ -1284,7 +1284,7 @@ function ServiceStep({
                       key={s.id}
                       type="button"
                       onClick={() => onToggle(s.id)}
-                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span
@@ -1388,10 +1388,10 @@ function BarberCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+        'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         selected
           ? 'border-accent bg-accent-subtle shadow-accent-glow'
-          : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-md',
+          : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-warm-md',
       )}
       aria-pressed={selected}
     >
@@ -1469,7 +1469,7 @@ function OrderRecap({
   const initials = !isAnyBarber && barber ? initialsOf(barber.display_name) : '?';
 
   return (
-    <div className="rounded-lg border border-border bg-bg-base p-4 shadow-sm">
+    <div className="rounded-lg border border-border bg-bg-base p-4 shadow-warm-sm">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
         {t('order.title')}
       </p>
@@ -1551,7 +1551,7 @@ function SlotPicker({
   if (!slots || slots.length === 0) {
     return (
       <div className="space-y-3">
-        <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-sm">
+        <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-warm-sm">
           {t('steps.slot.empty')}
         </p>
         {waitlistInfo ? <WaitlistInlineForm t={t} info={waitlistInfo} /> : null}
@@ -1615,10 +1615,10 @@ function SlotGroup({
               type="button"
               onClick={() => onSelect(time)}
               className={cn(
-                'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                'h-10 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                 active
                   ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                  : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
+                  : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
               )}
               aria-pressed={active}
             >
@@ -1670,12 +1670,12 @@ function DateStrip({
             disabled={d.closed}
             onClick={() => onChange(d.iso)}
             className={cn(
-              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+              'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
               active
                 ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
+                : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
               d.closed &&
-                'cursor-not-allowed opacity-40 hover:translate-y-0 hover:border-border hover:bg-bg-base hover:shadow-sm',
+                'cursor-not-allowed opacity-40 hover:translate-y-0 hover:border-border hover:bg-bg-base hover:shadow-warm-sm',
             )}
             aria-pressed={active}
           >
@@ -1735,7 +1735,7 @@ function WaitlistInlineForm({
 
   if (done) {
     return (
-      <p className="border-success/30 bg-success/10 rounded-lg border p-4 text-center text-sm text-success shadow-sm">
+      <p className="border-success/30 bg-success/10 rounded-lg border p-4 text-center text-sm text-success shadow-warm-sm">
         {t('waitlist.thanks')}
       </p>
     );
@@ -1774,7 +1774,7 @@ function WaitlistInlineForm({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-bg-base p-4 shadow-sm">
+    <div className="space-y-3 rounded-lg border border-border bg-bg-base p-4 shadow-warm-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
         {t('waitlist.title')}
       </p>
@@ -1892,7 +1892,7 @@ function TipSelector({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-bg-base p-4 shadow-sm">
+    <div className="space-y-2 rounded-lg border border-border bg-bg-base p-4 shadow-warm-sm">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
         {t('steps.contact.tipTitle')}
       </p>

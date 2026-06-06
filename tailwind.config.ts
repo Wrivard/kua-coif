@@ -67,6 +67,12 @@ const config: Config = {
         md: 'var(--shadow-md), var(--inset-highlight)',
         lg: 'var(--shadow-lg), var(--inset-highlight)',
         xl: 'var(--shadow-xl), var(--inset-highlight)',
+        // Warm-tinted elevation (Hero-booking polish) — espresso-toned
+        // shadows for the public booking surface. Tokens live in
+        // globals.css under both themes. Same layer recipe as sm/md/lg.
+        'warm-sm': 'var(--shadow-warm-sm)',
+        'warm-md': 'var(--shadow-warm-md), var(--inset-highlight)',
+        'warm-lg': 'var(--shadow-warm-lg), var(--inset-highlight)',
         // Without the inner highlight — for surfaces that don't want
         // it (dropdowns, popovers floating away from a card surface).
         'flat-md': 'var(--shadow-md)',

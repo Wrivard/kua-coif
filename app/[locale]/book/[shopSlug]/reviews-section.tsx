@@ -86,7 +86,7 @@ export async function ReviewsSection({
               {snippets.map((r) => (
                 <li
                   key={r.id}
-                  className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-sm"
+                  className="rounded-lg border border-border bg-bg-base p-4 text-sm shadow-warm-sm"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-3">
                     <StarRating rating={r.rating} size="sm" />

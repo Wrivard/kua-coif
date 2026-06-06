@@ -1579,7 +1579,7 @@
       "reviews": {
         "title": "What clients say",
         "count": "{count, plural, one {# review} other {# reviews}}",
-        "by": "— {name}"
+        "by": "- {name}"
       }
     }
   },

@@ -28,10 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const shop = ((data as Array<{ name: string; description: string | null }> | null) ?? [])[0];
   if (!shop) return { title: 'Booking' };
   return {
-    title: `${shop.name} — Réserver en ligne`,
+    title: `${shop.name} · Réserver en ligne`,
     description: shop.description ?? `Réserve ton rendez-vous chez ${shop.name}.`,
     openGraph: {
-      title: `${shop.name} — Réserver en ligne`,
+      title: `${shop.name} · Réserver en ligne`,
       description: shop.description ?? undefined,
       type: 'website',
     },
@@ -176,7 +176,7 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
       {shop.marketing_banner_enabled && shop.marketing_banner_text ? (
         <div
           role="status"
-          className="border-accent/30 mb-6 rounded-xl border bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-sm"
+          className="border-accent/30 mb-6 rounded-xl border bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-warm-sm"
         >
           {shop.marketing_banner_text}
         </div>
