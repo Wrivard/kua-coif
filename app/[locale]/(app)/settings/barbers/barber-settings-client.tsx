@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import type { BarberRow } from '@/db/rows';
 import type { BarberSettingsScope } from '@/db/enums';
 import { saveBarberSettings } from './actions';
@@ -49,6 +50,7 @@ export function BarberSettingsClient({
   settings: BarberSettingsRow[];
 }) {
   const t = useTranslations('pages.settings.barberSettings');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -124,6 +126,7 @@ export function BarberSettingsClient({
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <>
@@ -140,7 +143,7 @@ export function BarberSettingsClient({
       <div className="space-y-6 p-6">
         <p className="text-xs text-text-muted">{t('intro')}</p>
 
-        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-sm">
+        <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-warm-md">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-bg-surface text-text-muted">
@@ -168,9 +171,10 @@ export function BarberSettingsClient({
                   className="border-b border-border last:border-b-0"
                 >
                   <td
-                    className={`sticky left-0 z-10 bg-bg-surface px-3 py-2 font-medium ${
-                      d.scope === 'shop' ? 'text-accent' : ''
-                    }`}
+                    className={cn(
+                      'sticky left-0 z-10 bg-bg-surface px-3 py-2 font-medium',
+                      d.scope === 'shop' && 'border-l-2 border-accent text-accent',
+                    )}
                   >
                     {rowLabel(d)}
                   </td>
@@ -219,7 +223,7 @@ export function BarberSettingsClient({
                       type="number"
                       min={0}
                       max={365}
-                      className="w-16"
+                      className="w-16 tabular-nums"
                       value={d.days_book_in_advance}
                       onChange={(e) =>
                         patch(idx, (r) => ({
@@ -283,7 +287,7 @@ export function BarberSettingsClient({
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="min-w-[110px] px-2 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wide">
+    <th className="min-w-[110px] px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide">
       {children}
     </th>
   );
@@ -294,7 +298,11 @@ function Td({ children }: { children: React.ReactNode }) {
 
 function MinSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <Select className="w-20" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+    <Select
+      className="w-20 tabular-nums"
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
       {BOOKING_INTERVAL_OPTIONS.map((m) => (
         <option key={m} value={m}>
           {m} min
@@ -315,14 +323,22 @@ function HmEdit({
 }) {
   return (
     <div className="flex items-center gap-1">
-      <Select className="w-16" value={h} onChange={(e) => onChange(Number(e.target.value), m)}>
+      <Select
+        className="w-16 tabular-nums"
+        value={h}
+        onChange={(e) => onChange(Number(e.target.value), m)}
+      >
         {HOUR_OPTIONS.map((hh) => (
           <option key={hh} value={hh}>
             {hh}h
           </option>
         ))}
       </Select>
-      <Select className="w-16" value={m} onChange={(e) => onChange(h, Number(e.target.value))}>
+      <Select
+        className="w-16 tabular-nums"
+        value={m}
+        onChange={(e) => onChange(h, Number(e.target.value))}
+      >
         {MINUTE_OPTIONS.map((mm) => (
           <option key={mm} value={mm}>
             {mm}m
