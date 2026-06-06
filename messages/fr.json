@@ -273,6 +273,21 @@
         "cancelled": "Rendez-vous annulé",
         "cancelledAndRefunded": "Rendez-vous annulé et remboursé",
         "refunded": "Remboursement effectué"
+      },
+      "walkInNoClient": "Sans rendez-vous (aucune fiche client)",
+      "customerLinks": {
+        "title": "Liens client",
+        "receipt": "Reçu",
+        "reschedule": "Reprogrammer",
+        "review": "Avis",
+        "selfService": "Libre-service",
+        "hint": "Génère une URL signée valide 90 jours (avis) / 365 jours (/me), copiée dans ton presse-papiers."
+      },
+      "linkCopied": {
+        "receipt": "Lien du reçu copié",
+        "reschedule": "Lien de reprogrammation copié",
+        "review": "Lien d'avis copié",
+        "me": "Lien libre-service copié"
       }
     },
     "clients": {

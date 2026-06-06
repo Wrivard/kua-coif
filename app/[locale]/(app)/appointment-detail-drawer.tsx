@@ -165,15 +165,15 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               ? data.receiptUrl
               : data.rescheduleUrl;
       if (!raw) {
-        show({ variant: 'danger', title: 'Walk-in (no client record)' });
+        show({ variant: 'danger', title: t('walkInNoClient') });
         return;
       }
       const url = raw.startsWith('http') ? raw : `${window.location.origin}${raw}`;
       const titles = {
-        review: 'Review link copied',
-        me: 'Self-service link copied',
-        receipt: 'Receipt link copied',
-        reschedule: 'Reschedule link copied',
+        review: t('linkCopied.review'),
+        me: t('linkCopied.me'),
+        receipt: t('linkCopied.receipt'),
+        reschedule: t('linkCopied.reschedule'),
       };
       try {
         await navigator.clipboard.writeText(url);
@@ -306,7 +306,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
               (SMS, email, Slack). Auto-send via Resend ships V1.1. */}
           <div className="space-y-2 border-t border-border pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Customer links
+              {t('customerLinks.title')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -316,7 +316,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 onClick={() => copyPublicLink('receipt')}
                 disabled={isPending}
               >
-                <Receipt className="h-3.5 w-3.5" /> Receipt
+                <Receipt className="h-3.5 w-3.5" /> {t('customerLinks.receipt')}
               </Button>
               <Button
                 type="button"
@@ -325,7 +325,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 onClick={() => copyPublicLink('reschedule')}
                 disabled={isPending}
               >
-                <CalendarSync className="h-3.5 w-3.5" /> Reschedule
+                <CalendarSync className="h-3.5 w-3.5" /> {t('customerLinks.reschedule')}
               </Button>
               <Button
                 type="button"
@@ -334,7 +334,7 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 onClick={() => copyPublicLink('review')}
                 disabled={isPending}
               >
-                <Star className="h-3.5 w-3.5" /> Review
+                <Star className="h-3.5 w-3.5" /> {t('customerLinks.review')}
               </Button>
               <Button
                 type="button"
@@ -343,12 +343,11 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
                 onClick={() => copyPublicLink('me')}
                 disabled={isPending}
               >
-                <Sparkles className="h-3.5 w-3.5" /> Self-service
+                <Sparkles className="h-3.5 w-3.5" /> {t('customerLinks.selfService')}
               </Button>
             </div>
             <p className="text-[10px] text-text-muted">
-              <Link2 className="mr-1 inline h-3 w-3" /> Generates a signed URL valid 90 days
-              (review) / 365 days (/me), copied to your clipboard.
+              <Link2 className="mr-1 inline h-3 w-3" /> {t('customerLinks.hint')}
             </p>
           </div>
           {dirty ? (

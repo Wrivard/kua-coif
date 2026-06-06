@@ -273,6 +273,21 @@
         "cancelled": "Appointment cancelled",
         "cancelledAndRefunded": "Cancelled and refunded",
         "refunded": "Refund issued"
+      },
+      "walkInNoClient": "Walk-in (no client record)",
+      "customerLinks": {
+        "title": "Customer links",
+        "receipt": "Receipt",
+        "reschedule": "Reschedule",
+        "review": "Review",
+        "selfService": "Self-service",
+        "hint": "Generates a signed URL valid 90 days (review) / 365 days (/me), copied to your clipboard."
+      },
+      "linkCopied": {
+        "receipt": "Receipt link copied",
+        "reschedule": "Reschedule link copied",
+        "review": "Review link copied",
+        "me": "Self-service link copied"
       }
     },
     "clients": {
