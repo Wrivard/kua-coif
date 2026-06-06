@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { shopIsoDate } from '@/lib/business/timezone';
-import { RevenueTrendChart } from '@/components/ui/revenue-trend-chart';
+import { RevenueTrendChart } from '@/components/ui/revenue-trend-chart-lazy';
 import {
   computeCommission,
   tierConfigFromRow,
@@ -401,7 +401,7 @@ export default async function FinancesPage({
             <CardBody>
               <RevenueTrendChart
                 data={trendData}
-                formatCurrency={fmtCAD}
+                locale={locale === 'fr' ? 'fr' : 'en'}
                 ariaLabel={t('trend.title')}
               />
             </CardBody>

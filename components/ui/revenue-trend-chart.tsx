@@ -1,6 +1,7 @@
 'use client';
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { formatCurrencyCAD } from '@/lib/utils';
 
 /**
  * Revenue trend — a recharts area chart themed entirely to the app's CSS
@@ -23,23 +24,24 @@ type TooltipRenderProps = {
 
 export function RevenueTrendChart({
   data,
-  formatCurrency,
+  locale,
   ariaLabel,
 }: {
   data: TrendPoint[];
-  /** Pre-bound CAD formatter from the server (locale-aware). */
-  formatCurrency: (n: number) => string;
+  /** Locale for CAD formatting — a plain string so this stays a fully
+   *  serializable client island (no function prop crosses the RSC
+   *  boundary, which would throw at render). */
+  locale: 'fr' | 'en';
   ariaLabel: string;
 }) {
+  const fmt = (n: number) => formatCurrencyCAD(n, locale);
   function ChartTooltip({ active, label, payload }: TooltipRenderProps) {
     if (!active || !payload || payload.length === 0) return null;
     const value = Number(payload[0]?.value ?? 0);
     return (
       <div className="rounded-md border border-border bg-bg-elevated px-3 py-2 shadow-warm-md">
         <p className="text-[11px] text-text-muted">{label}</p>
-        <p className="text-sm font-semibold tabular-nums text-text-primary">
-          {formatCurrency(value)}
-        </p>
+        <p className="text-sm font-semibold tabular-nums text-text-primary">{fmt(value)}</p>
       </div>
     );
   }
@@ -67,7 +69,7 @@ export function RevenueTrendChart({
             axisLine={false}
             tickLine={false}
             width={56}
-            tickFormatter={(v) => formatCurrency(Number(v))}
+            tickFormatter={(v) => fmt(Number(v))}
           />
           <Tooltip
             cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '3 3' }}

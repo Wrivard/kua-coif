@@ -69,36 +69,55 @@ export type ShopMembership = {
   status: 'confirmed' | 'staff' | 'deleted';
 };
 
-export const getShopMemberships = cache(async () => {
-  const user = await getCurrentUser();
-  if (!user) return [] as ShopMembership[];
-  const supabase = createSupabaseServerClient();
-  // Cast through unknown since the placeholder Database type doesn't know our
-  // tables yet. Phase 2 codegen will make this strict.
-  const { data, error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            k: string,
-            v: string,
-          ) => {
+const MEMBERSHIPS_CACHE_TAG = 'memberships';
+
+/**
+ * Cross-request cache of a user's confirmed memberships (60s TTL), keyed by
+ * user id — mirrors `getCachedShopRow`. Removes an uncached `shop_members`
+ * SELECT from every authenticated page load (was React-`cache()`-only =
+ * deduped within a request but re-queried on every new request). Service-
+ * role client so the cached query is request-independent; safe because it's
+ * scoped to the validated user's own rows. Staleness ≤60s; bust sooner via
+ * `revalidateTag('memberships')` from membership-mutating actions.
+ */
+const getCachedMemberships = unstable_cache(
+  async (userId: string): Promise<ShopMembership[]> => {
+    const admin = createSupabaseServiceRoleClient();
+    const { data } = await (
+      admin as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
             eq: (
               k: string,
               v: string,
-            ) => Promise<{ data: ShopMembership[] | null; error: unknown }>;
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => Promise<{ data: ShopMembership[] | null; error: unknown }>;
+            };
           };
         };
-      };
-    }
-  )
-    .from('shop_members')
-    .select('shop_id, role, status')
-    .eq('user_id', user.id)
-    .eq('status', 'confirmed');
-  if (error || !data) return [];
-  return data;
+      }
+    )
+      .from('shop_members')
+      .select('shop_id, role, status')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed');
+    return data ?? [];
+  },
+  ['shop-memberships'],
+  { revalidate: 60, tags: [MEMBERSHIPS_CACHE_TAG] },
+);
+
+export const getShopMemberships = cache(async () => {
+  const user = await getCurrentUser();
+  if (!user) return [] as ShopMembership[];
+  return getCachedMemberships(user.id);
 });
+
+/** Re-export so Server Actions can bust the memberships cache on mutations. */
+export { MEMBERSHIPS_CACHE_TAG };
 
 /**
  * Require the current user to be a confirmed member of *some* shop. If they
@@ -205,33 +224,53 @@ export { SHOP_CACHE_TAG };
  * locked against client-side updates (only service-role can flip it), so
  * trusting it here is safe.
  */
+const KUA_ADMIN_CACHE_TAG = 'kua-admin';
+
+/**
+ * Cross-request cache of the Küa super-admin flag (60s TTL), keyed by user
+ * id — mirrors `getCachedShopRow`. Removes an uncached `profiles` SELECT
+ * from every authenticated page load. Service-role client (request-
+ * independent; the flag is column-locked against client writes). Staleness
+ * ≤60s; bust via `revalidateTag('kua-admin')` if a flag flips.
+ */
+const getCachedIsKuaAdmin = unstable_cache(
+  async (userId: string): Promise<boolean> => {
+    const admin = createSupabaseServiceRoleClient();
+    const { data } = await (
+      admin as unknown as {
+        from: (t: string) => {
+          select: (cols: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              single: () => Promise<{
+                data: { is_kua_admin: boolean } | null;
+                error: unknown;
+              }>;
+            };
+          };
+        };
+      }
+    )
+      .from('profiles')
+      .select('is_kua_admin')
+      .eq('id', userId)
+      .single();
+    return Boolean(data?.is_kua_admin);
+  },
+  ['is-kua-admin'],
+  { revalidate: 60, tags: [KUA_ADMIN_CACHE_TAG] },
+);
+
 export const getIsKuaAdmin = cache(async (): Promise<boolean> => {
   const user = await getCurrentUser();
   if (!user) return false;
-  const supabase = createSupabaseServerClient();
-  const { data } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            k: string,
-            v: string,
-          ) => {
-            single: () => Promise<{
-              data: { is_kua_admin: boolean } | null;
-              error: unknown;
-            }>;
-          };
-        };
-      };
-    }
-  )
-    .from('profiles')
-    .select('is_kua_admin')
-    .eq('id', user.id)
-    .single();
-  return Boolean(data?.is_kua_admin);
+  return getCachedIsKuaAdmin(user.id);
 });
+
+/** Re-export so Server Actions can bust the admin-flag cache on mutations. */
+export { KUA_ADMIN_CACHE_TAG };
 
 export async function requireKuaAdmin(opts?: { locale?: string }) {
   const user = await requireUser({ locale: opts?.locale });
