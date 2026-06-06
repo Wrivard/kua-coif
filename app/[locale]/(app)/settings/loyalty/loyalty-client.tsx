@@ -9,8 +9,10 @@ import { Input, Label } from '@/components/ui/input';
 import { MoneyInput } from '@/components/ui/money-input';
 import { PageHeader } from '@/components/ui/page-header';
 import { RadioGroup } from '@/components/ui/radio-group';
+import { SectionMasthead } from '@/components/ui/section-masthead';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import type { LoyaltyProgramRow } from '@/db/rows';
 import { upsertLoyalty } from './actions';
 // Loop 59 hotfix — schema + type live in `./schema` not `./actions`
@@ -20,6 +22,7 @@ import { loyaltySchema, type LoyaltyInput } from './schema';
 
 export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
   const t = useTranslations('pages.settings.loyalty');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -63,71 +66,84 @@ export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
 
   return (
     <>
-      <PageHeader title={t('title')} />
-      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6 p-6" noValidate>
-        <Toggle
-          checked={enabled}
-          onChange={(v) => setValue('enabled', v, { shouldDirty: true })}
-          label={t('form.enabled')}
-        />
-
-        <div>
-          <Label>{t('form.type')}</Label>
-          <RadioGroup
-            name="type"
-            value={type}
-            onChange={(v) => setValue('type', v, { shouldDirty: true })}
-            orientation="horizontal"
-            options={[
-              { value: 'transaction', label: t('form.transactionBased') },
-              { value: 'value', label: t('form.valueBased') },
-            ]}
+      <PageHeader
+        eyebrow={tNav('title')}
+        title={t('title')}
+        subtitle={enabled ? t('status.on') : t('status.off')}
+      />
+      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-8 p-6" noValidate>
+        {/* Program — the hero beat: the master switch + program type on
+            .surface-hero, ringed accent when the program is live. */}
+        <section className={cn('surface-hero space-y-6 p-6', enabled && 'ring-accent/40 ring-1')}>
+          <SectionMasthead title={t('sections.program')} />
+          <Toggle
+            checked={enabled}
+            onChange={(v) => setValue('enabled', v, { shouldDirty: true })}
+            label={t('form.enabled')}
           />
-        </div>
+          <div>
+            <Label>{t('form.type')}</Label>
+            <RadioGroup
+              name="type"
+              value={type}
+              onChange={(v) => setValue('type', v, { shouldDirty: true })}
+              orientation="horizontal"
+              options={[
+                { value: 'transaction', label: t('form.transactionBased'), disabled: !enabled },
+                { value: 'value', label: t('form.valueBased'), disabled: !enabled },
+              ]}
+            />
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <Label htmlFor="goal_count">
-              {type === 'value' ? t('form.goalValueAmount') : t('form.goalCount')}
-            </Label>
-            <Input
-              id="goal_count"
-              type="number"
-              min={0}
-              disabled={!enabled}
-              {...register('goal_count', { valueAsNumber: true })}
-            />
+        {/* Rules — flat section grouped by a border-t divider (de-carded). */}
+        <section className="space-y-6 border-t border-border pt-8">
+          <SectionMasthead title={t('sections.rules')} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <Label htmlFor="goal_count">
+                {type === 'value' ? t('form.goalValueAmount') : t('form.goalCount')}
+              </Label>
+              <Input
+                id="goal_count"
+                type="number"
+                min={0}
+                disabled={!enabled}
+                className="tabular-nums"
+                {...register('goal_count', { valueAsNumber: true })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="min_transaction_amount">{t('form.minTransactionAmount')}</Label>
+              <MoneyInput
+                id="min_transaction_amount"
+                disabled={!enabled}
+                {...register('min_transaction_amount', { valueAsNumber: true })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="reward_amount">{t('form.rewardAmount')}</Label>
+              <MoneyInput
+                id="reward_amount"
+                disabled={!enabled}
+                {...register('reward_amount', { valueAsNumber: true })}
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="min_transaction_amount">{t('form.minTransactionAmount')}</Label>
-            <MoneyInput
-              id="min_transaction_amount"
-              disabled={!enabled}
-              {...register('min_transaction_amount', { valueAsNumber: true })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="reward_amount">{t('form.rewardAmount')}</Label>
-            <MoneyInput
-              id="reward_amount"
-              disabled={!enabled}
-              {...register('reward_amount', { valueAsNumber: true })}
-            />
-          </div>
-        </div>
 
-        <Toggle
-          checked={watch('include_product_sales')}
-          onChange={(v) => setValue('include_product_sales', v, { shouldDirty: true })}
-          label={t('form.includeProductSales')}
-          disabled={!enabled}
-        />
-        <Toggle
-          checked={watch('include_tips')}
-          onChange={(v) => setValue('include_tips', v, { shouldDirty: true })}
-          label={t('form.includeTips')}
-          disabled={!enabled}
-        />
+          <Toggle
+            checked={watch('include_product_sales')}
+            onChange={(v) => setValue('include_product_sales', v, { shouldDirty: true })}
+            label={t('form.includeProductSales')}
+            disabled={!enabled}
+          />
+          <Toggle
+            checked={watch('include_tips')}
+            onChange={(v) => setValue('include_tips', v, { shouldDirty: true })}
+            label={t('form.includeTips')}
+            disabled={!enabled}
+          />
+        </section>
 
         <div className="flex justify-end gap-2">
           <Button type="submit" loading={isPending}>

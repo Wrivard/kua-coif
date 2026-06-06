@@ -1147,6 +1147,14 @@
       },
       "loyalty": {
         "title": "Loyalty Program",
+        "sections": {
+          "program": "Program",
+          "rules": "Rules"
+        },
+        "status": {
+          "on": "Active",
+          "off": "Inactive"
+        },
         "form": {
           "enabled": "Enable the program",
           "type": "Program type",

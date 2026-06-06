@@ -1147,6 +1147,14 @@
       },
       "loyalty": {
         "title": "Programme de fidélité",
+        "sections": {
+          "program": "Programme",
+          "rules": "Règles"
+        },
+        "status": {
+          "on": "Actif",
+          "off": "Inactif"
+        },
         "form": {
           "enabled": "Activer le programme",
           "type": "Type de programme",
