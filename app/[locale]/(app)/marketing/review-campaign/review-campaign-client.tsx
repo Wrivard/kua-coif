@@ -5,6 +5,7 @@ import { Send, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
 import { formatShopTime } from '@/lib/business/timezone';
@@ -208,7 +209,7 @@ export function ReviewCampaignClient({
                         {formatShopTime(c.startAt, 'America/Toronto', 'd MMM yyyy')}
                       </td>
                       <td className="py-3 text-text-secondary">
-                        {c.services.length > 0 ? c.services.join(', ') : '—'}
+                        {c.services.length > 0 ? c.services.join(', ') : <EmptyCell />}
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2 text-xs text-text-secondary">

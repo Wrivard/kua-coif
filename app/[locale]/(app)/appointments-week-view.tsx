@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { CreditCard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { formatShopTime, shopIsoDate } from '@/lib/business/timezone';
 import { cn } from '@/lib/utils';
 import type { BarberRow } from '@/db/rows';
@@ -146,7 +147,7 @@ export function AppointmentsWeekView({
                         </div>
                       ) : null}
                       <div className="mt-0.5 truncate text-[10px] text-text-muted">
-                        {barberName.get(a.barber_id) ?? '—'}
+                        {barberName.get(a.barber_id) ?? <EmptyCell />}
                       </div>
                       {a.source === 'online' ? (
                         <Badge variant="info" className="mt-0.5">

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useTranslations } from 'next-intl';
 import { Download, FolderTree, GripVertical, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import {
   DndContext,
   PointerSensor,
@@ -296,7 +297,9 @@ export function ServicesClient({
                             </td>
                             <td className="px-4 py-3 text-sm text-text-primary">
                               {row.category_id ? (
-                                <span>{categoryById.get(row.category_id)?.name ?? '—'}</span>
+                                <span>
+                                  {categoryById.get(row.category_id)?.name ?? <EmptyCell />}
+                                </span>
                               ) : (
                                 <span className="text-text-muted">—</span>
                               )}
@@ -373,9 +376,11 @@ export function ServicesClient({
                               {t('columns.category')}
                             </span>
                             <span className="min-w-0 truncate text-right text-text-primary">
-                              {row.category_id
-                                ? (categoryById.get(row.category_id)?.name ?? '—')
-                                : '—'}
+                              {row.category_id ? (
+                                (categoryById.get(row.category_id)?.name ?? <EmptyCell />)
+                              ) : (
+                                <EmptyCell />
+                              )}
                             </span>
                           </div>
                           <div className="mt-2 flex justify-end">{renderActions(row)}</div>

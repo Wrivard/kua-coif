@@ -88,7 +88,7 @@ export default async function ReceiptPage({
       service: { name: string } | null;
     }> | null) ?? []
   ).map((l) => ({
-    name: l.service?.name ?? '—',
+    name: l.service?.name ?? '·',
     price: Number(l.price_snapshot ?? 0),
   }));
 

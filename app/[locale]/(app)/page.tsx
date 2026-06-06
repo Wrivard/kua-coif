@@ -233,7 +233,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     client_id: a.client_id,
     client_name: (() => {
       const c = clientById.get(a.client_id);
-      if (!c) return '—';
+      if (!c) return '·';
       return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
     })(),
     start_at: a.start_at,
@@ -315,7 +315,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       client_id: a.client_id,
       client_name: (() => {
         const c = clientById.get(a.client_id);
-        if (!c) return '—';
+        if (!c) return '·';
         return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
       })(),
       start_at: a.start_at,

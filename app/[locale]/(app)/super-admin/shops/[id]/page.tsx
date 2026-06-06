@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { requireKuaAdmin } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page-header';
@@ -243,16 +244,20 @@ export default async function ShopDetailPage({ params }: Props) {
             <CardBody className="space-y-3 text-sm">
               <Row label="Créé le" value={new Date(shop.created_at).toLocaleDateString('fr-CA')} />
               <Row label="Timezone" value={shop.timezone} />
-              <Row label="Langue par défaut" value={shop.default_language ?? '—'} />
-              <Row label="Email" value={shop.email ?? '—'} icon={<Mail className="h-3 w-3" />} />
+              <Row label="Langue par défaut" value={shop.default_language ?? <EmptyCell />} />
+              <Row
+                label="Email"
+                value={shop.email ?? <EmptyCell />}
+                icon={<Mail className="h-3 w-3" />}
+              />
               <Row
                 label="Téléphone"
-                value={shop.phone ?? '—'}
+                value={shop.phone ?? <EmptyCell />}
                 icon={<Phone className="h-3 w-3" />}
               />
               <Row
                 label="Adresse"
-                value={addressLine || '—'}
+                value={addressLine || <EmptyCell />}
                 icon={<MapPin className="h-3 w-3" />}
               />
               {shop.description ? (
@@ -349,9 +354,9 @@ export default async function ShopDetailPage({ params }: Props) {
                       return (
                         <tr key={m.id} className="border-b border-border last:border-b-0">
                           <td className="px-3 py-3 font-mono text-xs text-text-secondary">
-                            {profile?.email ?? '—'}
+                            {profile?.email ?? <EmptyCell />}
                           </td>
-                          <td className="px-3 py-3">{profile?.full_name ?? '—'}</td>
+                          <td className="px-3 py-3">{profile?.full_name ?? <EmptyCell />}</td>
                           <td className="px-3 py-3">
                             <Badge
                               variant={
@@ -419,7 +424,7 @@ export default async function ShopDetailPage({ params }: Props) {
                               minute: '2-digit',
                             })}
                           </td>
-                          <td className="px-3 py-3">{a.client_name_snapshot ?? '—'}</td>
+                          <td className="px-3 py-3">{a.client_name_snapshot ?? <EmptyCell />}</td>
                           <td className="px-3 py-3 text-xs">
                             <Badge variant={a.source === 'online' ? 'info' : 'default'}>
                               {a.source}
@@ -440,7 +445,7 @@ export default async function ShopDetailPage({ params }: Props) {
                                       : 'default'
                               }
                             >
-                              {a.payment_status ?? '—'}
+                              {a.payment_status ?? <EmptyCell />}
                             </Badge>
                           </td>
                           <td className="px-3 py-3">

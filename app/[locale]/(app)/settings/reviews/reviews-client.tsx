@@ -4,6 +4,7 @@ import { useMemo, useTransition } from 'react';
 import { Check, Star, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
 import { deleteReview, moderateReview } from './actions';
@@ -205,7 +206,7 @@ function Row({
             {stars}
           </span>
           <span className="text-xs text-text-muted">
-            {row.client_name ?? '—'}
+            {row.client_name ?? <EmptyCell />}
             {barberName ? ` · ${barberName}` : ''}
           </span>
         </div>

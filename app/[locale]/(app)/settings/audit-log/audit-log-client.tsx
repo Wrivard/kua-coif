@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { cn } from '@/lib/utils';
 import type { Json } from '@/db/types';
@@ -121,7 +122,9 @@ function Row({
           <Badge variant={actionVariant(row.action)}>{row.action}</Badge>
         </td>
         <td className="px-3 py-3 font-mono text-xs">{row.entity}</td>
-        <td className="px-3 py-3 font-mono text-[11px] text-text-muted">{row.entity_id ?? '—'}</td>
+        <td className="px-3 py-3 font-mono text-[11px] text-text-muted">
+          {row.entity_id ?? <EmptyCell />}
+        </td>
       </tr>
       {isOpen && row.diff ? (
         <tr className="border-b border-border bg-bg-base">

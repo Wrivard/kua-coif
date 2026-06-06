@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { formatHeaderDate, formatShopTime } from '@/lib/business/timezone';
 
@@ -148,9 +149,11 @@ export function ReceiptClient({
     failed: L.failed,
   };
 
-  const clientName = appointment.client
-    ? `${appointment.client.first_name}${appointment.client.last_name ? ` ${appointment.client.last_name}` : ''}`
-    : '—';
+  const clientName = appointment.client ? (
+    `${appointment.client.first_name}${appointment.client.last_name ? ` ${appointment.client.last_name}` : ''}`
+  ) : (
+    <EmptyCell />
+  );
 
   const formattedDate = formatHeaderDate(
     new Date(appointment.start_at),
@@ -248,7 +251,7 @@ export function ReceiptClient({
                   {L.with}
                 </p>
                 <p className="font-medium text-text-primary print:text-black">
-                  {appointment.barber?.display_name ?? '—'}
+                  {appointment.barber?.display_name ?? <EmptyCell />}
                 </p>
                 <p className="text-xs text-text-secondary print:text-gray-700">{clientName}</p>
               </div>

@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { SuperAdminNav } from '@/components/ui/super-admin-nav';
+import { EmptyCell } from '@/components/ui/empty-cell';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +98,7 @@ export default async function AdminShopsPage({ params }: { params: { locale: str
                         href={`/${params.locale}/super-admin/shops/${s.id}`}
                         className="block w-full"
                       >
-                        {s.alias ?? '—'}
+                        {s.alias ?? <EmptyCell />}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary">

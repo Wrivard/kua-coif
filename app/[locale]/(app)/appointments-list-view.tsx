@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { formatShopTime } from '@/lib/business/timezone';
 import { formatCurrencyCAD } from '@/lib/utils';
 import type { BarberRow } from '@/db/rows';
@@ -86,7 +87,7 @@ export function AppointmentsListView({
     {
       id: 'barber',
       header: t('list.barber'),
-      cell: (a) => barberName.get(a.barber_id) ?? '—',
+      cell: (a) => barberName.get(a.barber_id) ?? <EmptyCell />,
       sortable: true,
       sortValue: (a) => barberName.get(a.barber_id) ?? '',
     },

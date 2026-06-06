@@ -70,7 +70,7 @@ export default async function ReschedulePage({
         endAt: appt.end_at,
         durationMin,
         barberId: appt.barber_id,
-        barberName: appt.barber?.display_name ?? '—',
+        barberName: appt.barber?.display_name ?? '·',
         clientName: appt.client_name_snapshot,
       }}
       shop={{
