@@ -67,9 +67,13 @@ export function ReviewFormClient({
     return (
       <div className="mx-auto max-w-lg p-6">
         <Card>
-          <CardBody className="space-y-3 text-center">
-            <p className="text-2xl">★★★★★</p>
-            <h1 className="text-xl font-semibold tracking-tight text-text-primary">
+          <CardBody className="space-y-4 py-10 text-center">
+            <div className="flex justify-center gap-1" aria-hidden>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star key={s} className="h-7 w-7 fill-warning text-warning" />
+              ))}
+            </div>
+            <h1 className="text-display-sm text-text-primary">
               {isFr ? 'Avis reçu' : 'Review received'}
             </h1>
             <p className="text-sm text-text-secondary">
