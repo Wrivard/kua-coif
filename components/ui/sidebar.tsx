@@ -90,12 +90,21 @@ export function Sidebar({
       aria-label="Primary navigation"
     >
       <div className="flex h-header-h items-center justify-between border-b border-border-soft px-3">
-        <Link
-          href={`/${locale}/`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-sm"
-          aria-label="Küa"
-        >
-          <span className="text-sm font-semibold">K</span>
+        <Link href={`/${locale}/`} aria-label="Küa" className="flex shrink-0 items-center">
+          {expanded ? (
+            <Image
+              src="/logo.png"
+              alt="Küa"
+              width={84}
+              height={28}
+              priority
+              className="brand-logo h-7 w-auto"
+            />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-sm">
+              <span className="text-sm font-semibold">K</span>
+            </span>
+          )}
         </Link>
         {expanded ? (
           <ShopSwitcher

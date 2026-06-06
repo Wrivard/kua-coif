@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -141,11 +142,18 @@ export function MobileSidebar({
           <div className="flex h-header-h items-center gap-2 border-b border-border px-3">
             <Link
               href={`/${locale}/`}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent text-accent-fg"
+              className="flex shrink-0 items-center"
               onClick={() => setOpen(false)}
               aria-label="Küa"
             >
-              <span className="text-sm font-semibold">K</span>
+              <Image
+                src="/logo.png"
+                alt="Küa"
+                width={84}
+                height={28}
+                priority
+                className="brand-logo h-7 w-auto"
+              />
             </Link>
             {/* Loop 39 (P119) — same shop-switcher as desktop. Single-
                 shop users see a static label; multi-shop users get a

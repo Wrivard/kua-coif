@@ -363,6 +363,17 @@ h3 {
   }
 }
 
+/* Brand wordmark (sidebar). The supplied logo.png is a light cream lockup
+   built for dark surfaces; on the light theme we darken it so it reads on the
+   near-white rail, and leave it untouched (cream) on the dark theme. */
+.brand-logo {
+  filter: brightness(0);
+}
+:root[data-theme='dark'] .brand-logo,
+:root.dark .brand-logo {
+  filter: none;
+}
+
 /* ─── Scrollbars — discrete, light-themed ─────────────────────────────── */
 *::-webkit-scrollbar {
   width: 10px;
