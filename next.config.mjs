@@ -121,7 +121,7 @@ const nextConfig = {
   // of version (lucide-react is pinned to an unusual 1.16.0; without this a
   // barrel `import { Icon } from 'lucide-react'` can pull the whole set).
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', '@tanstack/react-table'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
   },
   images: {
     remotePatterns: [

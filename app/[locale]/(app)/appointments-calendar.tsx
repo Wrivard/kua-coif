@@ -328,7 +328,7 @@ export function AppointmentsCalendar({
 
   // ── Memoized derivations ──────────────────────────────────────────────
   // The calendar re-renders on every parent state change (modal/drawer
-  // toggles, filter chips, react-query refetches). Without memoization, the
+  // toggles, filter chips, router refreshes). Without memoization, the
   // following derivations recompute O(barbers × appointments) per render —
   // measurable lag once the shop reaches ~20 barbers / hundreds of appts.
   const visibleBarbers = useMemo(
