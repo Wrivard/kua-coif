@@ -235,7 +235,7 @@ export default async function CloseOutPage({
   }
   const outstandingRows = outstanding.map((o) => ({
     id: o.id,
-    clientName: o.client_id ? (clientNameById.get(o.client_id) ?? '—') : '—',
+    clientName: o.client_id ? (clientNameById.get(o.client_id) ?? '–') : '–',
     barberName: outstandingBarberNames.get(o.barber_id) ?? '?',
     start_at: o.start_at,
     end_at: o.end_at,
@@ -306,16 +306,16 @@ export default async function CloseOutPage({
                     <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byBarber.columns.barber')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.visits')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.revenue')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.tips')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.total')}
                     </th>
                   </tr>
@@ -324,10 +324,16 @@ export default async function CloseOutPage({
                   {barberRows.map((b) => (
                     <tr key={b.id} className="border-b border-border last:border-b-0">
                       <td className="py-2 font-medium text-text-primary">{b.display_name}</td>
-                      <td className="py-2 text-right text-text-secondary">{b.count}</td>
-                      <td className="py-2 text-right text-text-secondary">{fmtCAD(b.revenue)}</td>
-                      <td className="py-2 text-right text-text-secondary">{fmtCAD(b.tips)}</td>
-                      <td className="py-2 text-right font-semibold text-text-primary">
+                      <td className="py-2 text-right tabular-nums text-text-secondary">
+                        {b.count}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-text-secondary">
+                        {fmtCAD(b.revenue)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-text-secondary">
+                        {fmtCAD(b.tips)}
+                      </td>
+                      <td className="py-2 text-right font-semibold tabular-nums text-text-primary">
                         {fmtCAD(b.total)}
                       </td>
                     </tr>
@@ -383,7 +389,7 @@ export default async function CloseOutPage({
                     <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('outstanding.columns.time')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('outstanding.columns.status')}
                     </th>
                   </tr>
@@ -398,7 +404,7 @@ export default async function CloseOutPage({
                       <td className="py-2 font-mono tabular-nums text-text-secondary">
                         {formatTimeRange(o.start_at, o.end_at, timezone)}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="py-2 text-right tabular-nums">
                         <Badge variant="warning">{t(`outstanding.statuses.${o.status}`)}</Badge>
                       </td>
                     </tr>
@@ -429,8 +435,8 @@ function Kpi({
         <p
           className={
             warning
-              ? 'text-2xl font-semibold text-warning'
-              : 'text-2xl font-semibold text-text-primary'
+              ? 'text-display-sm tabular-nums text-warning'
+              : 'text-display-sm tabular-nums text-text-primary'
           }
         >
           {value}
@@ -454,7 +460,13 @@ function DrawerLine({
       <span className={emphasis ? 'font-semibold text-text-primary' : 'text-text-secondary'}>
         {label}
       </span>
-      <span className={emphasis ? 'text-lg font-semibold text-text-primary' : 'text-text-primary'}>
+      <span
+        className={
+          emphasis
+            ? 'text-lg font-semibold tabular-nums text-text-primary'
+            : 'tabular-nums text-text-primary'
+        }
+      >
         {value}
       </span>
     </div>
@@ -480,7 +492,7 @@ function PaymentRow({
         {label}
         <span className="ml-2 text-[11px] text-text-muted">({count})</span>
       </span>
-      <span className={`font-semibold ${colorClass}`}>{amount}</span>
+      <span className={`font-semibold tabular-nums ${colorClass}`}>{amount}</span>
     </div>
   );
 }

@@ -120,7 +120,7 @@ export default async function DisputesPage({ params: { locale } }: { params: { l
                       <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                         {t('columns.opened')}
                       </th>
-                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                         {t('columns.amount')}
                       </th>
                       <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
@@ -135,7 +135,7 @@ export default async function DisputesPage({ params: { locale } }: { params: { l
                       <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                         {t('columns.appointment')}
                       </th>
-                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                         {t('columns.link')}
                       </th>
                     </tr>
@@ -149,7 +149,7 @@ export default async function DisputesPage({ params: { locale } }: { params: { l
                           <td className="px-3 py-3 text-text-secondary">
                             {formatDate(d.created_at)}
                           </td>
-                          <td className="px-3 py-3 text-right font-semibold text-text-primary">
+                          <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
                             {fmtCAD(d.amount_cents)}
                             {d.currency !== 'cad' ? (
                               <span className="ml-1 text-[11px] uppercase text-text-muted">
@@ -183,7 +183,7 @@ export default async function DisputesPage({ params: { locale } }: { params: { l
                               <span className="text-text-muted">{t('appointment.none')}</span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-3 py-3 text-right tabular-nums">
                             <a
                               href={`https://dashboard.stripe.com/disputes/${d.stripe_dispute_id}`}
                               target="_blank"

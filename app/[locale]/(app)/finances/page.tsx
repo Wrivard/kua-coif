@@ -361,10 +361,10 @@ export default async function FinancesPage({
                     <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byBarber.columns.barber')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.appointments')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.revenue')}
                     </th>
                   </tr>
@@ -373,8 +373,10 @@ export default async function FinancesPage({
                   {barberRows.map((b) => (
                     <tr key={b.id} className="border-b border-border last:border-b-0">
                       <td className="px-3 py-3 font-medium text-text-primary">{b.display_name}</td>
-                      <td className="px-3 py-3 text-right text-text-secondary">{b.count}</td>
-                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                        {b.count}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
                         {fmtCAD(b.revenue)}
                       </td>
                     </tr>
@@ -406,16 +408,16 @@ export default async function FinancesPage({
                     <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('commissions.columns.barber')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('commissions.columns.revenue')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('commissions.columns.rate')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('commissions.columns.mode')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('commissions.columns.commission')}
                     </th>
                   </tr>
@@ -424,20 +426,20 @@ export default async function FinancesPage({
                   {commissionRows.map((c) => (
                     <tr key={c.barberId} className="border-b border-border last:border-b-0">
                       <td className="px-3 py-3 font-medium text-text-primary">{c.barberName}</td>
-                      <td className="px-3 py-3 text-right text-text-secondary">
+                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
                         {fmtCAD(c.revenue)}
                       </td>
-                      <td className="px-3 py-3 text-right text-text-secondary">
-                        {c.effectivePct > 0 ? `${c.effectivePct.toFixed(1)}%` : '—'}
+                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                        {c.effectivePct > 0 ? `${c.effectivePct.toFixed(1)}%` : '–'}
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-3 py-3 text-right tabular-nums">
                         <Badge variant={c.cumulative ? 'info' : 'default'}>
                           {c.cumulative
                             ? t('commissions.modeCumulative')
                             : t('commissions.modeSingle')}
                         </Badge>
                       </td>
-                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
                         {fmtCAD(c.commission)}
                       </td>
                     </tr>
@@ -465,10 +467,10 @@ export default async function FinancesPage({
                     <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       {t('byCategory.columns.category')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byCategory.columns.appointments')}
                     </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byCategory.columns.revenue')}
                     </th>
                   </tr>
@@ -477,8 +479,10 @@ export default async function FinancesPage({
                   {categoryRows.map((c) => (
                     <tr key={c.id ?? 'none'} className="border-b border-border last:border-b-0">
                       <td className="px-3 py-3 font-medium text-text-primary">{c.name}</td>
-                      <td className="px-3 py-3 text-right text-text-secondary">{c.apptCount}</td>
-                      <td className="px-3 py-3 text-right font-semibold text-text-primary">
+                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                        {c.apptCount}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
                         {fmtCAD(c.revenue)}
                       </td>
                     </tr>
@@ -498,7 +502,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <Card>
       <CardBody className="space-y-1">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-        <p className="text-2xl font-semibold text-text-primary">{value}</p>
+        <p className="text-display-sm tabular-nums text-text-primary">{value}</p>
       </CardBody>
     </Card>
   );
@@ -575,7 +579,7 @@ function formatRangeLabel(startIso: string, endIso: string, locale: 'fr-CA' | 'e
   // Render in UTC to avoid any local-tz shift on the label.
   const start = fmt.format(new Date(`${startIso}T12:00:00Z`));
   const end = fmt.format(new Date(`${endIso}T12:00:00Z`));
-  return `${start} — ${end}`;
+  return `${start} – ${end}`;
 }
 
 /**
