@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react';
 import { ToastProvider } from '@/components/ui/toast';
+import { RouteReveal } from '@/components/ui/route-reveal';
 
 /**
  * Auth shell — Phase 47 premium polish.
  *
- * Centered card on a near-black canvas with a soft accent radial
- * gradient behind it. The gradient is rendered via two stacked
+ * Centered card on a near-black canvas with a soft NEUTRAL radial
+ * gradient behind it (contract C5 — atmosphere is neutral/warm, never
+ * an accent wash). The gradient is rendered via two stacked
  * radial-gradient backgrounds:
- *   1. A wide purple glow ~30% opacity (the "ambient light source").
+ *   1. A wide neutral warm glow via var(--hero-glow) (the "ambient
+ *      light source"); the only accent on this screen is the brand mark.
  *   2. A subtle dot grid at ~3% opacity (texture, prevents the bg
  *      from feeling like a flat slab).
  *
@@ -21,14 +24,14 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         id="main"
         className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bg-base px-4 py-12"
       >
-        {/* Ambient purple radial — sits behind everything, draws the
+        {/* Ambient neutral radial — sits behind everything, draws the
             eye to the center card without competing with content. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 80% 50% at 50% 35%, rgba(139, 92, 246, 0.18), transparent 70%)',
+              'radial-gradient(ellipse 80% 50% at 50% 35%, var(--hero-glow), transparent 70%)',
           }}
         />
         {/* Subtle dot grid texture so the dark canvas reads as
@@ -53,7 +56,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </span>
             <span className="text-sm font-medium tracking-wide text-text-secondary">Küa</span>
           </div>
-          {children}
+          <RouteReveal>{children}</RouteReveal>
         </div>
       </main>
     </ToastProvider>
