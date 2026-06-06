@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { Sidebar } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/ui/mobile-sidebar';
 import { FabButtons } from '@/components/ui/fab-buttons';
+import { RouteReveal } from '@/components/ui/route-reveal';
 import { ToastProvider } from '@/components/ui/toast';
 import { QueryProvider } from '@/components/providers/query-provider';
 import {
@@ -149,7 +150,7 @@ export default async function AppShellLayout({
             );
           })()}
           <main id="main" className="flex min-w-0 flex-1 flex-col">
-            {children}
+            <RouteReveal>{children}</RouteReveal>
           </main>
           <FabButtons />
         </div>
