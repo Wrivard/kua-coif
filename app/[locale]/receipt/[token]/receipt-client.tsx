@@ -56,7 +56,7 @@ export function ReceiptClient({
 }) {
   const isFr = locale === 'fr';
   const fmt = (n: number) => formatCurrencyCAD(n, isFr ? 'fr' : 'en');
-  const accent = appointment.shop.email_accent_color ?? '#8b5cf6';
+  const accent = appointment.shop.email_accent_color ?? '#4f7d5e';
 
   // Receipt math (re-verified post-Loop-13 self-review):
   //   - `appointments.total_amount` = subtotal − promoDiscount −

@@ -242,9 +242,9 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
   }
 
   // Read the watched accent_color for the native color picker so the
-  // swatch + hex input stay in sync. Default to the Küa purple when
+  // swatch + hex input stay in sync. Default to the Küa sage when
   // the field is empty (so the picker doesn't show black on first load).
-  const watchedAccent = watch('accent_color') || '#8b5cf6';
+  const watchedAccent = watch('accent_color') || '#4f7d5e';
 
   // In-page integration test. Loads `/test-embed` (which itself pulls
   // widget.js + injects the real iframe) INSIDE the settings page so
@@ -390,7 +390,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                     <Input
                       id="accent_color"
                       type="text"
-                      placeholder="#8b5cf6"
+                      placeholder="#4f7d5e"
                       {...register('accent_color')}
                       invalid={Boolean(errors.accent_color)}
                     />

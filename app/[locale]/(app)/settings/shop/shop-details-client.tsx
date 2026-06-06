@@ -382,7 +382,7 @@ export function ShopDetailsClient({ shop, hours }: { shop: ShopFullRow; hours: S
                 <Input
                   id="email_accent_color"
                   type="text"
-                  placeholder="#8b5cf6"
+                  placeholder="#4f7d5e"
                   pattern="^#[0-9a-fA-F]{6}$"
                   invalid={Boolean(detailsErrors.email_accent_color)}
                   {...detailsForm.register('email_accent_color')}

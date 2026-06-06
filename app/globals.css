@@ -11,7 +11,7 @@
  *   - Shadow-as-border replaces traditional CSS borders
  *   - Multi-layer shadow stacks (border + ambient + inner glow)
  *   - Three-weight typography (400 / 500 / 600 — no 700)
- *   - Accent purple kept but used surgically (workflow / status only,
+ *   - Accent sage green, used surgically (workflow / status only,
  *     never decoratively per Vercel rules)
  *
  * Single source of truth — rebrand by editing the `--accent` block.
@@ -55,19 +55,19 @@
   --text-muted: #666666; /* Gray 500 — captions, labels */
   --text-disabled: #808080; /* Gray 400 — placeholders, disabled */
 
-  /* ─── Accent (Küa purple — kept for brand continuity) ────────────────
-   * Vercel's system uses workflow-specific colors (Red/Pink/Blue) but
-   * we keep purple as the Küa brand mark. Subtle tones updated for the
-   * light bg — the previous 12% alpha was tuned for dark; on white we
-   * need ~8% to keep the same perceived intensity. */
-  --accent: #8b5cf6;
-  --accent-hover: #7c4ddb;
-  --accent-active: #6d3fc8;
+  /* ─── Accent (Küa sage green — single source of truth) ───────────────
+   * Sage-green brand accent. Light theme uses a DEEP sage (#4f7d5e) so
+   * white text on accent buttons keeps WCAG AA (4.78:1, better than the
+   * old purple's 4.24). Rebrand the whole app by editing this block +
+   * the dark-theme mirror below. */
+  --accent: #4f7d5e;
+  --accent-hover: #446e52;
+  --accent-active: #3a5e46;
   --accent-fg: #ffffff;
-  --accent-subtle: rgba(139, 92, 246, 0.08);
-  --accent-subtle-strong: rgba(139, 92, 246, 0.14);
-  --accent-glow: 0 0 0 4px rgba(139, 92, 246, 0.16);
-  --accent-ring: rgba(139, 92, 246, 0.45);
+  --accent-subtle: rgba(79, 125, 94, 0.08);
+  --accent-subtle-strong: rgba(79, 125, 94, 0.14);
+  --accent-glow: 0 0 0 4px rgba(79, 125, 94, 0.16);
+  --accent-ring: rgba(79, 125, 94, 0.45);
 
   /* ─── Focus ring (Vercel saturated blue — accessibility) ─────────────
    * Replaces the soft accent ring. Vercel's choice — same-blue-on-any-bg
@@ -154,8 +154,8 @@
     rgba(0, 0, 0, 0.1) 0 0 0 1px, rgba(0, 0, 0, 0.12) 0 12px 24px,
     rgba(0, 0, 0, 0.08) 0 28px 48px -16px;
   --shadow-accent-md:
-    rgba(139, 92, 246, 0.2) 0 0 0 1px, rgba(139, 92, 246, 0.1) 0 4px 12px -2px,
-    rgba(139, 92, 246, 0.06) 0 12px 24px -8px;
+    rgba(79, 125, 94, 0.2) 0 0 0 1px, rgba(79, 125, 94, 0.1) 0 4px 12px -2px,
+    rgba(79, 125, 94, 0.06) 0 12px 24px -8px;
   --hero-glow: rgba(40, 30, 24, 0.05); /* warm near-black radial, NEUTRAL not accent (C5) */
   --dot-grid: rgba(0, 0, 0, 0.045); /* pre-baked dot-grid color for .bg-texture-dots */
 
@@ -216,15 +216,15 @@
   --text-muted: #737373; /* Gray 500 — captions */
   --text-disabled: #525252; /* Gray 600 — disabled */
 
-  /* ─── Accent — purple shifted lighter for dark-canvas legibility ───── */
-  --accent: #a78bfa; /* purple-400 — was 500 on light */
-  --accent-hover: #c4b5fd; /* purple-300 on hover */
-  --accent-active: #ddd6fe; /* purple-200 on active */
-  --accent-fg: #18181b; /* dark text on accent (high contrast) */
-  --accent-subtle: rgba(167, 139, 250, 0.12);
-  --accent-subtle-strong: rgba(167, 139, 250, 0.2);
-  --accent-glow: 0 0 0 4px rgba(167, 139, 250, 0.2);
-  --accent-ring: rgba(167, 139, 250, 0.55);
+  /* ─── Accent — sage shifted lighter for dark-canvas legibility ─────── */
+  --accent: #8fb89a; /* light sage — visible on the near-black canvas */
+  --accent-hover: #a6c9af; /* lighter sage on hover */
+  --accent-active: #bcd6c2; /* lighter still on active */
+  --accent-fg: #18181b; /* dark text on accent (high contrast, ~8:1) */
+  --accent-subtle: rgba(143, 184, 154, 0.12);
+  --accent-subtle-strong: rgba(143, 184, 154, 0.2);
+  --accent-glow: 0 0 0 4px rgba(143, 184, 154, 0.2);
+  --accent-ring: rgba(143, 184, 154, 0.55);
 
   /* ─── Focus ring (Vercel blue, brightened for dark) ─────────────────── */
   --focus-ring: hsla(212, 100%, 60%, 1);
@@ -282,8 +282,8 @@
     rgba(0, 0, 0, 0.4) 0 0 0 1px, rgba(0, 0, 0, 0.5) 0 12px 24px,
     rgba(0, 0, 0, 0.4) 0 28px 48px -16px;
   --shadow-accent-md:
-    rgba(139, 92, 246, 0.3) 0 0 0 1px, rgba(139, 92, 246, 0.18) 0 4px 12px -2px,
-    rgba(139, 92, 246, 0.1) 0 12px 24px -8px;
+    rgba(143, 184, 154, 0.3) 0 0 0 1px, rgba(143, 184, 154, 0.18) 0 4px 12px -2px,
+    rgba(143, 184, 154, 0.1) 0 12px 24px -8px;
   --hero-glow: rgba(255, 240, 225, 0.04);
   --dot-grid: rgba(255, 255, 255, 0.04);
 

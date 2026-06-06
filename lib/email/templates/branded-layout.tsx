@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
  * instead of the "Küa" wordmark, and `accentColor` to recolor the brand
  * chip. Both fall back to the platform defaults when null/undefined, so
  * templates that don't carry per-shop branding still look identical to
- * the ones that do — they just show the Küa wordmark + #8b5cf6.
+ * the ones that do — they just show the Küa wordmark + #4f7d5e.
  *
  * Inline styles only — most email clients strip <style> blocks. The
  * surface/text palette is fixed (universal contrast); only the accent
@@ -22,7 +22,7 @@ import type { ReactNode } from 'react';
  * strings (preview, footer signature) into this layout as props.
  */
 
-export const DEFAULT_EMAIL_ACCENT = '#8b5cf6';
+export const DEFAULT_EMAIL_ACCENT = '#4f7d5e';
 
 export const emailPalette = {
   bgOuter: '#1b1b1b',

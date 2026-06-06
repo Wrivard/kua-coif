@@ -117,7 +117,7 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
                   dangerouslySetInnerHTML={{
                     __html: `<button type="button" onclick="Kua.open('${slug}', { locale: '${widgetLocale}'${
                       theme ? `, theme: '${theme}'` : ''
-                    } })" style="display:inline-flex;height:44px;align-items:center;border-radius:9999px;background:#8b5cf6;color:white;padding:0 24px;font-size:14px;font-weight:600;border:0;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15)">${
+                    } })" style="display:inline-flex;height:44px;align-items:center;border-radius:9999px;background:#4f7d5e;color:white;padding:0 24px;font-size:14px;font-weight:600;border:0;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15)">${
                       widgetLocale === 'en' ? 'Book now' : 'Réserver maintenant'
                     }</button>`,
                   }}

@@ -1445,7 +1445,7 @@
           "radiusPill": "Pill"
         },
         "errors": {
-          "accentColor": "Use a hex color like #8b5cf6."
+          "accentColor": "Use a hex color like #4f7d5e."
         },
         "snippet": {
           "instructions": "Paste this snippet into the salon's website where you want the booking widget to appear.",

@@ -297,9 +297,9 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           ? {
               // Dark variables — keep tokens in lockstep with
               // globals.css `:root[data-theme='dark']`. The accent
-              // shifts lighter (#a78bfa vs #8b5cf6) for legibility
+              // shifts lighter (#8fb89a vs #4f7d5e) for legibility
               // against the near-black backgrounds.
-              colorPrimary: '#a78bfa',
+              colorPrimary: '#8fb89a',
               colorBackground: '#1a1a1a',
               colorText: '#f5f5f5',
               colorTextSecondary: '#a3a3a3',
@@ -308,7 +308,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
               borderRadius: '8px',
             }
           : {
-              colorPrimary: '#8b5cf6',
+              colorPrimary: '#4f7d5e',
               colorBackground: '#ffffff',
               colorText: '#171717',
               colorTextSecondary: '#4d4d4d',

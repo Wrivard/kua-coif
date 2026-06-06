@@ -18,14 +18,16 @@ export default function BookingLayout({ children }: { children: ReactNode }) {
         id="main"
         className="relative min-h-screen overflow-x-hidden bg-bg-base px-3 py-8 sm:px-6 sm:py-12"
       >
-        {/* Ambient purple radial — anchored to the top so it haloes the
-            shop name without bleeding into the action area below the fold. */}
+        {/* Ambient neutral radial — anchored to the top so it haloes the
+            shop name without bleeding into the action area below the fold.
+            Neutral (var(--hero-glow)) per contract C5: atmosphere is never
+            an accent wash; the brand mark is the only accent up here. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[480px]"
           style={{
             background:
-              'radial-gradient(ellipse 70% 60% at 50% 0%, rgba(139, 92, 246, 0.18), transparent 70%)',
+              'radial-gradient(ellipse 70% 60% at 50% 0%, var(--hero-glow), transparent 70%)',
           }}
         />
         {/* Dot grid texture — keeps the canvas from feeling like a void on
