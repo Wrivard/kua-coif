@@ -241,6 +241,10 @@ export default async function FinancesPage({
   }
 
   const fmtCAD = (n: number) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en');
+  // Share-of-revenue bar widths are relative to the top performer in each
+  // table (both arrays are sorted revenue-desc, so [0] is the max).
+  const maxBarberRevenue = barberRows[0]?.revenue ?? 0;
+  const maxCategoryRevenue = categoryRows[0]?.revenue ?? 0;
   const subtitle = formatRangeLabel(
     rangeStartIso,
     rangeEndIso,
@@ -339,11 +343,29 @@ export default async function FinancesPage({
           </div>
         </form>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label={t('kpis.grossRevenue')} value={fmtCAD(grossRevenue)} />
-          <Kpi label={t('kpis.completedAppointments')} value={String(completedCount)} />
-          <Kpi label={t('kpis.avgTicket')} value={fmtCAD(avgTicket)} />
-          <Kpi label={t('kpis.loyaltyOutstanding')} value={fmtCAD(loyaltyOutstandingCents / 100)} />
+        {/* KPI hero band — gross revenue is the dominant lead (display-xl
+            + the screen's single accent beat: accent eyebrow, hairline and
+            shadow). The three supporting metrics sit beside it at
+            display-sm so the eye lands on revenue first. Atmosphere stays
+            neutral (var(--hero-glow)) per contract C5. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="border-accent/15 relative overflow-hidden rounded-xl border bg-bg-surface p-6 shadow-accent-md">
+            <div aria-hidden className="bg-hero-glow pointer-events-none absolute inset-0" />
+            <div className="relative flex h-full flex-col justify-center">
+              <p className="type-eyebrow text-accent">{t('kpis.grossRevenue')}</p>
+              <p className="mt-3 text-display-xl tabular-nums text-text-primary">
+                {fmtCAD(grossRevenue)}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:col-span-2">
+            <Kpi label={t('kpis.completedAppointments')} value={String(completedCount)} />
+            <Kpi label={t('kpis.avgTicket')} value={fmtCAD(avgTicket)} />
+            <Kpi
+              label={t('kpis.loyaltyOutstanding')}
+              value={fmtCAD(loyaltyOutstandingCents / 100)}
+            />
+          </div>
         </div>
 
         <Card>
@@ -372,7 +394,17 @@ export default async function FinancesPage({
                 <tbody>
                   {barberRows.map((b) => (
                     <tr key={b.id} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-3 font-medium text-text-primary">{b.display_name}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-text-primary">{b.display_name}</div>
+                        <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
+                          <div
+                            className="h-full rounded-full bg-accent"
+                            style={{
+                              width: `${maxBarberRevenue > 0 ? (b.revenue / maxBarberRevenue) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
                         {b.count}
                       </td>
@@ -478,7 +510,17 @@ export default async function FinancesPage({
                 <tbody>
                   {categoryRows.map((c) => (
                     <tr key={c.id ?? 'none'} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-3 font-medium text-text-primary">{c.name}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-text-primary">{c.name}</div>
+                        <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
+                          <div
+                            className="h-full rounded-full bg-accent"
+                            style={{
+                              width: `${maxCategoryRevenue > 0 ? (c.revenue / maxCategoryRevenue) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
                         {c.apptCount}
                       </td>
