@@ -1,18 +1,19 @@
 import { setRequestLocale } from 'next-intl/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
-import type { TaxRow } from '@/db/rows';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
+import { getCachedTaxes } from '@/lib/data/taxes';
 import { TaxesClient } from './taxes-client';
 
+// The page is dynamic regardless (requireShopMember reads auth cookies); the
+// perf win is the cross-request Data Cache on the taxes query (getCachedTaxes),
+// not static rendering — so force-dynamic stays accurate.
 export const dynamic = 'force-dynamic';
 
 export default async function TaxesPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
-  const { data } = await supabase.from('taxes').select('*').order('name', { ascending: true });
+  const shopId = await getCurrentShopId();
+  const taxes = shopId ? await getCachedTaxes(shopId) : [];
 
-  return <TaxesClient taxes={(data as TaxRow[] | null) ?? []} />;
+  return <TaxesClient taxes={taxes} />;
 }

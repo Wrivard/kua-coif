@@ -1,13 +1,20 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
+import { TAXES_CACHE_TAG } from '@/lib/data/taxes';
 import { deleteTaxSchema, taxSchema, updateTaxSchema } from './schema';
 
 const PATH = '/settings/taxes';
+
+/** Bust both the router cache (this route) and the taxes Data Cache. */
+function revalidateTaxes() {
+  revalidatePath(PATH);
+  revalidateTag(TAXES_CACHE_TAG);
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db(): any {
@@ -32,7 +39,7 @@ export const createTax = withAction({
       entityId: data.id,
       diff: { after: input },
     });
-    revalidatePath(PATH);
+    revalidateTaxes();
     return ok({ id: data.id });
   },
 });
@@ -52,7 +59,7 @@ export const updateTax = withAction({
       entityId: id,
       diff: { after: rest },
     });
-    revalidatePath(PATH);
+    revalidateTaxes();
     return ok({ id });
   },
 });
@@ -70,7 +77,7 @@ export const deleteTax = withAction({
       entity: 'taxes',
       entityId: input.id,
     });
-    revalidatePath(PATH);
+    revalidateTaxes();
     return ok({ id: input.id });
   },
 });
