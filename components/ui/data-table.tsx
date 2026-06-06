@@ -155,7 +155,7 @@ export function DataTable<Row>({
                     }
                     className={cn(
                       'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted',
-                      col.align === 'right' && 'text-right',
+                      col.align === 'right' && 'text-right tabular-nums',
                       col.align === 'center' && 'text-center',
                       col.headerClassName,
                     )}
@@ -204,7 +204,7 @@ export function DataTable<Row>({
                       key={col.id}
                       className={cn(
                         'px-4 py-3',
-                        col.align === 'right' && 'text-right',
+                        col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                       )}
                     >
@@ -260,7 +260,7 @@ export function DataTable<Row>({
                       key={col.id}
                       className={cn(
                         'px-4 py-3 text-sm text-text-primary',
-                        col.align === 'right' && 'text-right',
+                        col.align === 'right' && 'text-right tabular-nums',
                         col.align === 'center' && 'text-center',
                         col.className,
                       )}
@@ -362,7 +362,7 @@ export function DataTable<Row>({
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                         {col.header}
                       </span>
-                      <span className="min-w-0 truncate text-right text-text-primary">
+                      <span className="min-w-0 truncate text-right tabular-nums text-text-primary">
                         {col.cell(row)}
                       </span>
                     </div>
@@ -480,7 +480,7 @@ function VirtualizedRows<Row>({
                 key={col.id}
                 className={cn(
                   'px-4 py-3 text-sm text-text-primary',
-                  col.align === 'right' && 'text-right',
+                  col.align === 'right' && 'text-right tabular-nums',
                   col.align === 'center' && 'text-center',
                   col.className,
                 )}
