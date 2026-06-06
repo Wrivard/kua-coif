@@ -6,10 +6,11 @@ import { useTranslations } from 'next-intl';
 import { Check, ExternalLink, RefreshCw, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { RadioGroup } from '@/components/ui/radio-group';
+import { SectionMasthead } from '@/components/ui/section-masthead';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import type { QuickbooksConnectState, StripeConnectState } from './page';
 import {
   disconnectQuickbooks,
@@ -35,6 +36,7 @@ type Props = {
 
 export function PaymentsClient({ stripe, quickbooks, paymentMode, platformAppFeeBps }: Props) {
   const t = useTranslations('pages.settings.payments');
+  const tNav = useTranslations('pages.settings.nav');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
 
@@ -56,8 +58,16 @@ export function PaymentsClient({ stripe, quickbooks, paymentMode, platformAppFee
 
   return (
     <>
-      <PageHeader title={t('title')} />
-      <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-3">
+      <PageHeader
+        eyebrow={tNav('title')}
+        title={t('title')}
+        subtitle={
+          stripe.configured
+            ? `${t('stripe.title')} · ${t(STATUS_BADGE[stripe.status].key)}`
+            : undefined
+        }
+      />
+      <div className="max-w-4xl space-y-8 p-6">
         {/* ─── Stripe Connect (Phase 28) ──────────────────────────────────
             Only renders when STRIPE_SECRET_KEY is set server-side. The
             page-level helper passes `stripe.configured` through props. */}
@@ -171,12 +181,14 @@ function StripeConnectCard({
   }
 
   return (
-    <Card className="lg:col-span-3">
-      <CardHeader>
-        <CardTitle>{t('stripe.title')}</CardTitle>
-        <Badge variant={badge.variant}>{t(badge.key)}</Badge>
-      </CardHeader>
-      <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section
+      className={cn('surface-hero p-6', stripe.status === 'active' && 'ring-accent/40 ring-1')}
+    >
+      <SectionMasthead
+        title={t('stripe.title')}
+        actions={<Badge variant={badge.variant}>{t(badge.key)}</Badge>}
+      />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-xl space-y-1">
           <p className="text-xs text-text-secondary">
             {stripe.status === 'active'
@@ -222,8 +234,8 @@ function StripeConnectCard({
             </>
           )}
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -312,12 +324,12 @@ function QuickbooksConnectCard({
       : null;
 
   return (
-    <Card className="lg:col-span-3">
-      <CardHeader>
-        <CardTitle>{t('quickbooks.title')}</CardTitle>
-        <Badge variant={badge.variant}>{t(badge.key)}</Badge>
-      </CardHeader>
-      <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="border-t border-border pt-8">
+      <SectionMasthead
+        title={t('quickbooks.title')}
+        actions={<Badge variant={badge.variant}>{t(badge.key)}</Badge>}
+      />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-xl space-y-1">
           <p className="text-xs text-text-secondary">
             {quickbooks.status === 'active'
@@ -353,8 +365,8 @@ function QuickbooksConnectCard({
             </Button>
           )}
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -419,11 +431,9 @@ function PaymentModeCard({
   }
 
   return (
-    <Card className="lg:col-span-3">
-      <CardHeader>
-        <CardTitle>{t('paymentMode.title')}</CardTitle>
-      </CardHeader>
-      <CardBody className="space-y-4">
+    <section className="border-t border-border pt-8">
+      <SectionMasthead title={t('paymentMode.title')} />
+      <div className="mt-6 space-y-4">
         <p className="max-w-2xl text-xs text-text-secondary">{t('paymentMode.description')}</p>
         <RadioGroup
           name="payment_mode"
@@ -458,7 +468,7 @@ function PaymentModeCard({
             <Check className="h-4 w-4" /> {t('paymentMode.save')}
           </Button>
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </section>
   );
 }
