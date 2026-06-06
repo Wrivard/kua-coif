@@ -150,7 +150,14 @@ export function AppointmentsWeekView({
                         </span>
                       </div>
                       {a.services.length > 0 ? (
-                        <div className="truncate text-[10px] text-text-secondary">
+                        <div
+                          className={cn(
+                            'truncate text-[10px]',
+                            a.status === 'completed' || a.status === 'cancelled'
+                              ? 'text-text-muted'
+                              : 'text-text-secondary',
+                          )}
+                        >
                           {a.services.map((s) => s.name).join(' + ')}
                         </div>
                       ) : null}
