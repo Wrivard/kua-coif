@@ -73,9 +73,7 @@ export function SettingsSidebar({ locale }: { locale: string }) {
           <ul className="space-y-6">
             {SETTINGS_NAV.map((group) => (
               <li key={group.labelKey}>
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                  {t(`groups.${group.labelKey}`)}
-                </p>
+                <p className="type-eyebrow mb-2 px-2">{t(`groups.${group.labelKey}`)}</p>
                 <ul className="space-y-0.5">
                   {group.items.map((item) => {
                     const active = current === item.href;
@@ -85,13 +83,20 @@ export function SettingsSidebar({ locale }: { locale: string }) {
                           href={`/${locale}${item.href}`}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors',
+                            'relative flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-all duration-150 ease-out-quint',
                             active
-                              ? 'bg-bg-surface-2 font-medium text-text-primary'
+                              ? 'bg-bg-surface-2 font-medium text-text-primary shadow-sm'
                               : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
                           )}
                         >
-                          <span className="truncate">{t(`items.${item.labelKey}`)}</span>
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent transition-opacity duration-150',
+                              active ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                          <span className="truncate pl-1">{t(`items.${item.labelKey}`)}</span>
                           {item.badge === 'new' ? (
                             <span className="bg-info/20 ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-info">
                               {t('badges.new')}

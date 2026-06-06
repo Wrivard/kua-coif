@@ -230,7 +230,7 @@ export function ServicesClient({
               <div className="hidden overflow-x-auto rounded-lg bg-bg-surface shadow-sm md:block">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-bg-surface">
-                    <tr className="border-b border-border">
+                    <tr className="border-b border-border-strong">
                       <th className="w-8" aria-label={t('columns.sort')} />
                       <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                         {t('columns.name')}
@@ -326,7 +326,7 @@ export function ServicesClient({
                     {({ attributes, listeners, handleRef, dragging }) => (
                       <div
                         className={cn(
-                          'flex items-start gap-2 border-b border-border bg-bg-surface px-3 py-3 first:rounded-t-lg last:rounded-b-lg last:border-b-0',
+                          'flex items-start gap-2 border-b border-border-soft bg-bg-surface px-3 py-3 first:rounded-t-lg last:rounded-b-lg last:border-b-0',
                           dragging && 'shadow-md',
                         )}
                       >
@@ -466,7 +466,7 @@ function SortableServiceRow({
   };
 
   return (
-    <tr ref={setNodeRef} style={style} className="border-b border-border last:border-b-0">
+    <tr ref={setNodeRef} style={style} className="border-b border-border-soft last:border-b-0">
       {children({
         attributes,
         listeners,
