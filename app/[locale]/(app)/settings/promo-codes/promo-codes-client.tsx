@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { EmptyCell } from '@/components/ui/empty-cell';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { MoneyInput } from '@/components/ui/money-input';
@@ -44,6 +45,7 @@ export function PromoCodesClient({
   promoCodes: PromoCodeRow[];
 }) {
   const t = useTranslations('pages.settings.promoCodes');
+  const tNav = useTranslations('pages.settings.nav');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
@@ -86,19 +88,19 @@ export function PromoCodesClient({
       header: t('columns.firstAppt'),
       align: 'center',
       width: '160px',
-      cell: (r) => (r.first_appointment_only ? <Badge variant="success">●</Badge> : '—'),
+      cell: (r) => (r.first_appointment_only ? <Badge variant="success">●</Badge> : <EmptyCell />),
     },
     {
       id: 'one_time',
       header: t('columns.oneTime'),
       align: 'center',
       width: '110px',
-      cell: (r) => (r.one_time ? <Badge variant="success">●</Badge> : '—'),
+      cell: (r) => (r.one_time ? <Badge variant="success">●</Badge> : <EmptyCell />),
     },
     {
       id: 'expiration',
       header: t('columns.expiration'),
-      cell: (r) => r.expiration_date ?? <span className="text-text-muted">—</span>,
+      cell: (r) => r.expiration_date ?? <EmptyCell />,
     },
     {
       id: 'redemptions',
@@ -128,7 +130,7 @@ export function PromoCodesClient({
               e.stopPropagation();
               setMode({ kind: 'edit', promo: r });
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -139,7 +141,7 @@ export function PromoCodesClient({
               e.stopPropagation();
               setConfirmDelete(r);
             }}
-            className="rounded p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
+            className="rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-danger"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -151,6 +153,7 @@ export function PromoCodesClient({
   return (
     <>
       <PageHeader
+        eyebrow={tNav('title')}
         title={t('title')}
         actions={
           <Button onClick={() => setMode({ kind: 'add' })} size="sm">
