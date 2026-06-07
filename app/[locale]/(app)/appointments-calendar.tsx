@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -29,8 +29,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs } from '@/components/ui/tabs';
-import { AppointmentsListView } from './appointments-list-view';
-import { AppointmentsWeekView } from './appointments-week-view';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD, cn } from '@/lib/utils';
 import {
@@ -63,6 +61,18 @@ const AppointmentFormModal = dynamic(
 const BlockTimeFormModal = dynamic(
   () => import('./block-time-form-modal').then((m) => ({ default: m.BlockTimeFormModal })),
   { ssr: false },
+);
+// Week + List views: code-split out of the side-by-side default bundle so
+// the home route ("/") doesn't ship all three view renderers. Unlike the
+// drawer/modals above, these CAN be the initial server-rendered view (via
+// ?view=week|list), so keep default SSR (no ssr:false) to avoid a hydration
+// flash on a direct link — they still load as separate chunks only when
+// their view is active.
+const AppointmentsWeekView = dynamic(() =>
+  import('./appointments-week-view').then((m) => ({ default: m.AppointmentsWeekView })),
+);
+const AppointmentsListView = dynamic(() =>
+  import('./appointments-list-view').then((m) => ({ default: m.AppointmentsListView })),
 );
 
 export type CalendarView = 'side-by-side' | 'week' | 'list';
@@ -255,6 +265,9 @@ export function AppointmentsCalendar({
     () => new Set(barbers.map((b) => b.id)),
   );
   const [drawer, setDrawer] = useState<CalendarAppointment | null>(null);
+  // Stable handler so memoized appointment blocks don't re-render when an
+  // unrelated parent state change (drawer open, 60s now-tick, filter) fires.
+  const handleApptClick = useCallback((a: CalendarAppointment) => setDrawer(a), []);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
   // Loop 27 — separate state for the Block Time modal. It doesn't
   // share the create-appointment modal state because the trigger
@@ -869,7 +882,7 @@ export function AppointmentsCalendar({
                     hourLabels={hourLabels}
                     nowMin={nowMin}
                     onSlotClick={onSlotClick}
-                    onApptClick={(a) => setDrawer(a)}
+                    onApptClick={handleApptClick}
                     t={t}
                   />
                 ))}
@@ -892,7 +905,7 @@ export function AppointmentsCalendar({
             barbers={barbers}
             timezone={timezone}
             daysOff={daysOff}
-            onApptClick={(a) => setDrawer(a)}
+            onApptClick={handleApptClick}
           />
         )}
 
@@ -902,7 +915,7 @@ export function AppointmentsCalendar({
             barbers={barbers}
             timezone={timezone}
             locale={locale}
-            onApptClick={(a) => setDrawer(a)}
+            onApptClick={handleApptClick}
           />
         )}
       </div>
@@ -1206,7 +1219,7 @@ type DraggableAppointmentBlockProps = {
   t: TFn;
 };
 
-function DraggableAppointmentBlock({
+const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
   appointment,
   top,
   height,
@@ -1292,4 +1305,4 @@ function DraggableAppointmentBlock({
       <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
     </button>
   );
-}
+});

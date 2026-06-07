@@ -125,6 +125,7 @@ const nextConfig = {
       'lucide-react',
       'recharts',
       'date-fns',
+      'date-fns-tz',
       '@dnd-kit/core',
       '@dnd-kit/sortable',
       '@dnd-kit/utilities',
