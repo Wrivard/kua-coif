@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { CalendarSync, Check, Link2, Receipt, RotateCcw, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Drawer } from '@/components/ui/drawer';
 import { useToast } from '@/components/ui/toast';
 import { formatShopTime } from '@/lib/business/timezone';
@@ -28,6 +29,11 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<AppointmentStatus>(appointment?.status ?? 'booked');
   const [notes, setNotes] = useState(appointment?.notes ?? '');
+  // Refund / force-refund confirmation gate — replaces the native
+  // confirm() on this money-path with a themed, keyboard-accessible dialog.
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { kind: 'refund' } | { kind: 'forceRefund'; alsoRefund: boolean; threshold: string } | null
+  >(null);
   // Re-sync local edits when a different appointment is opened in the drawer.
   useEffect(() => {
     setStatus(appointment?.status ?? 'booked');
@@ -99,10 +105,9 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
           mins >= 60 && mins % 60 === 0
             ? t('refundPolicy.hours', { hours: mins / 60 })
             : t('refundPolicy.minutes', { mins });
-        const prompt = t('confirmForceRefund', { threshold });
-        if (confirm(prompt)) {
-          onCancel(alsoRefund, true);
-        }
+        // Surface the policy via a ConfirmDialog; on confirm we retry the
+        // cancel with force_refund=true (see the dialog's onConfirm below).
+        setPendingConfirm({ kind: 'forceRefund', alsoRefund, threshold });
         return;
       }
       show({ variant: 'danger', title: tErr(result.errorCode) });
@@ -120,7 +125,11 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
   // operator would need to call `chargeAppointment` to re-charge).
   function onRefund() {
     if (!appointment) return;
-    if (!confirm(t('confirmRefund'))) return;
+    setPendingConfirm({ kind: 'refund' });
+  }
+
+  function doRefund() {
+    if (!appointment) return;
     startTransition(async () => {
       const result = await refundAppointment({ id: appointment.id });
       if (result.ok) {
@@ -190,175 +199,208 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
     });
   }
 
+  const confirmDialog = pendingConfirm
+    ? pendingConfirm.kind === 'forceRefund'
+      ? {
+          title: t('forceRefundTitle'),
+          description: t('confirmForceRefund', { threshold: pendingConfirm.threshold }),
+          confirmLabel: t('forceRefundConfirm'),
+        }
+      : {
+          title: t('refundTitle'),
+          description: t('confirmRefund'),
+          confirmLabel: t('refundOnly'),
+        }
+    : null;
+
   return (
-    <Drawer
-      open={appointment !== null}
-      onClose={onClose}
-      title={t('detailTitle')}
-      footer={
-        // Loop 25 / Phase C — three states:
-        //   - active appointment: Cancel + (when paid) Refund + Cancel & Refund
-        //   - cancelled but paid: standalone Refund only (audit gap closed —
-        //     `refundAppointment` was exported but never callable from UI)
-        //   - cancelled + already refunded/unpaid: no footer
-        appointment && !isCancelled ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
-              {t('cancelAppointment')}
-            </Button>
-            {canRefund ? (
-              <>
-                <Button variant="secondary" onClick={onRefund} disabled={isPending}>
-                  <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
-                </Button>
-                <Button variant="danger" onClick={() => onCancel(true)} loading={isPending}>
-                  {t('cancelAndRefund')}
-                </Button>
-              </>
-            ) : null}
-          </div>
-        ) : appointment && isCancelled && canRefund ? (
-          <div className="flex justify-end">
-            <Button variant="secondary" onClick={onRefund} loading={isPending}>
-              <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
-            </Button>
-          </div>
-        ) : null
-      }
-    >
-      {appointment ? (
-        <div className="space-y-4 text-sm">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              {t('client')}
-            </p>
-            <p className="text-base font-semibold text-text-primary">{appointment.client_name}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+    <>
+      <Drawer
+        open={appointment !== null}
+        onClose={onClose}
+        title={t('detailTitle')}
+        footer={
+          // Loop 25 / Phase C — three states:
+          //   - active appointment: Cancel + (when paid) Refund + Cancel & Refund
+          //   - cancelled but paid: standalone Refund only (audit gap closed —
+          //     `refundAppointment` was exported but never callable from UI)
+          //   - cancelled + already refunded/unpaid: no footer
+          appointment && !isCancelled ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
+                {t('cancelAppointment')}
+              </Button>
+              {canRefund ? (
+                <>
+                  <Button variant="secondary" onClick={onRefund} disabled={isPending}>
+                    <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
+                  </Button>
+                  <Button variant="danger" onClick={() => onCancel(true)} loading={isPending}>
+                    {t('cancelAndRefund')}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          ) : appointment && isCancelled && canRefund ? (
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={onRefund} loading={isPending}>
+                <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        {appointment ? (
+          <div className="space-y-4 text-sm">
+            <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {t('time')}
+                {t('client')}
               </p>
-              {/* Loop 37 (P114) — time range in mono so the
+              <p className="text-base font-semibold text-text-primary">{appointment.client_name}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  {t('time')}
+                </p>
+                {/* Loop 37 (P114) — time range in mono so the
                   HH:mm – HH:mm format reads as a single timestamp
                   block rather than slipping under the proportional
                   Sans hyphen. */}
-              <p className="font-mono tabular-nums">
-                {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
-                {' – '}
-                {formatShopTime(appointment.end_at, timezone, 'HH:mm')}
+                <p className="font-mono tabular-nums">
+                  {formatShopTime(appointment.start_at, timezone, 'HH:mm')}
+                  {' – '}
+                  {formatShopTime(appointment.end_at, timezone, 'HH:mm')}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  {t('status')}
+                </p>
+                <Select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
+                  disabled={isPending}
+                  aria-label={t('status')}
+                >
+                  {APPOINTMENT_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {t(`statuses.${s}`)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                {t('services')}
               </p>
+              <ul className="mt-1 space-y-0.5">
+                {appointment.services.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between">
+                    <span>{s.name}</span>
+                    <span className="text-text-muted">{s.duration_min} min</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {t('status')}
+                {t('notes')}
               </p>
-              <Select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 disabled={isPending}
-                aria-label={t('status')}
-              >
-                {APPOINTMENT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {t(`statuses.${s}`)}
-                  </option>
-                ))}
-              </Select>
+                rows={3}
+                maxLength={2000}
+                className="w-full resize-y rounded-lg bg-bg-surface-2 px-3 py-2 text-sm text-text-secondary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
+              />
             </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              {t('services')}
-            </p>
-            <ul className="mt-1 space-y-0.5">
-              {appointment.services.map((s) => (
-                <li key={s.id} className="flex items-center justify-between">
-                  <span>{s.name}</span>
-                  <span className="text-text-muted">{s.duration_min} min</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
-              {t('notes')}
-            </p>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isPending}
-              rows={3}
-              maxLength={2000}
-              className="w-full resize-y rounded-lg bg-bg-surface-2 px-3 py-2 text-sm text-text-secondary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
-            />
-          </div>
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <span className="text-xs uppercase tracking-wide text-text-muted">
-              {appointment.source === 'online' ? t('online') : t('admin')}
-            </span>
-            <span className="text-base font-semibold">
-              {formatAmount(appointment.total_amount)}
-            </span>
-          </div>
-          {/* Phase 12 — public link generators. The owner copies a
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs uppercase tracking-wide text-text-muted">
+                {appointment.source === 'online' ? t('online') : t('admin')}
+              </span>
+              <span className="text-base font-semibold">
+                {formatAmount(appointment.total_amount)}
+              </span>
+            </div>
+            {/* Phase 12 — public link generators. The owner copies a
               signed URL and pastes it into their preferred channel
               (SMS, email, Slack). Auto-send via Resend ships V1.1. */}
-          <div className="space-y-2 border-t border-border pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              {t('customerLinks.title')}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => copyPublicLink('receipt')}
-                disabled={isPending}
-              >
-                <Receipt className="h-3.5 w-3.5" /> {t('customerLinks.receipt')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => copyPublicLink('reschedule')}
-                disabled={isPending}
-              >
-                <CalendarSync className="h-3.5 w-3.5" /> {t('customerLinks.reschedule')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => copyPublicLink('review')}
-                disabled={isPending}
-              >
-                <Star className="h-3.5 w-3.5" /> {t('customerLinks.review')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => copyPublicLink('me')}
-                disabled={isPending}
-              >
-                <Sparkles className="h-3.5 w-3.5" /> {t('customerLinks.selfService')}
-              </Button>
+            <div className="space-y-2 border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                {t('customerLinks.title')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyPublicLink('receipt')}
+                  disabled={isPending}
+                >
+                  <Receipt className="h-3.5 w-3.5" /> {t('customerLinks.receipt')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyPublicLink('reschedule')}
+                  disabled={isPending}
+                >
+                  <CalendarSync className="h-3.5 w-3.5" /> {t('customerLinks.reschedule')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyPublicLink('review')}
+                  disabled={isPending}
+                >
+                  <Star className="h-3.5 w-3.5" /> {t('customerLinks.review')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyPublicLink('me')}
+                  disabled={isPending}
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> {t('customerLinks.selfService')}
+                </Button>
+              </div>
+              <p className="text-[10px] text-text-muted">
+                <Link2 className="mr-1 inline h-3 w-3" /> {t('customerLinks.hint')}
+              </p>
             </div>
-            <p className="text-[10px] text-text-muted">
-              <Link2 className="mr-1 inline h-3 w-3" /> {t('customerLinks.hint')}
-            </p>
+            {dirty ? (
+              <div className="flex justify-end border-t border-border pt-3">
+                <Button onClick={onSave} loading={isPending} size="sm">
+                  <Check className="h-4 w-4" /> {tCommon('actions.save')}
+                </Button>
+              </div>
+            ) : null}
           </div>
-          {dirty ? (
-            <div className="flex justify-end border-t border-border pt-3">
-              <Button onClick={onSave} loading={isPending} size="sm">
-                <Check className="h-4 w-4" /> {tCommon('actions.save')}
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </Drawer>
+        ) : null}
+      </Drawer>
+      <ConfirmDialog
+        open={pendingConfirm !== null}
+        destructive
+        loading={isPending}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => {
+          const p = pendingConfirm;
+          setPendingConfirm(null);
+          if (!p) return;
+          if (p.kind === 'refund') doRefund();
+          else onCancel(p.alsoRefund, true);
+        }}
+        onCancel={() => setPendingConfirm(null)}
+      />
+    </>
   );
 }

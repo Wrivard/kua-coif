@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { CalendarX, Download, Mail, Phone, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { formatShopTime, formatHeaderDate } from '@/lib/business/timezone';
@@ -41,6 +42,8 @@ export function MeClient({
   // before the revalidatePath round-trip lands. The server keeps the
   // source of truth — a refresh re-fetches the list.
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
+  // Self-cancel confirmation gate — themed dialog instead of native confirm().
+  const [pendingCancel, setPendingCancel] = useState<UpcomingAppointment | null>(null);
 
   function downloadExport() {
     startTransition(async () => {
@@ -77,20 +80,15 @@ export function MeClient({
 
   // Phase G — customer self-cancel.
   //
-  // Confirms via native confirm() (matches the pattern used in the
-  // admin drawer for V1). The action does the refund-policy check
-  // server-side; the UI just relays the result via a toast.
+  // Confirms via a themed ConfirmDialog: the trigger just stores the
+  // pending appointment; doCancel runs after the user confirms. The
+  // action does the refund-policy check server-side; the UI just relays
+  // the result via a toast.
   function cancelAppointment(appointment: UpcomingAppointment) {
-    const isPaid = appointment.paymentStatus === 'paid' && appointment.hasPaymentIntent;
-    const confirmText = isFr
-      ? isPaid
-        ? `Annuler ce rendez-vous ? Si tu es dans la fenêtre de remboursement, ton acompte te sera remboursé automatiquement.`
-        : `Annuler ce rendez-vous ?`
-      : isPaid
-        ? `Cancel this appointment? If you're inside the refund window, your deposit will be refunded automatically.`
-        : `Cancel this appointment?`;
-    if (!confirm(confirmText)) return;
+    setPendingCancel(appointment);
+  }
 
+  function doCancel(appointment: UpcomingAppointment) {
     startTransition(async () => {
       // Phase H — forward the URL locale so the cancellation email
       // lands in the right language. The action defaults to FR when
@@ -157,6 +155,8 @@ export function MeClient({
         upcomingTitle: 'Tes prochains rendez-vous',
         upcomingEmpty: 'Aucun rendez-vous à venir.',
         cancelButton: 'Annuler',
+        cancelTitle: 'Annuler le rendez-vous ?',
+        keepButton: 'Garder',
         paidLine: 'Acompte payé',
         depositRefundable: 'Remboursable',
       }
@@ -174,9 +174,22 @@ export function MeClient({
         upcomingTitle: 'Your upcoming appointments',
         upcomingEmpty: 'No upcoming appointments.',
         cancelButton: 'Cancel',
+        cancelTitle: 'Cancel appointment?',
+        keepButton: 'Keep',
         paidLine: 'Deposit paid',
         depositRefundable: 'Refundable',
       };
+
+  const pendingPaid = pendingCancel
+    ? pendingCancel.paymentStatus === 'paid' && pendingCancel.hasPaymentIntent
+    : false;
+  const cancelDescription = isFr
+    ? pendingPaid
+      ? 'Annuler ce rendez-vous ? Si tu es dans la fenêtre de remboursement, ton acompte te sera remboursé automatiquement.'
+      : 'Annuler ce rendez-vous ?'
+    : pendingPaid
+      ? "Cancel this appointment? If you're inside the refund window, your deposit will be refunded automatically."
+      : 'Cancel this appointment?';
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -295,6 +308,22 @@ export function MeClient({
           </CardBody>
         </Card>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingCancel !== null}
+        destructive
+        loading={isPending}
+        title={L.cancelTitle}
+        description={cancelDescription}
+        confirmLabel={L.cancelButton}
+        cancelLabel={L.keepButton}
+        onConfirm={() => {
+          const appt = pendingCancel;
+          setPendingCancel(null);
+          if (appt) doCancel(appt);
+        }}
+        onCancel={() => setPendingCancel(null)}
+      />
     </div>
   );
 }

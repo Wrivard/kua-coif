@@ -243,6 +243,9 @@
       "refundOnly": "Refund",
       "confirmRefund": "Refund the customer without cancelling the appointment? This is final and the customer will receive the refund in a few business days.",
       "confirmForceRefund": "This appointment starts in less than {threshold}. Per your cancellation policy the customer has missed the refund window. Force the refund anyway?",
+      "refundTitle": "Refund the customer?",
+      "forceRefundTitle": "Force the refund?",
+      "forceRefundConfirm": "Force refund",
       "refundPolicy": {
         "hours": "{hours, plural, =1 {1 hour} other {# hours}}",
         "minutes": "{mins, plural, =1 {1 minute} other {# minutes}}"
