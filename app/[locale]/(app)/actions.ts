@@ -173,6 +173,18 @@ export const createAppointment = withAction({
       return err('NOT_FOUND');
     }
 
+    // Validate the client belongs to THIS shop (mirrors the services check).
+    // RLS permits an insert for any shop member but never binds client_id to
+    // the shop, so a crafted request could otherwise link a foreign client.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clientCheck = await (rawDb() as any)
+      .from('clients')
+      .select('id')
+      .eq('id', input.client_id)
+      .eq('shop_id', ctx.shopId)
+      .maybeSingle();
+    if (!clientCheck.data) return err('NOT_FOUND');
+
     const totalMinutes = services.reduce((s, x) => s + x.duration_min, 0);
     const totalAmount = services.reduce((s, x) => s + x.price, 0);
 
@@ -288,9 +300,16 @@ export const createAppointment = withAction({
           price_snapshot: s.price,
         })),
       );
-    void linkRes;
-
-    void shopIsoDate; // marked used (helper exposed for callers)
+    if (linkRes.error) {
+      // Non-atomic insert recovery: the appointment row exists but its
+      // service-link insert failed. An orphaned $-bearing appointment with
+      // zero services corrupts finances/commission/loyalty, so roll back by
+      // deleting the appointment we just created and surface UNEXPECTED.
+      // (Wrapping both writes in a Postgres RPC is the proper V2 fix.)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (rawDb() as any).from('appointments').delete().eq('id', insertRes.data.id);
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -442,6 +461,11 @@ export const rescheduleAppointment = withAction({
     // their own appointments. Managers + owners can move anyone's.
     if (ctx.role === 'barber' && appt.barber_id !== ctx.barberId) {
       return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
+    // A strict barber can only move an appointment WITHIN their own column —
+    // they may not reassign it to another barber. Managers + owners can.
+    if (ctx.role === 'barber' && input.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_chair' });
     }
     // Don't allow moving a cancelled/no-show appointment — they're
     // historical. The drag UI should disable dragging those, but the
@@ -1309,7 +1333,20 @@ export const refundAppointment = withAction({
 
     try {
       await refundPaymentIntentFull({ paymentIntentId: appt.payment_intent_id });
-      // Sync-write refunded status (idempotent with the webhook).
+    } catch (e) {
+      // The Stripe refund itself failed → no money moved. Report failure.
+      captureException(e, {
+        tags: { layer: 'stripe-payments', action: 'refundAppointment.stripe' },
+      });
+      return err('UNEXPECTED');
+    }
+
+    // The refund SUCCEEDED. From here, a DB/audit write failure must NOT tell
+    // the operator the refund failed (it didn't — the money moved). The
+    // charge.refunded webhook reconciles payment_status, so we capture the
+    // error and still return ok(). Previously a markRefundedByIntent throw
+    // surfaced "erreur inattendue" on a refund that actually went through.
+    try {
       await markRefundedByIntent(sb, appt.payment_intent_id);
       await logAuditAction({
         shopId: ctx.shopId,
@@ -1319,13 +1356,12 @@ export const refundAppointment = withAction({
         entityId: appt.id,
         diff: { refunded: true },
       });
-      revalidatePath(APPOINTMENTS_PATH);
-      return ok({ id: appt.id });
     } catch (e) {
       captureException(e, {
-        tags: { layer: 'stripe-payments', action: 'refundAppointment' },
+        tags: { layer: 'stripe-payments', action: 'refundAppointment.persist' },
       });
-      return err('UNEXPECTED');
     }
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ id: appt.id });
   },
 });

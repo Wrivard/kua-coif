@@ -36,7 +36,7 @@ export const generatePublicLinks = withAction({
     const sb = createSupabaseServerClient() as any;
     const apptRes = await sb
       .from('appointments')
-      .select('id, client_id, shop_id')
+      .select('id, client_id, shop_id, barber_id')
       .eq('id', input.appointment_id)
       .eq('shop_id', ctx.shopId)
       .limit(1);
@@ -44,8 +44,16 @@ export const generatePublicLinks = withAction({
       id: string;
       client_id: string;
       shop_id: string;
+      barber_id: string;
     }> | null) ?? [])[0];
     if (!appt) return err('NOT_FOUND');
+
+    // Strict-barber ownership: a barber can only mint long-lived signed
+    // receipt/me/review/reschedule links for THEIR OWN appointment, not a
+    // colleague's. Managers + owners can mint for any appointment in the shop.
+    if (ctx.role === 'barber' && appt.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
 
     // 90-day review link, 365-day /me link, 365-day receipt link
     // (customer might pull it up months later for tax records),
