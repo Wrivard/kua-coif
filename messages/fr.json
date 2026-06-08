@@ -171,6 +171,11 @@
       },
       "blockTime": {
         "createTitle": "Bloquer un horaire",
+        "buried": {
+          "title": "Bloquer par-dessus des rendez-vous ?",
+          "body": "Ce blocage couvre {count} rendez-vous actif(s). Ils restent réservés en dessous — déplace-les ou annule-les d'abord si ce n'est pas voulu.",
+          "confirm": "Bloquer quand même"
+        },
         "barber": "Barbier",
         "barberShopWide": "Tous les barbiers (salon entier)",
         "date": "Date",

@@ -171,6 +171,11 @@
       },
       "blockTime": {
         "createTitle": "Block time",
+        "buried": {
+          "title": "Block over existing appointments?",
+          "body": "This block covers {count} live appointment(s). They stay booked underneath it — move or cancel them first if that isn't intended.",
+          "confirm": "Block anyway"
+        },
         "barber": "Barber",
         "barberShopWide": "All barbers (shop-wide)",
         "date": "Date",

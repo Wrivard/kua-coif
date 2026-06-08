@@ -17,11 +17,19 @@ import type { CalendarAppointment } from './appointments-calendar';
 type Props = {
   appointment: CalendarAppointment | null;
   timezone: string;
+  /** owner/manager may issue refunds; strict barbers cannot (buttons hidden). */
+  canManageMoney: boolean;
   onClose: () => void;
   formatAmount: (n: number) => string;
 };
 
-export function AppointmentDetailDrawer({ appointment, timezone, onClose, formatAmount }: Props) {
+export function AppointmentDetailDrawer({
+  appointment,
+  timezone,
+  canManageMoney,
+  onClose,
+  formatAmount,
+}: Props) {
   const t = useTranslations('pages.appointments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -144,7 +152,9 @@ export function AppointmentDetailDrawer({ appointment, timezone, onClose, format
   // Whether the appointment is in a payment state where a refund is
   // actually possible. "paid" is the only happy path; refunded/failed/
   // pending all skip the refund button.
-  const canRefund = appointment?.payment_status === 'paid';
+  // Refunds are a manager+ capability — a barber sees no refund affordance
+  // at all (the server also rejects a barber's also_refund / standalone refund).
+  const canRefund = appointment?.payment_status === 'paid' && canManageMoney;
 
   // Phase 12 (post-loop-11) — generate a signed public link, prefix
   // with the live origin if the env-set base is empty (dev), then copy

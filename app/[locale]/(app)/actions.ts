@@ -157,6 +157,13 @@ export const createAppointment = withAction({
   schema: appointmentSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
+    // Admin create is for booking states only — creating 'completed' /
+    // 'cancelled' / 'arrived' / 'no_show' directly would skip the
+    // loyalty/review/QuickBooks side-effects that fire on the
+    // updateAppointment completed-transition. Mark it complete via the drawer.
+    if (input.status !== 'booked' && input.status !== 'confirmed') {
+      return err('INVALID_INPUT', { reason: 'invalid_create_status' });
+    }
     // Phase H+5 — strict barber scope. A barber can only create
     // appointments for THEMSELVES. We rewrite input.barber_id to
     // ctx.barberId regardless of what the form sent. Managers +
@@ -202,6 +209,12 @@ export const createAppointment = withAction({
 
     const startAt = combineShopDateTime(input.date, input.start_time, timezone);
     const endAt = new Date(startAt.getTime() + totalMinutes * 60_000);
+
+    // Typo guard — reject a start absurdly far in the future (a fat-fingered
+    // year). Past starts are allowed (back-dating a walk-in already served).
+    if (startAt.getTime() - Date.now() > 2 * 365 * 24 * 60 * 60 * 1000) {
+      return err('INVALID_INPUT', { reason: 'too_far_future' });
+    }
 
     // Verify availability before insert.
     const dayStart = shopDayStart(startAt, timezone);
@@ -377,6 +390,14 @@ export const updateAppointment = withAction({
     // or they're a manager+ in which case we skip the check entirely.
     if (ctx.role === 'barber' && prior.barber_id !== ctx.barberId) {
       return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
+
+    // Block resurrecting a terminal money/loyalty-bearing row. 'completed'
+    // already fired loyalty + review + QuickBooks; 'cancelled' may have been
+    // refunded. 'no_show' carries no side-effects, so a late-arrival
+    // correction (no_show → arrived/completed) is still allowed.
+    if ((prior.status === 'completed' || prior.status === 'cancelled') && status !== prior.status) {
+      return err('INVALID_INPUT', { reason: 'terminal_status_locked' });
     }
 
     const { error } = await sb.from('appointments').update({ status, notes }).eq('id', id);
@@ -658,6 +679,13 @@ export const cancelAppointment = withAction({
     // OWN appointments. Managers + owners can cancel anyone's.
     if (ctx.role === 'barber' && pre.barber_id !== ctx.barberId) {
       return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
+
+    // Refunds are manager+ discretion (mirrors standalone refundAppointment).
+    // A barber may cancel their own appointment but not move money — the UI
+    // hides the refund affordance from barbers; this enforces it server-side.
+    if (input.also_refund && ctx.role === 'barber') {
+      return err('FORBIDDEN', { reason: 'refund_requires_manager' });
     }
 
     // Phase D — cancellation-policy gate on the auto-refund leg.
@@ -1097,6 +1125,34 @@ export const blockTime = withAction<typeof blockTimeSchema, { ids: string[]; cou
     const firstStart = combineShopDateTime(dates[0]!, input.start_time, timezone);
     const firstEnd = combineShopDateTime(dates[0]!, input.end_time, timezone);
     if (firstEnd.getTime() <= firstStart.getTime()) return err('INVALID_INPUT');
+
+    // Overlap guard — the create/reschedule paths already honor blocked_time,
+    // so restore symmetry: don't silently paint a block over live
+    // appointments. Count what each occurrence window would bury; if any and
+    // the operator hasn't confirmed (force=true), return the count so the
+    // modal can ask "this covers N appointments — block anyway?".
+    if (!input.force) {
+      let buried = 0;
+      for (const d of dates) {
+        const wStart = combineShopDateTime(d, input.start_time, timezone).toISOString();
+        const wEnd = combineShopDateTime(d, input.end_time, timezone).toISOString();
+        // Overlap = appointment.start_at < windowEnd AND appointment.end_at > windowStart.
+        let q = sb
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('shop_id', ctx.shopId)
+          .in('status', ['booked', 'confirmed', 'arrived', 'completed'])
+          .lt('start_at', wEnd)
+          .gt('end_at', wStart);
+        // barber_id null = shop-wide block → check EVERY barber's appointments.
+        if (input.barber_id) q = q.eq('barber_id', input.barber_id);
+        const res = await q;
+        buried += (res.count as number | null) ?? 0;
+      }
+      if (buried > 0) {
+        return err('INVALID_INPUT', { buried_appointments: String(buried) });
+      }
+    }
 
     const rows = dates.map((d) => ({
       shop_id: ctx.shopId,

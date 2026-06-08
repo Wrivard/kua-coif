@@ -416,6 +416,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   return (
     <AppointmentsCalendar
       locale={locale}
+      canManageMoney={viewerRole !== 'barber'}
       timezone={timezone}
       isoDate={isoDate}
       initialView={initialView}

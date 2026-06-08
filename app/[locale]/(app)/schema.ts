@@ -135,6 +135,11 @@ export const blockTimeSchema = z
       .nullable()
       .optional()
       .default(null),
+    /**
+     * When true, bypass the "this block covers N live appointments" guard.
+     * The block-time modal sets it after the operator confirms the warning.
+     */
+    force: z.boolean().optional().default(false),
   })
   /**
    * Loop 27 self-review — block a submission that asks for recurrence

@@ -137,6 +137,8 @@ type GoogleBusyPerBarber = {
 
 type Props = {
   locale: string;
+  /** owner/manager may move money (issue refunds); strict barbers may not. */
+  canManageMoney: boolean;
   timezone: string;
   isoDate: string;
   /**
@@ -232,6 +234,7 @@ type ModalState = { kind: 'closed' } | { kind: 'create'; barberId: string; minut
 
 export function AppointmentsCalendar({
   locale,
+  canManageMoney,
   timezone,
   isoDate,
   initialView = 'side-by-side',
@@ -947,6 +950,7 @@ export function AppointmentsCalendar({
       <AppointmentDetailDrawer
         appointment={drawer}
         timezone={timezone}
+        canManageMoney={canManageMoney}
         onClose={() => setDrawer(null)}
         formatAmount={(n) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en')}
       />
