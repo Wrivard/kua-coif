@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   getCurrentBarberId,
   getCurrentShop,
+  getCurrentShopId,
   getShopMemberships,
   requireShopMember,
 } from '@/lib/auth/server';
@@ -36,8 +37,16 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   //   - their OWN blocked_time (+ shop-wide blocks where barber_id is null)
   //   - clients they've actually served
   // Owners and managers keep full visibility.
+  // Isolation — resolve the ACTIVE shop (cookie-aware), not memberships[0].
+  // A multi-shop user (owner in A, barber in B) must get shop B's role +
+  // data; and every query below is EXPLICITLY scoped to `shopId` rather than
+  // leaning on is_shop_member RLS, which spans ALL of the user's shops (that
+  // would render a merged cross-shop calendar for multi-shop members).
   const memberships = await getShopMemberships();
-  const viewerRole = memberships[0]?.role ?? 'barber';
+  const activeShopId = await getCurrentShopId();
+  const activeMembership = memberships.find((m) => m.shop_id === activeShopId) ?? memberships[0];
+  const shopId = activeMembership?.shop_id ?? activeShopId;
+  const viewerRole = activeMembership?.role ?? 'barber';
   const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
   const isStrictBarber = viewerRole === 'barber' && Boolean(viewerBarberId);
 
@@ -100,9 +109,10 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     ? sb
         .from('barbers')
         .select('*')
+        .eq('shop_id', shopId)
         .eq('id', viewerBarberId)
         .order('sort_order', { ascending: true })
-    : sb.from('barbers').select('*').order('sort_order', { ascending: true });
+    : sb.from('barbers').select('*').eq('shop_id', shopId).order('sort_order', { ascending: true });
 
   const apptsQuery = (
     isStrictBarber
@@ -118,6 +128,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
             'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
           )
   )
+    .eq('shop_id', shopId)
     .order('start_at', { ascending: true })
     .gte('start_at', dayStart.toISOString())
     .lt('start_at', dayEnd.toISOString());
@@ -132,6 +143,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
           .or(`barber_id.eq.${viewerBarberId},barber_id.is.null`)
       : sb.from('blocked_time').select('id, barber_id, start_at, end_at, reason')
   )
+    .eq('shop_id', shopId)
     .order('start_at', { ascending: true })
     .gte('start_at', dayStart.toISOString())
     .lt('start_at', dayEnd.toISOString());
@@ -147,21 +159,45 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     blockedRes,
   ] = await Promise.all([
     barbersQuery,
-    sb.from('services').select('*').order('sort_order', { ascending: true }),
-    sb.from('service_categories').select('*').order('sort_order', { ascending: true }),
+    sb.from('services').select('*').eq('shop_id', shopId).order('sort_order', { ascending: true }),
+    sb
+      .from('service_categories')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('sort_order', { ascending: true }),
     sb
       .from('clients')
       .select('id, first_name, last_name, email, phone')
+      .eq('shop_id', shopId)
       .order('first_name', { ascending: true })
       .limit(500),
     sb
       .from('shop_hours')
       .select('weekday, enabled, open_time, close_time')
+      .eq('shop_id', shopId)
       .order('weekday', { ascending: true }),
-    sb.from('shop_days_off').select('date').order('date', { ascending: true }),
+    sb
+      .from('shop_days_off')
+      .select('date')
+      .eq('shop_id', shopId)
+      .order('date', { ascending: true }),
     apptsQuery,
     blockedQuery,
   ]);
+
+  // Reliability — a failed load-bearing read must NOT render as an empty-but-
+  // valid calendar (the operator would silently miss real bookings on the
+  // route they watch all day). Throw so the (app)/error.tsx boundary catches
+  // it and Sentry fires. Reference lists (categories/clients) degrade to empty
+  // without throwing — a missing client picker is recoverable; a missing
+  // appointment is not.
+  const loadError =
+    barbersRes.error || apptsRes.error || blockedRes.error || hoursRes.error || daysOffRes.error;
+  if (loadError) {
+    throw new Error(
+      `Calendar load failed: ${(loadError as { message?: string }).message ?? loadError}`,
+    );
+  }
 
   // Phase 2 of parallelism: now that we know which appointments exist today,
   // fetch ONLY their service links. Empty IDs short-circuits to no query at all.
@@ -173,6 +209,9 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
           .select('appointment_id, service_id, price_snapshot')
           .in('appointment_id', todayApptIds)
       : { data: [] as Array<unknown> };
+  if ((apptServicesRes as { error?: unknown }).error) {
+    throw new Error('Calendar load failed: appointment_services read error');
+  }
 
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
     (b) => b.status === 'confirmed',
@@ -268,6 +307,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
               'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
             )
     )
+      .eq('shop_id', shopId)
       .order('start_at', { ascending: true })
       .gte('start_at', weekStart.toISOString())
       .lt('start_at', weekEnd.toISOString());

@@ -196,15 +196,20 @@ export const createAppointment = withAction({
     const dayEnd = shopDayEnd(startAt, timezone);
     const schedule = await fetchScheduleData(ctx.shopId, dayStart, dayEnd);
 
-    const wallStart = new Date(startAt);
+    // Derive the wall-clock inputs the engine needs from the SHOP timezone,
+    // mirroring rescheduleAppointment. The previous UTC arithmetic
+    // (getUTCDay / getUTCHours) produced a wrong weekday + end-time for any
+    // non-UTC tenant — e.g. a 19:00 America/Toronto start became "23:30",
+    // tripping a false OUTSIDE_HOURS rejection of a legitimate evening
+    // appointment, and rolling the weekday over near midnight UTC.
     const verdict = checkAvailability({
       start_at: startAt,
       end_at: endAt,
       barber_id: input.barber_id,
       shop_date: input.date,
-      shop_weekday: (wallStart.getUTCDay() + 7) % 7, // approximation — engine treats hours in shop-local already
+      shop_weekday: Number(formatShopTime(startAt, timezone, 'i')) % 7,
       shop_start_time: input.start_time,
-      shop_end_time: `${String(Math.floor(((wallStart.getUTCHours() * 60 + wallStart.getUTCMinutes() + totalMinutes) % 1440) / 60)).padStart(2, '0')}:${String((wallStart.getUTCMinutes() + totalMinutes) % 60).padStart(2, '0')}`,
+      shop_end_time: formatShopTime(endAt, timezone, 'HH:mm'),
       hours: schedule.hours,
       daysOff: schedule.daysOff,
       existing: schedule.appts,
