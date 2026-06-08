@@ -409,6 +409,24 @@ export function AppointmentsCalendar({
     return m;
   }, [effectiveAppointments]);
 
+  // Precompute each appointment's pixel geometry ONCE per data/timezone/grid
+  // change, instead of running ~3 Intl-backed timezone conversions per block
+  // inside every BarberColumn render (which re-fires on filter toggles, drawer
+  // opens, and the 60s now-tick). Memoized blocks then get stable numeric
+  // props and skip re-render entirely when nothing moved.
+  const apptLayout = useMemo(() => {
+    const m = new Map<string, { top: number; height: number }>();
+    for (const a of effectiveAppointments) {
+      const startM = minutesFromShopMidnight(a.start_at, timezone);
+      const endM = minutesFromShopMidnight(a.end_at, timezone);
+      m.set(a.id, {
+        top: (startM - startMin) * PX_PER_MIN,
+        height: (endM - startM) * PX_PER_MIN,
+      });
+    }
+    return m;
+  }, [effectiveAppointments, timezone, startMin]);
+
   // Phase 34 — Google busy bucketed by barber for O(1) lookup. The page
   // already filtered out barbers with no busy periods; here we just turn
   // the array into a Map.
@@ -873,6 +891,7 @@ export function AppointmentsCalendar({
                     key={barber.id}
                     barber={barber}
                     barberAppts={apptsByBarber.get(barber.id) ?? []}
+                    apptLayout={apptLayout}
                     barberBlocks={blocksByBarber.get(barber.id) ?? []}
                     googleBusy={googleBusyByBarber.get(barber.id) ?? []}
                     timezone={timezone}
@@ -1018,6 +1037,8 @@ type TFn = (key: string) => string;
 type BarberColumnProps = {
   barber: BarberRow;
   barberAppts: CalendarAppointment[];
+  /** Precomputed pixel geometry per appointment id (lifted out of render). */
+  apptLayout: Map<string, { top: number; height: number }>;
   barberBlocks: Array<{
     id: string;
     barber_id: string | null;
@@ -1042,6 +1063,7 @@ type BarberColumnProps = {
 function BarberColumn({
   barber,
   barberAppts,
+  apptLayout,
   barberBlocks,
   googleBusy,
   timezone,
@@ -1188,11 +1210,9 @@ function BarberColumn({
 
         {/* Appointment blocks */}
         {barberAppts.map((a) => {
-          const top = (minutesFromShopMidnight(a.start_at, timezone) - startMin) * PX_PER_MIN;
-          const height =
-            (minutesFromShopMidnight(a.end_at, timezone) -
-              minutesFromShopMidnight(a.start_at, timezone)) *
-            PX_PER_MIN;
+          const layout = apptLayout.get(a.id);
+          if (!layout) return null;
+          const { top, height } = layout;
           return (
             <DraggableAppointmentBlock
               key={a.id}
