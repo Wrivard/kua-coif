@@ -274,7 +274,10 @@ export const createAppointment = withAction({
       // CONFLICT (same code path as a synchronous availability fail).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const e = insertRes.error as any;
-      if (e?.code === '23505') return err('CONFLICT');
+      // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
+      // constraint (20260607120000). Both mean the slot was taken between the
+      // availability check and the write → surface as CONFLICT.
+      if (e?.code === '23505' || e?.code === '23P01') return err('CONFLICT');
       return err('UNEXPECTED');
     }
 
@@ -545,7 +548,10 @@ export const rescheduleAppointment = withAction({
       // Postgres returns 23505. Map to CONFLICT for consistent UX.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const e = updateRes.error as any;
-      if (e?.code === '23505') return err('CONFLICT');
+      // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
+      // constraint (20260607120000). Both mean the slot was taken between the
+      // availability check and the write → surface as CONFLICT.
+      if (e?.code === '23505' || e?.code === '23P01') return err('CONFLICT');
       return err('UNEXPECTED');
     }
 

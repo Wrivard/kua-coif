@@ -11,6 +11,20 @@
  * Sentry DSN is set.
  */
 export async function register() {
+  // Observability guard — a production deploy with NO Sentry DSN silently
+  // reports nothing, so every server error (incl. the calendar's load-error
+  // throw) is invisible. Warn loudly at boot rather than hard-failing, since
+  // Sentry-free environments are legitimate; a CI gate can promote this to an
+  // error for prod builds if desired.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    !process.env.SENTRY_DSN &&
+    !process.env.NEXT_PUBLIC_SENTRY_DSN
+  ) {
+    console.warn(
+      '[observability] No Sentry DSN set in a production build — server errors will not be reported.',
+    );
+  }
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config');
   }
