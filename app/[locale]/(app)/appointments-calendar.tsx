@@ -306,6 +306,9 @@ export function AppointmentsCalendar({
   // Brief "Updated" pill shown for ~1.5s whenever a Realtime event triggers a
   // refresh. Tells the user the view is fresh without being intrusive.
   const [justRefreshed, setJustRefreshed] = useState(false);
+  // Realtime connection health — when the socket drops we'd miss inserts/
+  // cancels, so the grid may be stale. Surface an indicator + poll fallback.
+  const [realtimeStale, setRealtimeStale] = useState(false);
 
   // ── "Now" indicator — only renders if the calendar is displaying today's
   // date. The state holds minutes-from-shop-midnight; we re-derive on a 60s
@@ -533,13 +536,30 @@ export function AppointmentsCalendar({
         { event: '*', schema: 'public', table: 'blocked_time', filter: `shop_id=eq.${shopId}` },
         onChange,
       )
-      .subscribe();
+      .subscribe((status) => {
+        // The grid is only trustworthy while SUBSCRIBED. CHANNEL_ERROR /
+        // TIMED_OUT / CLOSED mean we may now be missing row events → flag
+        // stale so the UI warns + the poll fallback (below) kicks in.
+        if (status === 'SUBSCRIBED') setRealtimeStale(false);
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setRealtimeStale(true);
+        }
+      });
     return () => {
       if (hideTimer) clearTimeout(hideTimer);
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
   }, [barbers, router]);
+
+  // Poll fallback: while the realtime socket is down, refetch every 60s so a
+  // long disconnect can't pin a silently stale grid (the realtime client also
+  // auto-reconnects; this is belt-and-braces against a wedged socket).
+  useEffect(() => {
+    if (!realtimeStale) return;
+    const id = setInterval(() => router.refresh(), 60_000);
+    return () => clearInterval(id);
+  }, [realtimeStale, router]);
 
   // ── Phase 27 — DnD plumbing ───────────────────────────────────────────
   // handleDragEnd owns the optimistic-override state, so it stays in the
@@ -746,6 +766,18 @@ export function AppointmentsCalendar({
             >
               <span className="h-1.5 w-1.5 rounded-full bg-success" />
               {t('liveUpdate')}
+            </span>
+            {/* Realtime socket down — the grid may be missing recent changes.
+                Persistent (not auto-hiding) until the channel re-subscribes. */}
+            <span
+              aria-live="polite"
+              className={cn(
+                'border-warning/30 bg-warning/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
+                realtimeStale ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+              {t('staleData')}
             </span>
           </div>
         }

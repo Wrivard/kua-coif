@@ -383,7 +383,15 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     const results = await Promise.all(
       barbers.map(async (b) => ({
         barberId: b.id,
-        periods: await fetchBarberBusyForDay(b.id, dayStart, dayEnd),
+        // Bound each Google call: one hung/slow connection must NOT wall the
+        // home-route render. After 1.5s we drop that barber's overlay (the
+        // grid is still fully usable — the busy overlay is decorative).
+        periods: await Promise.race([
+          fetchBarberBusyForDay(b.id, dayStart, dayEnd),
+          new Promise<Array<{ start: string; end: string }>>((resolve) =>
+            setTimeout(() => resolve([]), 1500),
+          ),
+        ]),
       })),
     );
     for (const r of results) {

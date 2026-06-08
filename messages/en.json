@@ -205,6 +205,7 @@
       "filterBarbers": "Barbers:",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
+      "staleData": "Reconnecting — may be out of date",
       "googlePersonalBusy": "Personal",
       "viewLabel": "Calendar view",
       "views": {
