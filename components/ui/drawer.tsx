@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ export function Drawer({
   className,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const titleId = useId();
   const tA11y = useTranslations('a11y');
 
   // Native <dialog> + showModal (mirrors components/ui/modal.tsx): focus is
@@ -65,6 +66,7 @@ export function Drawer({
   return (
     <dialog
       ref={dialogRef}
+      aria-labelledby={titleId}
       onClick={(e) => {
         // A click that lands on the dialog box itself (the empty area beside
         // the panel) is a backdrop click → close. Clicks inside the panel are
@@ -86,7 +88,6 @@ export function Drawer({
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        aria-label={typeof title === 'string' ? title : undefined}
         className={cn(
           // Mobile: bottom sheet — full-width, rounded top corners, capped
           // height with the body scrolling internally.
@@ -106,7 +107,9 @@ export function Drawer({
             matching the Modal. border-soft so the divider doesn't over-anchor
             the eye. */}
         <div className="flex items-center justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
-          <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold tracking-tight text-text-primary">
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}

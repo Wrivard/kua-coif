@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
@@ -84,23 +84,41 @@ export function AppointmentFormModal({
   // query falls back to the first 50 of the pre-loaded list.
   const [serverResults, setServerResults] = useState<ClientOption[]>([]);
   const [searching, setSearching] = useState(false);
+  // Tracks the query the user is currently on, so a slower EARLIER response
+  // can't clobber newer results (out-of-order response race — the debounce
+  // only cancels the pending timer, not an in-flight request).
+  const latestQuery = useRef('');
   useEffect(() => {
     const q = search.trim();
     if (q.length < 2) {
+      latestQuery.current = '';
       setServerResults([]);
       setSearching(false);
       return;
     }
+    latestQuery.current = q;
     setSearching(true);
     const id = setTimeout(async () => {
       const result = await searchClients({ query: q });
+      // Drop a response the user has already moved off of.
+      if (latestQuery.current !== q) return;
       if (result.ok) setServerResults(result.data);
       setSearching(false);
     }, 250);
     return () => clearTimeout(id);
   }, [search]);
-  const displayedClients: ClientOption[] =
-    search.trim().length >= 2 ? serverResults : clients.slice(0, 50);
+
+  // The chosen client is tracked as an OBJECT (not just the form's id) so it
+  // stays in the option list even after the search query changes and its row
+  // drops out of the results. Otherwise the <Select> would show one client
+  // while the form still submits another (silent wrong-client booking).
+  // picked and the form's client_id are always updated together below.
+  const [picked, setPicked] = useState<ClientOption | null>(clients[0] ?? null);
+  const displayedClients = useMemo<ClientOption[]>(() => {
+    const base = search.trim().length >= 2 ? serverResults : clients.slice(0, 50);
+    if (!picked || base.some((c) => c.id === picked.id)) return base;
+    return [picked, ...base];
+  }, [search, serverResults, clients, picked]);
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -157,7 +175,16 @@ export function AppointmentFormModal({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Select id="client_id" className="mt-2" {...register('client_id')}>
+          <Select
+            id="client_id"
+            className="mt-2"
+            value={picked?.id ?? ''}
+            onChange={(e) => {
+              const c = displayedClients.find((x) => x.id === e.target.value) ?? null;
+              setPicked(c);
+              setValue('client_id', e.target.value, { shouldValidate: true });
+            }}
+          >
             {displayedClients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.first_name}
@@ -168,7 +195,7 @@ export function AppointmentFormModal({
           </Select>
           {searching ? (
             <p className="mt-1 text-[10px] text-text-muted">{t('form.searching')}</p>
-          ) : search.trim().length >= 2 && displayedClients.length === 0 ? (
+          ) : search.trim().length >= 2 && serverResults.length === 0 ? (
             <p className="mt-1 text-[10px] text-text-muted">{t('form.noClients')}</p>
           ) : null}
         </div>

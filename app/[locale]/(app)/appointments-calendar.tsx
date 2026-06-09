@@ -513,9 +513,16 @@ export function AppointmentsCalendar({
   // publication — added in migration 20260525114840_realtime_calendar.sql.
   // RLS still applies: the browser's anon JWT must satisfy the same
   // `is_shop_member()` policy as a normal SELECT.
+  //
+  // Audit #13 — key this effect on the shop-id PRIMITIVE, not the `barbers`
+  // array. The Server Component rebuilds `barbers` (a fresh array reference)
+  // on every router.refresh(), so depending on `barbers` re-subscribed the
+  // channel on every refresh — connect/disconnect churn plus a sub-second
+  // window where row events could be missed. The shop id is stable across
+  // refreshes, so the channel now stays up.
+  const realtimeShopId = barbers[0]?.shop_id;
   useEffect(() => {
-    const shopId = barbers[0]?.shop_id;
-    if (!shopId) return;
+    if (!realtimeShopId) return;
     const supabase = createSupabaseBrowserClient();
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
     // Loop 27 self-review — `postgres_changes` broadcasts one event
@@ -580,17 +587,27 @@ export function AppointmentsCalendar({
       if (relevant) scheduleRefresh();
     };
     const channel = supabase
-      .channel(`calendar:${shopId}`)
+      .channel(`calendar:${realtimeShopId}`)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'appointments', filter: `shop_id=eq.${shopId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `shop_id=eq.${realtimeShopId}`,
+        },
         onChange,
       )
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'blocked_time', filter: `shop_id=eq.${shopId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_time',
+          filter: `shop_id=eq.${realtimeShopId}`,
+        },
         onChange,
       )
       .subscribe((status) => {
@@ -607,7 +624,7 @@ export function AppointmentsCalendar({
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [barbers, router, timezone]);
+  }, [realtimeShopId, router, timezone]);
 
   // Poll fallback: while the realtime socket is down, refetch every 60s so a
   // long disconnect can't pin a silently stale grid (the realtime client also
