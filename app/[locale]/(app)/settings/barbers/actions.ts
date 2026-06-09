@@ -1,59 +1,48 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
-import { ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { err, ok } from '@/lib/server-actions/result';
+import { logDurableAudit } from '@/lib/audit-log';
 import { barberSettingsBatchSchema } from './schema';
 
 const PATH = '/settings/barbers';
 
 /**
- * Save the whole barber-settings grid in one shot. Each row upserts on
- * either (shop_id, scope='shop') or (shop_id, barber_id, scope='barber')
- * — the partial unique indexes from Phase 2 enforce uniqueness.
+ * Save the whole barber-settings grid (the shop-default row + N per-barber
+ * rows) in ONE transaction via the `save_barber_settings` RPC.
  *
- * The DB has TWO unique indexes (one for the shop row, one per-barber),
- * so a single onConflict isn't enough. We split the rows by scope.
+ * Barbers audit B1 — the previous hand-rolled update-then-insert idiom was
+ * broken: `.update()` without `{count:'exact'}` returns count=null so the
+ * insert always fired (hitting the partial unique index and erroring silently,
+ * unchecked), and the N+1 writes were non-atomic → silent data loss + green
+ * toast on partial failure. The RPC uses the real partial unique indexes as
+ * ON CONFLICT arbiters, is atomic, and validates per-barber tenancy (B11).
+ *
+ * Service-role because the function is SECURITY DEFINER + granted to
+ * service_role only (never browser-callable). withAction already gated this to
+ * manager+ in the active shop, and the RPC receives the validated ctx.shopId.
  */
 export const saveBarberSettings = withAction({
   schema: barberSettingsBatchSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const admin = createSupabaseServiceRoleClient() as any;
+    const { error } = await admin.rpc('save_barber_settings', {
+      p_shop: ctx.shopId,
+      p_rows: input.rows,
+    });
+    // A real failure now surfaces (no more swallowed insert errors / partial
+    // saves reported as success).
+    if (error) return err('UNEXPECTED');
 
-    const shopRow = input.rows.find((r) => r.scope === 'shop');
-    const barberRows = input.rows.filter((r) => r.scope === 'barber');
-
-    // Shop default row — there's a UNIQUE partial index `barber_settings_shop_unique`.
-    if (shopRow) {
-      // Try update first; if no row, insert.
-      const upd = await sb
-        .from('barber_settings')
-        .update({ ...shopRow, shop_id: ctx.shopId })
-        .eq('shop_id', ctx.shopId)
-        .eq('scope', 'shop');
-      if (upd.error || (upd.count ?? 0) === 0) {
-        await sb.from('barber_settings').insert({ shop_id: ctx.shopId, ...shopRow });
-      }
-    }
-
-    // Per-barber rows — UNIQUE partial index on (barber_id) where scope='barber'.
-    for (const r of barberRows) {
-      const upd = await sb
-        .from('barber_settings')
-        .update({ ...r, shop_id: ctx.shopId })
-        .eq('shop_id', ctx.shopId)
-        .eq('scope', 'barber')
-        .eq('barber_id', r.barber_id);
-      if (upd.error || (upd.count ?? 0) === 0) {
-        await sb.from('barber_settings').insert({ shop_id: ctx.shopId, ...r });
-      }
-    }
-
-    await logAuditAction({
+    // Durable audit (B4) — the settings table has no trigger and the previous
+    // logAuditAction was RLS-dropped, so barber-settings changes had NO trail.
+    // logDurableAudit (service-role) captures the manager's identity, which a
+    // table trigger couldn't (the RPC runs under service-role, no auth.uid()).
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
