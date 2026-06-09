@@ -372,7 +372,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       supabase
         .from('barber_settings')
         .select(
-          'scope, barber_id, client_booking_interval_min, days_book_in_advance, mins_book_before_appt',
+          'scope, barber_id, allow_multiple_services, client_booking_interval_min, days_book_in_advance, mins_book_before_appt',
         )
         .eq('shop_id', shop.id),
     ]);
@@ -413,6 +413,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       (settingsRes.data as Array<{
         scope: 'shop' | 'barber';
         barber_id: string | null;
+        allow_multiple_services: boolean;
         client_booking_interval_min: number;
         days_book_in_advance: number;
         mins_book_before_appt: number;
@@ -422,6 +423,13 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     );
     const shopDefault = settingsRows.find((r) => r.scope === 'shop');
     const settings = barberOverride ?? shopDefault ?? null;
+
+    // B5 — enforce allow_multiple_services (the setting was persisted but never
+    // consumed). When the barber/shop disallows multi-service bookings, reject
+    // a public booking that selected more than one service.
+    if (settings && !settings.allow_multiple_services && input.service_ids.length > 1) {
+      return err('INVALID_INPUT');
+    }
 
     const shopWeekday = new Date(`${input.date}T00:00:00`).getDay();
     const verdict = checkAvailability({
