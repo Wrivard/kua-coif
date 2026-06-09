@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
@@ -10,6 +10,7 @@ import {
   Merge,
   Pencil,
   Plus,
+  Search,
   ShieldOff,
   Trash2,
   UserX,
@@ -33,6 +34,7 @@ import {
   exportClient,
   mergeClients,
   revokeMeAccess,
+  searchClientsList,
 } from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: ClientRow };
@@ -78,6 +80,40 @@ export function ClientsClient({
   );
   const [isPending, startTransition] = useTransition();
 
+  // W2 — server-side roster search (managers/owners only). When a manager
+  // types ≥2 chars, matches come from the WHOLE active shop — including
+  // clients past the page's in-memory CLIENT_FETCH_CAP — instead of the
+  // loaded set. Barbers keep pure client-side search on their served set
+  // (which is complete in practice), so server search never bypasses their
+  // served-clients scope.
+  const [serverResults, setServerResults] = useState<ClientRow[] | null>(null);
+  const [searchPending, setSearchPending] = useState(false);
+  const isServerSearch = canManage && search.trim().length >= 2;
+
+  useEffect(() => {
+    if (!canManage) return; // barbers: client-side only
+    const q = search.trim();
+    if (q.length < 2) {
+      setServerResults(null);
+      setSearchPending(false);
+      return;
+    }
+    // Debounce keystrokes; `active` cancels a stale response so a slow
+    // earlier query can't overwrite a newer one.
+    let active = true;
+    setSearchPending(true);
+    const handle = setTimeout(async () => {
+      const res = await searchClientsList({ query: q });
+      if (!active) return;
+      setServerResults(res.ok ? res.data : []);
+      setSearchPending(false);
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(handle);
+    };
+  }, [search, canManage]);
+
   // Detect duplicates: rows that share the same normalised phone OR email.
   const duplicateIds = useMemo(() => {
     const byPhone = new Map<string, string[]>();
@@ -109,6 +145,11 @@ export function ClientsClient({
   }, [clients]);
 
   const filtered = useMemo(() => {
+    // Server-search mode (manager + ≥2 chars): the server already matched the
+    // query across the whole shop, so show those rows directly. The A–Z and
+    // Locate-Duplicates toggles are a "browse the loaded set" concept and
+    // don't compose with a global lookup.
+    if (isServerSearch) return serverResults ?? [];
     const q = search.trim().toLowerCase();
     return clients.filter((c) => {
       if (showDupesOnly && !duplicateIds.has(c.id)) return false;
@@ -122,7 +163,7 @@ export function ClientsClient({
       }
       return true;
     });
-  }, [clients, search, letterFilter, showDupesOnly, duplicateIds]);
+  }, [isServerSearch, serverResults, clients, search, letterFilter, showDupesOnly, duplicateIds]);
 
   // Letters that actually have a client, for dimming empty letters in the A-Z bar.
   const lettersWithClients = useMemo(
@@ -331,7 +372,10 @@ export function ClientsClient({
         center={
           <SearchBar
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder={t('searchPlaceholder')}
           />
         }
@@ -361,53 +405,67 @@ export function ClientsClient({
       />
 
       <div className="space-y-6 p-6">
-        <div
-          className="flex flex-wrap items-center gap-0.5 rounded-lg bg-bg-surface p-1 shadow-border"
-          data-reveal
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setLetterFilter(null);
-              setPage(1);
-            }}
-            aria-pressed={letterFilter === null}
-            className={cn(
-              'rounded-md px-2.5 py-1 font-mono text-xs font-semibold uppercase tracking-wide transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
-              letterFilter === null
-                ? 'bg-accent text-accent-fg shadow-accent-glow'
-                : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
-            )}
+        {isServerSearch ? (
+          <div
+            className="flex items-center gap-2 rounded-lg bg-bg-surface px-3 py-2.5 text-xs text-text-secondary shadow-border"
+            data-reveal
           >
-            {t('all')}
-          </button>
-          {ALPHABET.map((letter) => {
-            const active = letterFilter === letter;
-            const hasClients = lettersWithClients.has(letter);
-            return (
-              <button
-                key={letter}
-                type="button"
-                disabled={!hasClients}
-                onClick={() => {
-                  setLetterFilter(active ? null : letter);
-                  setPage(1);
-                }}
-                aria-pressed={active}
-                className={cn(
-                  'h-7 w-7 rounded-md font-mono text-xs font-semibold transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
-                  active
-                    ? 'bg-accent text-accent-fg shadow-accent-glow'
-                    : hasClients
-                      ? 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
-                      : 'cursor-not-allowed text-text-disabled',
-                )}
-              >
-                {letter}
-              </button>
-            );
-          })}
-        </div>
+            <Search className="h-3.5 w-3.5 text-text-muted" aria-hidden />
+            <span>
+              {searchPending
+                ? t('search.searching')
+                : t('search.scopeAll', { count: filtered.length })}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="flex flex-wrap items-center gap-0.5 rounded-lg bg-bg-surface p-1 shadow-border"
+            data-reveal
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setLetterFilter(null);
+                setPage(1);
+              }}
+              aria-pressed={letterFilter === null}
+              className={cn(
+                'rounded-md px-2.5 py-1 font-mono text-xs font-semibold uppercase tracking-wide transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
+                letterFilter === null
+                  ? 'bg-accent text-accent-fg shadow-accent-glow'
+                  : 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary',
+              )}
+            >
+              {t('all')}
+            </button>
+            {ALPHABET.map((letter) => {
+              const active = letterFilter === letter;
+              const hasClients = lettersWithClients.has(letter);
+              return (
+                <button
+                  key={letter}
+                  type="button"
+                  disabled={!hasClients}
+                  onClick={() => {
+                    setLetterFilter(active ? null : letter);
+                    setPage(1);
+                  }}
+                  aria-pressed={active}
+                  className={cn(
+                    'h-7 w-7 rounded-md font-mono text-xs font-semibold transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95',
+                    active
+                      ? 'bg-accent text-accent-fg shadow-accent-glow'
+                      : hasClients
+                        ? 'text-text-secondary hover:bg-bg-surface-2 hover:text-text-primary'
+                        : 'cursor-not-allowed text-text-disabled',
+                  )}
+                >
+                  {letter}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <DataTable
           columns={columns}

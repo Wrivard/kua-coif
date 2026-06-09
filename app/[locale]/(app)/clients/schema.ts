@@ -75,3 +75,15 @@ export const mergeClientsSchema = z.object({
  * their token version (every outstanding /me token then fails to verify).
  */
 export const revokeMeAccessSchema = z.object({ id: z.string().uuid() });
+
+/**
+ * Clients audit W2 — server-side roster search for the clients LIST page.
+ * Lets a manager find ANY client in the active shop, including those past
+ * the in-memory CLIENT_FETCH_CAP that the page loads. Distinct from the
+ * appointment-picker `searchClients` (barber-min, lighter shape, not
+ * active-shop-strict): this one is manager-min and returns the full
+ * ClientRow shape so results drop straight into the existing table.
+ */
+export const searchClientsListSchema = z.object({
+  query: z.string().trim().min(2).max(100),
+});

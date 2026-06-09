@@ -346,6 +346,10 @@
       "locateDuplicates": "Locate duplicates",
       "duplicate": "Duplicate",
       "duplicateHint": "Phone or email shared with another client.",
+      "search": {
+        "searching": "Searching all clients…",
+        "scopeAll": "{count} matches across all clients"
+      },
       "all": "All",
       "emptyTitle": "No clients yet",
       "emptyHint": "Add your first client.",

@@ -7,6 +7,7 @@ import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
+import type { ClientRow } from '@/db/rows';
 import {
   anonymizeClientSchema,
   clientSchema,
@@ -14,6 +15,7 @@ import {
   exportClientSchema,
   mergeClientsSchema,
   revokeMeAccessSchema,
+  searchClientsListSchema,
   updateClientSchema,
 } from './schema';
 
@@ -512,5 +514,55 @@ export const revokeMeAccess = withAction({
     });
     revalidatePath(CLIENTS_PATH);
     return ok({ id: input.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// searchClientsList (Clients audit W2) — find any client past the page cap.
+//
+// The clients page loads up to CLIENT_FETCH_CAP rows and filters them in the
+// browser. For a shop whose roster exceeds the cap, a client past it would be
+// invisible to A–Z browsing; this lets a manager find them by name / email /
+// phone across the WHOLE active shop. Manager+ ONLY — barbers keep the
+// served-clients scope of the page, and a server search would bypass it (the
+// exact CSV-route leak the audit flagged). Returns the full ClientRow shape so
+// results drop straight into the existing table / edit modal / row actions.
+// ---------------------------------------------------------------------------
+export const searchClientsList = withAction<typeof searchClientsListSchema, ClientRow[]>({
+  schema: searchClientsListSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // Throttle: an un-indexable 4-column ILIKE scan returning client PII,
+    // fired per debounced keystroke — cap per user to block sustained
+    // enumeration while staying generous for real typing (~1/s sustained).
+    const rl = await checkRateLimit(`clients-list-search:${ctx.userId}`, {
+      max: 60,
+      windowMs: 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
+
+    // Strip characters that would break the PostgREST or() grammar (commas /
+    // parens / backslash) or act as LIKE wildcards. The shop scope is ANDed
+    // before the .or regardless, so this only guards malformed queries —
+    // never a cross-tenant leak.
+    const safe = input.query.replace(/[%,()\\*]/g, ' ').trim();
+    if (safe.length < 2) return ok([]);
+    const pattern = `%${safe}%`;
+
+    // User-session client → RLS stays active (defense in depth) on top of the
+    // explicit shop scope, same as the page's own load.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    const res = await sb
+      .from('clients')
+      .select('id, first_name, last_name, email, phone, date_of_birth, notes')
+      .eq('shop_id', ctx.shopId)
+      .or(
+        `first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`,
+      )
+      .order('first_name', { ascending: true })
+      .limit(50);
+    if (res.error) return err('UNEXPECTED');
+    return ok((res.data as ClientRow[] | null) ?? []);
   },
 });

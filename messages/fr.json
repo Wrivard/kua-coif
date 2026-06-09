@@ -346,6 +346,10 @@
       "locateDuplicates": "Localiser les doublons",
       "duplicate": "Doublon",
       "duplicateHint": "Téléphone ou courriel partagé avec un autre client.",
+      "search": {
+        "searching": "Recherche dans tous les clients…",
+        "scopeAll": "{count} résultats dans tous les clients"
+      },
       "all": "Tous",
       "emptyTitle": "Aucun client",
       "emptyHint": "Ajoute ton premier client.",
