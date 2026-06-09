@@ -11,6 +11,7 @@ import {
   clientSchema,
   deleteClientSchema,
   exportClientSchema,
+  mergeClientsSchema,
   updateClientSchema,
 } from './schema';
 
@@ -38,6 +39,37 @@ export const createClient = withAction({
   schema: clientSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
+    // Dedup-on-create: surface a CONFLICT instead of silently inserting a
+    // duplicate (same normalized phone OR email in this shop, excluding
+    // anonymized rows). The merge flow resolves any that still slip through.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dupDb = createSupabaseServiceRoleClient() as any;
+    const phoneNorm = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : '';
+    if (phoneNorm.length >= 7) {
+      const dup = await dupDb
+        .from('clients')
+        .select('id')
+        .eq('shop_id', ctx.shopId)
+        .eq('phone_normalized', phoneNorm)
+        .is('anonymized_at', null)
+        .limit(1);
+      if (((dup.data as Array<{ id: string }> | null) ?? []).length > 0) {
+        return err('CONFLICT', { reason: 'duplicate_phone' });
+      }
+    }
+    if (input.email) {
+      const dup = await dupDb
+        .from('clients')
+        .select('id')
+        .eq('shop_id', ctx.shopId)
+        .eq('email', input.email)
+        .is('anonymized_at', null)
+        .limit(1);
+      if (((dup.data as Array<{ id: string }> | null) ?? []).length > 0) {
+        return err('CONFLICT', { reason: 'duplicate_email' });
+      }
+    }
+
     const { data, error } = await db()
       .from('clients')
       .insert({ shop_id: ctx.shopId, ...input })
@@ -300,5 +332,41 @@ export const anonymizeClient = withAction({
     });
     revalidatePath(CLIENTS_PATH);
     return ok({ id: input.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// mergeClients (Clients audit W4) — fold a duplicate into the kept client.
+//
+// Delegates to the merge_clients(p_keep, p_merge, p_shop) Postgres function,
+// which re-points appointments / reviews / marketing-sends, combines loyalty,
+// backfills missing contact fields, and deletes the merged row — all in one
+// transaction. Manager+ only; the function also re-verifies both clients
+// belong to ctx.shopId, so a crafted id can't merge across shops.
+// ---------------------------------------------------------------------------
+export const mergeClients = withAction({
+  schema: mergeClientsSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    if (input.keep_id === input.merge_id) return err('INVALID_INPUT');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    const { error } = await admin.rpc('merge_clients', {
+      p_keep: input.keep_id,
+      p_merge: input.merge_id,
+      p_shop: ctx.shopId,
+    });
+    if (error) return err('UNEXPECTED');
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'clients',
+      entityId: input.keep_id,
+      diff: { merged_from: input.merge_id },
+    });
+    revalidatePath(CLIENTS_PATH);
+    return ok({ id: input.keep_id });
   },
 });

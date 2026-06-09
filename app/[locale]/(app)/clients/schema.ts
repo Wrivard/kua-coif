@@ -58,3 +58,14 @@ export const deleteClientSchema = z.object({ id: z.string().uuid() });
 /** Phase 40 — Loi 25 export + anonymize. Both take just the client id. */
 export const exportClientSchema = z.object({ id: z.string().uuid() });
 export const anonymizeClientSchema = z.object({ id: z.string().uuid() });
+
+/**
+ * Clients audit W4 — merge a duplicate. `merge_id` is folded into `keep_id`
+ * (its appointments/reviews/marketing-sends re-point to keep, loyalty
+ * balances combine, then the merge row is deleted) via the merge_clients
+ * Postgres function.
+ */
+export const mergeClientsSchema = z.object({
+  keep_id: z.string().uuid(),
+  merge_id: z.string().uuid(),
+});

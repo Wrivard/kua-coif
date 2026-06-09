@@ -53,7 +53,10 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     const byEmail = new Map<string, string[]>();
     for (const c of clients) {
       if (c.phone) {
-        const key = c.phone.replace(/\D/g, '');
+        // Canonical NANP key = last 10 digits, matching the DB's
+        // phone_normalized column, so '+1 514…' and bare-10-digit variants
+        // of the same number are flagged as the same duplicate.
+        const key = c.phone.replace(/\D/g, '').slice(-10);
         if (key.length > 0) {
           const list = byPhone.get(key) ?? [];
           list.push(c.id);

@@ -443,7 +443,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // auto-apply any accumulated reward credit as a deduction on the
     // appointment total. New clients always have 0; existing clients
     // get their balance applied (up to the post-promo running total).
-    const phoneKey = input.phone.replace(/\D/g, '');
+    // Canonical NANP key = last 10 digits, matched EXACTLY against the
+    // generated phone_normalized column. The old ilike '%digits%' substring
+    // match manufactured duplicates ('+1 514…' vs bare digits never matched)
+    // and could resolve to the WRONG client (cross-client loyalty/PII leak).
+    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
     let clientId: string | null = null;
     let clientLoyaltyBalanceCents = 0;
     let clientIsNew = false;
@@ -455,7 +459,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         // we apply them.
         .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
         .eq('shop_id', shop.id)
-        .ilike('phone', `%${phoneKey}%`)
+        .eq('phone_normalized', phoneKey)
         .limit(1);
       const existingClient =
         ((clientLookup.data as Array<{
@@ -1019,7 +1023,7 @@ export async function lookupLoyaltyByPhone(
     const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
     if (!shopId) return err('NOT_FOUND');
 
-    const phoneKey = input.phone.replace(/\D/g, '');
+    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
     if (phoneKey.length < 7) return ok({ balanceCents: 0 });
 
     const clientRes = await supabase
@@ -1030,7 +1034,7 @@ export async function lookupLoyaltyByPhone(
       // next time they revisit the booking page.
       .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
       .eq('shop_id', shopId)
-      .ilike('phone', `%${phoneKey}%`)
+      .eq('phone_normalized', phoneKey)
       .limit(1);
     const row =
       ((clientRes.data as Array<{
@@ -1297,7 +1301,7 @@ export async function createBookingPaymentIntent(
             .from('clients')
             .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
             .eq('shop_id', shop.id)
-            .ilike('phone', `%${phoneKey}%`)
+            .eq('phone_normalized', phoneKey)
             .limit(1);
           const row =
             ((clientRes.data as Array<{
