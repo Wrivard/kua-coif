@@ -44,7 +44,8 @@ export type Database = {
       appointments: {
         Row: {
           barber_id: string;
-          client_id: string;
+          client_id: string | null;
+          client_name_snapshot: string | null;
           created_at: string;
           deposit_amount_cents: number;
           end_at: string;
@@ -53,16 +54,19 @@ export type Database = {
           notes: string | null;
           payment_intent_id: string | null;
           payment_status: Database['public']['Enums']['appointment_payment_status'];
+          quickbooks_sales_receipt_id: string | null;
           shop_id: string;
           source: Database['public']['Enums']['appointment_source'];
           start_at: string;
           status: Database['public']['Enums']['appointment_status'];
+          tip_amount_cents: number;
           total_amount: number;
           updated_at: string;
         };
         Insert: {
           barber_id: string;
-          client_id: string;
+          client_id?: string | null;
+          client_name_snapshot?: string | null;
           created_at?: string;
           deposit_amount_cents?: number;
           end_at: string;
@@ -71,16 +75,19 @@ export type Database = {
           notes?: string | null;
           payment_intent_id?: string | null;
           payment_status?: Database['public']['Enums']['appointment_payment_status'];
+          quickbooks_sales_receipt_id?: string | null;
           shop_id: string;
           source?: Database['public']['Enums']['appointment_source'];
           start_at: string;
           status?: Database['public']['Enums']['appointment_status'];
+          tip_amount_cents?: number;
           total_amount?: number;
           updated_at?: string;
         };
         Update: {
           barber_id?: string;
-          client_id?: string;
+          client_id?: string | null;
+          client_name_snapshot?: string | null;
           created_at?: string;
           deposit_amount_cents?: number;
           end_at?: string;
@@ -89,10 +96,12 @@ export type Database = {
           notes?: string | null;
           payment_intent_id?: string | null;
           payment_status?: Database['public']['Enums']['appointment_payment_status'];
+          quickbooks_sales_receipt_id?: string | null;
           shop_id?: string;
           source?: Database['public']['Enums']['appointment_source'];
           start_at?: string;
           status?: Database['public']['Enums']['appointment_status'];
+          tip_amount_cents?: number;
           total_amount?: number;
           updated_at?: string;
         };
@@ -166,6 +175,10 @@ export type Database = {
           shop_id: string;
           sync_status: string;
           updated_at: string;
+          webhook_channel_id: string | null;
+          webhook_expires_at: string | null;
+          webhook_resource_id: string | null;
+          webhook_token: string | null;
         };
         Insert: {
           barber_id: string;
@@ -179,6 +192,10 @@ export type Database = {
           shop_id: string;
           sync_status?: string;
           updated_at?: string;
+          webhook_channel_id?: string | null;
+          webhook_expires_at?: string | null;
+          webhook_resource_id?: string | null;
+          webhook_token?: string | null;
         };
         Update: {
           barber_id?: string;
@@ -192,6 +209,10 @@ export type Database = {
           shop_id?: string;
           sync_status?: string;
           updated_at?: string;
+          webhook_channel_id?: string | null;
+          webhook_expires_at?: string | null;
+          webhook_resource_id?: string | null;
+          webhook_token?: string | null;
         };
         Relationships: [
           {
@@ -399,37 +420,109 @@ export type Database = {
           },
         ];
       };
+      client_marketing_sends: {
+        Row: {
+          channel: string;
+          client_id: string;
+          id: string;
+          kind: string;
+          provider_message_id: string | null;
+          recurrence_key: string | null;
+          sent_at: string;
+          shop_id: string;
+          status: string | null;
+          via: string;
+        };
+        Insert: {
+          channel: string;
+          client_id: string;
+          id?: string;
+          kind: string;
+          provider_message_id?: string | null;
+          recurrence_key?: string | null;
+          sent_at?: string;
+          shop_id: string;
+          status?: string | null;
+          via: string;
+        };
+        Update: {
+          channel?: string;
+          client_id?: string;
+          id?: string;
+          kind?: string;
+          provider_message_id?: string | null;
+          recurrence_key?: string | null;
+          sent_at?: string;
+          shop_id?: string;
+          status?: string | null;
+          via?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'client_marketing_sends_client_id_fkey';
+            columns: ['client_id'];
+            isOneToOne: false;
+            referencedRelation: 'clients';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'client_marketing_sends_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       clients: {
         Row: {
+          anonymized_at: string | null;
           created_at: string;
+          date_of_birth: string | null;
           email: string | null;
           first_name: string;
           id: string;
           last_name: string | null;
+          loyalty_balance_cents: number;
+          loyalty_balance_expires_at: string | null;
+          loyalty_counter: number;
           notes: string | null;
           phone: string | null;
+          quickbooks_customer_id: string | null;
           shop_id: string;
           updated_at: string;
         };
         Insert: {
+          anonymized_at?: string | null;
           created_at?: string;
+          date_of_birth?: string | null;
           email?: string | null;
           first_name: string;
           id?: string;
           last_name?: string | null;
+          loyalty_balance_cents?: number;
+          loyalty_balance_expires_at?: string | null;
+          loyalty_counter?: number;
           notes?: string | null;
           phone?: string | null;
+          quickbooks_customer_id?: string | null;
           shop_id: string;
           updated_at?: string;
         };
         Update: {
+          anonymized_at?: string | null;
           created_at?: string;
+          date_of_birth?: string | null;
           email?: string | null;
           first_name?: string;
           id?: string;
           last_name?: string | null;
+          loyalty_balance_cents?: number;
+          loyalty_balance_expires_at?: string | null;
+          loyalty_counter?: number;
           notes?: string | null;
           phone?: string | null;
+          quickbooks_customer_id?: string | null;
           shop_id?: string;
           updated_at?: string;
         };
@@ -552,6 +645,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'discounts_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      disputes: {
+        Row: {
+          amount_cents: number;
+          appointment_id: string | null;
+          created_at: string;
+          currency: string;
+          evidence_due_by: string | null;
+          id: string;
+          reason: string;
+          shop_id: string;
+          status: string;
+          stripe_charge_id: string;
+          stripe_dispute_id: string;
+          stripe_payment_intent_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount_cents: number;
+          appointment_id?: string | null;
+          created_at?: string;
+          currency?: string;
+          evidence_due_by?: string | null;
+          id?: string;
+          reason: string;
+          shop_id: string;
+          status: string;
+          stripe_charge_id: string;
+          stripe_dispute_id: string;
+          stripe_payment_intent_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount_cents?: number;
+          appointment_id?: string | null;
+          created_at?: string;
+          currency?: string;
+          evidence_due_by?: string | null;
+          id?: string;
+          reason?: string;
+          shop_id?: string;
+          status?: string;
+          stripe_charge_id?: string;
+          stripe_dispute_id?: string;
+          stripe_payment_intent_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'disputes_appointment_id_fkey';
+            columns: ['appointment_id'];
+            isOneToOne: false;
+            referencedRelation: 'appointments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'disputes_shop_id_fkey';
             columns: ['shop_id'];
             isOneToOne: false;
             referencedRelation: 'shops';
@@ -694,23 +850,32 @@ export type Database = {
       notification_sends: {
         Row: {
           appointment_id: string;
+          channel: string;
           id: string;
           kind: string;
+          provider_message_id: string | null;
           sent_at: string;
+          status: string | null;
           via: string | null;
         };
         Insert: {
           appointment_id: string;
+          channel?: string;
           id?: string;
           kind: string;
+          provider_message_id?: string | null;
           sent_at?: string;
+          status?: string | null;
           via?: string | null;
         };
         Update: {
           appointment_id?: string;
+          channel?: string;
           id?: string;
           kind?: string;
+          provider_message_id?: string | null;
           sent_at?: string;
+          status?: string | null;
           via?: string | null;
         };
         Relationships: [
@@ -772,6 +937,70 @@ export type Database = {
             columns: ['shop_id'];
             isOneToOne: true;
             referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      platform_config: {
+        Row: {
+          app_fee_bps: number;
+          id: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          app_fee_bps?: number;
+          id?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          app_fee_bps?: number;
+          id?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'platform_config_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      platform_config_history: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          id: string;
+          new_app_fee_bps: number;
+          note: string | null;
+          old_app_fee_bps: number;
+        };
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          id?: string;
+          new_app_fee_bps: number;
+          note?: string | null;
+          old_app_fee_bps: number;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          id?: string;
+          new_app_fee_bps?: number;
+          note?: string | null;
+          old_app_fee_bps?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'platform_config_history_changed_by_fkey';
+            columns: ['changed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -1013,6 +1242,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'promo_codes_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reviews: {
+        Row: {
+          appointment_id: string | null;
+          barber_id: string | null;
+          client_id: string | null;
+          client_name: string | null;
+          comment: string | null;
+          created_at: string;
+          id: string;
+          published_at: string | null;
+          rating: number;
+          shop_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          appointment_id?: string | null;
+          barber_id?: string | null;
+          client_id?: string | null;
+          client_name?: string | null;
+          comment?: string | null;
+          created_at?: string;
+          id?: string;
+          published_at?: string | null;
+          rating: number;
+          shop_id: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          appointment_id?: string | null;
+          barber_id?: string | null;
+          client_id?: string | null;
+          client_name?: string | null;
+          comment?: string | null;
+          created_at?: string;
+          id?: string;
+          published_at?: string | null;
+          rating?: number;
+          shop_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reviews_appointment_id_fkey';
+            columns: ['appointment_id'];
+            isOneToOne: false;
+            referencedRelation: 'appointments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reviews_barber_id_fkey';
+            columns: ['barber_id'];
+            isOneToOne: false;
+            referencedRelation: 'barbers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reviews_client_id_fkey';
+            columns: ['client_id'];
+            isOneToOne: false;
+            referencedRelation: 'clients';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reviews_shop_id_fkey';
             columns: ['shop_id'];
             isOneToOne: false;
             referencedRelation: 'shops';
@@ -1276,6 +1579,8 @@ export type Database = {
           default_language: string;
           description: string | null;
           email: string | null;
+          email_accent_color: string | null;
+          email_logo_url: string | null;
           gross_up_fees: boolean;
           id: string;
           industry: Database['public']['Enums']['industry_kind'];
@@ -1283,6 +1588,8 @@ export type Database = {
           inventory_alert_email: string | null;
           inventory_alert_phone: string | null;
           logo_url: string | null;
+          marketing_banner_enabled: boolean;
+          marketing_banner_text: string | null;
           municipality: string | null;
           name: string;
           notification_from_email: string | null;
@@ -1291,19 +1598,28 @@ export type Database = {
           notification_smtp_password_enc: string | null;
           notification_smtp_port: number | null;
           notification_smtp_user: string | null;
+          payment_mode: string;
           payout_discount_mode: Database['public']['Enums']['payout_discount_mode'];
           phone: string | null;
           postal_code: string | null;
           province: string | null;
+          public_review_url: string | null;
           quickbooks_connect_status: Database['public']['Enums']['quickbooks_connect_status'];
+          quickbooks_default_customer_id: string | null;
+          quickbooks_last_refreshed_at: string | null;
           quickbooks_realm_id: string | null;
           quickbooks_refresh_token_enc: string | null;
+          quickbooks_refresh_token_expires_at: string | null;
+          slack_webhook_url: string | null;
           street: string | null;
           street2: string | null;
           stripe_account_id: string | null;
           stripe_connect_status: Database['public']['Enums']['stripe_connect_status'];
           supported_languages: string[];
           timezone: string;
+          twilio_account_sid: string | null;
+          twilio_auth_token_enc: string | null;
+          twilio_from_number: string | null;
           updated_at: string;
           use_prod_price_in_tips: boolean;
           use_taxes_in_tips: boolean;
@@ -1323,6 +1639,8 @@ export type Database = {
           default_language?: string;
           description?: string | null;
           email?: string | null;
+          email_accent_color?: string | null;
+          email_logo_url?: string | null;
           gross_up_fees?: boolean;
           id?: string;
           industry?: Database['public']['Enums']['industry_kind'];
@@ -1330,6 +1648,8 @@ export type Database = {
           inventory_alert_email?: string | null;
           inventory_alert_phone?: string | null;
           logo_url?: string | null;
+          marketing_banner_enabled?: boolean;
+          marketing_banner_text?: string | null;
           municipality?: string | null;
           name: string;
           notification_from_email?: string | null;
@@ -1338,19 +1658,28 @@ export type Database = {
           notification_smtp_password_enc?: string | null;
           notification_smtp_port?: number | null;
           notification_smtp_user?: string | null;
+          payment_mode?: string;
           payout_discount_mode?: Database['public']['Enums']['payout_discount_mode'];
           phone?: string | null;
           postal_code?: string | null;
           province?: string | null;
+          public_review_url?: string | null;
           quickbooks_connect_status?: Database['public']['Enums']['quickbooks_connect_status'];
+          quickbooks_default_customer_id?: string | null;
+          quickbooks_last_refreshed_at?: string | null;
           quickbooks_realm_id?: string | null;
           quickbooks_refresh_token_enc?: string | null;
+          quickbooks_refresh_token_expires_at?: string | null;
+          slack_webhook_url?: string | null;
           street?: string | null;
           street2?: string | null;
           stripe_account_id?: string | null;
           stripe_connect_status?: Database['public']['Enums']['stripe_connect_status'];
           supported_languages?: string[];
           timezone?: string;
+          twilio_account_sid?: string | null;
+          twilio_auth_token_enc?: string | null;
+          twilio_from_number?: string | null;
           updated_at?: string;
           use_prod_price_in_tips?: boolean;
           use_taxes_in_tips?: boolean;
@@ -1370,6 +1699,8 @@ export type Database = {
           default_language?: string;
           description?: string | null;
           email?: string | null;
+          email_accent_color?: string | null;
+          email_logo_url?: string | null;
           gross_up_fees?: boolean;
           id?: string;
           industry?: Database['public']['Enums']['industry_kind'];
@@ -1377,6 +1708,8 @@ export type Database = {
           inventory_alert_email?: string | null;
           inventory_alert_phone?: string | null;
           logo_url?: string | null;
+          marketing_banner_enabled?: boolean;
+          marketing_banner_text?: string | null;
           municipality?: string | null;
           name?: string;
           notification_from_email?: string | null;
@@ -1385,25 +1718,52 @@ export type Database = {
           notification_smtp_password_enc?: string | null;
           notification_smtp_port?: number | null;
           notification_smtp_user?: string | null;
+          payment_mode?: string;
           payout_discount_mode?: Database['public']['Enums']['payout_discount_mode'];
           phone?: string | null;
           postal_code?: string | null;
           province?: string | null;
+          public_review_url?: string | null;
           quickbooks_connect_status?: Database['public']['Enums']['quickbooks_connect_status'];
+          quickbooks_default_customer_id?: string | null;
+          quickbooks_last_refreshed_at?: string | null;
           quickbooks_realm_id?: string | null;
           quickbooks_refresh_token_enc?: string | null;
+          quickbooks_refresh_token_expires_at?: string | null;
+          slack_webhook_url?: string | null;
           street?: string | null;
           street2?: string | null;
           stripe_account_id?: string | null;
           stripe_connect_status?: Database['public']['Enums']['stripe_connect_status'];
           supported_languages?: string[];
           timezone?: string;
+          twilio_account_sid?: string | null;
+          twilio_auth_token_enc?: string | null;
+          twilio_from_number?: string | null;
           updated_at?: string;
           use_prod_price_in_tips?: boolean;
           use_taxes_in_tips?: boolean;
           website?: string | null;
           widget_config?: Json;
           yelp_id?: string | null;
+        };
+        Relationships: [];
+      };
+      stripe_events: {
+        Row: {
+          event_type: string;
+          id: string;
+          received_at: string;
+        };
+        Insert: {
+          event_type: string;
+          id: string;
+          received_at?: string;
+        };
+        Update: {
+          event_type?: string;
+          id?: string;
+          received_at?: string;
         };
         Relationships: [];
       };
@@ -1551,9 +1911,159 @@ export type Database = {
           },
         ];
       };
+      waiting_list_entries: {
+        Row: {
+          created_at: string;
+          date_window_end: string;
+          date_window_start: string;
+          email: string | null;
+          first_name: string;
+          id: string;
+          last_name: string | null;
+          locale: string;
+          notes: string | null;
+          notified_at: string | null;
+          phone: string;
+          preferred_barber_id: string | null;
+          service_ids: string[] | null;
+          shop_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          date_window_end: string;
+          date_window_start: string;
+          email?: string | null;
+          first_name: string;
+          id?: string;
+          last_name?: string | null;
+          locale?: string;
+          notes?: string | null;
+          notified_at?: string | null;
+          phone: string;
+          preferred_barber_id?: string | null;
+          service_ids?: string[] | null;
+          shop_id: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          date_window_end?: string;
+          date_window_start?: string;
+          email?: string | null;
+          first_name?: string;
+          id?: string;
+          last_name?: string | null;
+          locale?: string;
+          notes?: string | null;
+          notified_at?: string | null;
+          phone?: string;
+          preferred_barber_id?: string | null;
+          service_ids?: string[] | null;
+          shop_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'waiting_list_entries_preferred_barber_id_fkey';
+            columns: ['preferred_barber_id'];
+            isOneToOne: false;
+            referencedRelation: 'barbers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'waiting_list_entries_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      widget_events: {
+        Row: {
+          event_type: string;
+          id: number;
+          meta: Json;
+          occurred_at: string;
+          session_id: string;
+          shop_id: string;
+          source: string;
+          step_kind: string | null;
+        };
+        Insert: {
+          event_type: string;
+          id?: number;
+          meta?: Json;
+          occurred_at?: string;
+          session_id: string;
+          shop_id: string;
+          source: string;
+          step_kind?: string | null;
+        };
+        Update: {
+          event_type?: string;
+          id?: number;
+          meta?: Json;
+          occurred_at?: string;
+          session_id?: string;
+          shop_id?: string;
+          source?: string;
+          step_kind?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'widget_events_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      reviews_public: {
+        Row: {
+          client_name: string | null;
+          comment: string | null;
+          created_at: string | null;
+          id: string | null;
+          published_at: string | null;
+          rating: number | null;
+          shop_id: string | null;
+        };
+        Insert: {
+          client_name?: string | null;
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          published_at?: string | null;
+          rating?: number | null;
+          shop_id?: string | null;
+        };
+        Update: {
+          client_name?: string | null;
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          published_at?: string | null;
+          rating?: number | null;
+          shop_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reviews_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Functions: {
       current_shop_ids: { Args: never; Returns: string[] };
