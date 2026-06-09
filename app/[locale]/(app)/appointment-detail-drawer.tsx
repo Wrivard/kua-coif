@@ -8,9 +8,14 @@ import { Select } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Drawer } from '@/components/ui/drawer';
 import { useToast } from '@/components/ui/toast';
-import { formatShopTime } from '@/lib/business/timezone';
+import { combineShopDateTime, formatShopTime, shopIsoDate } from '@/lib/business/timezone';
 import { APPOINTMENT_STATUSES, type AppointmentStatus } from '@/db/enums';
-import { cancelAppointment, refundAppointment, updateAppointment } from './actions';
+import {
+  cancelAppointment,
+  refundAppointment,
+  rescheduleAppointment,
+  updateAppointment,
+} from './actions';
 import { generatePublicLinks } from './actions-public-links';
 import type { CalendarAppointment } from './appointments-calendar';
 
@@ -33,10 +38,15 @@ export function AppointmentDetailDrawer({
   const t = useTranslations('pages.appointments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
+  const tReschedule = useTranslations('pages.appointments.reschedule');
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<AppointmentStatus>(appointment?.status ?? 'booked');
   const [notes, setNotes] = useState(appointment?.notes ?? '');
+  // Keyboard-accessible reschedule (drag is pointer-only) — shop-local date +
+  // time of the start; the Reschedule button recomposes the UTC instant.
+  const [rDate, setRDate] = useState('');
+  const [rTime, setRTime] = useState('');
   // Refund / force-refund confirmation gate — replaces the native
   // confirm() on this money-path with a themed, keyboard-accessible dialog.
   const [pendingConfirm, setPendingConfirm] = useState<
@@ -46,7 +56,11 @@ export function AppointmentDetailDrawer({
   useEffect(() => {
     setStatus(appointment?.status ?? 'booked');
     setNotes(appointment?.notes ?? '');
-  }, [appointment?.id, appointment?.status, appointment?.notes]);
+    if (appointment) {
+      setRDate(shopIsoDate(new Date(appointment.start_at), timezone));
+      setRTime(formatShopTime(appointment.start_at, timezone, 'HH:mm'));
+    }
+  }, [appointment, timezone]);
   const dirty =
     appointment != null &&
     (status !== appointment.status || (notes || null) !== (appointment.notes || null));
@@ -63,6 +77,40 @@ export function AppointmentDetailDrawer({
       }
     });
   }
+
+  function onReschedule() {
+    if (!appointment) return;
+    let newStart: Date;
+    try {
+      newStart = combineShopDateTime(rDate, rTime, timezone);
+    } catch {
+      return;
+    }
+    if (Number.isNaN(newStart.getTime())) return;
+    startTransition(async () => {
+      const result = await rescheduleAppointment({
+        id: appointment.id,
+        barber_id: appointment.barber_id,
+        start_at: newStart.toISOString(),
+      });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.updated') });
+        onClose();
+      } else {
+        const code = result.errorCode;
+        show({
+          variant: code === 'CONFLICT' ? 'warning' : 'danger',
+          title: code === 'CONFLICT' ? tReschedule('conflict') : tErr(code),
+        });
+      }
+    });
+  }
+
+  // Disable the Reschedule button until the operator actually changed the slot.
+  const rescheduleChanged =
+    appointment != null &&
+    (rDate !== shopIsoDate(new Date(appointment.start_at), timezone) ||
+      rTime !== formatShopTime(appointment.start_at, timezone, 'HH:mm'));
 
   const isCancelled = appointment?.status === 'cancelled' || appointment?.status === 'no_show';
 
@@ -299,6 +347,57 @@ export function AppointmentDetailDrawer({
                     </option>
                   ))}
                 </Select>
+              </div>
+            </div>
+            {/* Keyboard-accessible reschedule — the drag path is pointer-only,
+                so keyboard / screen-reader operators move the appointment here
+                (same barber column; cross-barber moves remain a drag). */}
+            <div className="space-y-2 border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                {tReschedule('heading')}
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label
+                    htmlFor="reschedule-date"
+                    className="mb-1 block text-[11px] text-text-muted"
+                  >
+                    {tReschedule('date')}
+                  </label>
+                  <input
+                    id="reschedule-date"
+                    type="date"
+                    value={rDate}
+                    onChange={(e) => setRDate(e.target.value)}
+                    disabled={isPending}
+                    className="rounded-lg bg-bg-surface-2 px-2 py-1.5 text-sm text-text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="reschedule-time"
+                    className="mb-1 block text-[11px] text-text-muted"
+                  >
+                    {tReschedule('time')}
+                  </label>
+                  <input
+                    id="reschedule-time"
+                    type="time"
+                    step={300}
+                    value={rTime}
+                    onChange={(e) => setRTime(e.target.value)}
+                    disabled={isPending}
+                    className="rounded-lg bg-bg-surface-2 px-2 py-1.5 text-sm tabular-nums text-text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onReschedule}
+                  disabled={isPending || !rescheduleChanged}
+                >
+                  <CalendarSync className="h-4 w-4" /> {tReschedule('apply')}
+                </Button>
               </div>
             </div>
             <div>

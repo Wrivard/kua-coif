@@ -229,6 +229,10 @@
         "dayOff": "Closed"
       },
       "reschedule": {
+        "heading": "Reschedule",
+        "date": "Date",
+        "time": "Time",
+        "apply": "Reschedule",
         "failedTitle": "Move failed",
         "conflict": "That slot conflicts with another appointment or blocked time.",
         "invalid": "That slot is outside the shop's open hours.",

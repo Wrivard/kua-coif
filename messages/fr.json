@@ -229,6 +229,10 @@
         "dayOff": "Fermé"
       },
       "reschedule": {
+        "heading": "Reprogrammer",
+        "date": "Date",
+        "time": "Heure",
+        "apply": "Reprogrammer",
         "failedTitle": "Déplacement impossible",
         "conflict": "Ce créneau entre en conflit avec un autre rendez-vous ou un temps bloqué.",
         "invalid": "Ce créneau est hors des horaires du salon.",
