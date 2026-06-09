@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import Papa from 'papaparse';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth/server';
+import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { sanitizeCsvRows } from '@/lib/security/csv';
 
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,12 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   const PII_ENTITIES: Entity[] = ['clients', 'barbers'];
   if (PII_ENTITIES.includes(entity) && activeRole === 'barber') {
     return new NextResponse('Forbidden', { status: 403 });
+  }
+  // Throttle the PII-bulk export so a manager session can't be used to scrape
+  // the roster in a loop.
+  if (PII_ENTITIES.includes(entity)) {
+    const rl = await checkRateLimit(`export-csv:${user.id}`, { max: 30, windowMs: 60 * 60 * 1000 });
+    if (!rl.allowed) return new NextResponse('Too many requests', { status: 429 });
   }
 
   const supabase = createSupabaseServerClient();

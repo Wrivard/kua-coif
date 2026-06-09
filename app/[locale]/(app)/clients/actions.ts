@@ -5,7 +5,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
+import { checkRateLimit } from '@/lib/auth/rate-limit';
 import {
   anonymizeClientSchema,
   clientSchema,
@@ -200,6 +201,12 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
   schema: exportClientSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // Throttle the PII-bulk path (a full client data export).
+    const rl = await checkRateLimit(`client-export:${ctx.userId}`, {
+      max: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
     // Service-role to dodge RLS friction on joins (we already verified
     // the manager belongs to the shop via withAction).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -255,7 +262,7 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
     // Audit log: "custom" action with a `loi25_export` tag — the union type
     // doesn't include 'export' as a first-class verb. The diff carries the
     // semantic.
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'custom',
@@ -283,6 +290,12 @@ export const anonymizeClient = withAction({
   schema: anonymizeClientSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // Throttle the irreversible PII-wipe path.
+    const rl = await checkRateLimit(`client-anonymize:${ctx.userId}`, {
+      max: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = createSupabaseServiceRoleClient() as any;
 
@@ -322,7 +335,7 @@ export const anonymizeClient = withAction({
       .eq('id', input.id);
     if (error) return err('UNEXPECTED');
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
@@ -349,6 +362,11 @@ export const mergeClients = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     if (input.keep_id === input.merge_id) return err('INVALID_INPUT');
+    const rl = await checkRateLimit(`client-merge:${ctx.userId}`, {
+      max: 30,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = createSupabaseServiceRoleClient() as any;
     const { error } = await admin.rpc('merge_clients', {
@@ -358,7 +376,7 @@ export const mergeClients = withAction({
     });
     if (error) return err('UNEXPECTED');
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
