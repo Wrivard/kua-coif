@@ -1336,7 +1336,11 @@ export async function createBookingPaymentIntent(
       }
       let totalDollars = subtotalDollars - discountDollars;
       if (input.phone && totalDollars > 0) {
-        const phoneKey = input.phone.replace(/\D/g, '');
+        // Match phone_normalized (last-10 NANP), same canonicalization the
+        // booking write uses. Without .slice(-10) an 11-digit number (with
+        // country code) never matched, so its loyalty credit was missing from
+        // the pre-charge amount preview while the real charge applied it.
+        const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
         if (phoneKey.length >= 7) {
           const clientRes = await supabase
             .from('clients')
