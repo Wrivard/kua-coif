@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
 import { googleConfigured } from '@/lib/google/server';
 import type { BarberRow } from '@/db/rows';
 import { BarbersClient, type GoogleConnectionView } from './barbers-client';
@@ -11,10 +11,22 @@ export default async function BarbersPage({ params: { locale } }: { params: { lo
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
+  // Scope to the ACTIVE shop (Barbers audit B10): without an explicit shop_id
+  // filter, RLS (is_shop_member) returns barbers from EVERY shop the user
+  // belongs to, merged into one roster — and a multi-shop owner could edit a
+  // barber that belongs to a non-active shop. Mirrors the clients/page + CSV
+  // export fix.
+  const shopId = await getCurrentShopId();
+  if (!shopId) throw new Error('Barbers load failed: no active shop resolved');
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
   const [barbersRes, googleRes] = await Promise.all([
-    supabase.from('barbers').select('*').order('sort_order', { ascending: true }),
+    supabase
+      .from('barbers')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('sort_order', { ascending: true }),
     // Phase 34 — per-barber Google Calendar connection info. The
     // refresh_token column is REVOKE'd from authenticated, so this
     // select only returns the safe display fields (email + status).
@@ -22,6 +34,7 @@ export default async function BarbersPage({ params: { locale } }: { params: { lo
       ? supabase
           .from('barber_google_calendar')
           .select('barber_id, google_email, sync_status, last_error, last_synced_at')
+          .eq('shop_id', shopId)
       : Promise.resolve({ data: [] }),
   ]);
 

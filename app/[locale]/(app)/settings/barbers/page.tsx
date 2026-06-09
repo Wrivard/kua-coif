@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
 import type { BarberRow } from '@/db/rows';
 import { BarberSettingsClient, type BarberSettingsRow } from './barber-settings-client';
 
@@ -14,15 +14,23 @@ export default async function BarberSettingsPage({
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
+  // Scope to the ACTIVE shop (Barbers audit B10): without an explicit shop_id
+  // filter, RLS (is_shop_member) returns barbers + settings from EVERY shop the
+  // user belongs to, merged — a multi-shop owner would see/edit the wrong
+  // shop's grid.
+  const shopId = await getCurrentShopId();
+  if (!shopId) throw new Error('Barber settings load failed: no active shop resolved');
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
   const [barbersRes, settingsRes] = await Promise.all([
     supabase
       .from('barbers')
       .select('id, display_name, sort_order, status')
+      .eq('shop_id', shopId)
       .eq('status', 'confirmed')
       .order('sort_order', { ascending: true }),
-    supabase.from('barber_settings').select('*'),
+    supabase.from('barber_settings').select('*').eq('shop_id', shopId),
   ]);
 
   const barbers = (barbersRes.data as BarberRow[] | null) ?? [];
