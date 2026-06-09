@@ -659,14 +659,45 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     }
     const apptId = (insertAppt.data as { id: string }).id;
 
-    // Link services.
-    await supabase.from('appointment_services').insert(
+    // Link services. Mirror the admin createAppointment recovery: the
+    // appointment row already exists, so if this (atomic, single-statement)
+    // insert fails we'd leave an orphaned $-bearing appointment with ZERO
+    // services — corrupting finances/commission/loyalty and showing the
+    // barber a serviceless slot. Roll it back by deleting the appointment we
+    // just created. (Folding both writes into a Postgres transaction RPC is
+    // the proper V2 fix — same note as the admin path.)
+    const linkServices = await supabase.from('appointment_services').insert(
       services.map((s) => ({
         appointment_id: apptId,
         service_id: s.id,
         price_snapshot: s.price,
       })),
     );
+    if (linkServices.error) {
+      const rollback = await supabase.from('appointments').delete().eq('id', apptId);
+      // If the compensating DELETE itself fails, the orphan persists — don't
+      // lose it behind the generic error. Capture the appointment id AND any
+      // payment-intent id so a charged-but-rolled-back booking can be
+      // reconciled/refunded (mirrors the orphan-PaymentIntent recovery on the
+      // charge path).
+      if (rollback?.error) {
+        captureException(new Error('bookPublicAppointment: orphan rollback DELETE failed'), {
+          tags: { layer: 'public-booking', step: 'link-services.rollback' },
+          extra: {
+            appointmentId: apptId,
+            shopId: shop.id,
+            paymentIntentId: input.payment_intent_id ?? null,
+            linkError: String(
+              (linkServices.error as { message?: string })?.message ?? linkServices.error,
+            ),
+            deleteError: String(
+              (rollback.error as { message?: string })?.message ?? rollback.error,
+            ),
+          },
+        });
+      }
+      return err('UNEXPECTED');
+    }
 
     // ── Decrement loyalty balance (Phase 50) ─────────────────────────
     // Best-effort: a balance-update failure shouldn't kill the booking
