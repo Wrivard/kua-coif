@@ -307,6 +307,37 @@
       }
     },
     "clients": {
+      "detail": {
+        "back": "Clients",
+        "anonymizedNotice": "Ce client a été anonymisé (Loi 25). Les renseignements personnels ont été effacés ; l'historique est conservé pour la tenue de registres.",
+        "email": "Courriel",
+        "phone": "Téléphone",
+        "dob": "Naissance",
+        "memberSince": "Client depuis",
+        "totalSpent": "Total dépensé",
+        "visits": "Visites",
+        "noShows": "Absences",
+        "loyalty": "Fidélité",
+        "notes": "Notes",
+        "noNotes": "Aucune note.",
+        "history": "Historique des rendez-vous",
+        "historyEmpty": "Aucun rendez-vous pour ce client.",
+        "col": {
+          "date": "Date",
+          "barber": "Barbier",
+          "services": "Services",
+          "status": "Statut",
+          "amount": "Montant"
+        },
+        "statuses": {
+          "booked": "Réservé",
+          "confirmed": "Confirmé",
+          "arrived": "Arrivé",
+          "completed": "Terminé",
+          "cancelled": "Annulé",
+          "no_show": "Absent"
+        }
+      },
       "title": "Clients",
       "soon": "Liste A–Z, dédoublonnage, export — Phase 4.",
       "total": "{count} clients · {dupes} doublons",

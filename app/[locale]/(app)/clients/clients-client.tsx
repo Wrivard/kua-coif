@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, Download, FileDown, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,6 @@ function bucketLetter(name: string | null | undefined): string {
 }
 
 export function ClientsClient({ locale, clients }: { locale: string; clients: ClientRow[] }) {
-  void locale;
   const t = useTranslations('pages.clients');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -159,8 +159,15 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
       id: 'name',
       header: t('columns.client'),
       cell: (r) => (
-        <span className="flex items-center gap-2 font-medium">
-          {clientLabel(r)}
+        <span className="flex items-center gap-2">
+          {/* Name links to the client fiche (history, spend, loyalty, notes). */}
+          <Link
+            href={`/${locale}/clients/${r.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded font-medium text-text-primary transition-colors hover:text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            {clientLabel(r)}
+          </Link>
           {duplicateIds.has(r.id) ? (
             <Badge variant="warning" title={t('duplicateHint')}>
               <AlertTriangle className="h-3 w-3" /> {t('duplicate')}

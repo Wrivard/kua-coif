@@ -307,6 +307,37 @@
       }
     },
     "clients": {
+      "detail": {
+        "back": "Clients",
+        "anonymizedNotice": "This client has been anonymized (Loi 25). Personal information was erased; history is kept for record-keeping.",
+        "email": "Email",
+        "phone": "Phone",
+        "dob": "Birthday",
+        "memberSince": "Client since",
+        "totalSpent": "Total spent",
+        "visits": "Visits",
+        "noShows": "No-shows",
+        "loyalty": "Loyalty",
+        "notes": "Notes",
+        "noNotes": "No notes.",
+        "history": "Appointment history",
+        "historyEmpty": "No appointments for this client.",
+        "col": {
+          "date": "Date",
+          "barber": "Barber",
+          "services": "Services",
+          "status": "Status",
+          "amount": "Amount"
+        },
+        "statuses": {
+          "booked": "Booked",
+          "confirmed": "Confirmed",
+          "arrived": "Arrived",
+          "completed": "Completed",
+          "cancelled": "Cancelled",
+          "no_show": "No-show"
+        }
+      },
       "title": "Clients",
       "soon": "A–Z list, dedup, export — Phase 4.",
       "total": "{count} clients · {dupes} duplicates",

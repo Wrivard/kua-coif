@@ -1,0 +1,299 @@
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { ComponentType, SVGProps } from 'react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  CircleDollarSign,
+  Gift,
+  Mail,
+  Phone,
+  XCircle,
+} from 'lucide-react';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import {
+  getCurrentBarberId,
+  getCurrentShop,
+  getCurrentShopId,
+  getShopMemberships,
+  requireShopMember,
+} from '@/lib/auth/server';
+import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
+import { formatCurrencyCAD } from '@/lib/utils';
+import { formatShopTime } from '@/lib/business/timezone';
+import { PageHeader } from '@/components/ui/page-header';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
+
+export const dynamic = 'force-dynamic';
+
+type ApptStatus = 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
+
+const STATUS_VARIANT: Record<ApptStatus, BadgeVariant> = {
+  booked: 'info',
+  confirmed: 'accent',
+  arrived: 'success',
+  completed: 'success',
+  cancelled: 'default',
+  no_show: 'warning',
+};
+
+export default async function ClientDetailPage({
+  params: { locale, id },
+}: {
+  params: { locale: string; id: string };
+}) {
+  setRequestLocale(locale);
+  await requireShopMember({ locale });
+
+  // Active-shop scope (cookie-aware) + strict-barber gate, mirroring the list.
+  const memberships = await getShopMemberships();
+  const activeShopId = await getCurrentShopId();
+  const activeMembership = memberships.find((m) => m.shop_id === activeShopId) ?? memberships[0];
+  const shopId = activeMembership?.shop_id ?? activeShopId;
+  if (!shopId) notFound();
+  const viewerRole = activeMembership?.role ?? 'barber';
+  const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
+
+  const shop = await getCurrentShop();
+  const timezone = shop?.timezone ?? 'America/Toronto';
+
+  // Service-role for the joins (RLS-friendly), backstopped by the explicit
+  // shop_id filter + the barber-ownership check below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createSupabaseServiceRoleClient() as any;
+
+  const clientRes = await admin
+    .from('clients')
+    .select(
+      'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at, loyalty_balance_cents, loyalty_balance_expires_at',
+    )
+    .eq('id', id)
+    .eq('shop_id', shopId)
+    .maybeSingle();
+  const client = clientRes.data as {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    date_of_birth: string | null;
+    notes: string | null;
+    created_at: string;
+    anonymized_at: string | null;
+    loyalty_balance_cents: number | null;
+    loyalty_balance_expires_at: string | null;
+  } | null;
+  if (!client) notFound();
+
+  // Strict barber: only a client they've actually served.
+  if (viewerRole === 'barber') {
+    if (!viewerBarberId) notFound();
+    const own = await admin
+      .from('appointments')
+      .select('id')
+      .eq('client_id', id)
+      .eq('barber_id', viewerBarberId)
+      .limit(1);
+    if (((own.data as Array<{ id: string }> | null) ?? []).length === 0) notFound();
+  }
+
+  // Appointment history — same join shape as exportClient, capped at 100.
+  const apptRes = await admin
+    .from('appointments')
+    .select(
+      'id, start_at, status, total_amount, barber:barbers(display_name), services:appointment_services(service:services(name))',
+    )
+    .eq('client_id', id)
+    .eq('shop_id', shopId)
+    .order('start_at', { ascending: false })
+    .limit(100);
+  type ApptJoin = {
+    id: string;
+    start_at: string;
+    status: ApptStatus;
+    total_amount: number;
+    barber: { display_name: string } | null;
+    services: Array<{ service: { name: string } | null }> | null;
+  };
+  const appts = ((apptRes.data as ApptJoin[] | null) ?? []).map((a) => ({
+    id: a.id,
+    start_at: a.start_at,
+    status: a.status,
+    total_amount: a.total_amount,
+    barber: a.barber?.display_name ?? null,
+    services: (a.services ?? [])
+      .map((s) => s.service?.name)
+      .filter((n): n is string => Boolean(n))
+      .join(' + '),
+  }));
+
+  const completed = appts.filter((a) => a.status === 'completed');
+  const totalSpent = completed.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+  const visits = completed.length;
+  const noShows = appts.filter((a) => a.status === 'no_show').length;
+  const loyaltyCents = await effectiveLoyaltyBalanceCents({
+    clientId: id,
+    balanceCents: client.loyalty_balance_cents ?? 0,
+    expiresAt: client.loyalty_balance_expires_at ?? null,
+  });
+
+  const t = await getTranslations({ locale, namespace: 'pages.clients.detail' });
+  const tNav = await getTranslations({ locale, namespace: 'nav' });
+  const tStatus = await getTranslations({ locale, namespace: 'pages.clients.detail.statuses' });
+  const dl: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
+  const fullName = `${client.first_name}${client.last_name ? ` ${client.last_name}` : ''}`;
+
+  return (
+    <>
+      <PageHeader eyebrow={tNav('clients')} title={fullName} />
+      <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
+        <Link
+          href={`/${locale}/clients`}
+          className="inline-flex items-center gap-1.5 rounded text-sm text-text-secondary transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('back')}
+        </Link>
+
+        {client.anonymized_at ? (
+          <div className="border-warning/30 rounded-md border bg-warning-subtle px-3 py-2 text-sm text-text-secondary">
+            {t('anonymizedNotice')}
+          </div>
+        ) : null}
+
+        {/* Contact + meta */}
+        <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-bg-surface p-4 sm:grid-cols-2">
+          <ContactRow icon={Mail} label={t('email')} value={client.email} />
+          <ContactRow icon={Phone} label={t('phone')} value={client.phone} mono />
+          <ContactRow icon={Gift} label={t('dob')} value={client.date_of_birth} mono />
+          <ContactRow
+            icon={CalendarClock}
+            label={t('memberSince')}
+            value={formatShopTime(client.created_at, timezone, 'yyyy-MM-dd')}
+            mono
+          />
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat
+            icon={CircleDollarSign}
+            label={t('totalSpent')}
+            value={formatCurrencyCAD(totalSpent, dl)}
+          />
+          <Stat icon={CalendarClock} label={t('visits')} value={String(visits)} />
+          <Stat icon={XCircle} label={t('noShows')} value={String(noShows)} />
+          <Stat
+            icon={Gift}
+            label={t('loyalty')}
+            value={formatCurrencyCAD(loyaltyCents / 100, dl)}
+          />
+        </div>
+
+        {/* Notes */}
+        <section>
+          <h2 className="mb-2 text-sm font-semibold tracking-tight text-text-primary">
+            {t('notes')}
+          </h2>
+          <p className="whitespace-pre-wrap rounded-lg border border-border bg-bg-surface px-4 py-3 text-sm text-text-secondary">
+            {client.notes?.trim() ? (
+              client.notes
+            ) : (
+              <span className="text-text-muted">{t('noNotes')}</span>
+            )}
+          </p>
+        </section>
+
+        {/* History */}
+        <section>
+          <h2 className="mb-2 text-sm font-semibold tracking-tight text-text-primary">
+            {t('history')}
+          </h2>
+          {appts.length === 0 ? (
+            <p className="rounded-lg border border-border bg-bg-surface px-4 py-8 text-center text-sm text-text-muted">
+              {t('historyEmpty')}
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border bg-bg-surface">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-soft text-left text-[11px] uppercase tracking-wide text-text-muted">
+                    <th className="px-4 py-2.5 font-semibold">{t('col.date')}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t('col.barber')}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t('col.services')}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t('col.status')}</th>
+                    <th className="px-4 py-2.5 text-right font-semibold">{t('col.amount')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {appts.map((a) => (
+                    <tr key={a.id} className="border-b border-border-faint last:border-b-0">
+                      <td className="whitespace-nowrap px-4 py-2.5 font-mono tabular-nums text-text-secondary">
+                        {formatShopTime(a.start_at, timezone, 'yyyy-MM-dd · HH:mm')}
+                      </td>
+                      <td className="px-4 py-2.5 text-text-secondary">{a.barber ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-text-primary">{a.services || '—'}</td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={STATUS_VARIANT[a.status] ?? 'default'}>
+                          {tStatus(a.status)}
+                        </Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono tabular-nums text-text-primary">
+                        {formatCurrencyCAD(a.total_amount ?? 0, dl)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
+function Stat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-bg-surface p-4">
+      <div className="flex items-center gap-1.5 text-text-muted">
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+        <span className="text-[11px] font-semibold uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="mt-1.5 text-xl font-semibold tabular-nums text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function ContactRow({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  label: string;
+  value: string | null;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+      <span className="w-28 shrink-0 text-xs text-text-muted">{label}</span>
+      <span
+        className={`min-w-0 truncate text-sm text-text-primary ${mono ? 'font-mono tabular-nums' : ''}`}
+      >
+        {value ?? <span className="text-text-muted">—</span>}
+      </span>
+    </div>
+  );
+}
