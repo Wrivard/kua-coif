@@ -21,7 +21,16 @@ type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: Clien
 
 const PAGE_SIZE = 25;
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+// A–Z letter buckets, plus '#' for names whose first letter isn't a plain
+// A–Z character. Accented Québec names (« Élodie », « Çağla ») fold to their
+// base letter (E, C); anonymized '[Anonymized]' rows and any symbol/number-
+// leading name land under '#' so they stay reachable by the letter bar.
+const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'];
+
+function bucketLetter(name: string | null | undefined): string {
+  const first = (name?.[0] ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  return first >= 'A' && first <= 'Z' ? first : '#';
+}
 
 export function ClientsClient({ locale, clients }: { locale: string; clients: ClientRow[] }) {
   void locale;
@@ -70,7 +79,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     return clients.filter((c) => {
       if (showDupesOnly && !duplicateIds.has(c.id)) return false;
       if (letterFilter) {
-        if ((c.first_name[0] ?? '').toUpperCase() !== letterFilter) return false;
+        if (bucketLetter(c.first_name) !== letterFilter) return false;
       }
       if (q) {
         const hay =
@@ -83,7 +92,7 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
 
   // Letters that actually have a client, for dimming empty letters in the A-Z bar.
   const lettersWithClients = useMemo(
-    () => new Set(clients.map((c) => (c.first_name[0] ?? '').toUpperCase())),
+    () => new Set(clients.map((c) => bucketLetter(c.first_name))),
     [clients],
   );
 

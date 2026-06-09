@@ -87,6 +87,17 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   const activeShopId = await getCurrentShopId();
   if (!activeShopId) return new NextResponse('No shop', { status: 403 });
 
+  // Role gate for PII entities. The Clients UI scopes a strict barber to only
+  // the clients they've served; without this gate a barber could GET
+  // /api/export/clients and bulk-dump the ENTIRE shop roster (incl. emails +
+  // phones), bypassing that scope. Same for the barber roster. Non-PII
+  // entities (services, products, brands, categories) stay open to any member.
+  const activeRole = memberships.find((m) => m.shop_id === activeShopId)?.role ?? 'barber';
+  const PII_ENTITIES: Entity[] = ['clients', 'barbers'];
+  if (PII_ENTITIES.includes(entity) && activeRole === 'barber') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
   const supabase = createSupabaseServerClient();
   type QueryResult = { data: unknown; error: unknown };
   const filterBuilder = (
