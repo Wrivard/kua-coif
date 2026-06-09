@@ -21,6 +21,7 @@ import {
   chargeAppointmentSchema,
   refundAppointmentSchema,
   rescheduleAppointmentSchema,
+  resizeAppointmentSchema,
   searchClientsSchema,
   updateAppointmentSchema,
 } from './schema';
@@ -645,6 +646,130 @@ export const rescheduleAppointment = withAction({
         summary: 'Appointment',
       });
     }
+
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ id: input.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// resizeAppointment — drag-to-resize the block's duration.
+//
+// Keeps start_at + the barber fixed and moves only end_at. Re-validates
+// against the same availability engine (within shop hours, no overlap with
+// other appointments/blocks), excluding the resizing row from the conflict
+// set; the EXCLUDE-overlap constraint is the atomic backstop (23P01 →
+// CONFLICT). Services + price are unchanged — duration here is a manual
+// time-block adjustment decoupled from the service defaults.
+// ---------------------------------------------------------------------------
+export const resizeAppointment = withAction({
+  schema: resizeAppointmentSchema,
+  minRole: 'barber',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+
+    const apptRes = await sb
+      .from('appointments')
+      .select('id, shop_id, barber_id, start_at, end_at, status')
+      .eq('id', input.id)
+      .single();
+    const appt = apptRes.data as {
+      id: string;
+      shop_id: string;
+      barber_id: string;
+      start_at: string;
+      end_at: string;
+      status: ExistingAppointment['status'];
+    } | null;
+    if (!appt) return err('NOT_FOUND');
+    if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND');
+    // Strict barber: only own appointments.
+    if (ctx.role === 'barber' && appt.barber_id !== ctx.barberId) {
+      return err('FORBIDDEN', { reason: 'not_your_appointment' });
+    }
+    // Historical appointments aren't resizable.
+    if (appt.status === 'cancelled' || appt.status === 'no_show') {
+      return err('INVALID_INPUT');
+    }
+
+    const start = new Date(appt.start_at);
+    const newEnd = new Date(input.end_at);
+    if (Number.isNaN(newEnd.getTime())) return err('INVALID_INPUT');
+    // End must be after start, within a sane bound (12h) so a runaway drag
+    // can't compose a multi-day block.
+    const durationMin = (newEnd.getTime() - start.getTime()) / 60000;
+    if (durationMin < 5 || durationMin > 12 * 60) return err('INVALID_INPUT');
+
+    const shopRes = await sb.from('shops').select('timezone').eq('id', ctx.shopId);
+    const timezone =
+      (shopRes.data as Array<{ timezone: string }> | null)?.[0]?.timezone ?? 'America/Toronto';
+
+    const dayStart = shopDayStart(start, timezone);
+    const dayEnd = shopDayEnd(start, timezone);
+    const schedule = await fetchScheduleData(ctx.shopId, dayStart, dayEnd);
+    const filteredExisting = schedule.appts.filter((a) => a.id !== input.id);
+
+    const shopDate = shopIsoDate(start, timezone);
+    const startTime = formatShopTime(start, timezone, 'HH:mm');
+    const endTime = formatShopTime(newEnd, timezone, 'HH:mm');
+    const isoWeekday = Number(formatShopTime(start, timezone, 'i'));
+    const shopWeekday = isoWeekday % 7;
+
+    const verdict = checkAvailability({
+      start_at: start,
+      end_at: newEnd,
+      barber_id: appt.barber_id,
+      shop_date: shopDate,
+      shop_weekday: shopWeekday,
+      shop_start_time: startTime,
+      shop_end_time: endTime,
+      hours: schedule.hours,
+      daysOff: schedule.daysOff,
+      existing: filteredExisting,
+      blocked: schedule.blocked,
+      settings: null,
+    });
+    if (!verdict.ok) {
+      return err(
+        verdict.reason === 'CONFLICT_APPOINTMENT' || verdict.reason === 'CONFLICT_BLOCK'
+          ? 'CONFLICT'
+          : 'INVALID_INPUT',
+      );
+    }
+
+    const updateRes = await sb
+      .from('appointments')
+      .update({ end_at: newEnd.toISOString() })
+      .eq('id', input.id);
+    if (updateRes.error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = updateRes.error as any;
+      // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
+      // constraint. Both mean a concurrent write took the extended window.
+      if (e?.code === '23505' || e?.code === '23P01') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
+
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'appointments',
+      entityId: input.id,
+      diff: { before: { end_at: appt.end_at }, after: { end_at: newEnd.toISOString() } },
+    });
+
+    // Mirror the new end to Google (same barber, existing event).
+    void pushAppointment({
+      appointmentId: input.id,
+      barberId: appt.barber_id,
+      startAtIso: appt.start_at,
+      endAtIso: newEnd.toISOString(),
+      timezone,
+      googleEventId: await fetchGoogleEventId(input.id),
+      summary: 'Appointment',
+    });
 
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: input.id });

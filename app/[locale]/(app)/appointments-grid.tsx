@@ -1,6 +1,13 @@
 'use client';
 
-import { memo, type CSSProperties, type MouseEvent } from 'react';
+import {
+  memo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -63,6 +70,8 @@ type AppointmentsGridProps = {
   onSlotClick: (barberId: string, e: MouseEvent<HTMLDivElement>) => void;
   onApptClick: (a: CalendarAppointment) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  /** Drag-to-resize the bottom edge of a block → new end_at (ISO UTC). */
+  onResize: (apptId: string, newEndIso: string) => void;
   t: TFn;
 };
 
@@ -82,6 +91,7 @@ export function AppointmentsGrid({
   onSlotClick,
   onApptClick,
   onDragEnd,
+  onResize,
   t,
 }: AppointmentsGridProps) {
   // PointerSensor with a small activation distance: clicks (open detail
@@ -128,6 +138,7 @@ export function AppointmentsGrid({
               nowMin={nowMin}
               onSlotClick={onSlotClick}
               onApptClick={onApptClick}
+              onResize={onResize}
               t={t}
             />
           ))}
@@ -166,6 +177,7 @@ type BarberColumnProps = {
   nowMin: number | null;
   onSlotClick: (barberId: string, e: MouseEvent<HTMLDivElement>) => void;
   onApptClick: (a: CalendarAppointment) => void;
+  onResize: (apptId: string, newEndIso: string) => void;
   t: TFn;
 };
 
@@ -183,6 +195,7 @@ function BarberColumn({
   nowMin,
   onSlotClick,
   onApptClick,
+  onResize,
   t,
 }: BarberColumnProps) {
   // The droppable id namespacing keeps barber-column drops from colliding
@@ -330,6 +343,7 @@ function BarberColumn({
               height={height}
               timezone={timezone}
               onClick={onApptClick}
+              onResize={onResize}
               t={t}
             />
           );
@@ -345,6 +359,7 @@ type DraggableAppointmentBlockProps = {
   height: number;
   timezone: string;
   onClick: (a: CalendarAppointment) => void;
+  onResize: (apptId: string, newEndIso: string) => void;
   t: TFn;
 };
 
@@ -354,6 +369,7 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
   height,
   timezone,
   onClick,
+  onResize,
   t,
 }: DraggableAppointmentBlockProps) {
   const isTerminal = appointment.status === 'cancelled' || appointment.status === 'no_show';
@@ -365,12 +381,54 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
     // visual feedback of dragging something that can't move).
     disabled: isTerminal,
   });
+  // Drag-to-resize (bottom edge). The live height is tracked in a ref so the
+  // pointer-up handler reads the FINAL height without a stale-state closure;
+  // `previewHeight` only drives the render while dragging.
+  const [previewHeight, setPreviewHeight] = useState<number | null>(null);
+  const resizeState = useRef<{ startY: number; currentH: number } | null>(null);
+  const SNAP_PX = 5 * PX_PER_MIN; // 5-minute snap, matches the move-drag snap
+  const MIN_PX = 5 * PX_PER_MIN;
+  const MAX_PX = 12 * 60 * PX_PER_MIN;
+  const onResizeDown = (e: PointerEvent<HTMLSpanElement>) => {
+    // stopPropagation keeps dnd-kit's move sensor AND the block's click (open
+    // drawer) from firing; preventDefault avoids text-selection while dragging.
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resizeState.current = { startY: e.clientY, currentH: height };
+    setPreviewHeight(height);
+  };
+  const onResizeMove = (e: PointerEvent<HTMLSpanElement>) => {
+    const r = resizeState.current;
+    if (!r) return;
+    const snapped = Math.round((height + (e.clientY - r.startY)) / SNAP_PX) * SNAP_PX;
+    const clamped = Math.max(MIN_PX, Math.min(MAX_PX, snapped));
+    r.currentH = clamped;
+    setPreviewHeight(clamped);
+  };
+  const onResizeUp = (e: PointerEvent<HTMLSpanElement>) => {
+    const r = resizeState.current;
+    resizeState.current = null;
+    setPreviewHeight(null);
+    if (!r) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // pointer already released
+    }
+    const newDurationMin = Math.round(r.currentH / PX_PER_MIN / 5) * 5;
+    const origDurationMin = Math.round(height / PX_PER_MIN);
+    if (newDurationMin < 5 || newDurationMin === origDurationMin) return;
+    const newEnd = new Date(new Date(appointment.start_at).getTime() + newDurationMin * 60000);
+    onResize(appointment.id, newEnd.toISOString());
+  };
+
   const cls = statusToColor(appointment.status);
   const style: CSSProperties = {
     top: `${top}px`,
-    height: `${height}px`,
+    height: `${previewHeight ?? height}px`,
     transform: CSS.Translate.toString(transform),
-    zIndex: isDragging ? 30 : undefined,
+    zIndex: isDragging || previewHeight !== null ? 30 : undefined,
     opacity: isDragging ? 0.9 : undefined,
     cursor: isTerminal ? 'default' : isDragging ? 'grabbing' : 'grab',
   };
@@ -398,7 +456,7 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
         // to match the new blocked/Google overlay spacing, shadow-sm
         // for elevation off the now-flatter grid. Hover lifts the
         // shadow to shadow-md so the block reads as "clickable card".
-        'absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
+        'group absolute left-1.5 right-1.5 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-[11px] shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
         isDragging && 'shadow-warm-lg ring-2 ring-accent',
         cls,
       )}
@@ -432,6 +490,22 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
         </Badge>
       ) : null}
       <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+      {/* Drag-to-resize handle — a thin strip on the bottom edge. Pointer-only
+          (aria-hidden); keyboard users adjust time via the detail drawer. The
+          grip reveals on block hover. stopPropagation keeps it from starting a
+          move-drag or opening the drawer. */}
+      {!isTerminal ? (
+        <span
+          aria-hidden
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-0 bottom-0 z-20 flex h-2.5 cursor-ns-resize items-end justify-center"
+        >
+          <span className="mb-0.5 h-0.5 w-6 rounded-full bg-current opacity-0 transition-opacity duration-150 group-hover:opacity-40" />
+        </span>
+      ) : null}
     </button>
   );
 });

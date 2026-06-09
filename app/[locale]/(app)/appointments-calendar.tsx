@@ -30,7 +30,7 @@ import {
 } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
-import { bulkCancelAppointments, rescheduleAppointment } from './actions';
+import { bulkCancelAppointments, rescheduleAppointment, resizeAppointment } from './actions';
 import { OnboardingCard } from '@/components/features/shell/onboarding-card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -726,6 +726,45 @@ export function AppointmentsCalendar({
     [effectiveAppointments, timezone, toast, tReschedule],
   );
 
+  // Drag-to-resize: change only the appointment's end (duration). start_at +
+  // barber stay put; the optimistic override (which already carries end_at)
+  // moves the block's bottom edge while resizeAppointment validates + persists.
+  const handleResize = useCallback(
+    (apptId: string, newEndIso: string) => {
+      const appt = effectiveAppointments.find((a) => a.id === apptId);
+      if (!appt) return;
+      if (appt.status === 'cancelled' || appt.status === 'no_show') return;
+      const override: ApptOverride = {
+        barber_id: appt.barber_id,
+        start_at: appt.start_at,
+        end_at: newEndIso,
+      };
+      setOverrides((prev) => new Map(prev).set(apptId, override));
+      startTransition(async () => {
+        const result = await resizeAppointment({ id: apptId, end_at: newEndIso });
+        if (!result.ok) {
+          setOverrides((prev) => {
+            const next = new Map(prev);
+            next.delete(apptId);
+            return next;
+          });
+          const code = result.errorCode;
+          toast.show({
+            variant: code === 'CONFLICT' ? 'warning' : 'danger',
+            title: tReschedule('failedTitle'),
+            description:
+              code === 'CONFLICT'
+                ? tReschedule('conflict')
+                : code === 'INVALID_INPUT'
+                  ? tReschedule('invalid')
+                  : tReschedule('unexpected'),
+          });
+        }
+      });
+    },
+    [effectiveAppointments, toast, tReschedule],
+  );
+
   const shiftDate = useCallback(
     (deltaDays: number) => {
       const next = shopIsoDate(addDays(dayRef, deltaDays), timezone);
@@ -991,6 +1030,7 @@ export function AppointmentsCalendar({
             onSlotClick={onSlotClick}
             onApptClick={handleApptClick}
             onDragEnd={handleDragEnd}
+            onResize={handleResize}
             t={t}
           />
         )}

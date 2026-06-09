@@ -110,6 +110,19 @@ export const rescheduleAppointmentSchema = z.object({
 export type RescheduleAppointmentInput = z.infer<typeof rescheduleAppointmentSchema>;
 
 /**
+ * Drag-to-resize: change ONLY the appointment's end_at (its duration).
+ * start_at and the barber are preserved server-side; the booked services +
+ * price are unchanged (this is a manual time-block adjustment, not a service
+ * change). The action re-validates availability/overlap at the new end.
+ */
+export const resizeAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  /** ISO 8601 UTC instant for the new end. */
+  end_at: z.string().datetime(),
+});
+export type ResizeAppointmentInput = z.infer<typeof resizeAppointmentSchema>;
+
+/**
  * Loop 27 — recurrence options for block-time. `none` (default) keeps
  * the single-occurrence behaviour; `weekly`/`biweekly`/`monthly`
  * fan out to N rows server-side up to `until_date`. We cap at 1 year
