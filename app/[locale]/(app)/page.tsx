@@ -60,11 +60,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
   const isStrictBarber = viewerRole === 'barber' && Boolean(viewerBarberId);
 
-  const supabase = createSupabaseServerClient();
-  // Until db/types codegen lands, we cast the chainable Supabase builder to a
-  // permissive type. The real client returns the correct shape at runtime.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
+  const sb = createSupabaseServerClient();
 
   // 1. Resolve shop timezone. `getCurrentShop()` is the React-cached read
   //    of the shops row — the layout already called this same helper on
@@ -120,7 +116,9 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
         .from('barbers')
         .select('*')
         .eq('shop_id', shopId)
-        .eq('id', viewerBarberId)
+        // isStrictBarber guarantees viewerBarberId is non-null (see its
+        // definition); TS can't narrow across the two variables.
+        .eq('id', viewerBarberId!)
         .order('sort_order', { ascending: true })
     : sb.from('barbers').select('*').eq('shop_id', shopId).order('sort_order', { ascending: true });
 
@@ -131,7 +129,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
           .select(
             'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
           )
-          .eq('barber_id', viewerBarberId)
+          .eq('barber_id', viewerBarberId!)
       : sb
           .from('appointments')
           .select(
@@ -290,7 +288,7 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
             .select(
               'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
             )
-            .eq('barber_id', viewerBarberId)
+            .eq('barber_id', viewerBarberId!)
         : sb
             .from('appointments')
             .select(
