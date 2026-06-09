@@ -65,15 +65,25 @@ export const generatePublicLinks = withAction({
       expiresInSeconds: 60 * 60 * 24 * 90,
     });
     // /me requires a client row — walk-ins (client_id null) skip it.
-    // Clients audit W5c — 90d (was 365d): a bearer credential granting PII
-    // read + self-cancel must have a bounded window.
-    const meToken = appt.client_id
-      ? signToken({
-          kind: 'me',
-          resourceId: appt.client_id,
-          expiresInSeconds: 60 * 60 * 24 * 90,
-        })
-      : null;
+    // Clients audit W5c — 90d (was 365d) bearer window + an embedded
+    // revocation version so the shop can invalidate a leaked link.
+    let meToken: string | null = null;
+    if (appt.client_id) {
+      const verRes = await sb
+        .from('clients')
+        .select('me_token_version')
+        .eq('id', appt.client_id)
+        .limit(1);
+      const meVer =
+        ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
+          ?.me_token_version ?? 0;
+      meToken = signToken({
+        kind: 'me',
+        resourceId: appt.client_id,
+        expiresInSeconds: 60 * 60 * 24 * 90,
+        ver: meVer,
+      });
+    }
     const receiptToken = signToken({
       kind: 'receipt',
       resourceId: appt.id,

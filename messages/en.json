@@ -357,7 +357,8 @@
       "actions": {
         "exportData": "Export data (Loi 25)",
         "anonymize": "Anonymize (Loi 25)",
-        "merge": "Merge"
+        "merge": "Merge",
+        "revokeMe": "Revoke self-service access"
       },
       "confirmDelete": {
         "title": "Delete this client?",
@@ -380,7 +381,8 @@
         "deleted": "\"{name}\" deleted",
         "exported": "\"{name}\" data exported",
         "anonymized": "\"{name}\" anonymized (Loi 25)",
-        "merged": "Merged into \"{name}\""
+        "merged": "Merged into \"{name}\"",
+        "revokedMe": "\"{name}\" self-service links revoked"
       },
       "merge": {
         "title": "Merge duplicates",

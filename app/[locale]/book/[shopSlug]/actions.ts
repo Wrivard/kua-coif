@@ -782,10 +782,19 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // original "contact the salon" outro — the template handles meUrl=null.
       let meUrl: string | null = null;
       if (clientId) {
+        const verRes = await supabase
+          .from('clients')
+          .select('me_token_version')
+          .eq('id', clientId)
+          .limit(1);
+        const meVer =
+          ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
+            ?.me_token_version ?? 0;
         const meToken = signToken({
           kind: 'me',
           resourceId: clientId,
           expiresInSeconds: 60 * 60 * 24 * 90,
+          ver: meVer,
         });
         // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read
         // and warns once to Sentry in production when missing (broken

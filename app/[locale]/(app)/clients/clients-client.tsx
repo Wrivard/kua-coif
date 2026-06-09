@@ -10,6 +10,7 @@ import {
   Merge,
   Pencil,
   Plus,
+  ShieldOff,
   Trash2,
   UserX,
 } from 'lucide-react';
@@ -26,7 +27,13 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import type { ClientRow } from '@/db/rows';
 import { ClientFormModal } from './client-form-modal';
-import { anonymizeClient, deleteClient, exportClient, mergeClients } from './actions';
+import {
+  anonymizeClient,
+  deleteClient,
+  exportClient,
+  mergeClients,
+  revokeMeAccess,
+} from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: ClientRow };
 
@@ -207,6 +214,17 @@ export function ClientsClient({
     });
   }
 
+  function onRevokeMe(row: ClientRow) {
+    startTransition(async () => {
+      const result = await revokeMeAccess({ id: row.id });
+      if (result.ok) {
+        show({ variant: 'info', title: t('toasts.revokedMe', { name: clientLabel(row) }) });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   const columns: ReadonlyArray<ColumnDef<ClientRow>> = [
     {
       id: 'name',
@@ -282,6 +300,17 @@ export function ClientsClient({
               tone: 'warning',
               onClick: () => onAnonymize(r),
             },
+            // Revoke the client's outstanding /me self-service links (manager+).
+            ...(canManage
+              ? [
+                  {
+                    icon: ShieldOff,
+                    label: t('actions.revokeMe'),
+                    title: t('actions.revokeMe'),
+                    onClick: () => onRevokeMe(r),
+                  },
+                ]
+              : []),
             {
               icon: Trash2,
               label: tCommon('actions.delete'),

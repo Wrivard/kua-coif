@@ -39,6 +39,13 @@ type TokenPayload = {
   resourceId: string;
   /** UNIX seconds, after which the token is invalid. */
   exp: number;
+  /**
+   * Optional revocation version (currently `me` only). Embedded at mint and
+   * compared against the resource's current version at verify time; bumping
+   * the resource's version invalidates every outstanding token. Absent on
+   * legacy tokens → treated as 0 by the caller.
+   */
+  ver?: number;
 };
 
 function secret(): string {
@@ -70,11 +77,15 @@ export function signToken(input: {
   kind: TokenPayload['kind'];
   resourceId: string;
   expiresInSeconds: number;
+  /** Revocation version to embed (omit for kinds without revocation). */
+  ver?: number;
 }): string {
   const payload: TokenPayload = {
     kind: input.kind,
     resourceId: input.resourceId,
     exp: Math.floor(Date.now() / 1000) + input.expiresInSeconds,
+    // undefined is dropped by JSON.stringify, so legacy kinds stay unchanged.
+    ver: input.ver,
   };
   const payloadB64 = b64urlEncode(Buffer.from(JSON.stringify(payload), 'utf8'));
   const sig = createHmac('sha256', secret()).update(payloadB64).digest();

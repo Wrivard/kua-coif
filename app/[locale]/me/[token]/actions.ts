@@ -83,7 +83,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
       // here that's actually expired would be confused on their next
       // booking attempt.
       .select(
-        'id, shop_id, first_name, last_name, email, phone, created_at, loyalty_balance_cents, loyalty_balance_expires_at, anonymized_at',
+        'id, shop_id, first_name, last_name, email, phone, created_at, loyalty_balance_cents, loyalty_balance_expires_at, anonymized_at, me_token_version',
       )
       .eq('id', payload.resourceId)
       .limit(1);
@@ -98,8 +98,12 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
       loyalty_balance_cents: number | null;
       loyalty_balance_expires_at: string | null;
       anonymized_at: string | null;
+      me_token_version: number | null;
     }> | null) ?? [])[0];
     if (!client || client.anonymized_at) return err('NOT_FOUND');
+    // Revocation (W5c): the token's embedded version must match the client's
+    // current one; a bump invalidates every outstanding /me link.
+    if ((payload.ver ?? 0) !== (client.me_token_version ?? 0)) return err('NOT_FOUND');
 
     const effectiveBalanceCents = await effectiveLoyaltyBalanceCents({
       clientId: client.id,
@@ -259,6 +263,17 @@ export async function cancelMyAppointment(
       }> | null) ?? [])[0] ?? null;
     if (!appt) return err('NOT_FOUND');
     if (appt.client_id !== payload.resourceId) return err('NOT_FOUND');
+    // Revocation (W5c): the token's embedded version must still match the
+    // client's current one (a bump invalidates every outstanding /me link).
+    const verRes = await supabase
+      .from('clients')
+      .select('me_token_version')
+      .eq('id', payload.resourceId)
+      .limit(1);
+    const meVer =
+      ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
+        ?.me_token_version ?? 0;
+    if ((payload.ver ?? 0) !== meVer) return err('NOT_FOUND');
 
     // Already in a terminal state — nothing to do. We return NOT_FOUND
     // (rather than a specific "already cancelled" error) so a leaked

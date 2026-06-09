@@ -357,7 +357,8 @@
       "actions": {
         "exportData": "Exporter les données (Loi 25)",
         "anonymize": "Anonymiser (Loi 25)",
-        "merge": "Fusionner"
+        "merge": "Fusionner",
+        "revokeMe": "Révoquer l'accès libre-service"
       },
       "confirmDelete": {
         "title": "Supprimer ce client ?",
@@ -380,7 +381,8 @@
         "deleted": "« {name} » supprimé",
         "exported": "Données de « {name} » exportées",
         "anonymized": "« {name} » anonymisé (Loi 25)",
-        "merged": "Fusionné dans « {name} »"
+        "merged": "Fusionné dans « {name} »",
+        "revokedMe": "Liens libre-service de « {name} » révoqués"
       },
       "merge": {
         "title": "Fusionner les doublons",

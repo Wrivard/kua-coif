@@ -39,7 +39,7 @@ export default async function MePage({
   const clientRes = await supabase
     .from('clients')
     .select(
-      'id, shop_id, first_name, last_name, email, phone, loyalty_balance_cents, loyalty_counter, anonymized_at',
+      'id, shop_id, first_name, last_name, email, phone, loyalty_balance_cents, loyalty_counter, anonymized_at, me_token_version',
     )
     .eq('id', payload.resourceId)
     .limit(1);
@@ -53,9 +53,13 @@ export default async function MePage({
     loyalty_balance_cents: number | null;
     loyalty_counter: number | null;
     anonymized_at: string | null;
+    me_token_version: number | null;
   }> | null) ?? [])[0];
   if (!client) notFound();
   if (client.anonymized_at) notFound();
+  // Revocation (W5c): the token's embedded version must match the client's
+  // current one; a bump invalidates every outstanding /me link.
+  if ((payload.ver ?? 0) !== (client.me_token_version ?? 0)) notFound();
 
   // These three reads all key off the already-resolved `client` (shop_id
   // and id) and are independent of each other, so fire them together

@@ -13,6 +13,7 @@ import {
   deleteClientSchema,
   exportClientSchema,
   mergeClientsSchema,
+  revokeMeAccessSchema,
   updateClientSchema,
 } from './schema';
 
@@ -469,5 +470,47 @@ export const mergeClients = withAction({
     });
     revalidatePath(CLIENTS_PATH);
     return ok({ id: input.keep_id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// revokeMeAccess (Clients audit W5c) — invalidate a client's /me links.
+//
+// Bumps the client's me_token_version; every outstanding /me self-service
+// token embeds the version it was minted with, so the bump makes them all
+// fail to verify. A fresh link (next booking / generatePublicLinks) carries
+// the new version and works again.
+// ---------------------------------------------------------------------------
+export const revokeMeAccess = withAction({
+  schema: revokeMeAccessSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createSupabaseServiceRoleClient() as any;
+    const cur = await admin
+      .from('clients')
+      .select('me_token_version, shop_id')
+      .eq('id', input.id)
+      .single();
+    const row = cur.data as { me_token_version: number | null; shop_id: string } | null;
+    if (!row) return err('NOT_FOUND');
+    if (row.shop_id !== ctx.shopId) return err('NOT_FOUND');
+
+    const { error } = await admin
+      .from('clients')
+      .update({ me_token_version: (row.me_token_version ?? 0) + 1 })
+      .eq('id', input.id);
+    if (error) return err('UNEXPECTED');
+
+    await logDurableAudit({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'clients',
+      entityId: input.id,
+      diff: { me_token_revoked: true },
+    });
+    revalidatePath(CLIENTS_PATH);
+    return ok({ id: input.id });
   },
 });

@@ -69,3 +69,9 @@ export const mergeClientsSchema = z.object({
   keep_id: z.string().uuid(),
   merge_id: z.string().uuid(),
 });
+
+/**
+ * Clients audit W5c — revoke a client's /me self-service links by bumping
+ * their token version (every outstanding /me token then fails to verify).
+ */
+export const revokeMeAccessSchema = z.object({ id: z.string().uuid() });
