@@ -64,7 +64,7 @@ const AUDIT_PII_KEYS = new Set([
   'tax_id',
 ]);
 
-function redactAuditPii(v: unknown): unknown {
+export function redactAuditPii(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(redactAuditPii);
   if (v && typeof v === 'object') {
     const out: Record<string, unknown> = {};
