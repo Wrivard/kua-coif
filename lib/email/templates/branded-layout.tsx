@@ -1,4 +1,14 @@
-import { Body, Container, Head, Hr, Html, Preview, Section, Text } from '@react-email/components';
+import {
+  Body,
+  Container,
+  Head,
+  Hr,
+  Html,
+  Link,
+  Preview,
+  Section,
+  Text,
+} from '@react-email/components';
 import type { ReactNode } from 'react';
 
 /**
@@ -55,6 +65,15 @@ export type BrandedEmailLayoutProps = {
    * templates that need it; omitted otherwise.
    */
   footnote?: string | null;
+  /**
+   * Absolute URL to the public /unsubscribe/[token] page. Set ONLY by
+   * the commercial (CASL "CEM") templates — win-back, birthday, review
+   * request — to carry the legally-required one-click opt-out. Omitted
+   * by transactional templates (confirmation, reminder, receipt…),
+   * which are service messages and must NOT show an unsubscribe link.
+   * When set, a muted "Unsubscribe" line renders below the signature.
+   */
+  unsubscribeUrl?: string | null;
   children: ReactNode;
 };
 
@@ -108,9 +127,14 @@ export function BrandedEmailLayout({
   signature,
   shopName,
   footnote,
+  unsubscribeUrl,
   children,
 }: BrandedEmailLayoutProps) {
   const accent = accentColor ?? DEFAULT_EMAIL_ACCENT;
+  // CASL — the unsubscribe label is the only string this layout localizes
+  // itself (templates pass just the URL). Inline bilingual, same approach
+  // as every email template's own `copy(locale)`.
+  const unsubscribeLabel = locale === 'fr' ? 'Se désabonner' : 'Unsubscribe';
 
   return (
     <Html lang={locale}>
@@ -169,6 +193,16 @@ export function BrandedEmailLayout({
           >
             {shopName}
           </Text>
+          {unsubscribeUrl ? (
+            <Text style={{ color: emailPalette.textMuted, fontSize: 11, margin: '16px 0 0' }}>
+              <Link
+                href={unsubscribeUrl}
+                style={{ color: emailPalette.textMuted, textDecoration: 'underline' }}
+              >
+                {unsubscribeLabel}
+              </Link>
+            </Text>
+          ) : null}
         </Container>
       </Body>
     </Html>

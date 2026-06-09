@@ -21,6 +21,8 @@ export type ReviewRequestProps = {
   client: { firstName: string };
   /** Absolute URL to /review/[token]. */
   reviewUrl: string;
+  /** Absolute URL to /unsubscribe/[token] — CASL opt-out (review ask is a CEM). */
+  unsubscribeUrl?: string | null;
 };
 
 const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
@@ -44,7 +46,13 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
   };
 };
 
-export function ReviewRequest({ locale, shop, client, reviewUrl }: ReviewRequestProps) {
+export function ReviewRequest({
+  locale,
+  shop,
+  client,
+  reviewUrl,
+  unsubscribeUrl,
+}: ReviewRequestProps) {
   const L = copy(locale, shop.name, client.firstName);
   return (
     <BrandedEmailLayout
@@ -53,6 +61,7 @@ export function ReviewRequest({ locale, shop, client, reviewUrl }: ReviewRequest
       brandName={shop.name}
       signature={L.signature}
       shopName={shop.name}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Heading
         as="h1"

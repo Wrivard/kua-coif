@@ -20,6 +20,8 @@ export type WinbackProps = {
   client: { firstName: string };
   /** Absolute URL to /book/[shopSlug]. */
   bookingUrl: string;
+  /** Absolute URL to /unsubscribe/[token] — CASL opt-out (winback is a CEM). */
+  unsubscribeUrl?: string | null;
 };
 
 const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
@@ -43,7 +45,7 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
   };
 };
 
-export function Winback({ locale, shop, client, bookingUrl }: WinbackProps) {
+export function Winback({ locale, shop, client, bookingUrl, unsubscribeUrl }: WinbackProps) {
   const L = copy(locale, shop.name, client.firstName);
   return (
     <BrandedEmailLayout
@@ -52,6 +54,7 @@ export function Winback({ locale, shop, client, bookingUrl }: WinbackProps) {
       brandName={shop.name}
       signature={L.signature}
       shopName={shop.name}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Heading
         as="h1"

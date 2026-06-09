@@ -7,6 +7,7 @@ import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { Winback } from '@/lib/email/templates/winback';
+import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { winbackSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
@@ -113,6 +114,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
             shop: { name: shop.name },
             client: { firstName: client.first_name },
             bookingUrl,
+            unsubscribeUrl: buildUnsubscribeUrl(client.id, locale),
           }),
           tags: [
             { name: 'kind', value: 'winback' },

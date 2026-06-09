@@ -33,6 +33,7 @@ import { captureException } from '@/lib/observability';
 import { signToken } from '@/lib/security/signed-tokens';
 import { sendEmail } from '@/lib/email/send';
 import { ReviewRequest } from '@/lib/email/templates/review-request';
+import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
 
 // 90 days — long enough that a client clicking a week later still sees
 // the form, short enough that a leaked token can't be replayed years
@@ -120,6 +121,7 @@ export async function sendReviewRequestOnCompletion({
         shop: { name: shop.name },
         client: { firstName: client.first_name },
         reviewUrl,
+        unsubscribeUrl: buildUnsubscribeUrl(clientId, locale),
       }),
       tags: [
         { name: 'kind', value: 'review_request' },

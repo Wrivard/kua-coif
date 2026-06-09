@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { BirthdayGreeting } from '@/lib/email/templates/birthday-greeting';
+import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { birthdayGreetingSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
@@ -163,6 +164,7 @@ export async function GET(req: NextRequest) {
                 locale,
                 shop: { name: shop.name },
                 client: { firstName: client.first_name },
+                unsubscribeUrl: buildUnsubscribeUrl(client.id, locale),
               }),
               tags: [
                 { name: 'kind', value: 'birthday' },

@@ -18,6 +18,8 @@ export type BirthdayGreetingProps = {
   locale: 'fr' | 'en';
   shop: { name: string };
   client: { firstName: string };
+  /** Absolute URL to /unsubscribe/[token] — CASL opt-out (birthday is a CEM). */
+  unsubscribeUrl?: string | null;
 };
 
 const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
@@ -37,7 +39,12 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
   };
 };
 
-export function BirthdayGreeting({ locale, shop, client }: BirthdayGreetingProps) {
+export function BirthdayGreeting({
+  locale,
+  shop,
+  client,
+  unsubscribeUrl,
+}: BirthdayGreetingProps) {
   const L = copy(locale, shop.name, client.firstName);
 
   return (
@@ -47,6 +54,7 @@ export function BirthdayGreeting({ locale, shop, client }: BirthdayGreetingProps
       brandName={shop.name}
       signature={L.signature}
       shopName={shop.name}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Heading
         as="h1"
