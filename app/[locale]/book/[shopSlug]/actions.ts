@@ -432,6 +432,23 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     }
 
     const shopWeekday = new Date(`${input.date}T00:00:00`).getDay();
+
+    // B5 — enforce client_booking_interval_min as a server-side GRID check.
+    // Previously the interval only stepped the slots UI, so a crafted POST
+    // could book any off-grid minute (e.g. 10:07 when the interval is 30). A
+    // public booking must land on open_time + k*interval for the day; admin
+    // bookings (via the calendar, not this action) are unaffected.
+    if (settings && settings.client_booking_interval_min > 0) {
+      const dayHours = hours.find((h) => h.weekday === shopWeekday && h.enabled && h.open_time);
+      if (dayHours?.open_time) {
+        const openMin = toMinutes(dayHours.open_time.slice(0, 5));
+        const startMin = toMinutes(input.start_time);
+        if ((startMin - openMin) % settings.client_booking_interval_min !== 0) {
+          return err('INVALID_INPUT');
+        }
+      }
+    }
+
     const verdict = checkAvailability({
       start_at: startAt,
       end_at: endAt,
