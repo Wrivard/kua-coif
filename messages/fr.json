@@ -490,11 +490,16 @@
         "disconnectGoogle": "Déconnecter Google Calendar"
       },
       "googleStatus": {
-        "error": "Erreur — reconnecte"
+        "error": "Erreur — reconnecte",
+        "paused": "En pause"
       },
       "confirmDelete": {
         "title": "Désactiver ce barbier ?",
         "description": "« {name} » sera archivé. Tu peux le restaurer depuis l'onglet Supprimés."
+      },
+      "confirmDisconnect": {
+        "title": "Déconnecter Google Calendar ?",
+        "description": "Cela retire les rendez-vous à venir synchronisés du Google Calendar de {name}. Il peut se reconnecter à tout moment."
       },
       "form": {
         "addTitle": "Nouveau barbier",

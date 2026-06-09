@@ -78,10 +78,14 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   }, [toast.duration, onDismiss]);
 
   const { border, icon, halo } = variantStyles[toast.variant];
+  // B23 (Barbers audit) — error toasts must interrupt the screen reader
+  // (assertive `role="alert"`) instead of waiting politely behind other output;
+  // info/success stay polite so they don't talk over the user.
+  const isAlert = toast.variant === 'danger';
 
   return (
     <div
-      role="status"
+      role={isAlert ? 'alert' : 'status'}
       className={cn(
         // Phase 36 — refined: rounded-lg + shadow-lg (drop + inset
         // highlight). Slide-in animation tuned to 200ms ease-out-quint

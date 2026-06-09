@@ -50,6 +50,9 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const [confirmDelete, setConfirmDelete] = useState<BarberRow | null>(null);
+  // B18 — the Google disconnect deletes real events off the barber's external
+  // calendar, so it must be confirmed (not fire on a stray icon click).
+  const [confirmDisconnect, setConfirmDisconnect] = useState<BarberRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Phase 34 — surface a toast after the OAuth round-trip. The callback
@@ -208,11 +211,21 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
                   </Button>
                 );
               }
+              // B25 — distinguish the three sync states: error (red),
+              // paused (amber, NOT a healthy green), active (green + email).
+              const badgeVariant =
+                conn.syncStatus === 'error'
+                  ? 'danger'
+                  : conn.syncStatus === 'paused'
+                    ? 'warning'
+                    : 'success';
               return (
                 <div className="flex items-center gap-2">
-                  <Badge variant={conn.syncStatus === 'error' ? 'danger' : 'success'}>
+                  <Badge variant={badgeVariant}>
                     {conn.syncStatus === 'error' ? (
                       t('googleStatus.error')
+                    ) : conn.syncStatus === 'paused' ? (
+                      t('googleStatus.paused')
                     ) : (
                       <>
                         <Check className="h-3 w-3" /> {conn.googleEmail}
@@ -225,7 +238,7 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
                     title={t('actions.disconnectGoogle')}
                     onClick={(e) => {
                       e.stopPropagation();
-                      disconnectGoogle(r.id, r.display_name);
+                      setConfirmDisconnect(r);
                     }}
                     className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
@@ -334,6 +347,27 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
         cancelLabel={tCommon('actions.cancel')}
         onConfirm={() => confirmDelete && onDelete(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmDisconnect !== null}
+        title={t('confirmDisconnect.title')}
+        description={
+          confirmDisconnect
+            ? t('confirmDisconnect.description', { name: confirmDisconnect.display_name })
+            : ''
+        }
+        destructive
+        loading={isPending}
+        confirmLabel={t('actions.disconnectGoogle')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => {
+          if (confirmDisconnect) {
+            disconnectGoogle(confirmDisconnect.id, confirmDisconnect.display_name);
+            setConfirmDisconnect(null);
+          }
+        }}
+        onCancel={() => setConfirmDisconnect(null)}
       />
     </>
   );

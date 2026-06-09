@@ -490,11 +490,16 @@
         "disconnectGoogle": "Disconnect Google Calendar"
       },
       "googleStatus": {
-        "error": "Error — reconnect"
+        "error": "Error — reconnect",
+        "paused": "Paused"
       },
       "confirmDelete": {
         "title": "Archive this barber?",
         "description": "\"{name}\" will be archived. You can restore them from the Deleted tab."
+      },
+      "confirmDisconnect": {
+        "title": "Disconnect Google Calendar?",
+        "description": "This removes the synced upcoming events from {name}'s Google Calendar. They can reconnect anytime."
       },
       "form": {
         "addTitle": "New barber",
