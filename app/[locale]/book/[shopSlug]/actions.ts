@@ -324,6 +324,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .select('id, sort_order')
         .eq('shop_id', shop.id)
         .eq('status', 'confirmed')
+        .eq('bookable', true)
         .order('sort_order', { ascending: true })
         .limit(1);
       barberId = (anyBarberRes.data as Array<{ id: string }> | null)?.[0]?.id ?? null;
@@ -340,6 +341,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .eq('id', barberId)
         .eq('shop_id', shop.id)
         .eq('status', 'confirmed')
+        .eq('bookable', true)
         .maybeSingle();
       if (!barberRes.data) return err('INVALID_INPUT');
     }

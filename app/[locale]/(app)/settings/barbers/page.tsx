@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import type { BarberRow } from '@/db/rows';
 import { BarberSettingsClient, type BarberSettingsRow } from './barber-settings-client';
 
@@ -13,6 +13,9 @@ export default async function BarberSettingsPage({
 }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
+  // B19 — manager+ only (the settings save already is). A barber-role user is
+  // FORBIDDEN here.
+  await requireRoleInCurrentShop('manager');
 
   // Scope to the ACTIVE shop (Barbers audit B10): without an explicit shop_id
   // filter, RLS (is_shop_member) returns barbers + settings from EVERY shop the

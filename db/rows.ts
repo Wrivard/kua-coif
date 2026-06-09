@@ -65,6 +65,9 @@ export type BarberRow = {
   personnel_id: string | null;
   sort_order: number;
   status: ShopMemberStatus;
+  // Barbers audit B17 — excludes a confirmed barber from PUBLIC booking
+  // (without soft-deleting them, which also drops their calendar column).
+  bookable: boolean;
 };
 
 export type ClientRow = {

@@ -39,6 +39,9 @@ export const barberSchema = z.object({
     .max(2048)
     .nullable()
     .or(z.literal('').transform(() => null)),
+  // B17 — whether the barber is offered in public booking (independent of the
+  // confirmed/staff/deleted status). Defaults true on the form.
+  bookable: z.boolean(),
 });
 export type BarberInput = z.infer<typeof barberSchema>;
 

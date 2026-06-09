@@ -54,13 +54,25 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
   // Resolve target barber (or "first confirmed" if 'any').
   let barberId: string | null = null;
   if (barber && barber !== 'any') {
-    barberId = barber;
+    // Validate the supplied barber is bookable in THIS shop (B6/B17) — don't
+    // surface slots for a hidden / soft-deleted / cross-shop barber. The
+    // booking action re-checks too, but the slots API shouldn't advertise them.
+    const oneRes = await supabase
+      .from('barbers')
+      .select('id')
+      .eq('id', barber)
+      .eq('shop_id', shop.id)
+      .eq('status', 'confirmed')
+      .eq('bookable', true)
+      .maybeSingle();
+    barberId = (oneRes.data as { id: string } | null)?.id ?? null;
   } else if (shop.allow_booking_any_barber) {
     const anyRes = await supabase
       .from('barbers')
       .select('id, sort_order')
       .eq('shop_id', shop.id)
       .eq('status', 'confirmed')
+      .eq('bookable', true)
       .order('sort_order', { ascending: true })
       .limit(1);
     barberId = ((anyRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;

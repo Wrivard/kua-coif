@@ -318,6 +318,7 @@ export type Database = {
       barbers: {
         Row: {
           avatar_url: string | null;
+          bookable: boolean;
           created_at: string;
           display_name: string;
           email: string | null;
@@ -332,6 +333,7 @@ export type Database = {
         };
         Insert: {
           avatar_url?: string | null;
+          bookable?: boolean;
           created_at?: string;
           display_name: string;
           email?: string | null;
@@ -346,6 +348,7 @@ export type Database = {
         };
         Update: {
           avatar_url?: string | null;
+          bookable?: boolean;
           created_at?: string;
           display_name?: string;
           email?: string | null;
@@ -2094,6 +2097,10 @@ export type Database = {
         Returns: undefined;
       };
       purge_old_audit_log: { Args: { retain_months?: number }; Returns: number };
+      save_barber_settings: {
+        Args: { p_rows: Json; p_shop: string };
+        Returns: number;
+      };
     };
     Enums: {
       appointment_payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';

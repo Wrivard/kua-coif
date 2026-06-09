@@ -509,6 +509,8 @@
         "phone": "Phone",
         "personnelId": "Personnel ID (optional)",
         "status": "Status",
+        "bookable": "Bookable online",
+        "bookableHint": "When off, this barber stays on the calendar but is hidden from public booking.",
         "avatar": "Avatar",
         "avatarUpload": "Upload",
         "avatarReplace": "Replace",

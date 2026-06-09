@@ -509,6 +509,8 @@
         "phone": "Téléphone",
         "personnelId": "ID employé (optionnel)",
         "status": "Statut",
+        "bookable": "Réservable en ligne",
+        "bookableHint": "Désactivé, le barbier reste au calendrier mais est masqué de la réservation publique.",
         "avatar": "Photo",
         "avatarUpload": "Téléverser",
         "avatarReplace": "Remplacer",

@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import { googleConfigured } from '@/lib/google/server';
 import type { BarberRow } from '@/db/rows';
 import { BarbersClient, type GoogleConnectionView } from './barbers-client';
@@ -10,6 +10,10 @@ export const dynamic = 'force-dynamic';
 export default async function BarbersPage({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
   await requireShopMember({ locale });
+  // B19 — the roster exposes colleague PII (email/phone) and is a management
+  // surface; gate to manager+ (consistent with the CSV export gate + the
+  // finances/audit-log pages). A barber-role user is FORBIDDEN here.
+  await requireRoleInCurrentShop('manager');
 
   // Scope to the ACTIVE shop (Barbers audit B10): without an explicit shop_id
   // filter, RLS (is_shop_member) returns barbers from EVERY shop the user

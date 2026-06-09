@@ -10,6 +10,7 @@ import { FieldHint, Input, Label } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { Select } from '@/components/ui/select';
+import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
 import { SHOP_MEMBER_STATUSES } from '@/db/enums';
 import type { BarberRow } from '@/db/rows';
@@ -34,6 +35,7 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
           personnel_id: mode.barber.personnel_id,
           status: mode.barber.status,
           avatar_url: mode.barber.avatar_url ?? null,
+          bookable: mode.barber.bookable,
         }
       : {
           display_name: '',
@@ -42,6 +44,7 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
           personnel_id: null,
           status: 'confirmed',
           avatar_url: null,
+          bookable: true,
         };
 
   const {
@@ -163,6 +166,18 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
               </option>
             ))}
           </Select>
+        </div>
+
+        {/* B17 — public-booking visibility, independent of status. */}
+        <div className="flex items-center justify-between gap-4 md:col-span-2">
+          <div>
+            <Label>{t('form.bookable')}</Label>
+            <p className="mt-1 text-xs text-text-muted">{t('form.bookableHint')}</p>
+          </div>
+          <Toggle
+            checked={watch('bookable')}
+            onChange={(v) => setValue('bookable', v, { shouldDirty: true })}
+          />
         </div>
       </form>
     </Modal>

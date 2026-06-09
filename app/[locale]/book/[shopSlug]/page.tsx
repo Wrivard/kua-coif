@@ -80,7 +80,7 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
       supabase.from('shop_days_off').select('date').eq('shop_id', shop.id),
       supabase
         .from('barbers')
-        .select('id, display_name, avatar_url, sort_order, status')
+        .select('id, display_name, avatar_url, sort_order, status, bookable')
         .eq('shop_id', shop.id)
         .order('sort_order', { ascending: true }),
       supabase
@@ -117,7 +117,8 @@ export default async function BookingPage({ params: { locale, shopSlug } }: Prop
   const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
   const tipsConfig = ((tipsRes.data as TipsConfig[] | null) ?? [])[0];
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
-    (b) => b.status === 'confirmed',
+    // B17 — public booking shows only confirmed AND bookable barbers.
+    (b) => b.status === 'confirmed' && b.bookable,
   );
   const services = ((servicesRes.data as ServiceRow[] | null) ?? []).filter(
     (s) => s.status === 'enabled',

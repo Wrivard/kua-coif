@@ -27,7 +27,12 @@ export const createBarber = withAction({
       .insert({ shop_id: ctx.shopId, ...input })
       .select('id')
       .single();
-    if (error || !data) return err('UNEXPECTED');
+    if (error || !data) {
+      // B15 — the partial unique indexes reject a duplicate email/personnel_id
+      // in the shop; surface a clear CONFLICT instead of a generic error.
+      if (error?.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -55,7 +60,11 @@ export const updateBarber = withAction({
       .update(rest)
       .eq('id', id)
       .select('id');
-    if (error) return err('UNEXPECTED');
+    if (error) {
+      // B15 — duplicate email/personnel_id (e.g. editing into a colleague's).
+      if (error.code === '23505') return err('CONFLICT');
+      return err('UNEXPECTED');
+    }
     // Distinguish a real update from a 0-row no-op: a nonexistent or
     // cross-tenant id is RLS-filtered to zero rows with no error, which
     // would otherwise report a false success.
