@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +62,14 @@ export function BarberSettingsClient({
     const out: Draft[] = [
       shopRow
         ? toDraft(shopRow)
-        : { scope: 'shop' as BarberSettingsScope, barber_id: null, ...DEFAULTS },
+        : // B22 — the shop-default row should have confirmation_tip ON per the
+          // annexe seed (Image 7); only per-barber rows default it off.
+          {
+            scope: 'shop' as BarberSettingsScope,
+            barber_id: null,
+            ...DEFAULTS,
+            confirmation_tip: true,
+          },
     ];
     for (const b of barbers) {
       const row = settings.find((s) => s.scope === 'barber' && s.barber_id === b.id);
@@ -76,6 +83,24 @@ export function BarberSettingsClient({
   }, [settings, barbers]);
 
   const [drafts, setDrafts] = useState<Draft[]>(initialDrafts);
+
+  // B18 — the matrix is the densest form in the app and had no change-safety:
+  // navigating away silently discarded the whole grid. Warn on unload while
+  // dirty, and offer a Reset. (initialDrafts recomputes from fresh server props
+  // after a save's revalidate, so a successful save clears the dirty state.)
+  const isDirty = useMemo(
+    () => JSON.stringify(drafts) !== JSON.stringify(initialDrafts),
+    [drafts, initialDrafts],
+  );
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   function patch(idx: number, mutator: (d: Draft) => Draft) {
     setDrafts((prev) => prev.map((d, i) => (i === idx ? mutator(d) : d)));
@@ -133,6 +158,11 @@ export function BarberSettingsClient({
             <Button variant="secondary" size="sm" onClick={applyShopDefaultsToAll}>
               {t('overrideButton')}
             </Button>
+            {isDirty ? (
+              <Button variant="ghost" size="sm" onClick={() => setDrafts(initialDrafts)}>
+                {tCommon('actions.cancel')}
+              </Button>
+            ) : null}
             <Button onClick={onSave} loading={isPending} size="sm">
               {tCommon('actions.save')}
             </Button>

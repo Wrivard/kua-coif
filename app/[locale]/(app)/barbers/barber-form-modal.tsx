@@ -134,16 +134,24 @@ export function BarberFormModal({ mode, onClose }: { mode: Mode; onClose: () => 
         <div>
           <Label htmlFor="email">{t('form.email')}</Label>
           <Input id="email" type="email" invalid={Boolean(errors.email)} {...register('email')} />
+          {/* B24 — the error was computed but never shown, so a bad email made
+              Save silently no-op. Surface it like display_name does. */}
+          {errors.email ? <FieldHint error>{tErr('field.email')}</FieldHint> : null}
         </div>
 
         <div>
           <Label htmlFor="phone">{t('form.phone')}</Label>
-          <PhoneInput id="phone" {...register('phone')} />
+          <PhoneInput id="phone" invalid={Boolean(errors.phone)} {...register('phone')} />
+          {errors.phone ? <FieldHint error>{tErr('field.PHONE_INVALID')}</FieldHint> : null}
         </div>
 
         <div>
           <Label htmlFor="personnel_id">{t('form.personnelId')}</Label>
-          <Input id="personnel_id" {...register('personnel_id')} />
+          <Input
+            id="personnel_id"
+            invalid={Boolean(errors.personnel_id)}
+            {...register('personnel_id')}
+          />
         </div>
 
         <div>
