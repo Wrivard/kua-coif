@@ -164,35 +164,46 @@ export const disconnectGoogleCalendar = withAction({
     const owner = ownerRes.data as { shop_id: string } | null;
     if (!owner || owner.shop_id !== ctx.shopId) return err('NOT_FOUND');
 
-    // Loop 36 (P96) — orphan cleanup. Before we forget the
-    // `google_event_id`s, ask Google to delete the mirrored events
-    // so they don't linger on the barber's personal calendar as
-    // ghost slots. Best-effort: a Google outage doesn't block the
-    // disconnect — we still want the local connection torn down
-    // because the user asked for it. Each delete has its own
-    // captureException + retry-with-backoff inside
-    // `deleteAppointmentMirror`.
+    // Loop 36 (P96) — orphan cleanup. Ask Google to delete the mirrored events
+    // so they don't linger on the barber's personal calendar as ghost slots.
+    // Best-effort: a Google outage doesn't block the disconnect.
+    //
+    // Perf/reliability (Barbers audit B2b) — BOUND + CAP the fan-out:
+    //  - BOUND to FUTURE events only. Those are the upcoming "ghost slots" that
+    //    actually matter; cleaning a barber's entire multi-year history would
+    //    blow the (uncapped, 10s default) server-action timeout and amplify a
+    //    Google rate-limit, leaving a half-torn state with no record.
+    //  - CAP concurrency in batches so a backlog can't fire hundreds of
+    //    parallel deletes (each with its own retry + backoff) at once.
     const apptsRes = await admin
       .from('appointments')
       .select('id, google_event_id')
       .eq('barber_id', input.barber_id)
       .eq('shop_id', ctx.shopId)
-      .not('google_event_id', 'is', null);
+      .not('google_event_id', 'is', null)
+      .gte('start_at', new Date().toISOString());
     const mirrored = (apptsRes.data as Array<{ id: string; google_event_id: string }> | null) ?? [];
+    let cleaned = 0;
+    let cleanupFailed = 0;
     if (mirrored.length > 0) {
       const { deleteAppointmentMirror } = await import('@/lib/google/sync');
-      // Fire in parallel — N events × ~300ms sequential would feel
-      // sluggish to the manager. Promise.allSettled so one Google
-      // error doesn't abort the rest.
-      await Promise.allSettled(
-        mirrored.map((m) =>
-          deleteAppointmentMirror({
-            appointmentId: m.id,
-            barberId: input.barber_id,
-            googleEventId: m.google_event_id,
-          }),
-        ),
-      );
+      const CONCURRENCY = 8;
+      for (let i = 0; i < mirrored.length; i += CONCURRENCY) {
+        const batch = mirrored.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map((m) =>
+            deleteAppointmentMirror({
+              appointmentId: m.id,
+              barberId: input.barber_id,
+              googleEventId: m.google_event_id,
+            }),
+          ),
+        );
+        for (const r of results) {
+          if (r.status === 'fulfilled') cleaned += 1;
+          else cleanupFailed += 1;
+        }
+      }
     }
 
     // Loop 50 (Phase 97) — stop the webhook channel BEFORE deleting
@@ -223,7 +234,14 @@ export const disconnectGoogleCalendar = withAction({
       action: 'delete',
       entity: 'barber_google_calendar',
       entityId: input.barber_id,
-      diff: { orphan_events_cleaned: mirrored.length },
+      // Record the REAL outcome (attempted = cleaned + failed), not just the
+      // count attempted — so an operator can tell from the trail whether a
+      // barber's future Google events were actually removed.
+      diff: {
+        orphan_events_cleaned: cleaned,
+        orphan_events_failed: cleanupFailed,
+        scope: 'future',
+      },
     });
     revalidatePath(BARBERS_PATH);
     return ok({ ok: true });
