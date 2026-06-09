@@ -486,8 +486,11 @@ export type Database = {
           loyalty_balance_cents: number;
           loyalty_balance_expires_at: string | null;
           loyalty_counter: number;
+          marketing_opted_out: boolean;
+          me_token_version: number;
           notes: string | null;
           phone: string | null;
+          phone_normalized: string | null;
           quickbooks_customer_id: string | null;
           shop_id: string;
           updated_at: string;
@@ -503,8 +506,11 @@ export type Database = {
           loyalty_balance_cents?: number;
           loyalty_balance_expires_at?: string | null;
           loyalty_counter?: number;
+          marketing_opted_out?: boolean;
+          me_token_version?: number;
           notes?: string | null;
           phone?: string | null;
+          phone_normalized?: string | null;
           quickbooks_customer_id?: string | null;
           shop_id: string;
           updated_at?: string;
@@ -520,8 +526,11 @@ export type Database = {
           loyalty_balance_cents?: number;
           loyalty_balance_expires_at?: string | null;
           loyalty_counter?: number;
+          marketing_opted_out?: boolean;
+          me_token_version?: number;
           notes?: string | null;
           phone?: string | null;
+          phone_normalized?: string | null;
           quickbooks_customer_id?: string | null;
           shop_id?: string;
           updated_at?: string;
@@ -2066,6 +2075,7 @@ export type Database = {
       };
     };
     Functions: {
+      _audit_redact_keys: { Args: { p: Json; p_keys: string[] }; Returns: Json };
       current_shop_ids: { Args: never; Returns: string[] };
       has_role_in_shop: {
         Args: {
@@ -2074,7 +2084,16 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_own_barber: {
+        Args: { p_barber_id: string; p_shop_id: string };
+        Returns: boolean;
+      };
       is_shop_member: { Args: { target_shop_id: string }; Returns: boolean };
+      merge_clients: {
+        Args: { p_keep: string; p_merge: string; p_shop: string };
+        Returns: undefined;
+      };
+      purge_old_audit_log: { Args: { retain_months?: number }; Returns: number };
     };
     Enums: {
       appointment_payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
