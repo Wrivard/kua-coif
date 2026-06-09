@@ -325,7 +325,27 @@ export const createAppointment = withAction({
       // deleting the appointment we just created and surface UNEXPECTED.
       // (Wrapping both writes in a Postgres RPC is the proper V2 fix.)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (rawDb() as any).from('appointments').delete().eq('id', insertRes.data.id);
+      const rollbackRes = await (rawDb() as any)
+        .from('appointments')
+        .delete()
+        .eq('id', insertRes.data.id);
+      // If the compensating DELETE itself fails, the orphan persists. Don't
+      // lose it behind the generic UNEXPECTED toast — capture the row id so
+      // it can be reconciled (mirrors the orphan-PaymentIntent recovery on
+      // the charge path).
+      if (rollbackRes?.error) {
+        captureException(new Error('createAppointment: orphan rollback DELETE failed'), {
+          tags: { layer: 'calendar', action: 'createAppointment.rollback' },
+          extra: {
+            appointmentId: insertRes.data.id,
+            shopId: ctx.shopId,
+            linkError: String((linkRes.error as { message?: string })?.message ?? linkRes.error),
+            deleteError: String(
+              (rollbackRes.error as { message?: string })?.message ?? rollbackRes.error,
+            ),
+          },
+        });
+      }
       return err('UNEXPECTED');
     }
 
@@ -688,6 +708,20 @@ export const cancelAppointment = withAction({
     // hides the refund affordance from barbers; this enforces it server-side.
     if (input.also_refund && ctx.role === 'barber') {
       return err('FORBIDDEN', { reason: 'refund_requires_manager' });
+    }
+
+    // Throttle the money path. An `also_refund` cancel issues a full Stripe
+    // refund, so it shares the SAME per-user bucket as standalone
+    // refundAppointment — otherwise the 20/hr refund limit is trivially
+    // bypassed by routing refunds through cancel. Only charged when money
+    // actually moves (a plain cancel stays unthrottled here; bulk cancels go
+    // through bulkCancelAppointments' own 5/min limit).
+    if (input.also_refund) {
+      const rl = await checkRateLimit(`refund:${ctx.userId}`, {
+        max: 20,
+        windowMs: 60 * 60 * 1000,
+      });
+      if (!rl.allowed) return err('RATE_LIMITED');
     }
 
     // Phase D — cancellation-policy gate on the auto-refund leg.
@@ -1463,6 +1497,16 @@ export const searchClients = withAction<typeof searchClientsSchema, ClientSearch
   run: async (input, ctx) => {
     const q = input.query.trim();
     if (q.length < 2) return ok([]);
+    // Throttle: this fires per debounced keystroke and runs an un-indexable
+    // 4-column ILIKE scan returning client PII, so cap it per user to block
+    // sustained enumeration / DB-scan abuse while staying generous for real
+    // typing (~1/s sustained). RATE_LIMITED surfaces as an empty result + a
+    // soft notice in the picker, not a hard error.
+    const rl = await checkRateLimit(`clientsearch:${ctx.userId}`, {
+      max: 60,
+      windowMs: 60 * 1000,
+    });
+    if (!rl.allowed) return err('RATE_LIMITED');
     // Strip characters that would break the PostgREST or() grammar
     // (commas / parens / backslash) or act as LIKE wildcards. The search is
     // shop-scoped regardless (the .eq below is ANDed before the .or), so this

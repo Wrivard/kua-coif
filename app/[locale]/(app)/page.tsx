@@ -301,6 +301,14 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
       .lt('start_at', weekEnd.toISOString());
 
     const weekApptsRes = await weekApptsQuery;
+    // Same load-bearing reliability rule as the day path (lines above): a
+    // failed week read must NOT render as an empty-but-valid week (the
+    // operator would silently miss real bookings). Throw → (app)/error.tsx.
+    if (weekApptsRes.error) {
+      throw new Error(
+        `Calendar week load failed: ${(weekApptsRes.error as { message?: string }).message ?? weekApptsRes.error}`,
+      );
+    }
     const weekRows =
       (weekApptsRes.data as Array<{
         id: string;
@@ -323,6 +331,9 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
             .select('appointment_id, service_id, price_snapshot')
             .in('appointment_id', weekApptIds)
         : { data: [] as Array<unknown> };
+    if ((weekServicesRes as { error?: unknown }).error) {
+      throw new Error('Calendar week load failed: appointment_services read error');
+    }
     const weekServiceLinks =
       (weekServicesRes.data as Array<{
         appointment_id: string;
@@ -373,13 +384,22 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
         barberId: b.id,
         // Bound each Google call: one hung/slow connection must NOT wall the
         // home-route render. After 1.5s we drop that barber's overlay (the
-        // grid is still fully usable — the busy overlay is decorative).
-        periods: await Promise.race([
-          fetchBarberBusyForDay(b.id, dayStart, dayEnd),
-          new Promise<Array<{ start: string; end: string }>>((resolve) =>
-            setTimeout(() => resolve([]), 1500),
-          ),
-        ]),
+        // grid is still fully usable — the busy overlay is decorative). The
+        // timer is cleared once the race settles so the losing branch doesn't
+        // leave a pending timeout behind for each barber.
+        periods: await (async () => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            return await Promise.race([
+              fetchBarberBusyForDay(b.id, dayStart, dayEnd),
+              new Promise<Array<{ start: string; end: string }>>((resolve) => {
+                timer = setTimeout(() => resolve([]), 1500);
+              }),
+            ]);
+          } finally {
+            if (timer) clearTimeout(timer);
+          }
+        })(),
       })),
     );
     for (const r of results) {
