@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { revalidatePublicShopSurfaces, revalidateShopRow } from '@/lib/server-actions/revalidate';
+import {
+  revalidatePublicShopSurfaces,
+  revalidateShopConfig,
+  revalidateShopRow,
+} from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import { shopDetailsSchema, shopHoursSchema } from './schema';
 
@@ -32,6 +36,8 @@ export const updateShopDetails = withAction({
     revalidateShopRow();
     // Shop name / hours / address surface on /book + /embed — invalidate them.
     revalidatePublicShopSurfaces();
+    // Calendar reads hours/days-off from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ ok: true });
   },
 });
@@ -56,6 +62,8 @@ export const updateShopHours = withAction({
     revalidatePath(PATH);
     // Shop name / hours / address surface on /book + /embed — invalidate them.
     revalidatePublicShopSurfaces();
+    // Calendar reads hours/days-off from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ ok: true });
   },
 });

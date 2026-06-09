@@ -1,5 +1,11 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { SHOP_CACHE_TAG } from '@/lib/auth/server';
+import {
+  SERVICES_CACHE_TAG,
+  SERVICE_CATEGORIES_CACHE_TAG,
+  SHOP_HOURS_CACHE_TAG,
+  SHOP_DAYS_OFF_CACHE_TAG,
+} from '@/lib/data/calendar-config';
 
 /**
  * Bust the cache on every public surface that may be reading a shop's
@@ -31,4 +37,22 @@ export function revalidatePublicShopSurfaces() {
  */
 export function revalidateShopRow() {
   revalidateTag(SHOP_CACHE_TAG);
+}
+
+/**
+ * Bust the `unstable_cache` entries for a shop's calendar config
+ * (services / categories / hours / days-off — see lib/data/calendar-config).
+ * Call from any Server Action that edits that config so the calendar + booking
+ * surfaces pick the change up immediately instead of after the 5-minute TTL.
+ *
+ * Busts all four tags regardless of which table changed: the tables are tiny
+ * and a `revalidateTag` on an entry that wasn't actually cached is a cheap
+ * no-op, so over-busting costs nothing and removes the risk of forgetting a
+ * specific tag at a given call site.
+ */
+export function revalidateShopConfig() {
+  revalidateTag(SERVICES_CACHE_TAG);
+  revalidateTag(SERVICE_CATEGORIES_CACHE_TAG);
+  revalidateTag(SHOP_HOURS_CACHE_TAG);
+  revalidateTag(SHOP_DAYS_OFF_CACHE_TAG);
 }

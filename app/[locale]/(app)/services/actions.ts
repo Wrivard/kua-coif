@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
+import {
+  revalidatePublicShopSurfaces,
+  revalidateShopConfig,
+} from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import {
   deleteServiceCategorySchema,
@@ -108,6 +111,8 @@ export const createService = withAction({
     // Services are surfaced in the public booking + embed widget — bust their
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: data.id });
   },
 });
@@ -157,6 +162,8 @@ export const updateService = withAction({
     // Services are surfaced in the public booking + embed widget — bust their
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id });
   },
 });
@@ -184,6 +191,8 @@ export const deleteService = withAction({
     // Services are surfaced in the public booking + embed widget — bust their
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: input.id });
   },
 });
@@ -252,6 +261,8 @@ export const toggleServiceStatus = withAction({
     // Services are surfaced in the public booking + embed widget — bust their
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: input.id, status: next });
   },
 });
@@ -292,6 +303,8 @@ export const reorderServices = withAction({
     revalidatePath(SERVICES_PATH);
     // Booking + embed surfaces render services in sort_order, so bust them.
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ ids: input.ids });
   },
 });
@@ -324,6 +337,8 @@ export const createServiceCategory = withAction({
 
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: data.id });
   },
 });
@@ -349,6 +364,8 @@ export const renameServiceCategory = withAction({
 
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: input.id });
   },
 });
@@ -397,6 +414,8 @@ export const deleteServiceCategory = withAction({
 
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
+    // Calendar + booking read services/categories from the Data Cache — bust it.
+    revalidateShopConfig();
     return ok({ id: input.id });
   },
 });

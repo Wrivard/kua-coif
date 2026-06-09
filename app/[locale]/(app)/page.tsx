@@ -16,7 +16,13 @@ import {
 } from '@/lib/business/timezone';
 import { googleConfigured } from '@/lib/google/server';
 import { fetchBarberBusyForDay } from '@/lib/google/sync';
-import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
+import type { BarberRow, ClientRow, ServiceRow } from '@/db/rows';
+import {
+  getCachedServiceCategories,
+  getCachedServices,
+  getCachedShopDaysOff,
+  getCachedShopHours,
+} from '@/lib/data/calendar-config';
 import { AppointmentsCalendar, type CalendarAppointment } from './appointments-calendar';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +52,10 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const activeShopId = await getCurrentShopId();
   const activeMembership = memberships.find((m) => m.shop_id === activeShopId) ?? memberships[0];
   const shopId = activeMembership?.shop_id ?? activeShopId;
+  // `requireShopMember` above guarantees the viewer belongs to a shop, so
+  // shopId is non-null in practice; narrow it for the typed cache loaders
+  // (and treat the unreachable null as a load failure → error.tsx).
+  if (!shopId) throw new Error('Calendar load failed: no active shop resolved');
   const viewerRole = activeMembership?.role ?? 'barber';
   const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
   const isStrictBarber = viewerRole === 'barber' && Boolean(viewerBarberId);
@@ -148,51 +158,39 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
     .gte('start_at', dayStart.toISOString())
     .lt('start_at', dayEnd.toISOString());
 
-  const [
-    barbersRes,
-    servicesRes,
-    categoriesRes,
-    clientsRes,
-    hoursRes,
-    daysOffRes,
-    apptsRes,
-    blockedRes,
-  ] = await Promise.all([
-    barbersQuery,
-    sb.from('services').select('*').eq('shop_id', shopId).order('sort_order', { ascending: true }),
-    sb
-      .from('service_categories')
-      .select('*')
-      .eq('shop_id', shopId)
-      .order('sort_order', { ascending: true }),
-    sb
-      .from('clients')
-      .select('id, first_name, last_name, email, phone')
-      .eq('shop_id', shopId)
-      .order('first_name', { ascending: true })
-      .limit(500),
-    sb
-      .from('shop_hours')
-      .select('weekday, enabled, open_time, close_time')
-      .eq('shop_id', shopId)
-      .order('weekday', { ascending: true }),
-    sb
-      .from('shop_days_off')
-      .select('date')
-      .eq('shop_id', shopId)
-      .order('date', { ascending: true }),
-    apptsQuery,
-    blockedQuery,
-  ]);
+  // Slow-changing, shop-UNIFORM config (services / categories / hours /
+  // days-off) is served from the cross-request Data Cache — see
+  // lib/data/calendar-config. These re-run on every load AND every Realtime
+  // refresh yet change a few times a week, so caching removes 4 Postgres
+  // round-trips from the hot path. The per-viewer, time-sensitive reads
+  // (barbers, clients, appointments, blocked_time) stay on the live RLS
+  // client.
+  const [barbersRes, clientsRes, apptsRes, blockedRes, services, categories, hours, daysOff] =
+    await Promise.all([
+      barbersQuery,
+      sb
+        .from('clients')
+        .select('id, first_name, last_name, email, phone')
+        .eq('shop_id', shopId)
+        .order('first_name', { ascending: true })
+        .limit(500),
+      apptsQuery,
+      blockedQuery,
+      getCachedServices(shopId),
+      getCachedServiceCategories(shopId),
+      getCachedShopHours(shopId),
+      getCachedShopDaysOff(shopId),
+    ]);
 
   // Reliability — a failed load-bearing read must NOT render as an empty-but-
   // valid calendar (the operator would silently miss real bookings on the
   // route they watch all day). Throw so the (app)/error.tsx boundary catches
   // it and Sentry fires. Reference lists (categories/clients) degrade to empty
   // without throwing — a missing client picker is recoverable; a missing
-  // appointment is not.
-  const loadError =
-    barbersRes.error || apptsRes.error || blockedRes.error || hoursRes.error || daysOffRes.error;
+  // appointment is not. Hours/days-off now flow through the cached loaders,
+  // which degrade to [] on a read error (open-fallback grid, no day-off
+  // shading) rather than throwing — neither can cause a missed appointment.
+  const loadError = barbersRes.error || apptsRes.error || blockedRes.error;
   if (loadError) {
     throw new Error(
       `Calendar load failed: ${(loadError as { message?: string }).message ?? loadError}`,
@@ -216,17 +214,9 @@ export default async function AppointmentsPage({ params: { locale }, searchParam
   const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
     (b) => b.status === 'confirmed',
   );
-  const services = (servicesRes.data as ServiceRow[] | null) ?? [];
-  const categories = (categoriesRes.data as ServiceCategoryRow[] | null) ?? [];
+  // services / categories / hours / daysOff come back already typed from the
+  // cached loaders above; only clients still needs unwrapping from its res.
   const clients = (clientsRes.data as ClientRow[] | null) ?? [];
-  const hours =
-    (hoursRes.data as Array<{
-      weekday: number;
-      enabled: boolean;
-      open_time: string | null;
-      close_time: string | null;
-    }> | null) ?? [];
-  const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
   const apptRows =
     (apptsRes.data as Array<{
       id: string;
