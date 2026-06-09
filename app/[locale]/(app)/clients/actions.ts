@@ -21,24 +21,6 @@ import {
 
 const CLIENTS_PATH = '/clients';
 
-function db() {
-  return createSupabaseServerClient() as unknown as {
-    from: (table: string) => {
-      insert: (row: Record<string, unknown>) => {
-        select: (cols: string) => {
-          single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-        };
-      };
-      update: (row: Record<string, unknown>) => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-      };
-      delete: () => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
-}
-
 export const createClient = withAction({
   schema: clientSchema,
   minRole: 'barber',
@@ -46,8 +28,7 @@ export const createClient = withAction({
     // Dedup-on-create: surface a CONFLICT instead of silently inserting a
     // duplicate (same normalized phone OR email in this shop, excluding
     // anonymized rows). The merge flow resolves any that still slip through.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dupDb = createSupabaseServiceRoleClient() as any;
+    const dupDb = createSupabaseServiceRoleClient();
     const phoneNorm = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : '';
     if (phoneNorm.length >= 7) {
       const dup = await dupDb
@@ -74,7 +55,7 @@ export const createClient = withAction({
       }
     }
 
-    const { data, error } = await db()
+    const { data, error } = await createSupabaseServerClient()
       .from('clients')
       .insert({ shop_id: ctx.shopId, ...input })
       .select('id')
@@ -106,18 +87,17 @@ export const updateClient = withAction({
     // owners skip the check.
     if (ctx.role === 'barber') {
       if (!ctx.barberId) return err('FORBIDDEN', { reason: 'no_barber_row' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const check = await (db() as any)
+      const check = await createSupabaseServerClient()
         .from('appointments')
         .select('id')
         .eq('client_id', id)
         .eq('barber_id', ctx.barberId)
         .limit(1);
-      const rows = (check.data as Array<{ id: string }> | null) ?? [];
+      const rows = check.data ?? [];
       if (rows.length === 0) return err('FORBIDDEN', { reason: 'not_your_client' });
     }
 
-    const { error } = await db().from('clients').update(rest).eq('id', id);
+    const { error } = await createSupabaseServerClient().from('clients').update(rest).eq('id', id);
     if (error) return err('UNEXPECTED');
 
     await logAuditAction({
@@ -142,7 +122,10 @@ export const deleteClient = withAction({
     // user will get UNEXPECTED in that case, with audit log showing the
     // attempt. For clients WITH appointments, use anonymizeClient instead
     // (Loi 25 anonymization preserves fiscal trail).
-    const { error } = await db().from('clients').delete().eq('id', input.id);
+    const { error } = await createSupabaseServerClient()
+      .from('clients')
+      .delete()
+      .eq('id', input.id);
     if (error) return err('CONFLICT');
 
     await logAuditAction({
@@ -223,8 +206,7 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
     if (!rl.allowed) return err('RATE_LIMITED');
     // Service-role to dodge RLS friction on joins (we already verified
     // the manager belongs to the shop via withAction).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     const clientRes = await admin
       .from('clients')
@@ -347,8 +329,7 @@ export const anonymizeClient = withAction({
       windowMs: 60 * 60 * 1000,
     });
     if (!rl.allowed) return err('RATE_LIMITED');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     const clientRes = await admin
       .from('clients')
@@ -453,8 +434,7 @@ export const mergeClients = withAction({
       windowMs: 60 * 60 * 1000,
     });
     if (!rl.allowed) return err('RATE_LIMITED');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const { error } = await admin.rpc('merge_clients', {
       p_keep: input.keep_id,
       p_merge: input.merge_id,
@@ -487,8 +467,7 @@ export const revokeMeAccess = withAction({
   schema: revokeMeAccessSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const cur = await admin
       .from('clients')
       .select('me_token_version, shop_id')
@@ -551,8 +530,7 @@ export const searchClientsList = withAction<typeof searchClientsListSchema, Clie
 
     // User-session client → RLS stays active (defense in depth) on top of the
     // explicit shop scope, same as the page's own load.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const res = await sb
       .from('clients')
       .select('id, first_name, last_name, email, phone, date_of_birth, notes')
