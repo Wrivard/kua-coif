@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Calendar,
   DollarSign,
   LifeBuoy,
@@ -23,6 +24,7 @@ export type NavItem = {
     | 'barbers'
     | 'products'
     | 'support'
+    | 'documentation'
     | 'settings'
     | 'marketing'
     | 'finances'
@@ -46,6 +48,7 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/barbers', icon: UserCircle2, labelKey: 'barbers', matchPrefix: true },
   { href: '/products', icon: Package, labelKey: 'products', matchPrefix: true },
   { href: '/support', icon: LifeBuoy, labelKey: 'support', matchPrefix: true },
+  { href: '/documentation', icon: BookOpen, labelKey: 'documentation', matchPrefix: true },
   {
     href: '/settings/shop',
     matchPath: '/settings',

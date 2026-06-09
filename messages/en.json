@@ -10,6 +10,7 @@
     "barbers": "Barbers",
     "products": "Products",
     "support": "Support",
+    "documentation": "Documentation",
     "settings": "Settings",
     "marketing": "Marketing",
     "finances": "Finances",
@@ -551,6 +552,14 @@
     "support": {
       "title": "Support",
       "soon": "Help center — Phase 9."
+    },
+    "documentation": {
+      "title": "Documentation",
+      "subtitle": "How each part of the app works.",
+      "searchPlaceholder": "Search the documentation…",
+      "noResults": "No results for “{query}”.",
+      "resultsCount": "{count, plural, =1 {1 result} other {# results}}",
+      "featuresLabel": "Features"
     },
     "marketing": {
       "title": "Marketing",

@@ -10,6 +10,7 @@
     "barbers": "Barbiers",
     "products": "Produits",
     "support": "Support",
+    "documentation": "Documentation",
     "settings": "Réglages",
     "marketing": "Marketing",
     "finances": "Finances",
@@ -551,6 +552,14 @@
     "support": {
       "title": "Support",
       "soon": "Centre d'aide — Phase 9."
+    },
+    "documentation": {
+      "title": "Documentation",
+      "subtitle": "Comment fonctionne chaque partie de l'application.",
+      "searchPlaceholder": "Rechercher dans la documentation…",
+      "noResults": "Aucun résultat pour « {query} ».",
+      "resultsCount": "{count, plural, =1 {1 résultat} other {# résultats}}",
+      "featuresLabel": "Fonctionnalités"
     },
     "marketing": {
       "title": "Marketing",
