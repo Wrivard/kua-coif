@@ -180,12 +180,14 @@ export function BarberSettingsClient({
                 <th className="sticky left-0 z-10 min-w-[140px] bg-bg-surface px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wide">
                   {t('columns.row')}
                 </th>
-                <Th>{t('columns.allowBookingWoPayment')}</Th>
-                <Th>{t('columns.bookingTip')}</Th>
-                <Th>{t('columns.confirmationTip')}</Th>
+                {/* B5 — booking_tip / confirmation_tip (redundant with
+                    tips_config + widget show_tip_step), allow_booking_wo_payment
+                    (deposit is driven by payment_mode + per-service), and
+                    barber_booking_interval (no business consumer) are removed
+                    from the grid. The columns stay in the DB (dormant) for a
+                    future cleanup migration; the draft still carries them. */}
                 <Th>{t('columns.allowMultipleServices')}</Th>
                 <Th>{t('columns.clientBookingInterval')}</Th>
-                <Th>{t('columns.barberBookingInterval')}</Th>
                 <Th>{t('columns.daysBookInAdvance')}</Th>
                 <Th>{t('columns.minsBookBefore')}</Th>
                 <Th>{t('columns.customerCancellations')}</Th>
@@ -210,24 +212,6 @@ export function BarberSettingsClient({
                   </td>
                   <Td>
                     <Toggle
-                      checked={d.allow_booking_wo_payment}
-                      onChange={(v) => patch(idx, (r) => ({ ...r, allow_booking_wo_payment: v }))}
-                    />
-                  </Td>
-                  <Td>
-                    <Toggle
-                      checked={d.booking_tip}
-                      onChange={(v) => patch(idx, (r) => ({ ...r, booking_tip: v }))}
-                    />
-                  </Td>
-                  <Td>
-                    <Toggle
-                      checked={d.confirmation_tip}
-                      onChange={(v) => patch(idx, (r) => ({ ...r, confirmation_tip: v }))}
-                    />
-                  </Td>
-                  <Td>
-                    <Toggle
                       checked={d.allow_multiple_services}
                       onChange={(v) => patch(idx, (r) => ({ ...r, allow_multiple_services: v }))}
                     />
@@ -237,14 +221,6 @@ export function BarberSettingsClient({
                       value={d.client_booking_interval_min}
                       onChange={(v) =>
                         patch(idx, (r) => ({ ...r, client_booking_interval_min: v }))
-                      }
-                    />
-                  </Td>
-                  <Td>
-                    <MinSelect
-                      value={d.barber_booking_interval_min}
-                      onChange={(v) =>
-                        patch(idx, (r) => ({ ...r, barber_booking_interval_min: v }))
                       }
                     />
                   </Td>
