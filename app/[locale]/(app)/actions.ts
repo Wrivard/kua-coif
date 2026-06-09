@@ -53,28 +53,11 @@ type HoursRow = {
 };
 
 function rawDb() {
-  // Narrow stub until codegen ships. The structural shape exposes what we need.
-  return createSupabaseServerClient() as unknown as Record<string, unknown>;
+  return createSupabaseServerClient();
 }
 
 async function fetchScheduleData(shopId: string, dayStartUtc: Date, dayEndUtc: Date) {
-  const sb = rawDb() as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          k: string,
-          v: string,
-        ) => Promise<{ data: unknown; error: unknown }> & {
-          gte: (
-            k: string,
-            v: string,
-          ) => {
-            lt: (k: string, v: string) => Promise<{ data: unknown; error: unknown }>;
-          };
-        };
-      };
-    };
-  };
+  const sb = rawDb();
 
   const [shopRes, hoursRes, daysOffRes, apptsRes, blockedRes] = await Promise.all([
     sb.from('shops').select('id, timezone').eq('id', shopId),
@@ -130,18 +113,7 @@ async function fetchScheduleData(shopId: string, dayStartUtc: Date, dayEndUtc: D
 }
 
 async function fetchServices(serviceIds: ReadonlyArray<string>, shopId: string) {
-  const sb = rawDb() as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          k: string,
-          v: string,
-        ) => {
-          in: (k: string, vs: string[]) => Promise<{ data: unknown; error: unknown }>;
-        };
-      };
-    };
-  };
+  const sb = rawDb();
   const { data, error } = await sb
     .from('services')
     // `name` added Phase 34 so the Google Calendar event summary can list
@@ -186,8 +158,7 @@ export const createAppointment = withAction({
     // Validate the client belongs to THIS shop (mirrors the services check).
     // RLS permits an insert for any shop member but never binds client_id to
     // the shop, so a crafted request could otherwise link a foreign client.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const clientCheck = await (rawDb() as any)
+    const clientCheck = await rawDb()
       .from('clients')
       .select('id')
       .eq('id', input.client_id)
@@ -199,13 +170,7 @@ export const createAppointment = withAction({
     const totalAmount = services.reduce((s, x) => s + x.price, 0);
 
     // Pull shop tz to compose start_at/end_at.
-    const sb = rawDb() as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (k: string, v: string) => Promise<{ data: unknown; error: unknown }>;
-        };
-      };
-    };
+    const sb = rawDb();
     const shopRes = await sb.from('shops').select('timezone').eq('id', ctx.shopId);
     const timezone =
       (shopRes.data as Array<{ timezone: string }> | null)?.[0]?.timezone ?? 'America/Toronto';
@@ -255,20 +220,7 @@ export const createAppointment = withAction({
     }
 
     // Insert appointment row.
-    const insertRes = await (
-      rawDb() as unknown as {
-        from: (t: string) => {
-          insert: (row: Record<string, unknown>) => {
-            select: (cols: string) => {
-              single: () => Promise<{
-                data: { id: string } | null;
-                error: { message: string } | null;
-              }>;
-            };
-          };
-        };
-      }
-    )
+    const insertRes = await rawDb()
       .from('appointments')
       .insert({
         shop_id: ctx.shopId,
@@ -288,8 +240,7 @@ export const createAppointment = withAction({
       // start_at) WHERE status NOT IN ('cancelled','no_show') fires
       // 23505 when a concurrent insert wins the race. Surface as
       // CONFLICT (same code path as a synchronous availability fail).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const e = insertRes.error as any;
+      const e = insertRes.error;
       // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
       // constraint (20260607120000). Both mean the slot was taken between the
       // availability check and the write → surface as CONFLICT.
@@ -298,19 +249,7 @@ export const createAppointment = withAction({
     }
 
     // Link services.
-    const linkRes = await (
-      rawDb() as unknown as {
-        from: (t: string) => {
-          insert: (
-            rows: Array<{
-              appointment_id: string;
-              service_id: string;
-              price_snapshot: number;
-            }>,
-          ) => Promise<{ error: unknown }>;
-        };
-      }
-    )
+    const linkRes = await rawDb()
       .from('appointment_services')
       .insert(
         services.map((s) => ({
@@ -325,11 +264,7 @@ export const createAppointment = withAction({
       // zero services corrupts finances/commission/loyalty, so roll back by
       // deleting the appointment we just created and surface UNEXPECTED.
       // (Wrapping both writes in a Postgres RPC is the proper V2 fix.)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rollbackRes = await (rawDb() as any)
-        .from('appointments')
-        .delete()
-        .eq('id', insertRes.data.id);
+      const rollbackRes = await rawDb().from('appointments').delete().eq('id', insertRes.data.id);
       // If the compensating DELETE itself fails, the orphan persists. Don't
       // lose it behind the generic UNEXPECTED toast — capture the row id so
       // it can be reconciled (mirrors the orphan-PaymentIntent recovery on
@@ -391,8 +326,7 @@ export const updateAppointment = withAction({
     // transition (Phase 43 loyalty award only fires once per visit).
     // Phase H+5 — also pulls barber_id so we can run the ownership
     // check before any write.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const priorRes = await sb
       .from('appointments')
       .select('status, client_id, total_amount, barber_id')
@@ -485,8 +419,7 @@ export const rescheduleAppointment = withAction({
   schema: rescheduleAppointmentSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
 
     // 1. Load the appointment to compute duration + verify ownership.
     const apptRes = await sb
@@ -590,8 +523,7 @@ export const rescheduleAppointment = withAction({
       // UPDATE path too: if a concurrent booking lands at the
       // destination slot between checkAvailability() and the UPDATE,
       // Postgres returns 23505. Map to CONFLICT for consistent UX.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const e = updateRes.error as any;
+      const e = updateRes.error;
       // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
       // constraint (20260607120000). Both mean the slot was taken between the
       // availability check and the write → surface as CONFLICT.
@@ -666,8 +598,7 @@ export const resizeAppointment = withAction({
   schema: resizeAppointmentSchema,
   minRole: 'barber',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
 
     const apptRes = await sb
       .from('appointments')
@@ -743,8 +674,7 @@ export const resizeAppointment = withAction({
       .update({ end_at: newEnd.toISOString() })
       .eq('id', input.id);
     if (updateRes.error) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const e = updateRes.error as any;
+      const e = updateRes.error;
       // 23505 = same-start UNIQUE index; 23P01 = the duration-overlap EXCLUDE
       // constraint. Both mean a concurrent write took the extended window.
       if (e?.code === '23505' || e?.code === '23P01') return err('CONFLICT');
@@ -783,8 +713,7 @@ export const resizeAppointment = withAction({
  * effectively a sync handle, not user-facing data.
  */
 async function fetchGoogleEventId(appointmentId: string): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = rawDb() as any;
+  const sb = rawDb();
   const res = await sb
     .from('appointments')
     .select('google_event_id')
@@ -806,8 +735,7 @@ export const cancelAppointment = withAction({
     // payment fields to support the `also_refund` flag — same query.
     // Loop 42 — `start_at` added so the waitlist-notify helper can
     // match entries against the freed slot's date window.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const preSb = rawDb() as any;
+    const preSb = rawDb();
     const preRes = await preSb
       .from('appointments')
       .select('barber_id, google_event_id, payment_intent_id, payment_status, start_at')
@@ -870,8 +798,7 @@ export const cancelAppointment = withAction({
       pre?.payment_status === 'paid' &&
       pre?.payment_intent_id
     ) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = rawDb() as any;
+      const sb = rawDb();
       const settingsRes = await sb
         .from('barber_settings')
         .select('scope, barber_id, mins_cancel_before_appt')
@@ -954,15 +881,7 @@ export const cancelAppointment = withAction({
       }
     }
 
-    const { error } = await (
-      rawDb() as unknown as {
-        from: (t: string) => {
-          update: (row: Record<string, unknown>) => {
-            eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-          };
-        };
-      }
-    )
+    const { error } = await rawDb()
       .from('appointments')
       .update({ status: 'cancelled' })
       .eq('id', input.id);
@@ -995,8 +914,7 @@ export const cancelAppointment = withAction({
     // `notification_automations.kind='cancellation'`, so no extra check
     // here. Best-effort: a fetch failure doesn't fail the cancel action.
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = rawDb() as any;
+      const sb = rawDb();
       const apptRes = await sb
         .from('appointments')
         .select('id, start_at, client_id')
@@ -1082,8 +1000,7 @@ export const cancelAppointment = withAction({
       // Resolve shop timezone once — the helper needs it to compute
       // the shop-local date for window matching. We cache via
       // `shop` row, same pattern as elsewhere.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tzSb = rawDb() as any;
+      const tzSb = rawDb();
       const shopTz = await tzSb.from('shops').select('timezone').eq('id', ctx.shopId).single();
       const timezone = (shopTz.data as { timezone: string } | null)?.timezone ?? 'America/Toronto';
       void notifyMatchingWaitlistOnCancel({
@@ -1127,8 +1044,7 @@ export const bulkCancelAppointments = withAction<
     // so it's the highest-blast-radius action. ~5/minute per user.
     const rl = await checkRateLimit(`bulkcancel:${ctx.userId}`, { max: 5, windowMs: 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const preRes = await sb
       .from('appointments')
       // Loop 42 — `start_at` pulled so the waitlist-notify helper at
@@ -1239,8 +1155,7 @@ export const bulkCancelAppointments = withAction<
     // email, not three. Fire-and-forget so the cancel UI revalidates
     // before any emails leave the SMTP queue. Resolve shop tz once
     // outside the loop.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tzSb = rawDb() as any;
+    const tzSb = rawDb();
     const shopTz = await tzSb.from('shops').select('timezone').eq('id', ctx.shopId).single();
     const timezone = (shopTz.data as { timezone: string } | null)?.timezone ?? 'America/Toronto';
     for (const r of rows) {
@@ -1264,8 +1179,7 @@ export const blockTime = withAction<typeof blockTimeSchema, { ids: string[]; cou
   schema: blockTimeSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const shopRes = await sb.from('shops').select('timezone').eq('id', ctx.shopId);
     const timezone =
       (shopRes.data as Array<{ timezone: string }> | null)?.[0]?.timezone ?? 'America/Toronto';
@@ -1376,9 +1290,7 @@ export const chargeAppointment = withAction<
     const rl = await checkRateLimit(`charge:${ctx.userId}`, { max: 20, windowMs: 60 * 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
     if (!stripeConfigured()) return err('UNEXPECTED');
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const [apptRes, shopRes] = await Promise.all([
       sb
         .from('appointments')
@@ -1545,9 +1457,7 @@ export const refundAppointment = withAction({
     const rl = await checkRateLimit(`refund:${ctx.userId}`, { max: 20, windowMs: 60 * 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
     if (!stripeConfigured()) return err('UNEXPECTED');
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const apptRes = await sb
       .from('appointments')
       .select('id, shop_id, payment_intent_id, payment_status')
@@ -1639,8 +1549,7 @@ export const searchClients = withAction<typeof searchClientsSchema, ClientSearch
     const safe = q.replace(/[%,()\\*]/g, ' ').trim();
     if (safe.length < 2) return ok([]);
     const pattern = `%${safe}%`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = rawDb() as any;
+    const sb = rawDb();
     const res = await sb
       .from('clients')
       .select('id, first_name, last_name, email, phone')
