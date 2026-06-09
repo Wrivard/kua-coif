@@ -102,7 +102,9 @@ export async function GET(req: NextRequest) {
           .select('id, shop_id, first_name, email, phone, date_of_birth')
           .eq('shop_id', shop.id)
           .not('date_of_birth', 'is', null)
-          .is('anonymized_at', null);
+          .is('anonymized_at', null)
+          // CASL — never send a birthday CEM to a client who opted out.
+          .eq('marketing_opted_out', false);
         const allWithDob = (clientsRes.data as ClientRow[] | null) ?? [];
         const matches = allWithDob.filter((c) => {
           if (!c.date_of_birth) return false;

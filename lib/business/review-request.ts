@@ -61,15 +61,17 @@ export async function sendReviewRequestOnCompletion({
     // forgotten client must never receive marketing.
     const clientRes = await admin
       .from('clients')
-      .select('first_name, email, anonymized_at')
+      .select('first_name, email, anonymized_at, marketing_opted_out')
       .eq('id', clientId)
       .maybeSingle();
     const client = clientRes.data as {
       first_name: string;
       email: string | null;
       anonymized_at: string | null;
+      marketing_opted_out: boolean | null;
     } | null;
-    if (!client || client.anonymized_at || !client.email) return;
+    // CASL — skip anonymized clients and those who opted out of marketing.
+    if (!client || client.anonymized_at || client.marketing_opted_out || !client.email) return;
 
     // Idempotency pre-check — already asked about THIS appointment?
     // recurrence_key = appointment_id, the same key the bulk campaign

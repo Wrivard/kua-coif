@@ -31,7 +31,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
     // 1. Load selected clients + shop info.
     const clientsRes = await admin
       .from('clients')
-      .select('id, first_name, email, phone, anonymized_at')
+      .select('id, first_name, email, phone, anonymized_at, marketing_opted_out')
       .in('id', input.client_ids)
       .eq('shop_id', ctx.shopId);
     type ClientRow = {
@@ -40,6 +40,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       email: string | null;
       phone: string | null;
       anonymized_at: string | null;
+      marketing_opted_out: boolean | null;
     };
     const clients = (clientsRes.data as ClientRow[] | null) ?? [];
     if (clients.length === 0) return err('NOT_FOUND');
@@ -87,7 +88,8 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
     let failed = 0;
 
     for (const client of clients) {
-      if (client.anonymized_at) {
+      // CASL — skip anonymized clients and those who opted out of marketing.
+      if (client.anonymized_at || client.marketing_opted_out) {
         skipped += 1;
         continue;
       }
