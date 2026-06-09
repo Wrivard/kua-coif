@@ -183,6 +183,8 @@ type ExportedClient = {
     notes: string | null;
     created_at: string;
     anonymized_at: string | null;
+    loyalty_balance_cents: number;
+    loyalty_counter: number;
   };
   appointments: Array<{
     id: string;
@@ -195,6 +197,15 @@ type ExportedClient = {
     barber_display_name: string | null;
     services: Array<{ name: string; price_snapshot: number }>;
   }>;
+  reviews: Array<{
+    id: string;
+    rating: number;
+    comment: string | null;
+    status: string;
+    created_at: string;
+  }>;
+  marketing_sends: Array<{ kind: string; channel: string; sent_at: string }>;
+  waitlist: Array<{ id: string; status: string; created_at: string }>;
 };
 
 export const exportClient = withAction<typeof exportClientSchema, ExportedClient>({
@@ -217,7 +228,7 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
       .select(
         // Loop 62 SR — `date_of_birth` added to the SELECT so the
         // exported JSON carries it (Loi 25 Art. 27).
-        'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at',
+        'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at, loyalty_balance_cents, loyalty_counter',
       )
       .eq('id', input.id)
       .single();
@@ -259,6 +270,40 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
         .map((s) => ({ name: s.service!.name, price_snapshot: s.price_snapshot })),
     }));
 
+    // Loi 25 portability — the audit flagged that the export omitted loyalty,
+    // reviews, marketing-send history and waitlist. Include them all.
+    const reviewsRes = await admin
+      .from('reviews')
+      .select('id, rating, comment, status, created_at')
+      .eq('client_id', input.id)
+      .order('created_at', { ascending: false });
+    const reviews = (reviewsRes.data as ExportedClient['reviews'] | null) ?? [];
+
+    const sendsRes = await admin
+      .from('client_marketing_sends')
+      .select('kind, channel, sent_at')
+      .eq('client_id', input.id)
+      .order('sent_at', { ascending: false });
+    const marketing_sends = (sendsRes.data as ExportedClient['marketing_sends'] | null) ?? [];
+
+    // Waitlist rows have no client FK — they're matched by contact.
+    const waitlistMap = new Map<string, ExportedClient['waitlist'][number]>();
+    for (const [col, val] of [
+      ['phone', client.phone],
+      ['email', client.email],
+    ] as const) {
+      if (!val) continue;
+      const wlRes = await admin
+        .from('waiting_list_entries')
+        .select('id, status, created_at')
+        .eq('shop_id', ctx.shopId)
+        .eq(col, val);
+      for (const w of (wlRes.data as ExportedClient['waitlist'] | null) ?? []) {
+        waitlistMap.set(w.id, w);
+      }
+    }
+    const waitlist = Array.from(waitlistMap.values());
+
     // Audit log: "custom" action with a `loi25_export` tag — the union type
     // doesn't include 'export' as a first-class verb. The diff carries the
     // semantic.
@@ -276,6 +321,9 @@ export const exportClient = withAction<typeof exportClientSchema, ExportedClient
       exported_at: new Date().toISOString(),
       client: clientWithoutShop,
       appointments,
+      reviews,
+      marketing_sends,
+      waitlist,
     });
   },
 });
@@ -301,13 +349,16 @@ export const anonymizeClient = withAction({
 
     const clientRes = await admin
       .from('clients')
-      .select('id, shop_id, anonymized_at')
+      .select('id, shop_id, anonymized_at, phone, email, quickbooks_customer_id')
       .eq('id', input.id)
       .single();
     const client = clientRes.data as {
       id: string;
       shop_id: string;
       anonymized_at: string | null;
+      phone: string | null;
+      email: string | null;
+      quickbooks_customer_id: string | null;
     } | null;
     if (!client) return err('NOT_FOUND');
     if (client.shop_id !== ctx.shopId) return err('NOT_FOUND');
@@ -335,13 +386,45 @@ export const anonymizeClient = withAction({
       .eq('id', input.id);
     if (error) return err('UNEXPECTED');
 
+    // Loi 25 completeness — scrub the PII the clients-row wipe leaves behind in
+    // linked records (the audit flagged these as un-erased). Best-effort:
+    // failures here don't unwind the primary anonymization above.
+    const oldPhone = client.phone;
+    const oldEmail = client.email;
+    // Denormalized client name on every past appointment.
+    await admin
+      .from('appointments')
+      .update({ client_name_snapshot: ANON_FIRST_NAME })
+      .eq('client_id', input.id);
+    // Reviewer name on any review they left (comment text is the review
+    // content, kept; the name is the identifier, wiped).
+    await admin.from('reviews').update({ client_name: null }).eq('client_id', input.id);
+    // Transient waitlist wishes (matched by contact, no client FK) — delete.
+    if (oldPhone) {
+      await admin
+        .from('waiting_list_entries')
+        .delete()
+        .eq('shop_id', ctx.shopId)
+        .eq('phone', oldPhone);
+    }
+    if (oldEmail) {
+      await admin
+        .from('waiting_list_entries')
+        .delete()
+        .eq('shop_id', ctx.shopId)
+        .eq('email', oldEmail);
+    }
+
     await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
       entity: 'clients',
       entityId: input.id,
-      diff: { loi25_anonymized: true },
+      // `qb_customer_pending` records that an external QuickBooks customer
+      // copy still holds PII — its erasure needs an authenticated QBO API call
+      // (separate follow-up); flagged here so compliance can act on it.
+      diff: { loi25_anonymized: true, qb_customer_pending: Boolean(client.quickbooks_customer_id) },
     });
     revalidatePath(CLIENTS_PATH);
     return ok({ id: input.id });
