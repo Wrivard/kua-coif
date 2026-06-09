@@ -43,7 +43,13 @@ as $$
 $$;
 
 -- appointments ---------------------------------------------------------------
+-- Drop the prior shop-wide policy AND any prior run of the per-command
+-- policies below, so this migration is safely re-runnable.
 drop policy if exists "appointments_rw" on public.appointments;
+drop policy if exists "appointments_select" on public.appointments;
+drop policy if exists "appointments_insert" on public.appointments;
+drop policy if exists "appointments_update" on public.appointments;
+drop policy if exists "appointments_delete" on public.appointments;
 
 create policy "appointments_select" on public.appointments
   for select using (
@@ -103,6 +109,10 @@ create policy "appointment_services_rw" on public.appointment_services
 
 -- blocked_time ---------------------------------------------------------------
 drop policy if exists "blocked_time_rw" on public.blocked_time;
+drop policy if exists "blocked_time_select" on public.blocked_time;
+drop policy if exists "blocked_time_insert" on public.blocked_time;
+drop policy if exists "blocked_time_update" on public.blocked_time;
+drop policy if exists "blocked_time_delete" on public.blocked_time;
 
 create policy "blocked_time_select" on public.blocked_time
   for select using (

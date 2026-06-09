@@ -112,7 +112,7 @@ export const createService = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: data.id });
   },
 });
@@ -163,7 +163,7 @@ export const updateService = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id });
   },
 });
@@ -192,7 +192,7 @@ export const deleteService = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id });
   },
 });
@@ -262,7 +262,7 @@ export const toggleServiceStatus = withAction({
     // caches too so admins see edits propagate immediately.
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id, status: next });
   },
 });
@@ -304,7 +304,7 @@ export const reorderServices = withAction({
     // Booking + embed surfaces render services in sort_order, so bust them.
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ ids: input.ids });
   },
 });
@@ -338,7 +338,7 @@ export const createServiceCategory = withAction({
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: data.id });
   },
 });
@@ -365,7 +365,7 @@ export const renameServiceCategory = withAction({
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id });
   },
 });
@@ -415,7 +415,7 @@ export const deleteServiceCategory = withAction({
     revalidatePath(SERVICES_PATH);
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id });
   },
 });

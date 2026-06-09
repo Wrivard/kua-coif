@@ -1,11 +1,6 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { SHOP_CACHE_TAG } from '@/lib/auth/server';
-import {
-  SERVICES_CACHE_TAG,
-  SERVICE_CATEGORIES_CACHE_TAG,
-  SHOP_HOURS_CACHE_TAG,
-  SHOP_DAYS_OFF_CACHE_TAG,
-} from '@/lib/data/calendar-config';
+import { shopConfigCacheTags } from '@/lib/data/calendar-config';
 
 /**
  * Bust the cache on every public surface that may be reading a shop's
@@ -40,19 +35,19 @@ export function revalidateShopRow() {
 }
 
 /**
- * Bust the `unstable_cache` entries for a shop's calendar config
+ * Bust the `unstable_cache` entries for ONE shop's calendar config
  * (services / categories / hours / days-off — see lib/data/calendar-config).
- * Call from any Server Action that edits that config so the calendar + booking
- * surfaces pick the change up immediately instead of after the 5-minute TTL.
+ * Call from any Server Action that edits that config, passing the active
+ * shop id, so the calendar + booking surfaces pick the change up immediately
+ * instead of after the 5-minute TTL.
  *
- * Busts all four tags regardless of which table changed: the tables are tiny
- * and a `revalidateTag` on an entry that wasn't actually cached is a cheap
- * no-op, so over-busting costs nothing and removes the risk of forgetting a
- * specific tag at a given call site.
+ * The tags are shop-scoped (`${tag}:${shopId}`), so this busts only the
+ * editing shop's cache — a global tag would invalidate every tenant's config
+ * cache on any one shop's edit (audit #12). Busts all four of the shop's tags
+ * regardless of which table changed: they're tiny and a `revalidateTag` on an
+ * uncached entry is a cheap no-op, so over-busting within the shop costs
+ * nothing and removes the risk of forgetting a specific tag.
  */
-export function revalidateShopConfig() {
-  revalidateTag(SERVICES_CACHE_TAG);
-  revalidateTag(SERVICE_CATEGORIES_CACHE_TAG);
-  revalidateTag(SHOP_HOURS_CACHE_TAG);
-  revalidateTag(SHOP_DAYS_OFF_CACHE_TAG);
+export function revalidateShopConfig(shopId: string) {
+  for (const tag of shopConfigCacheTags(shopId)) revalidateTag(tag);
 }

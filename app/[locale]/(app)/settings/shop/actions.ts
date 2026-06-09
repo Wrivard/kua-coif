@@ -37,7 +37,7 @@ export const updateShopDetails = withAction({
     // Shop name / hours / address surface on /book + /embed — invalidate them.
     revalidatePublicShopSurfaces();
     // Calendar reads hours/days-off from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ ok: true });
   },
 });
@@ -63,7 +63,7 @@ export const updateShopHours = withAction({
     // Shop name / hours / address surface on /book + /embed — invalidate them.
     revalidatePublicShopSurfaces();
     // Calendar reads hours/days-off from the Data Cache — bust it.
-    revalidateShopConfig();
+    revalidateShopConfig(ctx.shopId);
     return ok({ ok: true });
   },
 });
