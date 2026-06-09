@@ -432,8 +432,7 @@ const FEATURES: RawFeature[] = [
   },
 
   // =========================================================================
-  // The following features carry an accurate OVERVIEW; detailed mechanics are
-  // added as each feature gets its own review.
+  // CLIENTS — fully documented.
   // =========================================================================
   {
     id: 'clients',
@@ -451,27 +450,165 @@ const FEATURES: RawFeature[] = [
           {
             kind: 'p',
             text: {
-              fr: 'La page Clients liste tout votre répertoire, filtrable par lettre (A–Z) et par recherche. Chaque fiche regroupe les coordonnées et l’historique.',
-              en: 'The Clients page lists your whole directory, filterable by letter (A–Z) and by search. Each record gathers contact details and history.',
+              fr: 'La page Clients liste tout votre répertoire, filtrable par lettre (A–Z) et par recherche. Cliquez le nom d’un client pour ouvrir sa fiche : coordonnées, statistiques, historique de rendez-vous et notes.',
+              en: 'The Clients page lists your whole directory, filterable by letter (A–Z) and by search. Click a client’s name to open their record: contact details, stats, appointment history and notes.',
             },
           },
           {
             kind: 'list',
             items: [
               {
-                fr: '« Add client » crée une fiche ; « Download » exporte en CSV.',
-                en: '“Add client” creates a record; “Download” exports to CSV.',
+                fr: '« Add client » crée une fiche ; « Download » exporte tout le répertoire en CSV.',
+                en: '“Add client” creates a record; “Download” exports the whole directory to CSV.',
               },
               {
-                fr: '« Locate Duplicates » repère les doublons par téléphone ou courriel.',
-                en: '“Locate Duplicates” spots duplicates by phone or email.',
+                fr: '« Locate Duplicates » filtre pour ne montrer que les doublons (même téléphone ou courriel).',
+                en: '“Locate Duplicates” filters the list down to duplicates only (same phone or email).',
+              },
+            ],
+          },
+          {
+            kind: 'note',
+            tone: 'info',
+            text: {
+              fr: 'Un barbier ne voit que les clients qu’il a déjà servis (au moins un rendez-vous). Les gérants et propriétaires voient tout le répertoire du salon actif.',
+              en: 'A barber only sees clients they have already served (at least one appointment). Managers and owners see the whole directory of the active shop.',
+            },
+          },
+        ],
+      },
+      {
+        id: 'search',
+        title: { fr: 'Rechercher et parcourir', en: 'Search and browse' },
+        blocks: [
+          {
+            kind: 'p',
+            text: {
+              fr: 'La barre A–Z filtre par première lettre du prénom. Les accents sont repliés sur leur lettre de base (« Élodie » se trouve sous E) et les noms hors A–Z se rangent sous « # ». Une lettre sans client est grisée.',
+              en: 'The A–Z bar filters by the first letter of the first name. Accents fold to their base letter (“Élodie” lives under E) and non-A–Z names land under “#”. A letter with no client is dimmed.',
+            },
+          },
+          {
+            kind: 'p',
+            text: {
+              fr: 'La recherche (nom, courriel ou téléphone) filtre la liste instantanément. Pour les gérants, dès deux caractères elle interroge l’ensemble du salon — un client absent de la page chargée reste donc trouvable. Un bandeau « résultats dans tous les clients » l’indique.',
+              en: 'Search (name, email or phone) filters the list instantly. For managers, from two characters it queries the whole shop — so a client not in the loaded page stays findable. A “matches across all clients” banner signals it.',
+            },
+          },
+        ],
+      },
+      {
+        id: 'record',
+        title: { fr: 'La fiche client', en: 'The client record' },
+        blocks: [
+          {
+            kind: 'p',
+            text: {
+              fr: 'Cliquez un nom pour ouvrir la fiche. Elle réunit les coordonnées, la date d’anniversaire, la date d’inscription, quatre statistiques et l’historique complet.',
+              en: 'Click a name to open the record. It gathers contact details, birthday, the join date, four stats and the full history.',
+            },
+          },
+          {
+            kind: 'list',
+            items: [
+              {
+                fr: 'Total dépensé : la somme des rendez-vous complétés.',
+                en: 'Total spent: the sum of completed appointments.',
+              },
+              {
+                fr: 'Visites : le nombre de rendez-vous complétés ; Absences : les « no-show ».',
+                en: 'Visits: the count of completed appointments; No-shows: missed ones.',
+              },
+              {
+                fr: 'Solde de fidélité : le crédit ou le compteur courant du client.',
+                en: 'Loyalty balance: the client’s current credit or counter.',
               },
             ],
           },
         ],
       },
+      {
+        id: 'duplicates',
+        title: { fr: 'Doublons et fusion', en: 'Duplicates and merging' },
+        blocks: [
+          {
+            kind: 'p',
+            text: {
+              fr: 'À la création, un client dont le téléphone ou le courriel existe déjà est refusé : pas de doublon silencieux. La réservation en ligne reconnaît aussi un client existant par son numéro normalisé (les 10 derniers chiffres), donc reréserver ne crée pas de second dossier.',
+              en: 'On creation, a client whose phone or email already exists is rejected: no silent duplicate. Online booking also recognizes an existing client by their normalized number (the last 10 digits), so rebooking never spawns a second record.',
+            },
+          },
+          {
+            kind: 'steps',
+            items: [
+              {
+                fr: 'Cliquez « Locate Duplicates » : les fiches en double portent un badge « Doublon ».',
+                en: 'Click “Locate Duplicates”: duplicate records show a “Duplicate” badge.',
+              },
+              {
+                fr: 'Sur une de ces fiches, ouvrez le menu d’actions et choisissez « Fusionner ».',
+                en: 'On one of those records, open the actions menu and pick “Merge”.',
+              },
+              {
+                fr: 'Sélectionnez le dossier à replier dans celui que vous gardez, puis confirmez.',
+                en: 'Pick the record to fold into the one you keep, then confirm.',
+              },
+            ],
+          },
+          {
+            kind: 'note',
+            tone: 'warn',
+            text: {
+              fr: 'La fusion est réservée aux gérants et propriétaires. Elle replie les rendez-vous, la fidélité et les avis du doublon dans la fiche conservée, puis supprime le doublon — c’est définitif.',
+              en: 'Merging is reserved for managers and owners. It folds the duplicate’s appointments, loyalty and reviews into the kept record, then deletes the duplicate — this is permanent.',
+            },
+          },
+        ],
+      },
+      {
+        id: 'privacy',
+        title: { fr: 'Vie privée (Loi 25 / LCAP)', en: 'Privacy (Law 25 / CASL)' },
+        blocks: [
+          {
+            kind: 'p',
+            text: {
+              fr: 'Chaque fiche offre les droits prévus par la Loi 25, depuis le menu d’actions :',
+              en: 'Each record offers the rights required by Quebec’s Law 25, from the actions menu:',
+            },
+          },
+          {
+            kind: 'list',
+            items: [
+              {
+                fr: '« Exporter les données » télécharge un fichier JSON complet (coordonnées, rendez-vous, fidélité, avis, envois marketing).',
+                en: '“Export data” downloads a full JSON file (contact, appointments, loyalty, reviews, marketing sends).',
+              },
+              {
+                fr: '« Anonymiser » efface définitivement les renseignements personnels tout en gardant les totaux comptables — irréversible.',
+                en: '“Anonymize” permanently scrubs personal information while keeping accounting totals — irreversible.',
+              },
+              {
+                fr: '« Révoquer l’accès libre-service » invalide tous les liens « /me » en circulation du client.',
+                en: '“Revoke self-service access” invalidates all of the client’s outstanding “/me” links.',
+              },
+            ],
+          },
+          {
+            kind: 'note',
+            tone: 'info',
+            text: {
+              fr: 'Côté anti-pourriel (LCAP) : chaque courriel marketing (relance, anniversaire, demande d’avis) porte un lien de désabonnement. Un client désabonné est automatiquement ignoré par les trois envois ; vous pouvez aussi voir l’état depuis sa fiche.',
+              en: 'On the anti-spam side (CASL): every marketing email (win-back, birthday, review request) carries an unsubscribe link. An unsubscribed client is automatically skipped by all three sends; you can also see the state from their record.',
+            },
+          },
+        ],
+      },
     ],
   },
+  // =========================================================================
+  // The following features carry an accurate OVERVIEW; detailed mechanics are
+  // added as each feature gets its own review.
+  // =========================================================================
   {
     id: 'services',
     icon: Scissors,
