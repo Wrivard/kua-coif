@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth/server';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { sanitizeCsvRows } from '@/lib/security/csv';
+import { logDurableAudit } from '@/lib/audit-log';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -145,6 +146,21 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   }
 
   const rows = (result.data as Array<Record<string, unknown>> | null) ?? [];
+
+  // Durable audit trail for PII bulk-export (Loi 25). The JSON `exportClient`
+  // server action logs its export; the CSV path is the HIGHER-volume PII
+  // egress (whole roster of emails/phones) and previously left no trace.
+  // Service-role write + PII-redacted diff, same policy as the action.
+  if (PII_ENTITIES.includes(entity)) {
+    await logDurableAudit({
+      shopId: activeShopId,
+      actorId: user.id,
+      action: 'custom',
+      entity: cfg.table,
+      diff: { csv_export: true, count: rows.length },
+    });
+  }
+
   // Security: neutralize spreadsheet formula injection (OWASP). Cells such as
   // client names/emails come from the public booking flow and could carry
   // =cmd / +HYPERLINK / @SUM payloads that execute when the owner opens the CSV.

@@ -122,11 +122,16 @@ export const deleteClient = withAction({
     // user will get UNEXPECTED in that case, with audit log showing the
     // attempt. For clients WITH appointments, use anonymizeClient instead
     // (Loi 25 anonymization preserves fiscal trail).
-    const { error } = await createSupabaseServerClient()
+    const { data, error } = await createSupabaseServerClient()
       .from('clients')
       .delete()
-      .eq('id', input.id);
+      .eq('id', input.id)
+      .select('id');
     if (error) return err('CONFLICT');
+    // Distinguish a real delete from a 0-row no-op: a nonexistent or
+    // cross-tenant id is RLS-filtered to zero rows with NO error, which
+    // would otherwise report a false success to the caller.
+    if (!data || data.length === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
