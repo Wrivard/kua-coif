@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -33,71 +33,78 @@ export function Drawer({
   width = 'md:w-96',
   className,
 }: Props) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const tA11y = useTranslations('a11y');
-  useEffect(() => {
-    if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [open, onClose]);
 
-  // Loop 61 SR — on mobile (<md) the Drawer becomes a bottom sheet,
-  // mirroring the Modal treatment. The desktop side-panel behavior is
-  // preserved for md+. The transform classes are scoped with `md:`
-  // breakpoints so a single component handles both axes.
-  const closedSidePanel = side === 'right' ? 'md:translate-x-full' : 'md:-translate-x-full';
+  // Native <dialog> + showModal (mirrors components/ui/modal.tsx): focus is
+  // TRAPPED inside the panel, the background is inert + scroll-locked, and the
+  // panel renders in the top layer — so a ConfirmDialog (also a modal dialog)
+  // opened from within the drawer stacks correctly above it, and there are no
+  // z-index battles.
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  // ESC fires the dialog's native `cancel` event; route it through onClose so
+  // the parent's `open` state stays the single source of truth (the default
+  // would call el.close() and leave React thinking the drawer is still open).
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onClose();
+    };
+    el.addEventListener('cancel', handleCancel);
+    return () => el.removeEventListener('cancel', handleCancel);
+  }, [onClose]);
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-hidden={!open}
-      className={cn('pointer-events-none fixed inset-0 z-50', open ? 'pointer-events-auto' : '')}
+    <dialog
+      ref={dialogRef}
+      onClick={(e) => {
+        // A click that lands on the dialog box itself (the empty area beside
+        // the panel) is a backdrop click → close. Clicks inside the panel are
+        // stopped below.
+        if (e.target === dialogRef.current) onClose();
+      }}
+      className={cn(
+        // The dialog fills the viewport and is transparent — its ::backdrop
+        // pseudo draws the dim + blur, and the panel anchors to an edge
+        // inside it. Reset the UA-centered box (auto margins, fit sizing).
+        'fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0',
+        'backdrop:bg-bg-overlay backdrop:backdrop-blur-sm',
+        // Anchor: bottom sheet on mobile, the chosen side full-height on md+.
+        'open:flex open:items-end',
+        side === 'right'
+          ? 'md:open:items-stretch md:open:justify-end'
+          : 'md:open:items-stretch md:open:justify-start',
+      )}
     >
-      <div
-        onClick={onClose}
-        // 200ms ease-out-quint matches toast + modal so all overlay
-        // surfaces share one motion language. `backdrop-blur-sm` adds
-        // the same soft frost as the Modal post-Loop 61.
-        className={cn(
-          'absolute inset-0 bg-bg-overlay backdrop-blur-sm transition-opacity duration-200 ease-out-quint',
-          open ? 'opacity-100' : 'opacity-0',
-        )}
-      />
       <aside
+        onClick={(e) => e.stopPropagation()}
+        aria-label={typeof title === 'string' ? title : undefined}
         className={cn(
-          // Mobile: bottom sheet — full-width, anchored to bottom, rounded
-          // top corners only, slide up from below when closed.
-          'absolute inset-x-0 bottom-0 flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-bg-elevated text-text-primary shadow-xl transition-transform duration-200 ease-out-quint',
-          // Desktop: side panel — back to inset-y-0 full height, square
-          // corners (the mobile `rounded-t-2xl` is overridden by
-          // `md:rounded-none`), slides horizontally from the chosen side.
-          'md:inset-x-auto md:bottom-auto md:top-0 md:max-h-none md:rounded-none',
-          'md:h-full',
-          // Width applies only on md+ where the side panel makes sense;
-          // on mobile we always go full width. `width` already carries
-          // the `md:` prefix (see prop docs) so we pass it through.
+          // Mobile: bottom sheet — full-width, rounded top corners, capped
+          // height with the body scrolling internally.
+          'flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-bg-elevated text-text-primary shadow-xl',
+          // Desktop: side panel — full height, square corners.
+          'md:h-full md:max-h-none md:rounded-none',
+          // Width applies only on md+ (the prop already carries the `md:`
+          // prefix — see prop docs); mobile is always full width.
           width,
-          side === 'right'
-            ? 'md:right-0 md:border-l md:border-border'
-            : 'md:left-0 md:border-r md:border-border',
-          // Animation:
-          //   open → translate-y-0 (mobile) / translate-x-0 (md+)
-          //   closed mobile → translate-y-full (slides off bottom)
-          //   closed desktop → translate-x-full/-full (slides off side)
-          open
-            ? 'translate-y-0 md:translate-x-0'
-            : ['translate-y-full md:translate-y-0', closedSidePanel],
+          side === 'right' ? 'md:border-l md:border-border' : 'md:border-r md:border-border',
+          // Slide-in keyframe (globals.css): bottom on mobile, side on md+.
+          side === 'right' ? 'animate-drawer-right' : 'animate-drawer-left',
           className,
         )}
       >
-        {/* Header — bumped to text-lg tracking-tight + larger close
-         *  button to match the Modal upgrade. border-soft so the divider
-         *  doesn't over-anchor the eye. */}
-        {/* Phase H+8 — py-5 → py-6 on header + body, py-4 → py-5 on
-            footer, matching the Modal + Card primitive uplifts so all
-            elevated surfaces share one rhythm. */}
+        {/* Header — text-lg tracking-tight title + a generous close target,
+            matching the Modal. border-soft so the divider doesn't over-anchor
+            the eye. */}
         <div className="flex items-center justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
           <h2 className="text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
           <button
@@ -116,6 +123,6 @@ export function Drawer({
           </div>
         ) : null}
       </aside>
-    </div>
+    </dialog>
   );
 }

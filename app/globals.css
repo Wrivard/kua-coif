@@ -482,6 +482,39 @@ dialog[open]::backdrop {
   animation: kua-fade-in 200ms ease-out;
 }
 
+/* Drawer panel slide-in (components/ui/drawer.tsx, now a native <dialog>).
+   Mobile rises from the bottom edge (shared sheet keyframe); md+ slides in
+   from the anchored side. Open-only, mirroring the Modal — dialog.close() is
+   instant, so there is no exit animation. */
+@keyframes kua-drawer-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes kua-drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+dialog[open] > .animate-drawer-right,
+dialog[open] > .animate-drawer-left {
+  animation: kua-modal-sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 768px) {
+  dialog[open] > .animate-drawer-right {
+    animation: kua-drawer-in-right 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  dialog[open] > .animate-drawer-left {
+    animation: kua-drawer-in-left 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
 .kua-shimmer-bg {
   background: linear-gradient(
     90deg,
