@@ -65,11 +65,13 @@ export const generatePublicLinks = withAction({
       expiresInSeconds: 60 * 60 * 24 * 90,
     });
     // /me requires a client row — walk-ins (client_id null) skip it.
+    // Clients audit W5c — 90d (was 365d): a bearer credential granting PII
+    // read + self-cancel must have a bounded window.
     const meToken = appt.client_id
       ? signToken({
           kind: 'me',
           resourceId: appt.client_id,
-          expiresInSeconds: 60 * 60 * 24 * 365,
+          expiresInSeconds: 60 * 60 * 24 * 90,
         })
       : null;
     const receiptToken = signToken({

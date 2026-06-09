@@ -775,16 +775,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
 
       // Phase G SR — mint a /me self-service link so the customer can
       // cancel/reschedule directly instead of having to call the salon.
-      // The token signs the client_id (kind='me') and expires in 365
-      // days, matching the admin's `generatePublicLinks` defaults.
-      // When `clientId` is somehow missing we fall back to the original
-      // "contact the salon" outro — the template handles meUrl=null.
+      // The token signs the client_id (kind='me'). Clients audit W5c — expiry
+      // tightened from 365d to 90d: it's a bearer credential on a forwardable
+      // email link granting PII read + self-cancel, so the window must be
+      // bounded. When `clientId` is somehow missing we fall back to the
+      // original "contact the salon" outro — the template handles meUrl=null.
       let meUrl: string | null = null;
       if (clientId) {
         const meToken = signToken({
           kind: 'me',
           resourceId: clientId,
-          expiresInSeconds: 60 * 60 * 24 * 365,
+          expiresInSeconds: 60 * 60 * 24 * 90,
         });
         // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read
         // and warns once to Sentry in production when missing (broken
