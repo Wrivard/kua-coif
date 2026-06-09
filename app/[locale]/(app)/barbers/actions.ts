@@ -17,31 +17,11 @@ import {
 
 const BARBERS_PATH = '/barbers';
 
-// Same shaping trick as services/actions.ts — narrow the supabase client to a
-// minimal structural type until db/types.ts codegen lands.
-function db() {
-  return createSupabaseServerClient() as unknown as {
-    from: (table: string) => {
-      insert: (row: Record<string, unknown>) => {
-        select: (cols: string) => {
-          single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-        };
-      };
-      update: (row: Record<string, unknown>) => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-      };
-      delete: () => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
-}
-
 export const createBarber = withAction({
   schema: barberSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { data, error } = await db()
+    const { data, error } = await createSupabaseServerClient()
       .from('barbers')
       .insert({ shop_id: ctx.shopId, ...input })
       .select('id')
@@ -69,8 +49,16 @@ export const updateBarber = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const { id, ...rest } = input;
-    const { error } = await db().from('barbers').update(rest).eq('id', id);
+    const { data, error } = await createSupabaseServerClient()
+      .from('barbers')
+      .update(rest)
+      .eq('id', id)
+      .select('id');
     if (error) return err('UNEXPECTED');
+    // Distinguish a real update from a 0-row no-op: a nonexistent or
+    // cross-tenant id is RLS-filtered to zero rows with no error, which
+    // would otherwise report a false success.
+    if (!data || data.length === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -81,8 +69,6 @@ export const updateBarber = withAction({
       diff: { after: rest },
     });
     revalidatePath(BARBERS_PATH);
-    // Confirmed-barber list drives the public booking + embed widget — bust
-    // their caches too so admins see staff changes propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id });
   },
@@ -94,8 +80,13 @@ export const deleteBarber = withAction({
   run: async (input, ctx) => {
     // Soft-delete: flip status to 'deleted' rather than removing the row, so
     // historic appointments keep their FK reference intact.
-    const { error } = await db().from('barbers').update({ status: 'deleted' }).eq('id', input.id);
+    const { data, error } = await createSupabaseServerClient()
+      .from('barbers')
+      .update({ status: 'deleted' })
+      .eq('id', input.id)
+      .select('id');
     if (error) return err('UNEXPECTED');
+    if (!data || data.length === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -106,8 +97,6 @@ export const deleteBarber = withAction({
       diff: { after: { status: 'deleted' } },
     });
     revalidatePath(BARBERS_PATH);
-    // Confirmed-barber list drives the public booking + embed widget — bust
-    // their caches too so admins see staff changes propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id: input.id });
   },
@@ -117,11 +106,13 @@ export const setBarberStatus = withAction({
   schema: setBarberStatusSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db()
+    const { data, error } = await createSupabaseServerClient()
       .from('barbers')
       .update({ status: input.status })
-      .eq('id', input.id);
+      .eq('id', input.id)
+      .select('id');
     if (error) return err('UNEXPECTED');
+    if (!data || data.length === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -132,8 +123,6 @@ export const setBarberStatus = withAction({
       diff: { status: input.status },
     });
     revalidatePath(BARBERS_PATH);
-    // Confirmed-barber list drives the public booking + embed widget — bust
-    // their caches too so admins see staff changes propagate immediately.
     revalidatePublicShopSurfaces();
     return ok({ id: input.id, status: input.status });
   },
@@ -162,6 +151,19 @@ export const disconnectGoogleCalendar = withAction({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = createSupabaseServiceRoleClient() as any;
 
+    // SECURITY (Barbers audit B2) — bind barber_id to the caller's ACTIVE
+    // shop BEFORE any privileged work. The service-role reads/writes below
+    // (and the lib/google/sync helpers) key off barber_id ALONE; without this
+    // gate a manager of shop A could pass a barber_id from shop B and delete
+    // B's barber's real Google Calendar events + wipe B's mirror linkage.
+    const ownerRes = await admin
+      .from('barbers')
+      .select('shop_id')
+      .eq('id', input.barber_id)
+      .maybeSingle();
+    const owner = ownerRes.data as { shop_id: string } | null;
+    if (!owner || owner.shop_id !== ctx.shopId) return err('NOT_FOUND');
+
     // Loop 36 (P96) — orphan cleanup. Before we forget the
     // `google_event_id`s, ask Google to delete the mirrored events
     // so they don't linger on the barber's personal calendar as
@@ -174,6 +176,7 @@ export const disconnectGoogleCalendar = withAction({
       .from('appointments')
       .select('id, google_event_id')
       .eq('barber_id', input.barber_id)
+      .eq('shop_id', ctx.shopId)
       .not('google_event_id', 'is', null);
     const mirrored = (apptsRes.data as Array<{ id: string; google_event_id: string }> | null) ?? [];
     if (mirrored.length > 0) {
@@ -210,7 +213,10 @@ export const disconnectGoogleCalendar = withAction({
     await admin
       .from('appointments')
       .update({ google_event_id: null })
-      .eq('barber_id', input.barber_id);
+      .eq('barber_id', input.barber_id)
+      // Scope the mirror-id wipe to the active shop — defense in depth on the
+      // service-role client even though barber_id is globally unique.
+      .eq('shop_id', ctx.shopId);
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,

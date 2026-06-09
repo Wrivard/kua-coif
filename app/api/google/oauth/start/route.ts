@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { getCurrentUser, getShopMemberships } from '@/lib/auth/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildOAuthUrl, googleConfigured } from '@/lib/google/server';
 import { signOauthState } from '@/lib/security/oauth-state';
+
+// Role ranks for the manager+ gate (matches lib/server-actions/with-action).
+const ROLE_RANK = { owner: 3, manager: 2, barber: 1 } as const;
 
 /**
  * Kick off the per-barber Google Calendar OAuth flow — Phase 34.
@@ -54,6 +58,29 @@ export async function GET(req: NextRequest) {
   const barberId = req.nextUrl.searchParams.get('barber_id');
   if (!barberId) {
     return NextResponse.json({ error: 'missing_barber_id' }, { status: 400 });
+  }
+
+  // SECURITY (Barbers audit B3) — authorize the barber_id, don't just trust it.
+  // Pre-fix this route checked only "member of SOME shop", so a member of shop
+  // A could start OAuth for shop B's barber and bind B's chair to their own
+  // Google account (exfiltrating B's client PII into a stranger's calendar).
+  // The user-session client's RLS (is_shop_member) returns the barber ONLY if
+  // the caller is a member of its shop; we then additionally require manager+
+  // in that shop (connecting a calendar is a manager action).
+  const supabase = createSupabaseServerClient();
+  const barberRes = await supabase
+    .from('barbers')
+    .select('shop_id')
+    .eq('id', barberId)
+    .maybeSingle();
+  const barber = barberRes.data as { shop_id: string } | null;
+  if (!barber) {
+    // No such barber, or the caller isn't a member of its shop (RLS-filtered).
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+  const membership = memberships.find((m) => m.shop_id === barber.shop_id);
+  if (!membership || (ROLE_RANK[membership.role] ?? 0) < ROLE_RANK.manager) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
   // 2. Build the signed state. `nonce` adds entropy so the same barberId

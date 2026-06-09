@@ -328,6 +328,20 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .limit(1);
       barberId = (anyBarberRes.data as Array<{ id: string }> | null)?.[0]?.id ?? null;
       if (!barberId) return err('NOT_FOUND');
+    } else {
+      // SECURITY (Barbers audit B6) — a supplied barber_id was previously used
+      // verbatim, skipping the confirmed-status + shop checks that only ran on
+      // the "any barber" path. A crafted POST could then book against a
+      // soft-deleted, 'staff', or cross-shop barber. Re-validate the explicit
+      // id belongs to THIS shop and is bookable (confirmed).
+      const barberRes = await supabase
+        .from('barbers')
+        .select('id')
+        .eq('id', barberId)
+        .eq('shop_id', shop.id)
+        .eq('status', 'confirmed')
+        .maybeSingle();
+      if (!barberRes.data) return err('INVALID_INPUT');
     }
 
     // ── Compose UTC instants ─────────────────────────────────────────
