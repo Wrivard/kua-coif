@@ -3,10 +3,20 @@
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, Download, FileDown, Pencil, Plus, Trash2, UserX } from 'lucide-react';
+import {
+  AlertTriangle,
+  Download,
+  FileDown,
+  Merge,
+  Pencil,
+  Plus,
+  Trash2,
+  UserX,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Modal } from '@/components/ui/modal';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
@@ -16,7 +26,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import type { ClientRow } from '@/db/rows';
 import { ClientFormModal } from './client-form-modal';
-import { anonymizeClient, deleteClient, exportClient } from './actions';
+import { anonymizeClient, deleteClient, exportClient, mergeClients } from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; client: ClientRow };
 
@@ -33,7 +43,15 @@ function bucketLetter(name: string | null | undefined): string {
   return first >= 'A' && first <= 'Z' ? first : '#';
 }
 
-export function ClientsClient({ locale, clients }: { locale: string; clients: ClientRow[] }) {
+export function ClientsClient({
+  locale,
+  clients,
+  canManage,
+}: {
+  locale: string;
+  clients: ClientRow[];
+  canManage: boolean;
+}) {
   const t = useTranslations('pages.clients');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -45,6 +63,12 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
   const [showDupesOnly, setShowDupesOnly] = useState(false);
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const [confirmDelete, setConfirmDelete] = useState<ClientRow | null>(null);
+  // Merge flow: `mergeFor` is the client to KEEP (opens the partner picker);
+  // `mergeConfirm` is the chosen {keep, merge} pair awaiting confirmation.
+  const [mergeFor, setMergeFor] = useState<ClientRow | null>(null);
+  const [mergeConfirm, setMergeConfirm] = useState<{ keep: ClientRow; merge: ClientRow } | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
 
   // Detect duplicates: rows that share the same normalised phone OR email.
@@ -157,6 +181,32 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
     return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
   }
 
+  // The other clients sharing `keep`'s canonical phone or email — the
+  // candidates to fold into it. Same normalization as the duplicate badge.
+  function partnersOf(keep: ClientRow): ClientRow[] {
+    const kp = keep.phone ? keep.phone.replace(/\D/g, '').slice(-10) : '';
+    const ke = keep.email?.toLowerCase() ?? '';
+    return clients.filter(
+      (c) =>
+        c.id !== keep.id &&
+        ((kp.length > 0 && c.phone?.replace(/\D/g, '').slice(-10) === kp) ||
+          (ke.length > 0 && c.email?.toLowerCase() === ke)),
+    );
+  }
+
+  function onMerge(keep: ClientRow, merge: ClientRow) {
+    startTransition(async () => {
+      const result = await mergeClients({ keep_id: keep.id, merge_id: merge.id });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.merged', { name: clientLabel(keep) }) });
+        setMergeConfirm(null);
+        setMergeFor(null);
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   const columns: ReadonlyArray<ColumnDef<ClientRow>> = [
     {
       id: 'name',
@@ -207,6 +257,17 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
               label: tCommon('actions.edit'),
               onClick: () => setMode({ kind: 'edit', client: r }),
             },
+            // Merge — only for managers, only on a row flagged as a duplicate.
+            ...(canManage && duplicateIds.has(r.id)
+              ? [
+                  {
+                    icon: Merge,
+                    label: t('actions.merge'),
+                    title: t('actions.merge'),
+                    onClick: () => setMergeFor(r),
+                  },
+                ]
+              : []),
             // Phase 40 — Loi 25 actions (export + anonymize)
             {
               icon: FileDown,
@@ -349,6 +410,61 @@ export function ClientsClient({ locale, clients }: { locale: string; clients: Cl
         cancelLabel={tCommon('actions.cancel')}
         onConfirm={() => confirmDelete && onDelete(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      {/* Merge — pick which duplicate to fold into the kept client. */}
+      <Modal
+        open={mergeFor !== null}
+        onClose={() => setMergeFor(null)}
+        title={t('merge.title')}
+        description={mergeFor ? t('merge.description', { name: clientLabel(mergeFor) }) : undefined}
+      >
+        {mergeFor ? (
+          partnersOf(mergeFor).length === 0 ? (
+            <p className="text-sm text-text-muted">{t('merge.noPartners')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {partnersOf(mergeFor).map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => setMergeConfirm({ keep: mergeFor, merge: p })}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-surface px-3 py-2.5 text-left transition-colors hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-text-primary">
+                        {clientLabel(p)}
+                      </span>
+                      <span className="block truncate text-xs text-text-muted">
+                        {[p.email, p.phone].filter(Boolean).join(' · ') || '—'}
+                      </span>
+                    </span>
+                    <Merge className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+      </Modal>
+
+      <ConfirmDialog
+        open={mergeConfirm !== null}
+        title={t('merge.confirmTitle')}
+        description={
+          mergeConfirm
+            ? t('merge.confirmBody', {
+                merge: clientLabel(mergeConfirm.merge),
+                keep: clientLabel(mergeConfirm.keep),
+              })
+            : ''
+        }
+        destructive
+        loading={isPending}
+        confirmLabel={t('actions.merge')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => mergeConfirm && onMerge(mergeConfirm.keep, mergeConfirm.merge)}
+        onCancel={() => setMergeConfirm(null)}
       />
     </>
   );

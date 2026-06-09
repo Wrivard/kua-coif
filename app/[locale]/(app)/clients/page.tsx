@@ -82,5 +82,6 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
     clients = (res.data as ClientRow[] | null) ?? [];
   }
 
-  return <ClientsClient locale={locale} clients={clients} />;
+  // Managers + owners can merge duplicates (the action is manager+ too).
+  return <ClientsClient locale={locale} clients={clients} canManage={viewerRole !== 'barber'} />;
 }

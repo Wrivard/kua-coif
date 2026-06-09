@@ -356,7 +356,8 @@
       },
       "actions": {
         "exportData": "Exporter les données (Loi 25)",
-        "anonymize": "Anonymiser (Loi 25)"
+        "anonymize": "Anonymiser (Loi 25)",
+        "merge": "Fusionner"
       },
       "confirmDelete": {
         "title": "Supprimer ce client ?",
@@ -378,7 +379,15 @@
         "updated": "Client mis à jour",
         "deleted": "« {name} » supprimé",
         "exported": "Données de « {name} » exportées",
-        "anonymized": "« {name} » anonymisé (Loi 25)"
+        "anonymized": "« {name} » anonymisé (Loi 25)",
+        "merged": "Fusionné dans « {name} »"
+      },
+      "merge": {
+        "title": "Fusionner les doublons",
+        "description": "Choisissez le client en double à fusionner dans « {name} ». Ses rendez-vous et sa fidélité y seront transférés.",
+        "noPartners": "Aucun doublon trouvé pour ce client.",
+        "confirmTitle": "Fusionner ce client ?",
+        "confirmBody": "« {merge} » sera fusionné dans « {keep} » : ses rendez-vous, ses avis et sa fidélité y seront transférés, puis « {merge} » sera supprimé définitivement. Cette action est irréversible."
       }
     },
     "services": {

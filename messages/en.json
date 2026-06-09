@@ -356,7 +356,8 @@
       },
       "actions": {
         "exportData": "Export data (Loi 25)",
-        "anonymize": "Anonymize (Loi 25)"
+        "anonymize": "Anonymize (Loi 25)",
+        "merge": "Merge"
       },
       "confirmDelete": {
         "title": "Delete this client?",
@@ -378,7 +379,15 @@
         "updated": "Client updated",
         "deleted": "\"{name}\" deleted",
         "exported": "\"{name}\" data exported",
-        "anonymized": "\"{name}\" anonymized (Loi 25)"
+        "anonymized": "\"{name}\" anonymized (Loi 25)",
+        "merged": "Merged into \"{name}\""
+      },
+      "merge": {
+        "title": "Merge duplicates",
+        "description": "Choose the duplicate client to fold into \"{name}\". Their appointments and loyalty will move over.",
+        "noPartners": "No duplicate found for this client.",
+        "confirmTitle": "Merge this client?",
+        "confirmBody": "\"{merge}\" will be merged into \"{keep}\": their appointments, reviews and loyalty move over, then \"{merge}\" is permanently deleted. This can't be undone."
       }
     },
     "services": {
