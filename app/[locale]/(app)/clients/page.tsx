@@ -40,7 +40,12 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
   // dedup operate on a bounded set.
   const CLIENT_FETCH_CAP = 1000;
 
+  // The 2-counter model (spec §B: "TOTAL A-Z (1896)" vs "TOTAL (227)"):
+  // `totalCount` is the shop's GRAND total (a real COUNT, uncapped), shown in
+  // the header; the table footer's filtered count + page-of is the second
+  // counter. `clients.length` (the capped fetch) would undercount past the cap.
   let clients: ClientRow[] = [];
+  let totalCount = 0;
   if (viewerRole === 'barber' && viewerBarberId) {
     // Two-step: first the appointment.client_id distinct list for this
     // barber, then the client rows for those ids.
@@ -57,6 +62,9 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
           .filter((id): id is string => Boolean(id)),
       ),
     );
+    // Grand total for a barber = the distinct clients they've served (the
+    // uncapped id list), not the capped row fetch below.
+    totalCount = clientIds.length;
     if (clientIds.length > 0) {
       const res = await supabase
         .from('clients')
@@ -68,6 +76,13 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
       clients = (res.data as ClientRow[] | null) ?? [];
     }
   } else {
+    // Grand total = a real COUNT over the whole shop (head:true → no rows
+    // transferred), independent of the capped fetch.
+    const countRes = await supabase
+      .from('clients')
+      .select('id', { count: 'exact', head: true })
+      .eq('shop_id', shopId);
+    totalCount = (countRes.count as number | null) ?? 0;
     const res = await supabase
       .from('clients')
       .select('id, first_name, last_name, email, phone, date_of_birth, notes')
@@ -83,5 +98,12 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
   }
 
   // Managers + owners can merge duplicates (the action is manager+ too).
-  return <ClientsClient locale={locale} clients={clients} canManage={viewerRole !== 'barber'} />;
+  return (
+    <ClientsClient
+      locale={locale}
+      clients={clients}
+      totalCount={totalCount}
+      canManage={viewerRole !== 'barber'}
+    />
+  );
 }

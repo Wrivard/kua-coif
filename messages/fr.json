@@ -341,6 +341,7 @@
       "title": "Clients",
       "soon": "Liste A–Z, dédoublonnage, export — Phase 4.",
       "total": "{count} clients · {dupes} doublons",
+      "shown": "{count} affichés",
       "addClient": "Ajouter un client",
       "searchPlaceholder": "Rechercher par nom, courriel ou téléphone…",
       "locateDuplicates": "Localiser les doublons",

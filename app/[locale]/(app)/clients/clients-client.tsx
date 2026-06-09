@@ -55,10 +55,14 @@ function bucketLetter(name: string | null | undefined): string {
 export function ClientsClient({
   locale,
   clients,
+  totalCount,
   canManage,
 }: {
   locale: string;
   clients: ClientRow[];
+  /** Shop's grand total of clients (real COUNT, uncapped) — the header's
+   *  primary counter. `clients` is the capped, browseable set. */
+  totalCount: number;
   canManage: boolean;
 }) {
   const t = useTranslations('pages.clients');
@@ -368,7 +372,16 @@ export function ClientsClient({
     <>
       <PageHeader
         title={t('title')}
-        subtitle={t('total', { count: clients.length, dupes: duplicateIds.size })}
+        subtitle={
+          // 2-counter model: the shop's grand total always; the filtered
+          // "shown" count appended only while a letter / search / dupes
+          // filter narrows the view (the table footer carries the page-of).
+          letterFilter !== null || search.trim().length >= 1 || showDupesOnly
+            ? `${t('total', { count: totalCount, dupes: duplicateIds.size })} · ${t('shown', {
+                count: filtered.length,
+              })}`
+            : t('total', { count: totalCount, dupes: duplicateIds.size })
+        }
         center={
           <SearchBar
             value={search}

@@ -341,6 +341,7 @@
       "title": "Clients",
       "soon": "A–Z list, dedup, export — Phase 4.",
       "total": "{count} clients · {dupes} duplicates",
+      "shown": "{count} shown",
       "addClient": "Add client",
       "searchPlaceholder": "Search by name, email, or phone…",
       "locateDuplicates": "Locate duplicates",
