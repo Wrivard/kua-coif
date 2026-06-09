@@ -7,6 +7,7 @@ import { err, ok } from '@/lib/server-actions/result';
 import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { captureException } from '@/lib/observability';
 import {
   barberSchema,
   deleteBarberSchema,
@@ -87,6 +88,26 @@ export const deleteBarber = withAction({
       .select('id');
     if (error) return err('UNEXPECTED');
     if (!data || data.length === 0) return err('NOT_FOUND');
+
+    // B16 — a soft-deleted barber kept a LIVE Google webhook channel (Google
+    // POSTs to our webhook for ~30 days) + the connection row, so sync kept
+    // running for an archived barber. Tear the connection down best-effort:
+    // stop the webhook channel and remove the row. Best-effort by design — a
+    // Google/network failure must NOT block the archive (the status flip is
+    // what matters; a leftover channel just expires on its own).
+    try {
+      const { unsubscribeBarberCalendar } = await import('@/lib/google/sync');
+      await unsubscribeBarberCalendar(input.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const admin = createSupabaseServiceRoleClient() as any;
+      await admin
+        .from('barber_google_calendar')
+        .delete()
+        .eq('barber_id', input.id)
+        .eq('shop_id', ctx.shopId);
+    } catch (e) {
+      captureException(e, { tags: { layer: 'barbers', step: 'soft-delete-google-teardown' } });
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,

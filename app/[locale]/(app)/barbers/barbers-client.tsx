@@ -318,7 +318,14 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
           columns={columns}
           data={rows}
           getRowKey={(r) => r.id}
-          reorderable
+          // B7 — `reorderable` previously rendered a drag handle with NO DnD
+          // wiring (DataTable.reorderable has no onReorder + is unsupported in
+          // virtualized mode) and there's no reorderBarbers action, so the grip
+          // was purely decorative and sort_order could never change from the
+          // UI. Removed so the UI doesn't advertise a capability it lacks. Real
+          // drag-reorder (a DataTable DnD addition or a custom sortable table +
+          // a reorderBarbers action, mirroring services) is a dedicated
+          // follow-up — see the Barbers audit (B7).
           emptyState={{
             title: t('emptyTitle'),
             description: t('emptyHint'),
