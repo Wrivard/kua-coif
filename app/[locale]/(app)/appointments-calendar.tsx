@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -486,11 +486,21 @@ export function AppointmentsCalendar({
     return m;
   }, [barbers, blocked]);
 
+  // Calendar audit #4 — the realtime gate below reads the currently-viewed
+  // dates from a ref so navigating days/weeks doesn't tear down and rebuild
+  // the Realtime channel. Side-by-Side + List show a single day (`isoDate`);
+  // Week shows the 7-day `weekDays` range.
+  const viewedDatesRef = useRef<Set<string>>(new Set([isoDate]));
+  useEffect(() => {
+    viewedDatesRef.current = new Set(view === 'week' ? weekDays : [isoDate]);
+  }, [view, weekDays, isoDate]);
+
   // ── Phase 26 — Supabase Realtime ──────────────────────────────────────
   // Subscribe to INSERT/UPDATE/DELETE on `appointments` and `blocked_time`
-  // scoped to the current shop. On any event, call `router.refresh()` which
-  // re-runs the Server Component (Promise.all of ~9 queries, ~200ms) and
-  // pushes fresh data into this client component.
+  // scoped to the current shop. On an event that touches the VIEWED date(s)
+  // (audit #4 gate, below), call `router.refresh()` which re-runs the Server
+  // Component (Promise.all of ~9 queries, ~200ms) and pushes fresh data into
+  // this client component.
   //
   // Why refresh instead of patching local state:
   //  - appointments carry joined rows (services, client name) — re-deriving
@@ -516,7 +526,7 @@ export function AppointmentsCalendar({
     // status flips) collapses to a single refresh ~250ms after the
     // last event lands.
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    const onChange = () => {
+    const scheduleRefresh = () => {
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => {
         router.refresh();
@@ -524,6 +534,50 @@ export function AppointmentsCalendar({
         if (hideTimer) clearTimeout(hideTimer);
         hideTimer = setTimeout(() => setJustRefreshed(false), 1500);
       }, 250);
+    };
+    // Calendar audit #4 — date-intersection gate. postgres_changes fires for
+    // EVERY appointment/blocked_time row in the shop, including bookings on
+    // days the operator isn't looking at; refreshing today's grid for a row
+    // three weeks out is pure waste. Skip the refresh only when we can PROVE
+    // the changed row falls entirely outside the viewed date(s).
+    //
+    // recHit → true (in view) / false (provably out) / null (unknown). A row
+    // whose date we can't read — DELETE/UPDATE `old` carries only the PK
+    // unless the table is REPLICA IDENTITY FULL (migration 20260608120000),
+    // or an unparseable timestamp — is treated as "might be in view" so the
+    // gate can never hide a change that should show; worst case it refreshes
+    // more often than strictly necessary.
+    const tsToShopDate = (raw: unknown): string | null => {
+      if (!raw) return null;
+      const d = new Date(String(raw).replace(' ', 'T'));
+      if (Number.isNaN(d.getTime())) return null;
+      return shopIsoDate(d, timezone);
+    };
+    const recHit = (rec: Record<string, unknown> | null | undefined): boolean | null => {
+      if (!rec) return null;
+      const d1 = tsToShopDate(rec.start_at);
+      if (d1 === null) return null;
+      const d2 = tsToShopDate(rec.end_at) ?? d1;
+      const dates = viewedDatesRef.current;
+      return dates.has(d1) || dates.has(d2);
+    };
+    const onChange = (payload: {
+      eventType?: 'INSERT' | 'UPDATE' | 'DELETE';
+      new?: Record<string, unknown>;
+      old?: Record<string, unknown>;
+    }) => {
+      let relevant: boolean;
+      if (payload.eventType === 'INSERT') {
+        relevant = recHit(payload.new) !== false;
+      } else if (payload.eventType === 'DELETE') {
+        relevant = recHit(payload.old) !== false;
+      } else {
+        // UPDATE — refresh if EITHER the new or the old position touches the
+        // view, so a reschedule that moves a block off the current day still
+        // clears the now-stale block.
+        relevant = recHit(payload.new) !== false || recHit(payload.old) !== false;
+      }
+      if (relevant) scheduleRefresh();
     };
     const channel = supabase
       .channel(`calendar:${shopId}`)
@@ -553,7 +607,7 @@ export function AppointmentsCalendar({
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [barbers, router]);
+  }, [barbers, router, timezone]);
 
   // Poll fallback: while the realtime socket is down, refetch every 60s so a
   // long disconnect can't pin a silently stale grid (the realtime client also
