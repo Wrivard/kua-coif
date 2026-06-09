@@ -273,6 +273,8 @@
         "book": "Book",
         "client": "Client",
         "searchClient": "Search a client…",
+        "searching": "Searching…",
+        "noClients": "No client found",
         "barber": "Barber",
         "date": "Date",
         "startTime": "Start time",

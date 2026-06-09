@@ -72,6 +72,15 @@ export const chargeAppointmentSchema = z.object({
 export const refundAppointmentSchema = z.object({ id: z.string().uuid() });
 
 /**
+ * Server-side client lookup for the appointment picker — substring match on
+ * name / email / phone. Replaces the in-memory filter over the 500-capped
+ * payload (clients beyond 500 were unfindable → duplicate-client problem).
+ */
+export const searchClientsSchema = z.object({
+  query: z.string().trim().max(100),
+});
+
+/**
  * Loop 28 — Bulk-cancel N appointments in one action call. The list
  * is capped at 100 (a full day for a typical 4-chair shop tops at
  * 60). The `also_refund` flag mirrors single-cancel: when true, every

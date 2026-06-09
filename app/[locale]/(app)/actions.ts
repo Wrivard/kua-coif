@@ -21,6 +21,7 @@ import {
   chargeAppointmentSchema,
   refundAppointmentSchema,
   rescheduleAppointmentSchema,
+  searchClientsSchema,
   updateAppointmentSchema,
 } from './schema';
 import { sendEmail } from '@/lib/email/send';
@@ -1438,5 +1439,49 @@ export const refundAppointment = withAction({
     }
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ id: appt.id });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// searchClients — server-side client lookup for the appointment picker.
+//
+// Replaces the in-memory filter over the 500-capped client payload (clients
+// beyond 500 were unfindable, so operators created duplicate clients).
+// Substring match on name / email / phone, scoped to the shop, capped at 30.
+// ---------------------------------------------------------------------------
+type ClientSearchRow = {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export const searchClients = withAction<typeof searchClientsSchema, ClientSearchRow[]>({
+  schema: searchClientsSchema,
+  minRole: 'barber',
+  run: async (input, ctx) => {
+    const q = input.query.trim();
+    if (q.length < 2) return ok([]);
+    // Strip characters that would break the PostgREST or() grammar
+    // (commas / parens / backslash) or act as LIKE wildcards. The search is
+    // shop-scoped regardless (the .eq below is ANDed before the .or), so this
+    // only guards against malformed queries, not a cross-tenant leak.
+    const safe = q.replace(/[%,()\\*]/g, ' ').trim();
+    if (safe.length < 2) return ok([]);
+    const pattern = `%${safe}%`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = rawDb() as any;
+    const res = await sb
+      .from('clients')
+      .select('id, first_name, last_name, email, phone')
+      .eq('shop_id', ctx.shopId)
+      .or(
+        `first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`,
+      )
+      .order('first_name', { ascending: true })
+      .limit(30);
+    if (res.error) return err('UNEXPECTED');
+    return ok((res.data as ClientSearchRow[] | null) ?? []);
   },
 });

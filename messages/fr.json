@@ -273,6 +273,8 @@
         "book": "Réserver",
         "client": "Client",
         "searchClient": "Rechercher un client…",
+        "searching": "Recherche…",
+        "noClients": "Aucun client trouvé",
         "barber": "Barbier",
         "date": "Date",
         "startTime": "Heure de début",

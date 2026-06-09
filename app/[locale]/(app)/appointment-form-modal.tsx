@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
@@ -11,10 +11,12 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import { createAppointment } from './actions';
+import { createAppointment, searchClients } from './actions';
 import { appointmentSchema, type AppointmentInput } from './schema';
 
 type Mode = { kind: 'create'; barberId: string; minutes: number };
+
+type ClientOption = Pick<ClientRow, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'>;
 
 type Props = {
   mode: Mode;
@@ -76,17 +78,29 @@ export function AppointmentFormModal({
       .reduce((sum, s) => sum + s.duration_min, 0);
   }, [services, selectedServiceIds]);
 
-  const filteredClients = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return clients.slice(0, 50);
-    return clients
-      .filter((c) =>
-        `${c.first_name} ${c.last_name ?? ''} ${c.email ?? ''} ${c.phone ?? ''}`
-          .toLowerCase()
-          .includes(q),
-      )
-      .slice(0, 50);
-  }, [clients, search]);
+  // Server-side client search. The pre-loaded `clients` list is capped at 500,
+  // so typing now queries the FULL client set (substring on name / phone /
+  // email) instead of filtering only the first 500 in memory. Empty / short
+  // query falls back to the first 50 of the pre-loaded list.
+  const [serverResults, setServerResults] = useState<ClientOption[]>([]);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setServerResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const id = setTimeout(async () => {
+      const result = await searchClients({ query: q });
+      if (result.ok) setServerResults(result.data);
+      setSearching(false);
+    }, 250);
+    return () => clearTimeout(id);
+  }, [search]);
+  const displayedClients: ClientOption[] =
+    search.trim().length >= 2 ? serverResults : clients.slice(0, 50);
 
   // Group services by category for the multi-select.
   const servicesByCategory = useMemo(() => {
@@ -144,7 +158,7 @@ export function AppointmentFormModal({
             onChange={(e) => setSearch(e.target.value)}
           />
           <Select id="client_id" className="mt-2" {...register('client_id')}>
-            {filteredClients.map((c) => (
+            {displayedClients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.first_name}
                 {c.last_name ? ` ${c.last_name}` : ''}
@@ -152,6 +166,11 @@ export function AppointmentFormModal({
               </option>
             ))}
           </Select>
+          {searching ? (
+            <p className="mt-1 text-[10px] text-text-muted">{t('form.searching')}</p>
+          ) : search.trim().length >= 2 && displayedClients.length === 0 ? (
+            <p className="mt-1 text-[10px] text-text-muted">{t('form.noClients')}</p>
+          ) : null}
         </div>
 
         <div>
