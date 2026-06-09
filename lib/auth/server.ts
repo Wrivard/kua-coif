@@ -310,6 +310,13 @@ export const getCurrentBarberId = cache(async (): Promise<string | null> => {
     .select('id')
     .eq('user_id', user.id)
     .eq('shop_id', shopId)
+    // A barber should have exactly one CONFIRMED row per shop, but a stale
+    // 'deleted'/'staff' duplicate (or a data glitch) would make an un-filtered
+    // .maybeSingle() throw PGRST116 and LOCK THE BARBER OUT of their own
+    // calendar. Scope to confirmed + take one deterministically.
+    .eq('status', 'confirmed')
+    .order('sort_order', { ascending: true })
+    .limit(1)
     .maybeSingle();
   return (res.data as { id: string } | null)?.id ?? null;
 });

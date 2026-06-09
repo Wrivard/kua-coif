@@ -38,6 +38,7 @@ import { enumerateRecurringDates } from '@/lib/business/recurrence';
 import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
 import { pushAppointmentToQuickbooks } from '@/lib/quickbooks/sync';
 import { captureException } from '@/lib/observability';
+import { checkRateLimit } from '@/lib/auth/rate-limit';
 
 const APPOINTMENTS_PATH = '/';
 
@@ -962,6 +963,10 @@ export const bulkCancelAppointments = withAction<
   schema: bulkCancelAppointmentsSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // Throttle bulk-cancel — it can refund + cancel a whole day in one call,
+    // so it's the highest-blast-radius action. ~5/minute per user.
+    const rl = await checkRateLimit(`bulkcancel:${ctx.userId}`, { max: 5, windowMs: 60 * 1000 });
+    if (!rl.allowed) return err('RATE_LIMITED');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = rawDb() as any;
     const preRes = await sb
@@ -1206,6 +1211,10 @@ export const chargeAppointment = withAction<
   schema: chargeAppointmentSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // Throttle the money path — a runaway client or compromised session
+    // shouldn't be able to spray charge attempts. ~20/hour per user.
+    const rl = await checkRateLimit(`charge:${ctx.userId}`, { max: 20, windowMs: 60 * 60 * 1000 });
+    if (!rl.allowed) return err('RATE_LIMITED');
     if (!stripeConfigured()) return err('UNEXPECTED');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1371,6 +1380,10 @@ export const refundAppointment = withAction({
   schema: refundAppointmentSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // Throttle the money path. ~20 refunds/hour per user is generous for a
+    // busy front desk while blocking automated abuse.
+    const rl = await checkRateLimit(`refund:${ctx.userId}`, { max: 20, windowMs: 60 * 60 * 1000 });
+    if (!rl.allowed) return err('RATE_LIMITED');
     if (!stripeConfigured()) return err('UNEXPECTED');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
