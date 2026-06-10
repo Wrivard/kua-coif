@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { appUrl } from '@/lib/env/app-url';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
@@ -81,7 +82,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       if (row.channel === 'sms') alreadySms.add(row.client_id);
     }
 
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+    const base = appUrl();
     const bookingUrl = `${base}/${locale}/book/${encodeURIComponent(shop.alias)}`;
 
     let sent = 0;

@@ -30,6 +30,7 @@
  */
 
 import { unstable_cache } from 'next/cache';
+import { appUrl } from '@/lib/env/app-url';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
@@ -287,7 +288,7 @@ export async function deleteAppointmentMirror({
 // continue to work via the 60s FreeBusy polling.
 
 function webhookUrl(): string | null {
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  const base = appUrl();
   // Google rejects HTTP and IP-literal hosts — short-circuit when
   // the base URL is missing or local.
   if (!base || !base.startsWith('https://')) return null;

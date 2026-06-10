@@ -1,4 +1,5 @@
 import { signToken } from '@/lib/security/signed-tokens';
+import { appUrl } from '@/lib/env/app-url';
 
 /**
  * CASL unsubscribe link builder (Clients audit W6b).
@@ -24,7 +25,7 @@ const UNSUB_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
  * (broken link beats no link), matching the review/booking URL builders.
  */
 export function buildUnsubscribeUrl(clientId: string, locale: 'fr' | 'en'): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+  const base = appUrl();
   const token = signToken({
     kind: 'unsub',
     resourceId: clientId,

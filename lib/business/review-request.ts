@@ -29,6 +29,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { appUrl } from '@/lib/env/app-url';
 import { captureException } from '@/lib/observability';
 import { signToken } from '@/lib/security/signed-tokens';
 import { sendEmail } from '@/lib/email/send';
@@ -99,7 +100,7 @@ export async function sendReviewRequestOnCompletion({
     // Signed-token link to the public /review/[token] page. Falls back
     // to a relative path if NEXT_PUBLIC_APP_URL is unset (broken link
     // beats no link), same as `sendReviewCampaign`.
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+    const base = appUrl();
     // Embed the appointment's current revocation version (plan 013) so a
     // leaked auto-review link can be killed from the drawer. One extra
     // single-row read per completion — this path is per-event, not

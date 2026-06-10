@@ -20,6 +20,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { appUrl } from '@/lib/env/app-url';
 
 /**
  * Reconstruct the StatusCallback URL we registered with Twilio so
@@ -29,7 +30,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
  * passing a non-functional URL through).
  */
 export function twilioWebhookUrl(shopId: string): string | null {
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  // Plan 025b — appUrl() returns '' (not undefined) when unset; the existing
+  // `!base` guard preserves twilioWebhookUrl's null contract (tested).
+  const base = appUrl();
   if (!base || !base.startsWith('https://')) return null;
   return `${base}/api/sms/twilio-webhook/${shopId}`;
 }
