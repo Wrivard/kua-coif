@@ -565,7 +565,16 @@
         "sku": "SKU",
         "tax": "Taxes",
         "category": "Category",
-        "brand": "Brand"
+        "brand": "Brand",
+        "status": "Status"
+      },
+      "status": {
+        "enabled": "Active",
+        "disabled": "Disabled"
+      },
+      "actions": {
+        "enable": "Enable product",
+        "disable": "Disable product"
       },
       "warnings": {
         "negativeMargin": "Negative margin: supply price exceeds retail price.",
@@ -595,7 +604,8 @@
           "amountPrecision": "Two decimals maximum.",
           "quantity": "Invalid quantity: a whole number from 0 to 99,999.",
           "sku": "SKU can't exceed 50 characters.",
-          "select": "Invalid selection."
+          "select": "Invalid selection.",
+          "nameDuplicate": "That name is already used by a product in this shop."
         }
       },
       "brands": {
@@ -617,7 +627,9 @@
         "updated": "Product updated",
         "deleted": "Item deleted",
         "brandSaved": "Brand saved",
-        "categorySaved": "Category saved"
+        "categorySaved": "Category saved",
+        "statusFlipped": "Status of \"{name}\" updated",
+        "staleConflict": "This product was changed by someone else in the meantime. Reload the page before retrying."
       },
       "searchPlaceholder": "Search products…",
       "conflicts": {

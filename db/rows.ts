@@ -107,6 +107,10 @@ export type ProductRow = {
   current_inventory: number;
   low_inventory_threshold: number;
   sku: string | null;
+  // W2 (migration 20260610150000) — soft enable/disable, mirrors services.status.
+  status: 'enabled' | 'disabled';
+  // Optimistic-concurrency precondition source for the edit form (W2b).
+  updated_at: string;
 };
 
 export type AppointmentRow = {

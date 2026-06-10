@@ -114,7 +114,9 @@ export const createProduct = withAction({
       .single();
     // 23505 = unique violation on products_shop_name_unique (a duplicate name
     // in this shop). A normal user case → CONFLICT, not UNEXPECTED, no Sentry.
-    if (error?.code === '23505') return err('CONFLICT');
+    // The `{ name: 'duplicate' }` payload lets the form surface it INLINE on the
+    // name field rather than as a generic toast.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) {
       captureException(error ?? new Error('createProduct: no row returned'), {
         tags: { layer: 'products' },
@@ -175,15 +177,16 @@ export const updateProduct = withAction({
     }
     const { data: updatedRows, error } = await upd.select('id');
     // 23505 = duplicate name in this shop (a rename collision) → CONFLICT, not Sentry.
-    if (error?.code === '23505') return err('CONFLICT');
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) {
       captureException(error, { tags: { layer: 'products' } });
       return err('UNEXPECTED');
     }
     if (expected_updated_at && (updatedRows?.length ?? 0) === 0) {
-      // Stale precondition → a concurrent edit moved updated_at. Surface CONFLICT
-      // so the client refetches instead of silently losing the user's changes.
-      return err('CONFLICT');
+      // Stale precondition → a concurrent edit moved updated_at. The
+      // `{ concurrency: 'stale' }` payload distinguishes this from a duplicate
+      // name so the form shows a "reload" toast instead of a name-field error.
+      return err('CONFLICT', { concurrency: 'stale' });
     }
 
     const { error: taxError } = await sb.rpc('set_product_taxes', {
@@ -284,6 +287,9 @@ export const createBrand = withAction({
       .insert({ shop_id: ctx.shopId, name: input.name })
       .select('id')
       .single();
+    // 23505 = duplicate brand name in this shop (unique(shop_id,name) since
+    // init). CONFLICT lets the W3 taxonomy form surface "brand already exists".
+    if (error?.code === '23505') return err('CONFLICT');
     if (error || !data) {
       captureException(error ?? new Error('createBrand: no row returned'), {
         tags: { layer: 'products' },
@@ -312,6 +318,7 @@ export const updateBrand = withAction({
       .update({ name: input.name })
       .eq('id', input.id)
       .eq('shop_id', ctx.shopId);
+    if (error?.code === '23505') return err('CONFLICT');
     if (error) {
       captureException(error, { tags: { layer: 'products' } });
       return err('UNEXPECTED');
@@ -371,6 +378,8 @@ export const createCategory = withAction({
       .insert({ shop_id: ctx.shopId, name: input.name })
       .select('id')
       .single();
+    // 23505 = duplicate category name in this shop (unique(shop_id,name)).
+    if (error?.code === '23505') return err('CONFLICT');
     if (error || !data) {
       captureException(error ?? new Error('createCategory: no row returned'), {
         tags: { layer: 'products' },
@@ -399,6 +408,7 @@ export const updateCategory = withAction({
       .update({ name: input.name })
       .eq('id', input.id)
       .eq('shop_id', ctx.shopId);
+    if (error?.code === '23505') return err('CONFLICT');
     if (error) {
       captureException(error, { tags: { layer: 'products' } });
       return err('UNEXPECTED');

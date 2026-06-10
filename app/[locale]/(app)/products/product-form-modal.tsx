@@ -72,6 +72,7 @@ export function ProductFormModal({
     if (err.message === 'INVALID_PRICE_PRECISION') return tErr('field.INVALID_PRICE_PRECISION');
     switch (kind) {
       case 'name':
+        if (err.message === 'NAME_DUPLICATE') return t('form.errors.nameDuplicate');
         return err.type === 'too_big'
           ? t('form.errors.nameTooLong')
           : t('form.errors.nameRequired');
@@ -118,6 +119,7 @@ export function ProductFormModal({
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<ProductInput>({
     resolver: zodResolver(productSchema),
@@ -130,7 +132,14 @@ export function ProductFormModal({
     startTransition(async () => {
       const result =
         mode.kind === 'edit'
-          ? await updateProduct({ id: mode.product.id, ...values })
+          ? await updateProduct({
+              id: mode.product.id,
+              // W2b — optimistic-concurrency precondition: the server rejects the
+              // write (CONFLICT + {concurrency:'stale'}) if someone else edited
+              // this product since it was loaded.
+              expected_updated_at: mode.product.updated_at,
+              ...values,
+            })
           : await createProduct(values);
       if (result.ok) {
         show({
@@ -138,9 +147,21 @@ export function ProductFormModal({
           title: mode.kind === 'edit' ? t('toasts.updated') : t('toasts.created'),
         });
         onClose();
-      } else {
-        show({ variant: 'danger', title: tErr(result.errorCode) });
+        return;
       }
+      // W2b — the two distinct CONFLICT shapes the server now returns.
+      if (result.errorCode === 'CONFLICT' && result.fieldErrors?.name === 'duplicate') {
+        // Duplicate per-shop product name → surface INLINE on the name field
+        // (reuses the W0 FieldHint mechanic via the NAME_DUPLICATE code).
+        setError('name', { type: 'manual', message: 'NAME_DUPLICATE' });
+        return;
+      }
+      if (result.errorCode === 'CONFLICT' && result.fieldErrors?.concurrency === 'stale') {
+        // Stale precondition — no automatic re-fetch (scope), just tell the user.
+        show({ variant: 'danger', title: t('toasts.staleConflict') });
+        return;
+      }
+      show({ variant: 'danger', title: tErr(result.errorCode) });
     });
   }
 

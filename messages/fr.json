@@ -565,7 +565,16 @@
         "sku": "SKU",
         "tax": "Taxes",
         "category": "Catégorie",
-        "brand": "Marque"
+        "brand": "Marque",
+        "status": "Statut"
+      },
+      "status": {
+        "enabled": "Actif",
+        "disabled": "Désactivé"
+      },
+      "actions": {
+        "enable": "Activer le produit",
+        "disable": "Désactiver le produit"
       },
       "warnings": {
         "negativeMargin": "Marge négative : prix fournisseur supérieur au prix de vente.",
@@ -595,7 +604,8 @@
           "amountPrecision": "Deux décimales maximum.",
           "quantity": "Quantité invalide : un nombre entier de 0 à 99 999.",
           "sku": "La référence ne peut pas dépasser 50 caractères.",
-          "select": "Sélection invalide."
+          "select": "Sélection invalide.",
+          "nameDuplicate": "Ce nom est déjà utilisé par un produit de cette boutique."
         }
       },
       "brands": {
@@ -617,7 +627,9 @@
         "updated": "Produit mis à jour",
         "deleted": "Élément supprimé",
         "brandSaved": "Marque enregistrée",
-        "categorySaved": "Catégorie enregistrée"
+        "categorySaved": "Catégorie enregistrée",
+        "statusFlipped": "Statut de « {name} » mis à jour",
+        "staleConflict": "Ce produit a été modifié entre-temps par quelqu'un d'autre. Recharge la page avant de réessayer."
       },
       "searchPlaceholder": "Rechercher un produit…",
       "conflicts": {
