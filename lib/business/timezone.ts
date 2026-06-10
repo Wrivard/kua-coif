@@ -89,9 +89,11 @@ export function shopIsoDate(date: Date, timezone: string): string {
   return formatInTimeZone(date, timezone, 'yyyy-MM-dd');
 }
 
-/** Parse a YYYY-MM-DD into a UTC Date at start-of-day-in-tz. */
+/** Parse a YYYY-MM-DD into a UTC Date at start-of-day-in-tz.
+ *  Runtime-TZ independent: the string is interpreted as a shop-local
+ *  wall-clock date (NOT as runtime-local midnight — Vercel runs TZ=UTC). */
 export function parseShopIsoDate(iso: string, timezone: string): Date {
-  return shopDayStart(parse(iso, 'yyyy-MM-dd', new Date()), timezone);
+  return combineShopDateTime(iso, '00:00', timezone);
 }
 
 /** Render minutes-from-midnight as "8:15a" / "11:35a" / "1:00p" style. */
