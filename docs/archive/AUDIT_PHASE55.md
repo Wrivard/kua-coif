@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 55 (post-loop 4 production readiness)
 
 > Snapshot at the end of Loop 4 (Phases 50→54 delivered, Stripe Elements

@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # Design System: Vercel
 
 ## 1. Visual Theme & Atmosphere
