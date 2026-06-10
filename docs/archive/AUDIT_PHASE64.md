@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 64 (post-loop 7 production readiness)
 
 > Snapshot at the end of Loop 7. Phase 64 (marketing banner) shipped;

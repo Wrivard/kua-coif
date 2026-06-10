@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 70 (Ultrathink Deep-Dive)
 
 > Cross-cutting audit covering integrations, frontend design (vs Vercel
