@@ -42,6 +42,10 @@ export function BrandFormModal({ mode, onClose }: { mode: BrandMode; onClose: ()
       if (result.ok) {
         show({ variant: 'success', title: t('toasts.brandSaved') });
         onClose();
+      } else if (result.errorCode === 'CONFLICT') {
+        // The only CONFLICT a create/edit can raise is a duplicate name — say
+        // so instead of the generic "reload and retry".
+        show({ variant: 'danger', title: t('conflicts.brandDuplicate') });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
@@ -101,6 +105,10 @@ export function CategoryFormModal({ mode, onClose }: { mode: CategoryMode; onClo
       if (result.ok) {
         show({ variant: 'success', title: t('toasts.categorySaved') });
         onClose();
+      } else if (result.errorCode === 'CONFLICT') {
+        // The only CONFLICT a create/edit can raise is a duplicate name — say
+        // so instead of the generic "reload and retry".
+        show({ variant: 'danger', title: t('conflicts.categoryDuplicate') });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
