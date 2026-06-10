@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 46 (post-loop 2 production readiness)
 
 > Snapshot of the app's state at the end of Loop 2 (Phases 42-45 delivered).

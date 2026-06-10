@@ -4,7 +4,7 @@ Plateforme SaaS de gestion pour salons de coiffure / barbershops (back-office + 
 
 > **Spec** : [`CLAUDE.md`](./CLAUDE.md) — cahier des charges complet (design system, schéma de données, 18 écrans + booking, annexe seed exact).
 > **Architecture** : [`ARCHITECTURE.md`](./ARCHITECTURE.md) — plan global, checklist go-live.
-> **Audit** : [`AUDIT.md`](./AUDIT.md) — état production-ready, optimisations priorisées (Phase 3).
+> **Archives** : [`docs/archive/`](./docs/archive/README.md) — audits et plans historiques figés (ne reflètent plus l'état courant).
 > **Décisions** : [`DECISIONS.md`](./DECISIONS.md) — journal des arbitrages produit/technique.
 > **Déploiement** : [`DEPLOY.md`](./DEPLOY.md) — checklist Vercel + Supabase live.
 > **Widget** : [`WIDGET-SPEC.md`](./WIDGET-SPEC.md) — spec du widget embarquable (Phase 10).

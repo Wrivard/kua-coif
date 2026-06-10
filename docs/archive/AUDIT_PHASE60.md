@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 60 (post-loop 6 production readiness)
 
 > Snapshot at the end of Loop 6 (Phase 60 delivered; others queued).
