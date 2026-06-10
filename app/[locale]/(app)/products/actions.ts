@@ -13,6 +13,7 @@ import {
   deleteCategorySchema,
   deleteProductSchema,
   productSchema,
+  toggleProductStatusSchema,
   updateBrandSchema,
   updateCategorySchema,
   updateProductSchema,
@@ -21,6 +22,15 @@ import {
 const PRODUCTS_PATH = '/products';
 
 type DbError = { message?: string; code?: string } | null;
+
+// Fluent update builder: `.eq()` is chainable (variable count — id + shop_id,
+// plus an optional updated_at precondition), the chain is awaitable (`{ error }`),
+// and a terminal `.select('id')` returns the affected rows so a 0-row write
+// (stale precondition / foreign shop) is detectable.
+type UpdateChain = Promise<{ error: DbError }> & {
+  eq: (k: string, v: string) => UpdateChain;
+  select: (cols: string) => Promise<{ data: Array<{ id: string }> | null; error: DbError }>;
+};
 
 // All catalog mutations run on the USER-SESSION client (RLS-bound). The
 // `.eq('shop_id', ctx.shopId)` filters below are defense-in-depth on top of the
@@ -36,9 +46,7 @@ function db() {
           single: () => Promise<{ data: { id: string } | null; error: DbError }>;
         };
       };
-      update: (row: Record<string, unknown>) => {
-        eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: DbError }> };
-      };
+      update: (row: Record<string, unknown>) => { eq: (k: string, v: string) => UpdateChain };
       delete: () => {
         eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: DbError }> };
       };
@@ -104,6 +112,9 @@ export const createProduct = withAction({
       .insert({ shop_id: ctx.shopId, ...rest })
       .select('id')
       .single();
+    // 23505 = unique violation on products_shop_name_unique (a duplicate name
+    // in this shop). A normal user case → CONFLICT, not UNEXPECTED, no Sentry.
+    if (error?.code === '23505') return err('CONFLICT');
     if (error || !data) {
       captureException(error ?? new Error('createProduct: no row returned'), {
         tags: { layer: 'products' },
@@ -141,7 +152,7 @@ export const updateProduct = withAction({
   schema: updateProductSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { id, tax_ids, ...rest } = input;
+    const { id, tax_ids, expected_updated_at, ...rest } = input;
     const sb = db();
 
     if (rest.brand_id && !(await belongsToShop(sb, 'product_brands', rest.brand_id, ctx.shopId))) {
@@ -154,10 +165,25 @@ export const updateProduct = withAction({
       return err('INVALID_INPUT');
     }
 
-    const { error } = await sb.from('products').update(rest).eq('id', id).eq('shop_id', ctx.shopId);
+    // Optimistic concurrency: when the client sends its last-seen updated_at, pin
+    // the write to it. `.select('id')` returns the affected rows so a 0-row result
+    // (a concurrent edit bumped updated_at via the set_updated_at trigger) is
+    // distinguishable from a successful write.
+    let upd = sb.from('products').update(rest).eq('id', id).eq('shop_id', ctx.shopId);
+    if (expected_updated_at) {
+      upd = upd.eq('updated_at', expected_updated_at);
+    }
+    const { data: updatedRows, error } = await upd.select('id');
+    // 23505 = duplicate name in this shop (a rename collision) → CONFLICT, not Sentry.
+    if (error?.code === '23505') return err('CONFLICT');
     if (error) {
       captureException(error, { tags: { layer: 'products' } });
       return err('UNEXPECTED');
+    }
+    if (expected_updated_at && (updatedRows?.length ?? 0) === 0) {
+      // Stale precondition → a concurrent edit moved updated_at. Surface CONFLICT
+      // so the client refetches instead of silently losing the user's changes.
+      return err('CONFLICT');
     }
 
     const { error: taxError } = await sb.rpc('set_product_taxes', {
@@ -202,6 +228,39 @@ export const deleteProduct = withAction({
       action: 'delete',
       entity: 'products',
       entityId: input.id,
+    });
+    revalidatePath(PRODUCTS_PATH);
+    return ok({ id: input.id });
+  },
+});
+
+// Soft enable/disable — the gentle alternative to deleteProduct's hard delete.
+// Mirrors toggleServiceStatus (manager+, shop-scoped, revalidate) but takes an
+// explicit status (vs services' read-then-flip) so a stale client view can't
+// race a blind flip. `.select('id')` distinguishes a same-shop hit from a 0-row
+// no-match (foreign shop / already deleted) without a second round-trip.
+export const toggleProductStatus = withAction({
+  schema: toggleProductStatusSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const { data: rows, error } = await db()
+      .from('products')
+      .update({ status: input.status })
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    if (error) {
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
+    await logAuditAction({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'products',
+      entityId: input.id,
+      diff: { status: input.status },
     });
     revalidatePath(PRODUCTS_PATH);
     return ok({ id: input.id });

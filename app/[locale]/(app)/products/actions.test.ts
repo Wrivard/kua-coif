@@ -32,7 +32,8 @@ vi.mock('@/lib/supabase/server', () => ({ createSupabaseServerClient: () => h.sb
 vi.mock('@/lib/audit-log', () => ({ logAuditAction: (...a: unknown[]) => h.logAuditAction(...a) }));
 vi.mock('next/cache', () => ({ revalidatePath: (...a: unknown[]) => h.revalidatePath(...a) }));
 
-import { createProduct, updateProduct, deleteBrand } from './actions';
+import { createProduct, updateProduct, deleteBrand, toggleProductStatus } from './actions';
+import { productSchema } from './schema';
 
 const SHOP_A = 'shop-a';
 const BRAND_ID = '11111111-1111-4111-8111-111111111111';
@@ -176,5 +177,110 @@ describe('deleteBrand', () => {
 
     expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
     expect(h.captureException).not.toHaveBeenCalled();
+  });
+});
+
+// ── W2 — data hygiene: unique name, price precision, optimistic concurrency,
+// soft status ───────────────────────────────────────────────────────────────
+describe('createProduct — unique name', () => {
+  it('maps a 23505 unique-name violation to CONFLICT (not UNEXPECTED, not Sentry)', async () => {
+    setup(
+      { products: [] },
+      { errors: { products: { insert: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await createProduct(productInput());
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    expect(h.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('productSchema — price precision', () => {
+  it('rejects sub-cent precision (multipleOf 0.01) with INVALID_PRICE_PRECISION', () => {
+    const r = productSchema.safeParse(productInput({ price: 19.999 }));
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.message === 'INVALID_PRICE_PRECISION')).toBe(true);
+    }
+  });
+
+  it('accepts a clean two-decimal price', () => {
+    expect(productSchema.safeParse(productInput({ price: 19.99 })).success).toBe(true);
+  });
+});
+
+describe('updateProduct — optimistic concurrency', () => {
+  const updateInput = (over: Record<string, unknown> = {}) => ({
+    id: PRODUCT_ID,
+    name: 'Renamed',
+    brand_id: null as string | null,
+    category_id: null as string | null,
+    price: 9,
+    supply_price: 1,
+    current_inventory: 0,
+    low_inventory_threshold: 0,
+    sku: null as string | null,
+    tax_ids: [] as string[],
+    ...over,
+  });
+
+  it('stale expected_updated_at → CONFLICT and skips the tax RPC', async () => {
+    const { rpc } = setup({
+      products: [
+        { id: PRODUCT_ID, shop_id: SHOP_A, name: 'Old', updated_at: '2026-06-10T10:00:00.000Z' },
+      ],
+    });
+
+    const res = await updateProduct(
+      updateInput({ expected_updated_at: '2026-06-10T09:00:00.000Z' }),
+    );
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('fresh expected_updated_at → ok (write proceeds + tax RPC runs)', async () => {
+    const { rpc } = setup({
+      products: [
+        { id: PRODUCT_ID, shop_id: SHOP_A, name: 'Old', updated_at: '2026-06-10T10:00:00.000Z' },
+      ],
+    });
+
+    const res = await updateProduct(
+      updateInput({ expected_updated_at: '2026-06-10T10:00:00.000Z' }),
+    );
+
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('set_product_taxes', expect.any(Object));
+  });
+});
+
+describe('toggleProductStatus', () => {
+  it('happy path: flips a same-shop product status (shop-scoped filters)', async () => {
+    const { mock } = setup({
+      products: [{ id: PRODUCT_ID, shop_id: SHOP_A, name: 'P', status: 'enabled' }],
+    });
+
+    const res = await toggleProductStatus({ id: PRODUCT_ID, status: 'disabled' });
+
+    expect(res.ok).toBe(true);
+    expect(mock.tables.products![0]!.status).toBe('disabled');
+    const upd = mock.calls.find((c) => c.table === 'products' && c.op === 'update');
+    expect(upd?.filters).toEqual([
+      ['id', PRODUCT_ID],
+      ['shop_id', SHOP_A],
+    ]);
+  });
+
+  it('foreign-shop row → NOT_FOUND (0 rows matched), nothing mutated', async () => {
+    const { mock } = setup({
+      products: [{ id: PRODUCT_ID, shop_id: 'shop-OTHER', name: 'P', status: 'enabled' }],
+    });
+
+    const res = await toggleProductStatus({ id: PRODUCT_ID, status: 'disabled' });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
+    expect(mock.tables.products![0]!.status).toBe('enabled');
   });
 });
