@@ -1,8 +1,13 @@
 # ARCHITECTURE & production-readiness
 
+> ⚠️ **Snapshot du plan d'origine — dépassé par endroits.** Ce document reflète
+> l'état au moment du plan initial (il contient des affirmations contradictoires,
+> ex. « spec fermée 100 % » vs « 0/26 tables créées »). Pour les conventions
+> **courantes**, lis `CLAUDE.md` ; pour le travail en cours, `plans/README.md`.
+> Une réécriture complète est un follow-up séparé (cf. plan 024).
+>
 > Audit complet de la couverture `CLAUDE.md` + plan pour passer en production.
-> Ce document complète `CLAUDE.md` (spec produit) et `DECISIONS.md` (journal).
-> Mis à jour à chaque fin de phase.
+> Ce document complète `CLAUDE.md` et `DECISIONS.md` (journal).
 
 **Dernière mise à jour** : fin de Phase 6b (Barber Settings + User Settings).
 **Statut global** : Phases 0–9 + 6b ✅ — **spec CLAUDE.md fermée à 100%**. Phase 10 (widget embeddable, cf. `WIDGET-SPEC.md`) + Phase 9b (Playwright + Lighthouse + Sentry) restent à faire.
