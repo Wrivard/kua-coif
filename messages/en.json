@@ -288,7 +288,8 @@
         "updated": "Appointment updated",
         "cancelled": "Appointment cancelled",
         "cancelledAndRefunded": "Cancelled and refunded",
-        "refunded": "Refund issued"
+        "refunded": "Refund issued",
+        "linksRevoked": "Public links revoked"
       },
       "walkInNoClient": "Walk-in (no client record)",
       "customerLinks": {
@@ -304,6 +305,13 @@
         "reschedule": "Reschedule link copied",
         "review": "Review link copied",
         "me": "Self-service link copied"
+      },
+      "revokeLinks": {
+        "action": "Revoke public links",
+        "hint": "Disables already-shared receipt / review / reschedule links.",
+        "title": "Revoke public links?",
+        "confirm": "All existing receipt, review and reschedule links will stop working. This can't be undone — you'll need to generate new ones. The self-service (/me) link is unaffected.",
+        "confirmLabel": "Revoke"
       }
     },
     "clients": {

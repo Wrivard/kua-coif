@@ -45,7 +45,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
     const apptsRes = await admin
       .from('appointments')
       .select(
-        'id, shop_id, start_at, status, client:clients(id, first_name, email, phone, anonymized_at)',
+        'id, shop_id, start_at, status, public_link_version, client:clients(id, first_name, email, phone, anonymized_at)',
       )
       .in('id', input.appointment_ids)
       .eq('shop_id', ctx.shopId);
@@ -54,6 +54,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       shop_id: string;
       start_at: string;
       status: string;
+      public_link_version: number | null;
       client: {
         id: string;
         first_name: string;
@@ -116,6 +117,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
         kind: 'review',
         resourceId: appt.id,
         expiresInSeconds: REVIEW_TOKEN_TTL_SECONDS,
+        ver: appt.public_link_version ?? 0,
       });
       const reviewUrl = `${base}/${locale}/review/${encodeURIComponent(token)}`;
 

@@ -34,8 +34,9 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # No `version` input: the action reads package.json's packageManager pin
+        # (pnpm@9.15.0). Specifying BOTH errors with "Multiple versions of pnpm
+        # specified" and killed every job at setup (red CI from d68e1fa).
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
@@ -97,8 +98,9 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # No `version` input: the action reads package.json's packageManager pin
+        # (pnpm@9.15.0). Specifying BOTH errors with "Multiple versions of pnpm
+        # specified" and killed every job at setup (red CI from d68e1fa).
 
       - name: Setup Node 22
         uses: actions/setup-node@v4

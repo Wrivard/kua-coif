@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarSync, Check, Link2, Receipt, RotateCcw, Sparkles, Star } from 'lucide-react';
+import {
+  CalendarSync,
+  Check,
+  Link2,
+  Link2Off,
+  Receipt,
+  RotateCcw,
+  Sparkles,
+  Star,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -16,7 +25,7 @@ import {
   rescheduleAppointment,
   updateAppointment,
 } from './actions';
-import { generatePublicLinks } from './actions-public-links';
+import { generatePublicLinks, revokePublicLinks } from './actions-public-links';
 import type { CalendarAppointment } from './appointments-calendar';
 
 type Props = {
@@ -50,7 +59,10 @@ export function AppointmentDetailDrawer({
   // Refund / force-refund confirmation gate — replaces the native
   // confirm() on this money-path with a themed, keyboard-accessible dialog.
   const [pendingConfirm, setPendingConfirm] = useState<
-    { kind: 'refund' } | { kind: 'forceRefund'; alsoRefund: boolean; threshold: string } | null
+    | { kind: 'refund' }
+    | { kind: 'forceRefund'; alsoRefund: boolean; threshold: string }
+    | { kind: 'revokeLinks' }
+    | null
   >(null);
   // Re-sync local edits when a different appointment is opened in the drawer.
   useEffect(() => {
@@ -204,6 +216,27 @@ export function AppointmentDetailDrawer({
     });
   }
 
+  // Plan 013 — revoke every outstanding receipt/review/reschedule link for
+  // this appointment (bumps `public_link_version`; existing bearer URLs 404).
+  // Manager+ only, behind a confirm because it's irreversible toward anyone
+  // already holding a link.
+  function onRevokeLinks() {
+    if (!appointment) return;
+    setPendingConfirm({ kind: 'revokeLinks' });
+  }
+
+  function doRevokeLinks() {
+    if (!appointment) return;
+    startTransition(async () => {
+      const result = await revokePublicLinks({ appointment_id: appointment.id });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.linksRevoked') });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   // Whether the appointment is in a payment state where a refund is
   // actually possible. "paid" is the only happy path; refunded/failed/
   // pending all skip the refund button.
@@ -271,11 +304,17 @@ export function AppointmentDetailDrawer({
           description: t('confirmForceRefund', { threshold: pendingConfirm.threshold }),
           confirmLabel: t('forceRefundConfirm'),
         }
-      : {
-          title: t('refundTitle'),
-          description: t('confirmRefund'),
-          confirmLabel: t('refundOnly'),
-        }
+      : pendingConfirm.kind === 'revokeLinks'
+        ? {
+            title: t('revokeLinks.title'),
+            description: t('revokeLinks.confirm'),
+            confirmLabel: t('revokeLinks.confirmLabel'),
+          }
+        : {
+            title: t('refundTitle'),
+            description: t('confirmRefund'),
+            confirmLabel: t('refundOnly'),
+          }
     : null;
 
   return (
@@ -489,6 +528,24 @@ export function AppointmentDetailDrawer({
               <p className="text-[10px] text-text-muted">
                 <Link2 className="mr-1 inline h-3 w-3" /> {t('customerLinks.hint')}
               </p>
+              {/* Plan 013 — manager+ kill switch for a leaked bearer link.
+                Bumps the appointment's link version; every outstanding
+                receipt/review/reschedule URL 404s. The /me link is
+                client-scoped and unaffected. */}
+              {canManageMoney ? (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[10px] text-text-muted">{t('revokeLinks.hint')}</span>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={onRevokeLinks}
+                    disabled={isPending}
+                  >
+                    <Link2Off className="h-3.5 w-3.5" /> {t('revokeLinks.action')}
+                  </Button>
+                </div>
+              ) : null}
             </div>
             {dirty ? (
               <div className="flex justify-end border-t border-border pt-3">
@@ -513,6 +570,7 @@ export function AppointmentDetailDrawer({
           setPendingConfirm(null);
           if (!p) return;
           if (p.kind === 'refund') doRefund();
+          else if (p.kind === 'revokeLinks') doRevokeLinks();
           else onCancel(p.alsoRefund, true);
         }}
         onCancel={() => setPendingConfirm(null)}

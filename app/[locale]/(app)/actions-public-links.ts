@@ -36,7 +36,7 @@ export const generatePublicLinks = withAction({
     const sb = createSupabaseServerClient() as any;
     const apptRes = await sb
       .from('appointments')
-      .select('id, client_id, shop_id, barber_id')
+      .select('id, client_id, shop_id, barber_id, public_link_version')
       .eq('id', input.appointment_id)
       .eq('shop_id', ctx.shopId)
       .limit(1);
@@ -45,6 +45,7 @@ export const generatePublicLinks = withAction({
       client_id: string;
       shop_id: string;
       barber_id: string;
+      public_link_version: number | null;
     }> | null) ?? [])[0];
     if (!appt) return err('NOT_FOUND');
 
@@ -63,6 +64,7 @@ export const generatePublicLinks = withAction({
       kind: 'review',
       resourceId: appt.id,
       expiresInSeconds: 60 * 60 * 24 * 90,
+      ver: appt.public_link_version ?? 0,
     });
     // /me requires a client row — walk-ins (client_id null) skip it.
     // Clients audit W5c — 90d (was 365d) bearer window + an embedded
@@ -88,11 +90,13 @@ export const generatePublicLinks = withAction({
       kind: 'receipt',
       resourceId: appt.id,
       expiresInSeconds: 60 * 60 * 24 * 365,
+      ver: appt.public_link_version ?? 0,
     });
     const rescheduleToken = signToken({
       kind: 'reschedule',
       resourceId: appt.id,
       expiresInSeconds: 60 * 60 * 24 * 7,
+      ver: appt.public_link_version ?? 0,
     });
 
     // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read +
@@ -124,5 +128,60 @@ export const generatePublicLinks = withAction({
       receiptUrl: `${base}/fr/receipt/${receiptToken}`,
       rescheduleUrl: `${base}/fr/reschedule/${rescheduleToken}`,
     });
+  },
+});
+
+const revokeSchema = z.object({
+  appointment_id: z.string().uuid(),
+});
+
+/**
+ * Plan 013 — revoke every outstanding receipt/review/reschedule link for an
+ * appointment by bumping its `public_link_version`. Each token embeds the
+ * version at mint time; the verify sites reject any token whose `ver` no
+ * longer matches (absent ⇒ 0, so legacy links die on the first bump too).
+ *
+ * Manager+ only: killing a leaked bearer credential is a security action, not
+ * a routine staff one. The `me` link is client-scoped (`me_token_version`) and
+ * is intentionally NOT touched here.
+ */
+export const revokePublicLinks = withAction({
+  schema: revokeSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = createSupabaseServerClient() as any;
+    // Ownership: read the row scoped to the caller's shop (same shape as
+    // generatePublicLinks) so a manager can't revoke another shop's links.
+    const apptRes = await sb
+      .from('appointments')
+      .select('id, public_link_version')
+      .eq('id', input.appointment_id)
+      .eq('shop_id', ctx.shopId)
+      .limit(1);
+    const appt = ((apptRes.data as Array<{
+      id: string;
+      public_link_version: number | null;
+    }> | null) ?? [])[0];
+    if (!appt) return err('NOT_FOUND');
+
+    const nextVersion = (appt.public_link_version ?? 0) + 1;
+    const updRes = await sb
+      .from('appointments')
+      .update({ public_link_version: nextVersion })
+      .eq('id', appt.id)
+      .eq('shop_id', ctx.shopId);
+    if (updRes.error) return err('UNEXPECTED');
+
+    await logDurableAudit({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'appointments',
+      entityId: appt.id,
+      diff: { public_links_revoked: true, version: nextVersion },
+    });
+
+    return ok({ version: nextVersion });
   },
 });

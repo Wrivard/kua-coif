@@ -38,7 +38,7 @@ export default async function ReviewPage({
   const supabase = createSupabaseServiceRoleClient() as any;
   const apptRes = await supabase
     .from('appointments')
-    .select('id, shop_id, barber_id, client_id, start_at')
+    .select('id, shop_id, barber_id, client_id, start_at, public_link_version')
     .eq('id', payload.resourceId)
     .limit(1);
   const appt = ((apptRes.data as Array<{
@@ -47,8 +47,12 @@ export default async function ReviewPage({
     barber_id: string;
     client_id: string;
     start_at: string;
+    public_link_version: number | null;
   }> | null) ?? [])[0];
   if (!appt) notFound();
+  // Revocation (plan 013): stale token version → 404, same as a bad/expired
+  // token. Absent ⇒ 0 keeps legacy links valid until the first revoke.
+  if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) notFound();
 
   // Pull the shop + barber names so the form can address the customer
   // by context ("How was your visit with Olivier?"). Both reads bypass
