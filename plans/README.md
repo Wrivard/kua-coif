@@ -22,7 +22,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
 | 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | DONE |
-| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | TODO |
+| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | DONE (migration to deploy with 003) |
 | 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
 | 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
 | 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | DONE (operator: create AUTOFIX_GH_PAT secret + branch protection) |
