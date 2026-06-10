@@ -119,6 +119,7 @@
     "UNEXPECTED": "Une erreur inattendue est survenue.",
     "field": {
       "NAME_REQUIRED": "Le nom est requis.",
+      "INVALID_PRICE_PRECISION": "Deux décimales maximum.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
       "DURATION_MAX": "La durée ne peut pas dépasser 8 heures.",
       "PHONE_INVALID": "Numéro de téléphone invalide.",
@@ -586,7 +587,16 @@
         "lowInventoryThreshold": "Seuil bas",
         "sku": "SKU (optionnel)",
         "taxes": "Taxes applicables",
-        "noTaxes": "Aucune taxe configurée."
+        "noTaxes": "Aucune taxe configurée.",
+        "errors": {
+          "nameRequired": "Le nom est requis.",
+          "nameTooLong": "Le nom ne peut pas dépasser 120 caractères.",
+          "amount": "Montant invalide : un nombre de 0 à 99 999,99 $.",
+          "amountPrecision": "Deux décimales maximum.",
+          "quantity": "Quantité invalide : un nombre entier de 0 à 99 999.",
+          "sku": "La référence ne peut pas dépasser 50 caractères.",
+          "select": "Sélection invalide."
+        }
       },
       "brands": {
         "name": "Nom de la marque",

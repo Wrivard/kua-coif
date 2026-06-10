@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,25 @@ type Props = {
   onClose: () => void;
 };
 
+// W0 — normalize a money/quantity field BEFORE zod sees it: accept the fr
+// decimal comma ("12,50") and turn a blank into NaN (not 0) so the zod
+// `invalid_type` error fires instead of silently saving 0. The native
+// `type="number"` already dot-normalizes per OS locale; this is the defensive
+// net for paste / mixed-locale input. Done in the form (option A) — the shared
+// MoneyInput is left untouched so the other 7 consumers don't change.
+function toNumber(v: unknown): number {
+  const s = String(v ?? '')
+    .trim()
+    .replace(',', '.');
+  return s === '' ? NaN : Number(s);
+}
+
+// W0 — the blank `<option value="">` must become `null`, not `""` (which fails
+// the schema's `z.string().uuid().nullable()` and silently blocked the submit).
+function emptyToNull(v: unknown): string | null {
+  return v === '' || v == null ? null : (v as string);
+}
+
 export function ProductFormModal({
   mode,
   brands,
@@ -39,6 +58,35 @@ export function ProductFormModal({
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  // W0 — map a react-hook-form error (zod issue `type` + custom `message` code)
+  // to a localized, field-appropriate hint. Covers the custom codes
+  // (NAME_REQUIRED, INVALID_PRICE_PRECISION from the server's incoming
+  // multipleOf) and zod's default issue types (invalid_type / too_small /
+  // too_big / not_multiple_of).
+  function fieldError(
+    err: FieldError | undefined,
+    kind: 'name' | 'amount' | 'quantity' | 'sku' | 'select',
+  ): string | null {
+    if (!err) return null;
+    if (err.message === 'INVALID_PRICE_PRECISION') return tErr('field.INVALID_PRICE_PRECISION');
+    switch (kind) {
+      case 'name':
+        return err.type === 'too_big'
+          ? t('form.errors.nameTooLong')
+          : t('form.errors.nameRequired');
+      case 'amount':
+        return err.type === 'not_multiple_of'
+          ? t('form.errors.amountPrecision')
+          : t('form.errors.amount');
+      case 'quantity':
+        return t('form.errors.quantity');
+      case 'sku':
+        return t('form.errors.sku');
+      case 'select':
+        return t('form.errors.select');
+    }
+  }
 
   const defaults: ProductInput =
     mode.kind === 'edit'
@@ -122,13 +170,23 @@ export function ProductFormModal({
           <Label htmlFor="name" required>
             {t('form.name')}
           </Label>
-          <Input id="name" invalid={Boolean(errors.name)} {...register('name')} />
-          {errors.name ? <FieldHint error>{tErr('field.NAME_REQUIRED')}</FieldHint> : null}
+          <Input
+            id="name"
+            invalid={Boolean(errors.name)}
+            aria-invalid={errors.name ? true : undefined}
+            {...register('name')}
+          />
+          {errors.name ? <FieldHint error>{fieldError(errors.name, 'name')}</FieldHint> : null}
         </div>
 
         <div>
           <Label htmlFor="brand_id">{t('form.brand')}</Label>
-          <Select id="brand_id" {...register('brand_id')}>
+          <Select
+            id="brand_id"
+            invalid={Boolean(errors.brand_id)}
+            aria-invalid={errors.brand_id ? true : undefined}
+            {...register('brand_id', { setValueAs: emptyToNull })}
+          >
             <option value=""></option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
@@ -136,11 +194,19 @@ export function ProductFormModal({
               </option>
             ))}
           </Select>
+          {errors.brand_id ? (
+            <FieldHint error>{fieldError(errors.brand_id, 'select')}</FieldHint>
+          ) : null}
         </div>
 
         <div>
           <Label htmlFor="category_id">{t('form.category')}</Label>
-          <Select id="category_id" {...register('category_id')}>
+          <Select
+            id="category_id"
+            invalid={Boolean(errors.category_id)}
+            aria-invalid={errors.category_id ? true : undefined}
+            {...register('category_id', { setValueAs: emptyToNull })}
+          >
             <option value=""></option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -148,18 +214,35 @@ export function ProductFormModal({
               </option>
             ))}
           </Select>
+          {errors.category_id ? (
+            <FieldHint error>{fieldError(errors.category_id, 'select')}</FieldHint>
+          ) : null}
         </div>
 
         <div>
           <Label htmlFor="price" required>
             {t('form.price')}
           </Label>
-          <MoneyInput id="price" {...register('price', { valueAsNumber: true })} />
+          <MoneyInput
+            id="price"
+            invalid={Boolean(errors.price)}
+            aria-invalid={errors.price ? true : undefined}
+            {...register('price', { setValueAs: toNumber })}
+          />
+          {errors.price ? <FieldHint error>{fieldError(errors.price, 'amount')}</FieldHint> : null}
         </div>
 
         <div>
           <Label htmlFor="supply_price">{t('form.supplyPrice')}</Label>
-          <MoneyInput id="supply_price" {...register('supply_price', { valueAsNumber: true })} />
+          <MoneyInput
+            id="supply_price"
+            invalid={Boolean(errors.supply_price)}
+            aria-invalid={errors.supply_price ? true : undefined}
+            {...register('supply_price', { setValueAs: toNumber })}
+          />
+          {errors.supply_price ? (
+            <FieldHint error>{fieldError(errors.supply_price, 'amount')}</FieldHint>
+          ) : null}
         </div>
 
         <div>
@@ -168,8 +251,13 @@ export function ProductFormModal({
             id="current_inventory"
             type="number"
             min={0}
-            {...register('current_inventory', { valueAsNumber: true })}
+            invalid={Boolean(errors.current_inventory)}
+            aria-invalid={errors.current_inventory ? true : undefined}
+            {...register('current_inventory', { setValueAs: toNumber })}
           />
+          {errors.current_inventory ? (
+            <FieldHint error>{fieldError(errors.current_inventory, 'quantity')}</FieldHint>
+          ) : null}
         </div>
 
         <div>
@@ -178,13 +266,24 @@ export function ProductFormModal({
             id="low_inventory_threshold"
             type="number"
             min={0}
-            {...register('low_inventory_threshold', { valueAsNumber: true })}
+            invalid={Boolean(errors.low_inventory_threshold)}
+            aria-invalid={errors.low_inventory_threshold ? true : undefined}
+            {...register('low_inventory_threshold', { setValueAs: toNumber })}
           />
+          {errors.low_inventory_threshold ? (
+            <FieldHint error>{fieldError(errors.low_inventory_threshold, 'quantity')}</FieldHint>
+          ) : null}
         </div>
 
         <div className="md:col-span-2">
           <Label htmlFor="sku">{t('form.sku')}</Label>
-          <Input id="sku" {...register('sku')} />
+          <Input
+            id="sku"
+            invalid={Boolean(errors.sku)}
+            aria-invalid={errors.sku ? true : undefined}
+            {...register('sku')}
+          />
+          {errors.sku ? <FieldHint error>{fieldError(errors.sku, 'sku')}</FieldHint> : null}
         </div>
 
         <div className="md:col-span-2">
