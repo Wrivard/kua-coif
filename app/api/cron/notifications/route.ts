@@ -138,8 +138,14 @@ async function runNotificationsCron(): Promise<NextResponse> {
   // B20 — the no-rows default offsets come from the shared resolver's DEFAULTS
   // (24h / 1h); the cron no longer hardcodes its own reminder fallback.
   const DEFAULT_OFFSETS: ReminderOffsets = {
-    slot1Min: offsetMinutes(BARBER_SETTINGS_DEFAULTS.reminder1_h, BARBER_SETTINGS_DEFAULTS.reminder1_m),
-    slot2Min: offsetMinutes(BARBER_SETTINGS_DEFAULTS.reminder2_h, BARBER_SETTINGS_DEFAULTS.reminder2_m),
+    slot1Min: offsetMinutes(
+      BARBER_SETTINGS_DEFAULTS.reminder1_h,
+      BARBER_SETTINGS_DEFAULTS.reminder1_m,
+    ),
+    slot2Min: offsetMinutes(
+      BARBER_SETTINGS_DEFAULTS.reminder2_h,
+      BARBER_SETTINGS_DEFAULTS.reminder2_m,
+    ),
   };
   const candidateById = new Map<string, ApptRow>();
   const dueBySlot: Record<1 | 2, Set<string>> = { 1: new Set<string>(), 2: new Set<string>() };

@@ -826,7 +826,10 @@ export const cancelAppointment = withAction({
       // B20 — shared resolver. Admin path deliberately ignores
       // customer_cancellations (a manager override is allowed to cancel
       // regardless of the customer-facing toggle). No-rows ⇒ mins 0.
-      const minsBefore = resolveEffectiveBarberSettings(rows, pre.barber_id).mins_cancel_before_appt;
+      const minsBefore = resolveEffectiveBarberSettings(
+        rows,
+        pre.barber_id,
+      ).mins_cancel_before_appt;
       // 0-minute policy is interpreted as "no policy → refund proceeds"
       // (matches the customer-side cancellation semantics: no cancellation
       // window means cancellations are unrestricted). A shop that wants

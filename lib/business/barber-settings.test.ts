@@ -80,13 +80,19 @@ describe('resolveEffectiveBarberSettings', () => {
   });
 
   it('barberId null (any-barber booking) resolves to the shop row', () => {
-    const rows = [shopRow({ client_booking_interval_min: 25 }), barberRow({ client_booking_interval_min: 99 })];
+    const rows = [
+      shopRow({ client_booking_interval_min: 25 }),
+      barberRow({ client_booking_interval_min: 99 }),
+    ];
     const eff = resolveEffectiveBarberSettings(rows, null);
     expect(eff.client_booking_interval_min).toBe(25);
   });
 
   it('reminder offsets equal the cron override→shop→default behavior', () => {
-    const rows = [shopRow(), barberRow({ reminder1_h: 12, reminder1_m: 30, reminder2_h: 0, reminder2_m: 45 })];
+    const rows = [
+      shopRow(),
+      barberRow({ reminder1_h: 12, reminder1_m: 30, reminder2_h: 0, reminder2_m: 45 }),
+    ];
     // Override present → barber offsets.
     const eff = resolveEffectiveBarberSettings(rows, BARBER);
     expect(offsetMinutes(eff.reminder1_h, eff.reminder1_m)).toBe(12 * 60 + 30);
