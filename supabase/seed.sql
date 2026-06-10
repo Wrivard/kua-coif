@@ -293,18 +293,6 @@ begin
   -- demo, restore the insert from git history (commit 6e99003^).
 
   ---------------------------------------------------------------------------
-  -- NOTIFICATION PREFS (annexe Image 15)
-  ---------------------------------------------------------------------------
-  insert into public.notification_prefs (shop_id, event, email, push, delay_h, delay_m) values
-    (v_shop_id, 'confirm',           false, true,  0,  0),
-    (v_shop_id, 'reschedule',        false, true,  0,  0),
-    (v_shop_id, 'cancel',            false, false, 0,  0),
-    (v_shop_id, 'arrived',           false, false, 0,  0),
-    (v_shop_id, 'reminder',          true,  true,  0, 15),
-    (v_shop_id, 'client_reminder_1', true,  true, 24,  0),
-    (v_shop_id, 'client_reminder_2', true,  true,  1,  0);
-
-  ---------------------------------------------------------------------------
   -- WAITING LIST CONFIG (annexe Image 17)
   ---------------------------------------------------------------------------
   insert into public.waiting_list_config (shop_id, enabled, threshold_hours)
