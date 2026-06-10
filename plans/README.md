@@ -29,7 +29,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 012 | Missed-schedule monitoring for the business crons (Sentry check-ins) | P2 | S | 008 (same file: notifications cron) | DONE (operator: Sentry alert rule on missed/failed monitors) |
 | 013 | Versioned/revocable receipt + review + reschedule tokens | P2 | M | — | DONE — migration DEPLOYED to prod 2026-06-10 |
 | 014 | Single-source booking pricing + parity tests | P1 | M | 001 (same file) | DONE (17 tests incl. 5 parity) |
-| 015 | Supabase mock harness + tests for the 3 money flows | P1 | L | 014 (pricing extracted first) | TODO |
+| 015 | Supabase mock harness + tests for the 3 money flows | P1 | L | 014 (pricing extracted first) | DONE (29 tests, suite at 217) |
 | 016 | CI verification hardening (db job, RLS test, types drift, TZ=UTC leg, e2e) | P1 | M | 002 (the TZ=UTC leg guards it) | DONE (db-e2e.yml non-blocking — promote after 7 green days) |
 | 017 | Cache the slow-changing config on the public slots route (B14) | P2 | M | — | DONE (slots: 2 live queries) |
 | 018 | Cut the public booking submit latency (parallel reads, deferred email) | P2 | M | 001, 014 (same file — land those first) | TODO |
@@ -38,7 +38,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 021 | Migrate Next.js 14.2.35 → 15.5.16+ (security EOL) + eslint 9 rider | P2 | L | 016, 019, 020 | TODO |
 | 022 | One effective-barber-settings resolver (B20 — 7 drifted copies) | P2 | M | 001, 009, 017 (touch the same consumers) | TODO |
 | 023 | De-cast the typed Supabase client (126 vestigial `as any`) + collapse db/rows.ts | P3 | L | 020 (generics fixed first) | TODO |
-| 024 | Docs truth pass (CLAUDE.md rewrite, .env.example, DEPLOY.md, archive sweep) | P2 | M | — | TODO |
+| 024 | Docs truth pass (CLAUDE.md rewrite, .env.example, DEPLOY.md, archive sweep) | P2 | M | — | DONE |
 | 025 | Small-debt sweep (clientIp, appUrl, phone key, confirms, dead table) | P3 | S | — | TODO |
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | TODO |
 | 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | TODO |
