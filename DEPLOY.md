@@ -14,7 +14,7 @@
 - [x] **4. Projet Vercel créé** — déployé une première fois.
 - [ ] **5. Env vars renseignées dans Vercel** (URL ✓, anon ✓, **service_role ✗**, site_url ✗).
 - [ ] **6. Supabase Auth Site URL + Redirect URLs**.
-- [ ] **7. Premier vrai signup + signin testés sur l'URL live**.
+- [ ] **7. Premier compte créé (whitelist : Supabase Add user, pas de self-signup) + signin testés sur l'URL live**.
 - [ ] **8. Rattacher l'utilisateur au shop Axum (SQL one-liner)**.
 
 ## Resume après redémarrage Claude Code
@@ -29,14 +29,20 @@
 ToolSearch query: "select:mcp__supabase__execute_sql,mcp__supabase__apply_migration,mcp__supabase__list_tables,mcp__supabase__generate_typescript_types"
 ```
 
-**Action 2 — Appliquer les 3 migrations + le seed Axum :**
+**Action 2 — Appliquer TOUTES les migrations + le seed Axum :**
 
-Lire chaque fichier dans cet ordre et passer le contenu à `mcp__supabase__apply_migration` (pour les migrations) ou `mcp__supabase__execute_sql` (pour le seed) :
+Le schéma n'est plus 3 fichiers : `supabase/migrations/` contient l'historique
+complet (59+ migrations à ce jour et qui grossit). N'applique **pas** une liste
+figée — applique-les **toutes**, dans l'ordre lexicographique des noms de
+fichiers, puis le seed :
 
-1. `supabase/migrations/20260523000001_init_schema.sql` → apply_migration name="init_schema"
-2. `supabase/migrations/20260523000002_rls.sql` → apply_migration name="rls"
-3. `supabase/migrations/20260523000003_indexes_triggers.sql` → apply_migration name="indexes_triggers"
-4. `supabase/seed.sql` → execute_sql
+- **Voie CLI (recommandée)** : `pnpm db:push` (= `supabase db push`) applique
+  toutes les migrations encore absentes de la DB distante, dans l'ordre. Le
+  seed n'est **pas** inclus par `db push` — voir §3.4 pour le charger.
+- **Voie MCP / Management API** : si tu passes par
+  `mcp__supabase__apply_migration`, **itère sur tous** les fichiers de
+  `supabase/migrations/` (lexicographique), pas sur une liste codée en dur,
+  puis `mcp__supabase__execute_sql` sur `supabase/seed.sql`.
 
 **Action 3 — Vérifier les données seed :**
 
@@ -71,7 +77,7 @@ git push
 - Mettre `NEXT_PUBLIC_SITE_URL` dans Vercel (URL Vercel)
 - Mettre Site URL + Redirect URLs dans Supabase Auth
 - Redéployer Vercel
-- Tester signup + se rattacher au shop Axum
+- Créer le 1er compte (Supabase → Add user ; pas de self-signup) + se rattacher au shop Axum
 
 ---
 
@@ -80,7 +86,7 @@ git push
 Capturé dans :
 - **`WIDGET-SPEC.md`** : widget intégrable iframe + admin customizer + UX Squire-style (8-15 h).
 - **`ARCHITECTURE.md` §4** : Playwright e2e, Lighthouse CI, Sentry actif, Upstash KV, Cloudflare Turnstile, Resend email confirmations, SMS reminders, Stripe Connect réel, Realtime calendrier, drag calendrier.
-- **`AUDIT.md` §4` : optimisations P0/P1/P2 priorisées.
+- **`docs/archive/AUDIT.md` §4** (snapshot historique archivé) : optimisations P0/P1/P2 priorisées.
 
 ---
 
@@ -149,7 +155,8 @@ Va sur https://vercel.com/[ton-team]/kua-coif/settings/environment-variables et 
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://jzpfvefrjtwqfyynhczp.supabase.co` | Project Settings → API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_…` | Project Settings → API → publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | `sb_secret_…` | Project Settings → API → secret key |
-| `NEXT_PUBLIC_SITE_URL` | `https://<ton-domaine-vercel>` | URL Vercel du projet |
+| `NEXT_PUBLIC_SITE_URL` | `https://<ton-domaine-vercel>` | URL Vercel du projet (origine canonique : robots/sitemap/redirections auth) |
+| `NEXT_PUBLIC_APP_URL` | `https://<ton-domaine-vercel>` | **Requis** — origine embarquée dans les liens clients signés (/me, /receipt, /review, /reschedule). Vide ⇒ liens relatifs cassés dans les emails. Mets la même valeur dans le secret GitHub Actions `APP_URL` (utilisé par les crons). |
 | `NEXT_PUBLIC_SENTRY_DSN` (optionnel) | `https://abc@o123.ingest.sentry.io/456` | Sentry → Settings → Client Keys (DSN). Active la capture d'erreurs côté navigateur. |
 | `SENTRY_DSN` (optionnel) | idem | Variante server-only. Fallback sur `NEXT_PUBLIC_SENTRY_DSN` si absente. |
 | `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` (optionnel) | … | Activent l'upload source-maps au build → Sentry montre du JS lisible plutôt que minifié. |
@@ -157,8 +164,17 @@ Va sur https://vercel.com/[ton-team]/kua-coif/settings/environment-variables et 
 | `RESEND_API_KEY` (optionnel) | `re_…` | Active les emails Resend (booking confirmations). Sans ça, l'app no-op silencieusement à chaque send. Free tier 100 emails/jour. |
 | `RESEND_FROM` (optionnel) | `"Küa <noreply@kua.quebec>"` | Expéditeur. Domaine doit être vérifié dans Resend (records DNS SPF + DKIM). Pour tester sans DNS : `onboarding@resend.dev`. |
 | `RESEND_REPLY_TO` (optionnel) | `support@kua.quebec` | Reply-To. Fallback sur `RESEND_FROM` si absent. |
-| `NOTIFICATION_ENCRYPTION_KEY` (V1.2+) | Generated avec `openssl rand -base64 32` | **Obligatoire si tu veux que les shops aient leur propre SMTP** (Phase 25). 32 bytes base64. Sans cette clé, l'UI `/settings/notifications` empêche la sauvegarde des mots de passe SMTP. |
-| `CRON_SECRET` (optionnel) | Auto-injecté par Vercel quand `vercel.json` déclare un cron | Protège `/api/cron/notifications`. |
+| 🔴 `NOTIFICATION_ENCRYPTION_KEY` | `openssl rand -base64 32` | **Requis.** Chiffre toutes les credentials d'intégration stockées (SMTP/Google/QuickBooks/Twilio) ET signe tous les liens clients publics. **À sauvegarder ; jamais re-générer sur une prod vivante** — la perdre rend tout illisible et invalide tous les liens (cf. §5 backup DR). |
+| `CRON_SECRET` | `openssl rand -hex 32` | Protège les endpoints `/api/cron/*`. **Fail-closed en prod** si absent. Déclenchés par GitHub Actions (`.github/workflows/cron-*.yml`) — mets la **même** valeur dans Vercel **et** dans le secret GitHub `CRON_SECRET`. |
+| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (optionnel) | Stripe Dashboard | Active dépôts / PaymentIntents / Elements. Absents ⇒ UI paiement off, réservation sans dépôt. `STRIPE_APP_FEE_BPS` (optionnel) = frais plateforme Küa en points de base (200 = 2 %). |
+| `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (optionnel) | Cloudflare Turnstile | Anti-bot sur la réservation publique. Absents ⇒ challenge ignoré. |
+| `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (optionnel) | Google Cloud Console | Sync Google Calendar des barbiers. Absents ⇒ sync off. |
+| `QUICKBOOKS_CLIENT_ID` + `QUICKBOOKS_CLIENT_SECRET` + `QUICKBOOKS_ENVIRONMENT` (optionnel) | Intuit Developer | Sync QuickBooks. `ENVIRONMENT` = `sandbox`/`production`. Absents ⇒ sync off. |
+| `KUA_GITHUB_TOKEN` (optionnel) | GitHub fine-grained PAT | Débloque le dashboard super-admin Sentry-autofix. Absent ⇒ page « not set ». |
+
+> Liste exhaustive (toutes les vars, groupées, avec le fichier qui les lit) :
+> **`.env.example`** à la racine. Les `NEXT_PUBLIC_*` sont exposées au navigateur ;
+> le reste est server-only.
 
 **Important** :
 - Le `service_role` key est ultra-sensible (bypass RLS) — ne JAMAIS le préfixer `NEXT_PUBLIC_`.
@@ -178,7 +194,8 @@ vercel deploy --prod
 
 ## 6. Supabase Auth — Site URL + Redirect URLs
 
-Sans ça, le signup confirme l'email vers `localhost:3000` au lieu de ton domaine Vercel.
+Sans ça, les courriels d'auth (invitation `/setup-password`, réinitialisation de
+mot de passe) pointent vers `localhost:3000` au lieu de ton domaine Vercel.
 
 1. https://supabase.com/dashboard/project/jzpfvefrjtwqfyynhczp/auth/url-configuration
 2. **Site URL** : `https://<ton-domaine-vercel>` (sans slash final)
@@ -197,13 +214,21 @@ https://supabase.com/dashboard/project/jzpfvefrjtwqfyynhczp/auth/policies → to
 
 ## 7. Test du parcours complet
 
-Une fois 5+6 faits :
+Une fois 5+6 faits. **Il n'y a pas de self-signup** : la route `/signup`
+n'existe plus (modèle whitelist, Phase 22 — cf. `middleware.ts`). Les comptes se
+créent de deux façons :
 
-1. Visite `https://<ton-domaine-vercel>` → doit rediriger sur `/fr/login`
-2. Clique « Créer un compte » → remplir → submit
-3. Vérifier que tu reçois un email de confirmation (Supabase → Authentication → Templates pour customiser)
-4. Confirme l'email, sign in
-5. Tu arrives sur l'accueil (calendrier vide tant que tu n'es pas membre d'un shop)
+- **Staff Küa** : `/<locale>/super-admin/shops/new` crée un shop + son compte
+  owner (derrière l'auth super-admin).
+- **Owner/manager d'un shop** : `/<locale>/settings/users` invite un membre ;
+  l'invité définit son mot de passe via `/setup-password` (premier login).
+
+Pour bootstrapper le **tout premier** compte sur une prod neuve (avant qu'un
+super-admin n'existe), crée l'utilisateur à la main puis rattache-le :
+
+1. Supabase → Authentication → Users → **Add user** (email + mot de passe).
+2. Visite `https://<ton-domaine-vercel>` → redirige sur `/fr/login` → sign in.
+3. Accueil (calendrier vide tant que tu n'es pas membre d'un shop).
 
 ### Devenir membre du shop Axum
 
@@ -325,16 +350,29 @@ projet Vercel est supprimé, on perd toutes les clés.
 **Garder une copie chiffrée hors-ligne** de ces valeurs (1Password vault
 recommandé) :
 
+- 🔴 **`NOTIFICATION_ENCRYPTION_KEY`** — **À SAUVEGARDER EN PRIORITÉ.** Chiffre
+  toutes les credentials d'intégration stockées (SMTP/Google/QuickBooks/Twilio)
+  ET signe (HMAC) tous les liens clients publics (/me, /receipt, /review,
+  /reschedule, /unsubscribe). **La perdre ou la changer rend illisibles toutes
+  les credentials de tous les shops ET invalide tous les liens clients en
+  circulation — aucune récupération possible.** À stocker hors-ligne, jamais à
+  re-générer sur une prod vivante.
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
-- `SIGNING_SECRET` (HMAC pour les URL signées /receipt /me /reschedule)
+- `CRON_SECRET` (partagé avec les workflows GitHub Actions des crons)
+- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (rate limiting durable)
 - `SENTRY_AUTH_TOKEN` (source-maps upload)
-- `GOOGLE_OAUTH_CLIENT_SECRET` + `GOOGLE_CALENDAR_*` si configuré
+- `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (sync Google Calendar)
+- `QUICKBOOKS_CLIENT_ID` + `QUICKBOOKS_CLIENT_SECRET` (sync QuickBooks)
 - `TURNSTILE_SECRET_KEY` (Cloudflare)
+- `CLAUDE_CODE_OAUTH_TOKEN` (secret **GitHub Actions** pour `sentry-autofix.yml`)
 
 **Re-générer** plutôt que stocker en clair quand possible (Stripe, Resend,
-Sentry exposent tous une révocation + re-création depuis leur dashboard).
+Sentry, Upstash exposent tous une révocation + re-création depuis leur
+dashboard). **Exception : `NOTIFICATION_ENCRYPTION_KEY` ne peut PAS être
+re-générée** sans casser les données chiffrées existantes — elle se sauvegarde,
+ne se régénère pas.
 
 ### 6. Test de restauration (à faire avant le launch)
 
