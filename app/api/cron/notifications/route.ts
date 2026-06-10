@@ -110,8 +110,18 @@ export async function GET(req: NextRequest) {
     )
     .gte('start_at', new Date(nowMs).toISOString())
     .lte('start_at', new Date(nowMs + (MAX_REMINDER_OFFSET_MIN + 15) * 60_000).toISOString())
-    .in('status', ['booked', 'confirmed', 'arrived']);
+    .in('status', ['booked', 'confirmed', 'arrived'])
+    // Nearest-due first, then bound to the PostgREST cap: ordering guarantees a
+    // cap can only delay the FARTHEST reminders, never drop an imminent one.
+    .order('start_at', { ascending: true })
+    .limit(1000);
   const allCandidates = (candidatesRes.data as ApptRow[] | null) ?? [];
+  if (allCandidates.length === 1000) {
+    captureException(new Error('[cron/notifications] candidate load hit the 1000 cap'), {
+      tags: { layer: 'cron', cron: 'notifications' },
+      extra: { horizonMin: MAX_REMINDER_OFFSET_MIN + 15 },
+    });
+  }
 
   const FALLBACK: ReminderOffsets = { slot1Min: 24 * 60, slot2Min: 60 };
   const candidateById = new Map<string, ApptRow>();

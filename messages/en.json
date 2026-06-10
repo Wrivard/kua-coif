@@ -717,6 +717,7 @@
       "soon": "Reports, revenue, payouts — Phase 7.",
       "todayLink": "Daily close-out →",
       "disputesLink": "Disputes →",
+      "truncated": "Range too large — results truncated at 5000 appointments; narrow the date range.",
       "disputes": {
         "title": "Disputes",
         "subtitle": "Chargebacks received against this shop's transactions.",
