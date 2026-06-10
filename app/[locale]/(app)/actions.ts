@@ -329,7 +329,7 @@ export const updateAppointment = withAction({
     const sb = rawDb();
     const priorRes = await sb
       .from('appointments')
-      .select('status, client_id, total_amount, barber_id')
+      .select('status, client_id, total_amount, barber_id, shop_id')
       .eq('id', id)
       .single();
     const prior = priorRes.data as {
@@ -337,8 +337,10 @@ export const updateAppointment = withAction({
       client_id: string;
       total_amount: number;
       barber_id: string;
+      shop_id: string;
     } | null;
     if (!prior) return err('NOT_FOUND');
+    if (prior.shop_id !== ctx.shopId) return err('NOT_FOUND'); // RLS would have hidden it, but belt-and-braces.
 
     // Phase H+5 — strict barber scope. A barber can only update their
     // OWN appointments. Managers + owners can edit anyone's. ctx.barberId
@@ -738,7 +740,9 @@ export const cancelAppointment = withAction({
     const preSb = rawDb();
     const preRes = await preSb
       .from('appointments')
-      .select('barber_id, google_event_id, payment_intent_id, payment_status, start_at')
+      .select(
+        'barber_id, google_event_id, payment_intent_id, payment_status, start_at, status, shop_id',
+      )
       .eq('id', input.id)
       .single();
     const pre = preRes.data as {
@@ -747,8 +751,17 @@ export const cancelAppointment = withAction({
       payment_intent_id: string | null;
       payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
       start_at: string;
+      status: ExistingAppointment['status'];
+      shop_id: string;
     } | null;
     if (!pre) return err('NOT_FOUND');
+    if (pre.shop_id !== ctx.shopId) return err('NOT_FOUND'); // RLS would have hidden it, but belt-and-braces.
+    // A terminal row must not be re-cancelled: 'completed' already fired
+    // loyalty/review/QuickBooks and feeds /finances; 'cancelled' may have been
+    // refunded; 'no_show' matches the bulk path's terminal set.
+    if (pre.status === 'completed' || pre.status === 'cancelled' || pre.status === 'no_show') {
+      return err('INVALID_INPUT', { reason: 'terminal_status_locked' });
+    }
 
     // Phase H+5 — strict barber scope. A barber can only cancel their
     // OWN appointments. Managers + owners can cancel anyone's.

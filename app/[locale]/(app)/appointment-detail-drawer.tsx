@@ -112,7 +112,14 @@ export function AppointmentDetailDrawer({
     (rDate !== shopIsoDate(new Date(appointment.start_at), timezone) ||
       rTime !== formatShopTime(appointment.start_at, timezone, 'HH:mm'));
 
-  const isCancelled = appointment?.status === 'cancelled' || appointment?.status === 'no_show';
+  // Terminal rows can't be cancelled — the server rejects it (cancelAppointment's
+  // `terminal_status_locked` guard). 'completed' is terminal too: it already fired
+  // loyalty/QuickBooks/review and feeds /finances, so the Cancel affordance must not
+  // render on it. Refund stays available on paid terminal rows (branch below).
+  const isTerminal =
+    appointment?.status === 'cancelled' ||
+    appointment?.status === 'no_show' ||
+    appointment?.status === 'completed';
 
   function onCancel(alsoRefund: boolean = false, forceRefund: boolean = false) {
     if (!appointment) return;
@@ -280,10 +287,10 @@ export function AppointmentDetailDrawer({
         footer={
           // Loop 25 / Phase C — three states:
           //   - active appointment: Cancel + (when paid) Refund + Cancel & Refund
-          //   - cancelled but paid: standalone Refund only (audit gap closed —
+          //   - terminal but paid: standalone Refund only (audit gap closed —
           //     `refundAppointment` was exported but never callable from UI)
-          //   - cancelled + already refunded/unpaid: no footer
-          appointment && !isCancelled ? (
+          //   - terminal + already refunded/unpaid: no footer
+          appointment && !isTerminal ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
                 {t('cancelAppointment')}
@@ -299,7 +306,7 @@ export function AppointmentDetailDrawer({
                 </>
               ) : null}
             </div>
-          ) : appointment && isCancelled && canRefund ? (
+          ) : appointment && isTerminal && canRefund ? (
             <div className="flex justify-end">
               <Button variant="secondary" onClick={onRefund} loading={isPending}>
                 <RotateCcw className="h-4 w-4" /> {t('refundOnly')}
