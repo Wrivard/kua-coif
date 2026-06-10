@@ -7,7 +7,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { err, ok, type Result } from '@/lib/server-actions/result';
 import { captureException } from '@/lib/observability';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { stripeConfigured } from '@/lib/stripe/server';
@@ -142,7 +142,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
         .map((s) => ({ name: s.service!.name, price_snapshot: s.price_snapshot })),
     }));
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: client.shop_id,
       actorId: '00000000-0000-0000-0000-000000000000',
       action: 'custom',
@@ -367,7 +367,7 @@ export async function cancelMyAppointment(
     // Audit-log everything we did, including the policy state at the
     // time so an out-of-policy retroactive review can reconstruct what
     // the customer experienced.
-    await logAuditAction({
+    await logDurableAudit({
       shopId: appt.shop_id,
       actorId: '00000000-0000-0000-0000-000000000000', // anonymous self-service
       action: 'update',

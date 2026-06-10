@@ -7,7 +7,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { err, ok, type Result } from '@/lib/server-actions/result';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { captureException } from '@/lib/observability';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
 import { sendEmail } from '@/lib/email/send';
@@ -832,7 +832,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       }
     }
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: shop.id,
       actorId: '00000000-0000-0000-0000-000000000000', // public anon
       action: 'insert',
@@ -1084,7 +1084,7 @@ export async function addToWaitlistPublic(
     if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
 
     const entryId = (insertRes.data as { id: string }).id;
-    await logAuditAction({
+    await logDurableAudit({
       shopId,
       actorId: '00000000-0000-0000-0000-000000000000',
       action: 'insert',
