@@ -36,7 +36,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 019 | Upgrade next-intl 3 → 4 (open-redirect fix, decoupled from Next 15) | P2 | M | 016 (e2e safety net recommended) | DONE (4.13.0, zero code changes) |
 | 020 | Upgrade @supabase/ssr 0.5.2 → 0.12 (kill the type workaround) | P2 | M | 016 (auth e2e safety net) | DONE (assert deleted, typechecks naturally) |
 | 021 | Migrate Next.js 14.2.35 → 15.5.16+ (security EOL) + eslint 9 rider | P2 | L | 016, 019, 020 | TODO |
-| 022 | One effective-barber-settings resolver (B20 — 7 drifted copies) | P2 | M | 001, 009, 017 (touch the same consumers) | TODO |
+| 022 | One effective-barber-settings resolver (B20 — 7 drifted copies) | P2 | M | 001, 009, 017 (touch the same consumers) | DONE (pure resolver + 9 tests; 6 runtime sites + editor; alignment: no-rows ⇒ defaults on booking/reschedule) |
 | 023 | De-cast the typed Supabase client (126 vestigial `as any`) + collapse db/rows.ts | P3 | L | 020 (generics fixed first) | TODO |
 | 024 | Docs truth pass (CLAUDE.md rewrite, .env.example, DEPLOY.md, archive sweep) | P2 | M | — | DONE |
 | 025 | Small-debt sweep (clientIp, appUrl, phone key, confirms, dead table) | P3 | S | — | TODO |
