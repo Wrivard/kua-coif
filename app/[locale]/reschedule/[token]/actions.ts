@@ -10,6 +10,7 @@ import { logDurableAudit } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { pushAppointment } from '@/lib/google/sync';
 
 /**
  * Phase 74 — Public reschedule via signed token.
@@ -68,7 +69,9 @@ export async function reschedulePublicAppointment(
     // Resolve appointment + shop + total duration in one go.
     const apptRes = await supabase
       .from('appointments')
-      .select('id, shop_id, barber_id, start_at, end_at, status, shop:shops(id, timezone)')
+      .select(
+        'id, shop_id, barber_id, start_at, end_at, status, google_event_id, shop:shops(id, timezone)',
+      )
       .eq('id', payload.resourceId)
       .limit(1);
     const appt = ((apptRes.data as Array<{
@@ -78,6 +81,7 @@ export async function reschedulePublicAppointment(
       start_at: string;
       end_at: string;
       status: string;
+      google_event_id: string | null;
       shop: { id: string; timezone: string } | null;
     }> | null) ?? [])[0];
     if (!appt || !appt.shop) return err('NOT_FOUND');
@@ -234,6 +238,25 @@ export async function reschedulePublicAppointment(
         new_start_at: newStartAt.toISOString(),
       },
     });
+
+    // ── Google Calendar push (admin parity) ──────────────────────────
+    // The DB now holds the new time but the barber's mirrored Google
+    // event still shows the OLD slot. Mirror the admin same-barber
+    // reschedule branch: a single update on the existing event with the
+    // NEW times. The public reschedule never changes barber, so the
+    // delete+recreate cross-barber branch doesn't apply. `void`
+    // best-effort with the NEW times — never the stale row values.
+    if (appt.google_event_id) {
+      void pushAppointment({
+        appointmentId: appt.id,
+        barberId: appt.barber_id,
+        startAtIso: newStartAt.toISOString(),
+        endAtIso: newEndAt.toISOString(),
+        timezone: appt.shop.timezone,
+        googleEventId: appt.google_event_id,
+        summary: 'Appointment',
+      });
+    }
 
     return ok({ id: appt.id });
   } catch (e) {
