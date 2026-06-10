@@ -41,8 +41,8 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 024 | Docs truth pass (CLAUDE.md rewrite, .env.example, DEPLOY.md, archive sweep) | P2 | M | — | DONE |
 | 025 | Small-debt sweep (clientIp, appUrl, phone key, confirms, dead table) | P3 | S | — | TODO |
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | DONE (design: plans/026-OUTPUT-csv-import-design.md) |
-| 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | TODO |
-| 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | TODO |
+| 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | DONE (design: plans/027-OUTPUT-barber-invite-design.md — model C hybrid; exposure walk CLEAN) |
+| 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 
