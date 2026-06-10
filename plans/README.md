@@ -17,8 +17,8 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 |------|-------|----------|--------|------------|--------|
 | 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | DONE |
 | 002 | Make day-window parsing independent of the server runtime timezone | P1 | S | — | DONE |
-| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | IN PROGRESS |
-| 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | IN PROGRESS |
+| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE (migration to deploy: staging→prod + barber smoke) |
+| 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | DONE |
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
 | 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | TODO |
