@@ -225,6 +225,59 @@ export async function refundPaymentIntentFull({
 }
 
 /**
+ * Refund a PaymentIntent ONLY if it provably belongs to this shop and
+ * actually captured money — the safety net for the public booking money
+ * path (plan 001).
+ *
+ * The wizard charges the card client-side BEFORE `bookPublicAppointment`
+ * runs, so any post-charge rejection (slot race, availability re-check,
+ * promo `first_only`, off-grid, multi-service) leaves the customer paid
+ * with no appointment. The booking action routes those failures through
+ * here to give the money back.
+ *
+ * Two guards make this safe to call from the failure path:
+ *   - `wrong_shop`: NEVER refund a PI whose `transfer_data.destination`
+ *     isn't THIS shop's connected account. Without it, a crafted POST
+ *     that forces the failure path could weaponize it to refund someone
+ *     else's charge.
+ *   - `not_charged`: a PI still in `requires_payment_method` (etc.) never
+ *     captured anything, so there's nothing to refund.
+ *
+ * `refundPaymentIntent` can throw (e.g. a `processing` charge not yet
+ * refundable) — we let it propagate so the caller can Sentry-capture.
+ */
+export async function refundOwnedIntentBestEffort({
+  paymentIntentId,
+  expectedConnectedAccountId,
+}: {
+  paymentIntentId: string;
+  expectedConnectedAccountId: string;
+}): Promise<{ refunded: boolean; reason?: string }> {
+  const stripe = getStripe();
+  let intent: Stripe.PaymentIntent;
+  try {
+    intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch {
+    return { refunded: false, reason: 'not_found' };
+  }
+  // Destination-extraction idiom (string vs expanded object) — mirrors
+  // `verifyDepositPaymentIntent` above.
+  const dest =
+    typeof intent.transfer_data?.destination === 'string'
+      ? intent.transfer_data.destination
+      : (intent.transfer_data?.destination?.id ?? null);
+  // NEVER refund a PI that isn't destined to THIS shop — a crafted POST could
+  // otherwise weaponize the failure path to refund someone else's charge.
+  if (dest !== expectedConnectedAccountId) return { refunded: false, reason: 'wrong_shop' };
+  // Nothing captured yet → nothing to refund (requires_payment_method etc.).
+  if (intent.status !== 'succeeded' && intent.status !== 'processing') {
+    return { refunded: false, reason: 'not_charged' };
+  }
+  await refundPaymentIntent({ paymentIntentId, amountCents: intent.amount });
+  return { refunded: true };
+}
+
+/**
  * Mark an appointment refunded by its PaymentIntent id.
  *
  * The Stripe `charge.refunded` webhook does this too, but relying on the
