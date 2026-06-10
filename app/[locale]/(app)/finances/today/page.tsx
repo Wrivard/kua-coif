@@ -44,13 +44,15 @@ export const dynamic = 'force-dynamic';
  */
 type SearchParams = { date?: string; print?: string };
 
-export default async function CloseOutPage({
-  params: { locale },
-  searchParams,
-}: {
-  params: { locale: string };
-  searchParams: SearchParams;
+export default async function CloseOutPage(props: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

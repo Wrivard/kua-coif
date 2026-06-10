@@ -27,11 +27,10 @@ type HistoryRow = {
   note: string | null;
 };
 
-export default async function PlatformConfigHistoryPage({
-  params,
-}: {
-  params: { locale: string };
+export default async function PlatformConfigHistoryPage(props: {
+  params: Promise<{ locale: string }>;
 }) {
+  const params = await props.params;
   await requireKuaAdmin();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServiceRoleClient() as any;

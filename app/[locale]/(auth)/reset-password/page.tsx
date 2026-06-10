@@ -2,9 +2,13 @@ import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import { ResetPasswordForm } from './reset-password-form';
 
-type Props = { params: { locale: string } };
+type Props = { params: Promise<{ locale: string }> };
 
-export default function ResetPasswordPage({ params: { locale } }: Props) {
+export default async function ResetPasswordPage(props: Props) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <ResetPasswordContent locale={locale} />;
 }

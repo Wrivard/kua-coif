@@ -11,9 +11,13 @@ import { ServicesClient } from './services-client';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: { locale: string } };
+type Props = { params: Promise<{ locale: string }> };
 
-export default async function ServicesPage({ params: { locale } }: Props) {
+export default async function ServicesPage(props: Props) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
 
   // Auth + shop scope. If the user has no confirmed shop, redirect away.

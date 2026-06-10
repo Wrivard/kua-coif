@@ -35,7 +35,11 @@ export type QuickbooksConnectState = {
   lastRefreshedAt: string | null;
 };
 
-export default async function PaymentsPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function PaymentsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   // Security audit #3 — owner-only gate. The mutations on this page

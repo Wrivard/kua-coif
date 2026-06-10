@@ -16,11 +16,13 @@ export const dynamic = 'force-dynamic';
  * `reschedulePublicAppointment` server action validates the token,
  * checks availability, and updates the row.
  */
-export default async function ReschedulePage({
-  params: { locale, token },
-}: {
-  params: { locale: string; token: string };
+export default async function ReschedulePage(props: {
+  params: Promise<{ locale: string; token: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, token } = params;
+
   setRequestLocale(locale);
 
   const payload = verifyToken(decodeURIComponent(token), 'reschedule');

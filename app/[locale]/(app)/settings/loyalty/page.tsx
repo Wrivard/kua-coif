@@ -6,7 +6,11 @@ import { LoyaltyClient } from './loyalty-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LoyaltyPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function LoyaltyPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

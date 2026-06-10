@@ -1,6 +1,6 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { headers, type UnsafeUnwrappedHeaders } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -28,7 +28,7 @@ const PATH = '/settings/payments';
  * behind a proxy).
  */
 function siteOrigin(): string {
-  const h = headers();
+  const h = headers() as unknown as UnsafeUnwrappedHeaders;
   const fromHeader = h.get('origin') ?? h.get('referer');
   if (fromHeader) {
     try {

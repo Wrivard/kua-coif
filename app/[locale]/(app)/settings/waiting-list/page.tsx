@@ -5,11 +5,11 @@ import { WaitingListClient, type WaitlistEntry } from './waiting-list-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function WaitingListPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function WaitingListPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

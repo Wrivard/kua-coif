@@ -2,7 +2,11 @@ import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import { PagePlaceholder } from '@/components/features/shell/page-placeholder';
 
-export default function SupportPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function SupportPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <Content />;
 }

@@ -149,7 +149,7 @@ export async function requireShopMember(opts?: { locale?: string }) {
 export async function getCurrentShopId(): Promise<string | null> {
   const memberships = await getShopMemberships();
   if (memberships.length === 0) return null;
-  const cookieShopId = cookies().get(SHOP_COOKIE)?.value;
+  const cookieShopId = (await cookies()).get(SHOP_COOKIE)?.value;
   if (cookieShopId && memberships.some((m) => m.shop_id === cookieShopId)) {
     return cookieShopId;
   }

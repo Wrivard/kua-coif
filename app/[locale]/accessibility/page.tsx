@@ -23,18 +23,24 @@ export const dynamic = 'force-static';
  * (login, public booking wizard, this statement page itself) — so
  * any code change that drops below the WCAG 2.1 AA bar fails CI.
  */
-export async function generateMetadata({
-  params: { locale },
-}: {
-  params: { locale: string };
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
+
+  const { locale } = params;
+
   return {
     title: locale === 'fr' ? 'Déclaration d’accessibilité' : 'Accessibility statement',
     robots: { index: true, follow: true },
   };
 }
 
-export default function AccessibilityPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function AccessibilityPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <Content locale={locale} />;
 }

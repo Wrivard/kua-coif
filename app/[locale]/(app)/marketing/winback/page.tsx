@@ -25,7 +25,11 @@ const LAPSED_THRESHOLD_DAYS = 90;
  * Operator picks rows + clicks "Send"; action dispatches email + SMS
  * with a link to the public booking page.
  */
-export default async function WinbackPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function WinbackPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

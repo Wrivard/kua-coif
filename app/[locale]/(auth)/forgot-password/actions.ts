@@ -37,7 +37,7 @@ export async function forgotPasswordAction(
   _prev: ForgotPasswordState | undefined,
   formData: FormData,
 ): Promise<ForgotPasswordState> {
-  const h = headers();
+  const h = await headers();
   const ip = getClientIp(h);
   const rl = await checkRateLimit(`forgot:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return { kind: 'rate-limited' };

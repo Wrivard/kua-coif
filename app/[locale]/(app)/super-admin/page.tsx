@@ -246,7 +246,8 @@ async function fetchAutofixOverview(): Promise<AutofixOverview> {
 // Page
 // ──────────────────────────────────────────────────────────────────────────
 
-export default async function AdminDashboard({ params }: { params: { locale: string } }) {
+export default async function AdminDashboard(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   await requireKuaAdmin();
 
   // Parallel — slowest leg gates the render. None of these block on

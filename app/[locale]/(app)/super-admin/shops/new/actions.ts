@@ -130,7 +130,7 @@ export async function createShopAction(
     } else {
       // No profile → send invitation. Supabase creates the auth.users row,
       // the `tg_create_profile_on_signup` trigger then fills in `profiles`.
-      const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
+      const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
       const inviteRes = await sb.auth.admin.inviteUserByEmail(parsed.data.ownerEmail, {
         redirectTo: `${origin}/fr/setup-password`,
         data: parsed.data.ownerFullName ? { full_name: parsed.data.ownerFullName } : undefined,

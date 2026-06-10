@@ -15,9 +15,10 @@ import { ReviewsSection, type PublicReview } from './reviews-section';
 // V1.1 will add `revalidateTag('shop:<alias>')` for surgical invalidation.
 export const revalidate = 60;
 
-type Props = { params: { locale: string; shopSlug: string } };
+type Props = { params: Promise<{ locale: string; shopSlug: string }> };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceRoleClient() as any;
   const { data } = await supabase
@@ -38,7 +39,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BookingPage({ params: { locale, shopSlug } }: Props) {
+export default async function BookingPage(props: Props) {
+  const params = await props.params;
+
+  const { locale, shopSlug } = params;
+
   setRequestLocale(locale);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

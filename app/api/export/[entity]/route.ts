@@ -68,7 +68,8 @@ const ENTITY_CONFIG: Record<
   },
 };
 
-export async function GET(req: NextRequest, { params }: { params: { entity: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ entity: string }> }) {
+  const params = await props.params;
   // Auth + shop gate. Without an active session, return 401.
   const user = await getCurrentUser();
   if (!user) return new NextResponse('Unauthorized', { status: 401 });

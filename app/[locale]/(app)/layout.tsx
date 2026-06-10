@@ -17,13 +17,16 @@ import { INDUSTRIES, isIndustryKind } from '@/lib/industries';
 import { setUser } from '@/lib/observability';
 import { SentryUserInit } from '@/components/features/shell/sentry-user-init';
 
-export default async function AppShellLayout({
-  children,
-  params: { locale },
-}: {
+export default async function AppShellLayout(props: {
   children: ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
+  const { children } = props;
+
   // Pull user, translations, and the shop row in parallel — they have no
   // ordering dependency on each other. `getCurrentShop` is the single
   // request-cached read of the shops table (id, name, timezone, industry)

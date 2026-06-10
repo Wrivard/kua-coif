@@ -21,7 +21,11 @@ import { signOutAction } from '@/lib/auth/actions';
  * If the user *is* already a shop member, we bounce them home — no point
  * showing the dead-end UI.
  */
-export default async function NoShopPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function NoShopPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
 
   const user = await getCurrentUser();

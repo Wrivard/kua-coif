@@ -19,7 +19,11 @@ export const dynamic = 'force-dynamic';
  * V1 hard-codes the limit at 100 entries (most-recent-first). A V1.1 pass
  * can add filters (entity, actor, date range) and cursor pagination.
  */
-export default async function AuditLogPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function AuditLogPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

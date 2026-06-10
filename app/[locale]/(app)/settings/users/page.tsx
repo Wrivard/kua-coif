@@ -6,7 +6,11 @@ import { UsersClient, type MemberView } from './users-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function UsersPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function UsersPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

@@ -113,6 +113,6 @@ export async function signOutAction(formData: FormData): Promise<void> {
   // stale cookie won the role lookup. `getCurrentShopId` validates the
   // cookie against memberships before trusting it, so impact is bounded,
   // but a stale UI on a shared workstation is still confusing.
-  cookies().delete(SHOP_COOKIE);
+  (await cookies()).delete(SHOP_COOKIE);
   redirect(`/${locale}/login`);
 }

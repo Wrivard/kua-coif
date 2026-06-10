@@ -26,7 +26,8 @@ import { captureException } from '@/lib/observability';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest, { params }: { params: { shopId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ shopId: string }> }) {
+  const params = await props.params;
   // 1. Parse form body up-front (we need it for both signature
   //    verification AND the actual status update).
   let form: FormData;

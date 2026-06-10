@@ -7,7 +7,11 @@ import { ProductsClient } from './products-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProductsPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function ProductsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   const shopId = await getCurrentShopId();

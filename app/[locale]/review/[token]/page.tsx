@@ -19,11 +19,13 @@ export const dynamic = 'force-dynamic';
  * re-verifies the token server-side (defense in depth — never trust
  * the client-side validation).
  */
-export default async function ReviewPage({
-  params: { locale, token },
-}: {
-  params: { locale: string; token: string };
+export default async function ReviewPage(props: {
+  params: Promise<{ locale: string; token: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, token } = params;
+
   setRequestLocale(locale);
 
   const payload = verifyToken(decodeURIComponent(token), 'review');

@@ -20,11 +20,13 @@ export const dynamic = 'force-dynamic';
  * prefetchers fetch it. The flag flips only on the explicit POST
  * (server action) behind the confirm button.
  */
-export default async function UnsubscribePage({
-  params: { locale, token },
-}: {
-  params: { locale: string; token: string };
+export default async function UnsubscribePage(props: {
+  params: Promise<{ locale: string; token: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, token } = params;
+
   setRequestLocale(locale);
 
   const payload = verifyToken(decodeURIComponent(token), 'unsub');

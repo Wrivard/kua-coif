@@ -36,7 +36,7 @@ export async function selectShop(raw: SelectShopInput): Promise<Result<{ ok: tru
   if (!memberships.some((m) => m.shop_id === parsed.data.shop_id)) {
     return err('NOT_FOUND');
   }
-  cookies().set({
+  (await cookies()).set({
     name: SHOP_COOKIE,
     value: parsed.data.shop_id,
     httpOnly: true,

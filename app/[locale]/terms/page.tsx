@@ -5,18 +5,24 @@ import Link from 'next/link';
 
 export const dynamic = 'force-static';
 
-export async function generateMetadata({
-  params: { locale },
-}: {
-  params: { locale: string };
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
+
+  const { locale } = params;
+
   return {
     title: locale === 'fr' ? "Conditions d'utilisation" : 'Terms of Service',
     robots: { index: true, follow: true },
   };
 }
 
-export default function TermsPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function TermsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <Content locale={locale} />;
 }

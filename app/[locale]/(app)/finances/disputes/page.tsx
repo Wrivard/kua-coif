@@ -30,7 +30,11 @@ export const dynamic = 'force-dynamic';
  * separate chore), raw `<table>` inside `Card` in the finances
  * grammar, all strings via next-intl.
  */
-export default async function DisputesPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function DisputesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

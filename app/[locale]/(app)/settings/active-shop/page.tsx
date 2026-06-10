@@ -16,11 +16,11 @@ export const dynamic = 'force-dynamic';
  * The actual switching happens via the `selectShop` server action
  * (writes the `kua_active_shop` cookie); this page is the UI gate.
  */
-export default async function ActiveShopPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function ActiveShopPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

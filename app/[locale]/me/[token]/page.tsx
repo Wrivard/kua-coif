@@ -24,11 +24,13 @@ export const dynamic = 'force-dynamic';
  * Also surfaces the customer's loyalty balance as a "thanks for coming
  * back" hint so they know what's coming on their next visit.
  */
-export default async function MePage({
-  params: { locale, token },
-}: {
-  params: { locale: string; token: string };
+export default async function MePage(props: {
+  params: Promise<{ locale: string; token: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, token } = params;
+
   setRequestLocale(locale);
 
   const payload = verifyToken(decodeURIComponent(token), 'me');

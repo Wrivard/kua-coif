@@ -15,13 +15,16 @@ import { SettingsSidebar } from '@/components/features/settings/settings-sidebar
  * sits to the left of this one — sub-sidebars-of-sidebars is fine here
  * because /settings is the only section with this much depth.
  */
-export default function SettingsLayout({
-  children,
-  params: { locale },
-}: {
+export default async function SettingsLayout(props: {
   children: ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
+  const { children } = props;
+
   return (
     // flex-col on mobile so the <select> stacks above the page content;
     // flex-row on md+ so the desktop sidebar sits to the left of the

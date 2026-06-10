@@ -11,11 +11,11 @@ export const dynamic = 'force-dynamic';
  * top of the RLS policies on `notification_automations` + the column-level
  * REVOKE on `notification_smtp_password_enc`.
  */
-export default async function NotificationsPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function NotificationsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

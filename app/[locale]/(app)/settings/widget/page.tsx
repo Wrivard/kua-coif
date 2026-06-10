@@ -8,11 +8,11 @@ export const dynamic = 'force-dynamic';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-export default async function WidgetSettingsPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function WidgetSettingsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

@@ -26,7 +26,8 @@ export const runtime = 'nodejs';
  *
  * Public endpoint — rate-limited by IP to keep scraping cheap.
  */
-export async function GET(req: NextRequest, { params }: { params: { shopSlug: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ shopSlug: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(req.headers);
   const rl = await checkRateLimit(`slots:${ip}`, { max: 30, windowMs: 60 * 1000 });
   if (!rl.allowed) {
