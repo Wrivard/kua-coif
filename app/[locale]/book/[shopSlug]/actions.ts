@@ -11,6 +11,7 @@ import { captureException } from '@/lib/observability';
 import { logDurableAudit } from '@/lib/audit-log';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 import { verifyTurnstile } from '@/lib/security/turnstile';
@@ -450,16 +451,15 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         days_book_in_advance: number;
         mins_book_before_appt: number;
       }> | null) ?? [];
-    const barberOverride = settingsRows.find(
-      (r) => r.scope === 'barber' && r.barber_id === barberId,
-    );
-    const shopDefault = settingsRows.find((r) => r.scope === 'shop');
-    const settings = barberOverride ?? shopDefault ?? null;
+    // B20 — one shared resolver (override row → shop row → documented DEFAULTS).
+    // `settings` is now never null: a shop with no settings rows gets the
+    // defaults instead of skipping the interval / days / mins constraints.
+    const settings = resolveEffectiveBarberSettings(settingsRows, barberId);
 
     // B5 — enforce allow_multiple_services (the setting was persisted but never
     // consumed). When the barber/shop disallows multi-service bookings, reject
     // a public booking that selected more than one service.
-    if (settings && !settings.allow_multiple_services && input.service_ids.length > 1) {
+    if (!settings.allow_multiple_services && input.service_ids.length > 1) {
       return await failBooking('INVALID_INPUT');
     }
 
@@ -470,7 +470,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // could book any off-grid minute (e.g. 10:07 when the interval is 30). A
     // public booking must land on open_time + k*interval for the day; admin
     // bookings (via the calendar, not this action) are unaffected.
-    if (settings && settings.client_booking_interval_min > 0) {
+    if (settings.client_booking_interval_min > 0) {
       const dayHours = hours.find((h) => h.weekday === shopWeekday && h.enabled && h.open_time);
       if (dayHours?.open_time) {
         const openMin = toMinutes(dayHours.open_time.slice(0, 5));
@@ -499,13 +499,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       daysOff: daysOff.map((d) => ({ date: d })),
       existing,
       blocked,
-      settings: settings
-        ? {
-            client_booking_interval_min: settings.client_booking_interval_min,
-            days_book_in_advance: settings.days_book_in_advance,
-            mins_book_before_appt: settings.mins_book_before_appt,
-          }
-        : null,
+      settings: {
+        client_booking_interval_min: settings.client_booking_interval_min,
+        days_book_in_advance: settings.days_book_in_advance,
+        mins_book_before_appt: settings.mins_book_before_appt,
+      },
     });
     if (!verdict.ok) {
       return await failBooking(

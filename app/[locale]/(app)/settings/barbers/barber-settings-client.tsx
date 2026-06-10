@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
+import { BARBER_SETTINGS_DEFAULTS } from '@/lib/business/barber-settings';
 import type { BarberRow } from '@/db/rows';
 import type { BarberSettingsScope } from '@/db/enums';
 import { saveBarberSettings } from './actions';
@@ -23,21 +24,14 @@ const BOOKING_INTERVAL_OPTIONS = [5, 10, 15, 20, 30, 45, 60] as const;
 const HOUR_OPTIONS = Array.from({ length: 49 }, (_, i) => i); // 0..48
 const MINUTE_OPTIONS = [0, 5, 10, 15, 20, 30, 45] as const;
 
+// B20 — default VALUES come from the single source (BARBER_SETTINGS_DEFAULTS).
+// One field differs by design: the editor's NEW-row TEMPLATE keeps the seed's
+// 5h cancel window (annexe Image 7), whereas BARBER_SETTINGS_DEFAULTS uses
+// mins_cancel_before_appt: 0 = the RUNTIME "no policy" fallback. Drafting a row
+// (here) is a different concern from resolving effective runtime policy.
 const DEFAULTS: Omit<BarberSettingsRowInput, 'scope' | 'barber_id'> = {
-  allow_booking_wo_payment: true,
-  booking_tip: true,
-  confirmation_tip: false,
-  allow_multiple_services: true,
-  client_booking_interval_min: 30,
-  barber_booking_interval_min: 15,
-  days_book_in_advance: 30,
-  mins_book_before_appt: 5,
-  customer_cancellations: true,
+  ...BARBER_SETTINGS_DEFAULTS,
   mins_cancel_before_appt: 300,
-  reminder1_h: 24,
-  reminder1_m: 0,
-  reminder2_h: 1,
-  reminder2_m: 0,
 };
 
 type Draft = BarberSettingsRowInput;
