@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 65 (post-loop 8 production readiness)
 
 > Snapshot at the end of Loop 8. Phases 62, 63, 65 shipped to varying

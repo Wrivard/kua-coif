@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 Verified. `CardTitle` is `text-sm` (card.tsx:40), `CardHeader`/`CardBody` are both `px-6 py-6` (card.tsx:29,50), `PageHeader` title is `display-sm` with a static `border-b border-border` (page-header.tsx:27,35), the radius scale tops at `xl`/16px with **no `2xl`** (tailwind.config.ts:52-60), and `warm-*` shadows + `accent-glow` exist while `shadow-accent-md`/`shadow-modal` do not. Atmosphere/reveal tokens are absent. Everything in the critique checks out. Here is the final plan.
 
 ---

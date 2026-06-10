@@ -20,8 +20,16 @@ export const updateShopDetails = withAction({
   run: async (input, ctx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = createSupabaseServerClient() as any;
-    const { error } = await sb.from('shops').update(input).eq('id', ctx.shopId);
+    // Return the (possibly just-changed) alias so we can revalidate this shop's
+    // public surfaces granularly + bust its alias-keyed slots-route cache.
+    const { data, error } = await sb
+      .from('shops')
+      .update(input)
+      .eq('id', ctx.shopId)
+      .select('alias')
+      .maybeSingle();
     if (error) return err('UNEXPECTED');
+    const alias = (data as { alias: string | null } | null)?.alias ?? undefined;
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -35,7 +43,9 @@ export const updateShopDetails = withAction({
     // name/timezone/industry surfaces on the next render, not in a minute.
     revalidateShopRow();
     // Shop name / hours / address surface on /book + /embed — invalidate them.
-    revalidatePublicShopSurfaces();
+    // Alias-aware (plan 017): this also busts the slots route's
+    // `getCachedShopByAlias` entry (timezone / allow_booking_any_barber edits).
+    revalidatePublicShopSurfaces(alias);
     // Calendar reads hours/days-off from the Data Cache — bust it.
     revalidateShopConfig(ctx.shopId);
     return ok({ ok: true });
@@ -60,7 +70,11 @@ export const updateShopHours = withAction({
       diff: { after: input },
     });
     revalidatePath(PATH);
-    // Shop name / hours / address surface on /book + /embed — invalidate them.
+    // Shop hours surface on /book + /embed — invalidate them. No-arg global
+    // purge (plan 017 fallback): this action upserts shop_hours and never loads
+    // the shops row, so the alias isn't in reach. The slots route's hours cache
+    // is busted precisely below via revalidateShopConfig (shop-hours tag), so
+    // the coarse page purge here is the only thing left at shop-uniform grain.
     revalidatePublicShopSurfaces();
     // Calendar reads hours/days-off from the Data Cache — bust it.
     revalidateShopConfig(ctx.shopId);

@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 37 (production readiness)
 
 > Comprehensive snapshot of the app's state at the end of Phase 36. Every
