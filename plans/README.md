@@ -31,7 +31,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 014 | Single-source booking pricing + parity tests | P1 | M | 001 (same file) | DONE (17 tests incl. 5 parity) |
 | 015 | Supabase mock harness + tests for the 3 money flows | P1 | L | 014 (pricing extracted first) | TODO |
 | 016 | CI verification hardening (db job, RLS test, types drift, TZ=UTC leg, e2e) | P1 | M | 002 (the TZ=UTC leg guards it) | DONE (db-e2e.yml non-blocking — promote after 7 green days) |
-| 017 | Cache the slow-changing config on the public slots route (B14) | P2 | M | — | TODO |
+| 017 | Cache the slow-changing config on the public slots route (B14) | P2 | M | — | DONE (slots: 2 live queries) |
 | 018 | Cut the public booking submit latency (parallel reads, deferred email) | P2 | M | 001, 014 (same file — land those first) | TODO |
 | 019 | Upgrade next-intl 3 → 4 (open-redirect fix, decoupled from Next 15) | P2 | M | 016 (e2e safety net recommended) | DONE (4.13.0, zero code changes) |
 | 020 | Upgrade @supabase/ssr 0.5.2 → 0.12 (kill the type workaround) | P2 | M | 016 (auth e2e safety net) | TODO |
