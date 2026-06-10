@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { randomBytes } from 'node:crypto';
-import { getCurrentShopId, getCurrentUser } from '@/lib/auth/server';
+import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth/server';
 import { buildQbOAuthUrl, quickbooksConfigured } from '@/lib/quickbooks/server';
 import { signOauthState } from '@/lib/security/oauth-state';
+
+// Role ranks for the manager+ gate (matches lib/server-actions/with-action).
+const ROLE_RANK = { owner: 3, manager: 2, barber: 1 } as const;
 
 /**
  * Kick off the QuickBooks OAuth flow — Phase 35.
@@ -37,6 +40,20 @@ export async function GET(req: NextRequest) {
   const shopId = await getCurrentShopId();
   if (!shopId) {
     return NextResponse.json({ error: 'no_shop' }, { status: 403 });
+  }
+
+  // SECURITY — connecting the shop's books is a manager action (mirrors the
+  // Google OAuth start gate, Barbers audit B3). Without this, any member —
+  // including a barber — could bind the shop to their own Intuit company and
+  // exfiltrate customer names + amounts via the SalesReceipt sync. The QB flow
+  // is shop-scoped (no barber_id), so the check is just: membership for the
+  // active shop with rank >= manager. Asymmetry is deliberate — connect is
+  // manager+, disconnectQuickbooks stays owner-only (disconnect is more
+  // destructive). The 403 returns BEFORE any state cookie is minted below.
+  const memberships = await getShopMemberships();
+  const membership = memberships.find((m) => m.shop_id === shopId);
+  if (!membership || (ROLE_RANK[membership.role] ?? 0) < ROLE_RANK.manager) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
   const nonce = randomBytes(16).toString('base64url');
