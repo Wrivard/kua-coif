@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
+import { captureException } from '@/lib/observability';
 import {
   brandSchema,
   categorySchema,
@@ -19,22 +20,63 @@ import {
 
 const PRODUCTS_PATH = '/products';
 
+type DbError = { message?: string; code?: string } | null;
+
+// All catalog mutations run on the USER-SESSION client (RLS-bound). The
+// `.eq('shop_id', ctx.shopId)` filters below are defense-in-depth on top of the
+// per-command RLS (catalog_rls_per_command): behaviour is unchanged today, but
+// they remove the silent cross-tenant footgun if this ever moves to
+// service-role. `set_product_taxes` is the SECURITY INVOKER RPC from
+// 20260610140000 — atomic + same-shop-validated tax linking.
 function db() {
   return createSupabaseServerClient() as unknown as {
     from: (table: string) => {
       insert: (row: Record<string, unknown>) => {
         select: (cols: string) => {
-          single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+          single: () => Promise<{ data: { id: string } | null; error: DbError }>;
         };
-      } & Promise<{ error: { message: string } | null }>;
+      };
       update: (row: Record<string, unknown>) => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
+        eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: DbError }> };
       };
       delete: () => {
-        eq: (k: string, v: string) => Promise<{ error: { message: string } | null }>;
+        eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: DbError }> };
+      };
+      select: (cols: string) => {
+        eq: (
+          k: string,
+          v: string,
+        ) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: DbError }> };
+        };
       };
     };
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: DbError }>;
   };
+}
+
+/**
+ * Confirm a referenced row belongs to the active shop. RLS already hides other
+ * shops' rows, so a foreign id simply resolves to no row — but we assert it
+ * explicitly so a crafted `brand_id` / `category_id` from another shop is
+ * rejected with a precise error rather than silently stored.
+ */
+async function belongsToShop(
+  sb: ReturnType<typeof db>,
+  table: 'product_brands' | 'product_categories',
+  id: string,
+  shopId: string,
+): Promise<boolean> {
+  const { data } = await sb
+    .from(table)
+    .select('id')
+    .eq('id', id)
+    .eq('shop_id', shopId)
+    .maybeSingle();
+  return Boolean(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -45,25 +87,41 @@ export const createProduct = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const { tax_ids, ...rest } = input;
-    const { data, error } = await db()
+    const sb = db();
+
+    if (rest.brand_id && !(await belongsToShop(sb, 'product_brands', rest.brand_id, ctx.shopId))) {
+      return err('INVALID_INPUT');
+    }
+    if (
+      rest.category_id &&
+      !(await belongsToShop(sb, 'product_categories', rest.category_id, ctx.shopId))
+    ) {
+      return err('INVALID_INPUT');
+    }
+
+    const { data, error } = await sb
       .from('products')
       .insert({ shop_id: ctx.shopId, ...rest })
       .select('id')
       .single();
-    if (error || !data) return err('UNEXPECTED');
+    if (error || !data) {
+      captureException(error ?? new Error('createProduct: no row returned'), {
+        tags: { layer: 'products' },
+      });
+      return err('UNEXPECTED');
+    }
 
-    if (tax_ids.length > 0) {
-      await (
-        createSupabaseServerClient() as unknown as {
-          from: (t: string) => {
-            insert: (
-              rows: Array<{ product_id: string; tax_id: string }>,
-            ) => Promise<{ error: unknown }>;
-          };
-        }
-      )
-        .from('product_taxes')
-        .insert(tax_ids.map((tax_id) => ({ product_id: data.id, tax_id })));
+    // Atomic, same-shop-validated tax linking. On failure, best-effort delete
+    // the orphan product so we never persist a product without the taxes the
+    // manager intended.
+    const { error: taxError } = await sb.rpc('set_product_taxes', {
+      p_product_id: data.id,
+      p_tax_ids: tax_ids,
+    });
+    if (taxError) {
+      captureException(taxError, { tags: { layer: 'products' } });
+      await db().from('products').delete().eq('id', data.id).eq('shop_id', ctx.shopId);
+      return err('UNEXPECTED');
     }
 
     await logAuditAction({
@@ -84,20 +142,31 @@ export const updateProduct = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const { id, tax_ids, ...rest } = input;
-    const { error } = await db().from('products').update(rest).eq('id', id);
-    if (error) return err('UNEXPECTED');
+    const sb = db();
 
-    const sb = createSupabaseServerClient() as unknown as {
-      from: (t: string) => {
-        delete: () => { eq: (k: string, v: string) => Promise<{ error: unknown }> };
-        insert: (
-          rows: Array<{ product_id: string; tax_id: string }>,
-        ) => Promise<{ error: unknown }>;
-      };
-    };
-    await sb.from('product_taxes').delete().eq('product_id', id);
-    if (tax_ids.length > 0) {
-      await sb.from('product_taxes').insert(tax_ids.map((tax_id) => ({ product_id: id, tax_id })));
+    if (rest.brand_id && !(await belongsToShop(sb, 'product_brands', rest.brand_id, ctx.shopId))) {
+      return err('INVALID_INPUT');
+    }
+    if (
+      rest.category_id &&
+      !(await belongsToShop(sb, 'product_categories', rest.category_id, ctx.shopId))
+    ) {
+      return err('INVALID_INPUT');
+    }
+
+    const { error } = await sb.from('products').update(rest).eq('id', id).eq('shop_id', ctx.shopId);
+    if (error) {
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
+
+    const { error: taxError } = await sb.rpc('set_product_taxes', {
+      p_product_id: id,
+      p_tax_ids: tax_ids,
+    });
+    if (taxError) {
+      captureException(taxError, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
     }
 
     await logAuditAction({
@@ -117,8 +186,15 @@ export const deleteProduct = withAction({
   schema: deleteProductSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db().from('products').delete().eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+    const { error } = await db()
+      .from('products')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -137,7 +213,9 @@ export const deleteProduct = withAction({
 // ---------------------------------------------------------------------------
 // Loop 30 (P2.104) — every brand/category mutation gets an audit log
 // entry. Brands and categories shape the product catalog, so changes
-// here matter as much as service-list edits.
+// here matter as much as service-list edits. (W1 — the audit_log TRIGGER
+// added in 20260610140000 is what actually persists the trail; the
+// logAuditAction calls remain inline documentation of intent.)
 export const createBrand = withAction({
   schema: brandSchema,
   minRole: 'manager',
@@ -147,7 +225,12 @@ export const createBrand = withAction({
       .insert({ shop_id: ctx.shopId, name: input.name })
       .select('id')
       .single();
-    if (error || !data) return err('UNEXPECTED');
+    if (error || !data) {
+      captureException(error ?? new Error('createBrand: no row returned'), {
+        tags: { layer: 'products' },
+      });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -168,8 +251,12 @@ export const updateBrand = withAction({
     const { error } = await db()
       .from('product_brands')
       .update({ name: input.name })
-      .eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -187,8 +274,19 @@ export const deleteBrand = withAction({
   schema: deleteBrandSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db().from('product_brands').delete().eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+    const { error } = await db()
+      .from('product_brands')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      // 23503 = FK violation (brand still referenced). Today products.brand_id
+      // is ON DELETE SET NULL so this won't fire for brands, but keep the
+      // mapping defensive + truthful for the front (W3 maps the message).
+      if (error.code === '23503') return err('CONFLICT');
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -214,7 +312,12 @@ export const createCategory = withAction({
       .insert({ shop_id: ctx.shopId, name: input.name })
       .select('id')
       .single();
-    if (error || !data) return err('UNEXPECTED');
+    if (error || !data) {
+      captureException(error ?? new Error('createCategory: no row returned'), {
+        tags: { layer: 'products' },
+      });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -235,8 +338,12 @@ export const updateCategory = withAction({
     const { error } = await db()
       .from('product_categories')
       .update({ name: input.name })
-      .eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -254,8 +361,18 @@ export const deleteCategory = withAction({
   schema: deleteCategorySchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db().from('product_categories').delete().eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+    const { error } = await db()
+      .from('product_categories')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      // 23503 = FK violation. products.category_id is ON DELETE SET NULL today,
+      // so this won't fire for categories; mapping kept defensive (W3 maps it).
+      if (error.code === '23503') return err('CONFLICT');
+      captureException(error, { tags: { layer: 'products' } });
+      return err('UNEXPECTED');
+    }
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
