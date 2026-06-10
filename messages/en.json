@@ -119,6 +119,7 @@
     "UNEXPECTED": "An unexpected error occurred.",
     "field": {
       "NAME_REQUIRED": "Name is required.",
+      "INVALID_PRICE_PRECISION": "Two decimals maximum.",
       "DURATION_MIN": "Duration must be at least 5 minutes.",
       "DURATION_MAX": "Duration cannot exceed 8 hours.",
       "PHONE_INVALID": "Invalid phone number.",
@@ -586,7 +587,16 @@
         "lowInventoryThreshold": "Low threshold",
         "sku": "SKU (optional)",
         "taxes": "Applicable taxes",
-        "noTaxes": "No taxes configured."
+        "noTaxes": "No taxes configured.",
+        "errors": {
+          "nameRequired": "Name is required.",
+          "nameTooLong": "Name can't exceed 120 characters.",
+          "amount": "Invalid amount: a number from 0 to 99,999.99.",
+          "amountPrecision": "Two decimals maximum.",
+          "quantity": "Invalid quantity: a whole number from 0 to 99,999.",
+          "sku": "SKU can't exceed 50 characters.",
+          "select": "Invalid selection."
+        }
       },
       "brands": {
         "name": "Brand name",
