@@ -29,7 +29,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
-import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
+import { decrypt, encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import {
   createQbSalesReceipt,
   findOrCreateQbCustomer,
@@ -111,16 +111,45 @@ export async function pushAppointmentToQuickbooks(args: {
       return;
     }
 
-    // Refresh the token. Intuit rotates refresh tokens on every
-    // refresh, so we MUST persist the new one (we don't here — the
-    // cron in /api/cron/quickbooks-refresh handles the persistence
-    // path; on the sync path we use the new access_token but trust
-    // the cron to update storage on its next tick). Worst case: the
-    // sync uses a fresh access token, the cron later refreshes
-    // again and persists a different refresh token — both flows
-    // converge.
+    // Refresh the token. Intuit ROTATES the refresh token on every
+    // refresh: the response carries a NEW refresh_token and the old
+    // one stays valid only ~24h. We persist it here, immediately
+    // (below) — the daily cron only refreshes tokens within 14 days
+    // of expiry (~100-day lifetime), so for ~86 days it would never
+    // persist a sync-path rotation; the stored token would then die
+    // within ~24h (next refresh → invalid_grant → shop flips to
+    // disconnected). The cron remains the near-expiry safety net for
+    // shops that don't complete appointments often enough to keep the
+    // token alive on the sync path.
     const refreshed = await refreshQbToken(decrypt(shop.quickbooks_refresh_token_enc));
     const accessToken = refreshed.access_token;
+
+    // Persist the rotated refresh token — best-effort but LOUD.
+    // Mirrors the cron's proven block
+    // (app/api/cron/quickbooks-refresh/route.ts). The try/catch wraps
+    // ONLY this write: a persistence failure must not abort the
+    // receipt push (the access token in hand is still valid), but it
+    // must never be silent — it goes to Sentry with sync-specific tags.
+    try {
+      const newRefreshEnc = encrypt(refreshed.refresh_token);
+      const newExpiresAt = new Date(
+        Date.now() + refreshed.x_refresh_token_expires_in * 1000,
+      ).toISOString();
+      const now = new Date().toISOString();
+      await admin
+        .from('shops')
+        .update({
+          quickbooks_refresh_token_enc: newRefreshEnc,
+          quickbooks_refresh_token_expires_at: newExpiresAt,
+          quickbooks_last_refreshed_at: now,
+        })
+        .eq('id', shop.id);
+    } catch (e) {
+      captureException(e, {
+        tags: { layer: 'quickbooks-sync', step: 'persist-rotated-token' },
+        extra: { shopId: shop.id },
+      });
+    }
 
     // Step 2 — resolve the QB Customer to attach. Two paths:
     //
