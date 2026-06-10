@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { getShopSmtpConfig, type ShopSmtpConfig } from '@/lib/email/smtp';
+import { shopLocale } from '@/lib/i18n-locale';
 import { AppointmentReminder } from '@/lib/email/templates/appointment-reminder';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
@@ -290,7 +291,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
           continue;
         }
 
-        const locale: 'fr' | 'en' = appt.shop.default_language === 'en' ? 'en' : 'fr';
+        const locale = shopLocale(appt.shop.default_language);
 
         // ── Email branch ────────────────────────────────────────
         if (alreadySet.has(appt.id) || !appt.client.email) {

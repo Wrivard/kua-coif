@@ -5,6 +5,8 @@ import { mapAccountToStatus } from '@/lib/stripe/connect';
 import { mapIntentStatus, markRefundedByIntent } from '@/lib/stripe/payments';
 import { sendSlackDisputeNotification } from '@/lib/notifications/slack';
 import { captureException } from '@/lib/observability';
+// Aliased: this file has a local `shopLocale` variable for the resolved value.
+import { shopLocale as toShopLocale } from '@/lib/i18n-locale';
 import type Stripe from 'stripe';
 
 /**
@@ -385,7 +387,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
       shopId = row.shop_id;
       shopName = row.shop?.name ?? null;
       slackWebhookUrl = row.shop?.slack_webhook_url ?? null;
-      shopLocale = row.shop?.default_language === 'en' ? 'en' : 'fr';
+      shopLocale = toShopLocale(row.shop?.default_language);
     }
   }
 
@@ -427,7 +429,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
           shopId = shopRow.id;
           shopName = shopRow.name;
           slackWebhookUrl = shopRow.slack_webhook_url;
-          shopLocale = shopRow.default_language === 'en' ? 'en' : 'fr';
+          shopLocale = toShopLocale(shopRow.default_language);
         }
       }
     } catch (e) {

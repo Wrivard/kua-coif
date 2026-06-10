@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { appUrl } from '@/lib/env/app-url';
+import { shopLocale } from '@/lib/i18n-locale';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
@@ -75,7 +76,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       .single();
     const shop = shopRes.data as { id: string; name: string; default_language: string } | null;
     if (!shop) return err('UNEXPECTED');
-    const locale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
+    const locale = shopLocale(shop.default_language);
 
     // 3. Already-sent lookup — exclude appointments we've already
     //    asked about (recurrence_key = appointment_id). Same pattern

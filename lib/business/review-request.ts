@@ -30,6 +30,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { appUrl } from '@/lib/env/app-url';
+import { shopLocale } from '@/lib/i18n-locale';
 import { captureException } from '@/lib/observability';
 import { signToken } from '@/lib/security/signed-tokens';
 import { sendEmail } from '@/lib/email/send';
@@ -95,7 +96,7 @@ export async function sendReviewRequestOnCompletion({
       .maybeSingle();
     const shop = shopRes.data as { name: string; default_language: string | null } | null;
     if (!shop) return;
-    const locale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
+    const locale = shopLocale(shop.default_language);
 
     // Signed-token link to the public /review/[token] page. Falls back
     // to a relative path if NEXT_PUBLIC_APP_URL is unset (broken link
