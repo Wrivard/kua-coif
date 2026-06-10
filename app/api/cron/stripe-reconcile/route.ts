@@ -3,7 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { getStripe, stripeConfigured } from '@/lib/stripe/server';
 import { reconcileStripePayments } from '@/lib/stripe/reconcile';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
-import { captureException } from '@/lib/observability';
+import { captureException, withCronMonitor } from '@/lib/observability';
 
 /**
  * Stripe reconcile cron.
@@ -30,6 +30,13 @@ export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
+  // Check-in inside the auth gate. Slug + crontab mirror .github/workflows/cron-stripe-reconcile.yml (runs at :17).
+  return withCronMonitor('cron-stripe-reconcile', { type: 'crontab', value: '17 * * * *' }, () =>
+    runStripeReconcileCron(),
+  );
+}
+
+async function runStripeReconcileCron(): Promise<NextResponse> {
   // No Stripe configured (local/dev/preview without keys) — nothing to do.
   if (!stripeConfigured()) {
     return NextResponse.json({ ok: true, skipped: 'stripe_not_configured' });

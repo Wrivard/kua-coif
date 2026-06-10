@@ -7,7 +7,7 @@ import { dispatchSms } from '@/lib/sms/dispatch';
 import { birthdayGreetingSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
 import { formatShopTime } from '@/lib/business/timezone';
-import { captureException } from '@/lib/observability';
+import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
@@ -67,7 +67,13 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
+  // Check-in inside the auth gate. Slug + crontab mirror .github/workflows/cron-birthday-greetings.yml.
+  return withCronMonitor('cron-birthday-greetings', { type: 'crontab', value: '0 12 * * *' }, () =>
+    runBirthdayGreetingsCron(),
+  );
+}
 
+async function runBirthdayGreetingsCron(): Promise<NextResponse> {
   const startedAt = Date.now();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServiceRoleClient() as any;
