@@ -39,7 +39,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 022 | One effective-barber-settings resolver (B20 — 7 drifted copies) | P2 | M | 001, 009, 017 (touch the same consumers) | DONE (pure resolver + 9 tests; 6 runtime sites + editor; alignment: no-rows ⇒ defaults on booking/reschedule) |
 | 023 | De-cast the typed Supabase client (126 vestigial `as any`) + collapse db/rows.ts | P3 | L | 020 (generics fixed first) | TODO |
 | 024 | Docs truth pass (CLAUDE.md rewrite, .env.example, DEPLOY.md, archive sweep) | P2 | M | — | DONE |
-| 025 | Small-debt sweep (clientIp, appUrl, phone key, confirms, dead table) | P3 | S | — | TODO |
+| 025 | Small-debt sweep (clientIp, appUrl, phone key, confirms, dead table) | P3 | S | — | DONE (getClientIp/normalizePhoneKey/shopLocale helpers, 3 ConfirmDialogs i18n, drop notification_prefs — its migration awaits the next prod deploy; note: the (e) grep also matched locale-PARAM coercions, deliberately left) |
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | DONE (design: plans/026-OUTPUT-csv-import-design.md) |
 | 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | DONE (design: plans/027-OUTPUT-barber-invite-design.md — model C hybrid; exposure walk CLEAN) |
 | 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
