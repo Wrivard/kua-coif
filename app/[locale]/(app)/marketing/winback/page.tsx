@@ -53,32 +53,21 @@ export default async function WinbackPage({ params: { locale } }: { params: { lo
   const clients = ((clientsRes.data as ClientRow[] | null) ?? []).filter((c) => c.email || c.phone);
   if (clients.length === 0) return <WinbackClient locale={locale} candidates={[]} />;
 
-  // 2. All appointments for these clients (any status, any time).
-  //    We aggregate in JS rather than running per-client subqueries.
-  //    For shop sizes V1 cares about (<10k appointments), this is
-  //    cheap; at scale this should become a Postgres function or a
-  //    materialized "client_activity" view.
-  const clientIds = clients.map((c) => c.id);
-  const apptsRes = await admin
-    .from('appointments')
-    .select('client_id, start_at, status')
-    .eq('shop_id', shopId)
-    .in('client_id', clientIds);
-  type ApptRow = { client_id: string; start_at: string; status: string };
-  const appts = (apptsRes.data as ApptRow[] | null) ?? [];
-
+  // 2. Per-client activity rollup (latest non-cancelled visit + ever-completed),
+  //    computed SQL-side by client_activity() — one row per client. The old path
+  //    pulled the shop's ENTIRE appointment history and aggregated in JS, which
+  //    the PostgREST 1000-row cap truncated silently: past the cap, active
+  //    clients looked lapsed and got mass-emailed. types: regenerate db/types.ts post-deploy.
+  const activityRes = await admin.rpc('client_activity', { p_shop: shopId });
+  type ActivityRow = {
+    client_id: string;
+    last_active_at: string | null;
+    has_completed: boolean;
+  };
+  const activity = (activityRes.data as ActivityRow[] | null) ?? [];
   const stats = new Map<string, { latestActiveAt: string | null; hasCompleted: boolean }>();
-  for (const a of appts) {
-    const cur = stats.get(a.client_id) ?? { latestActiveAt: null, hasCompleted: false };
-    // Cancelled / no_show don't count as "they came in" — they don't
-    // reset the lapsed clock.
-    if (a.status !== 'cancelled' && a.status !== 'no_show') {
-      if (!cur.latestActiveAt || a.start_at > cur.latestActiveAt) {
-        cur.latestActiveAt = a.start_at;
-      }
-    }
-    if (a.status === 'completed') cur.hasCompleted = true;
-    stats.set(a.client_id, cur);
+  for (const r of activity) {
+    stats.set(r.client_id, { latestActiveAt: r.last_active_at, hasCompleted: r.has_completed });
   }
 
   // 3. Filter: hasCompleted (proves they're a known client) AND

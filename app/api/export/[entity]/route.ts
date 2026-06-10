@@ -5,6 +5,7 @@ import { getCurrentShopId, getCurrentUser, getShopMemberships } from '@/lib/auth
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { sanitizeCsvRows } from '@/lib/security/csv';
 import { logDurableAudit } from '@/lib/audit-log';
+import { captureException } from '@/lib/observability';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -108,44 +109,48 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
 
   const supabase = createSupabaseServerClient();
   type QueryResult = { data: unknown; error: unknown };
-  const filterBuilder = (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            k: string,
-            v: string,
-          ) => {
-            order: (
-              k: string,
-              opts?: { ascending?: boolean },
-            ) => Promise<QueryResult> & {
-              eq: (k: string, v: string) => Promise<QueryResult>;
-            };
-          };
-        };
-      };
-    }
-  )
-    .from(cfg.table)
-    .select(cfg.columns)
-    .eq('shop_id', activeShopId)
-    .order(cfg.orderBy, { ascending: cfg.ascending });
 
-  // Optional ?status=… filter for barbers etc.
-  let result: QueryResult;
+  // Page through the table with .range(): PostgREST silently caps a single
+  // SELECT at db-max-rows (1000), so a "full roster" export would ship at most
+  // 1000 rows with no signal. Re-create the builder per page (PostgREST
+  // builders are single-use), stop at the first short page, and hard-cap at
+  // 25 pages (25k rows) with a visible CSV marker + Sentry alert.
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 25;
   const statusFilter = req.nextUrl.searchParams.get('status');
-  if (statusFilter && entity === 'barbers') {
-    result = await filterBuilder.eq('status', statusFilter);
-  } else {
-    result = await filterBuilder;
+  function fetchPage(offset: number): Promise<QueryResult> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase as any)
+      .from(cfg.table)
+      .select(cfg.columns)
+      .eq('shop_id', activeShopId)
+      .order(cfg.orderBy, { ascending: cfg.ascending })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (statusFilter && entity === 'barbers') {
+      q = q.eq('status', statusFilter);
+    }
+    return q as Promise<QueryResult>;
   }
 
-  if (result.error) {
-    return new NextResponse('Export failed', { status: 500 });
+  const rows: Array<Record<string, unknown>> = [];
+  let truncated = false;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const result = await fetchPage(page * PAGE_SIZE);
+    if (result.error) {
+      return new NextResponse('Export failed', { status: 500 });
+    }
+    const pageRows = (result.data as Array<Record<string, unknown>> | null) ?? [];
+    rows.push(...pageRows);
+    if (pageRows.length < PAGE_SIZE) break; // last page reached
+    if (page === MAX_PAGES - 1) truncated = true; // full final page → more rows exist
   }
 
-  const rows = (result.data as Array<Record<string, unknown>> | null) ?? [];
+  if (truncated) {
+    captureException(
+      new Error(`[export] ${entity} export hit the ${MAX_PAGES * PAGE_SIZE}-row ceiling`),
+      { tags: { layer: 'export', entity }, extra: { shopId: activeShopId } },
+    );
+  }
 
   // Durable audit trail for PII bulk-export (Loi 25). The JSON `exportClient`
   // server action logs its export; the CSV path is the HIGHER-volume PII
@@ -164,7 +169,12 @@ export async function GET(req: NextRequest, { params }: { params: { entity: stri
   // Security: neutralize spreadsheet formula injection (OWASP). Cells such as
   // client names/emails come from the public booking flow and could carry
   // =cmd / +HYPERLINK / @SUM payloads that execute when the owner opens the CSV.
-  const csv = Papa.unparse(sanitizeCsvRows(rows), { quotes: true });
+  let csv = Papa.unparse(sanitizeCsvRows(rows), { quotes: true });
+  // Visible in-file signal that the export was capped — the operator opening the
+  // CSV sees it; the Sentry alert above is the machine-readable counterpart.
+  if (truncated) {
+    csv += `\n# TRUNCATED at ${MAX_PAGES * PAGE_SIZE} rows`;
+  }
   const filename = `${entity}-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return new NextResponse(csv, {
