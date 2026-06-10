@@ -15,7 +15,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | TODO |
+| 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | DONE |
 | 002 | Make day-window parsing independent of the server runtime timezone | P1 | S | — | TODO |
 | 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | TODO |
 | 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | TODO |

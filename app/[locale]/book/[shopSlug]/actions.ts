@@ -20,6 +20,7 @@ import {
   createDepositPaymentIntent,
   getReusableDepositPaymentIntent,
   verifyDepositPaymentIntent,
+  refundOwnedIntentBestEffort,
 } from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
@@ -224,6 +225,40 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       payment_mode: 'full' | 'deposit' | 'none';
     }> | null) ?? [])[0];
     if (!shop) return err('NOT_FOUND');
+
+    // ── Refund-on-failure safety net (plan 001) ──────────────────────
+    // The wizard charges the card client-side BEFORE this action runs, so
+    // any rejection AFTER this point leaves the customer paid with no
+    // appointment. Every post-charge failure return below routes through
+    // `failBooking` to give the money back. Best-effort: a refund failure
+    // must NOT mask the original error — capture it and still return.
+    // `refundOwnedIntentBestEffort` only refunds a PI that provably belongs
+    // to THIS shop and actually captured money, so it's safe even on the
+    // PI-verify-failed path (wrong_shop → no refund).
+    const failBooking = async (
+      ...args: Parameters<typeof err>
+    ): Promise<Result<{ id: string }>> => {
+      if (input.payment_intent_id && shop.stripe_account_id) {
+        try {
+          const r = await refundOwnedIntentBestEffort({
+            paymentIntentId: input.payment_intent_id,
+            expectedConnectedAccountId: shop.stripe_account_id,
+          });
+          if (!r.refunded && r.reason !== 'wrong_shop' && r.reason !== 'not_charged') {
+            captureException(new Error(`[booking] refund-on-failure skipped: ${r.reason}`), {
+              tags: { layer: 'public-booking', step: 'refund-on-failure' },
+              extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
+            });
+          }
+        } catch (e) {
+          captureException(e, {
+            tags: { layer: 'public-booking', step: 'refund-on-failure' },
+            extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
+          });
+        }
+      }
+      return err(...args);
+    };
 
     // ── Resolve services ──────────────────────────────────────────────
     // `name` added in Phase 24 so the confirmation email can list services
@@ -430,7 +465,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // consumed). When the barber/shop disallows multi-service bookings, reject
     // a public booking that selected more than one service.
     if (settings && !settings.allow_multiple_services && input.service_ids.length > 1) {
-      return err('INVALID_INPUT');
+      return await failBooking('INVALID_INPUT');
     }
 
     const shopWeekday = new Date(`${input.date}T00:00:00`).getDay();
@@ -446,9 +481,15 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         const openMin = toMinutes(dayHours.open_time.slice(0, 5));
         const startMin = toMinutes(input.start_time);
         if ((startMin - openMin) % settings.client_booking_interval_min !== 0) {
-          return err('INVALID_INPUT');
+          return await failBooking('INVALID_INPUT');
         }
       }
+    }
+
+    // formatMinutes wraps at 1440 ('24:30' → '00:30'), which would defeat the
+    // closing-hours check below. A booking may not cross shop-local midnight.
+    if (toMinutes(input.start_time) + totalMinutes > 1440) {
+      return await failBooking('INVALID_INPUT');
     }
 
     const verdict = checkAvailability({
@@ -472,7 +513,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         : null,
     });
     if (!verdict.ok) {
-      return err(
+      return await failBooking(
         verdict.reason === 'CONFLICT_APPOINTMENT' || verdict.reason === 'CONFLICT_BLOCK'
           ? 'CONFLICT'
           : 'INVALID_INPUT',
@@ -533,7 +574,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         })
         .select('id')
         .single();
-      if (insertClient.error || !insertClient.data) return err('UNEXPECTED');
+      if (insertClient.error || !insertClient.data) return await failBooking('UNEXPECTED');
       clientId = (insertClient.data as { id: string }).id;
     }
 
@@ -562,7 +603,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .limit(1);
       const hasPrior = ((existingApptRes.data as Array<{ id: string }> | null) ?? []).length > 0;
       if (hasPrior) {
-        return err('INVALID_INPUT', { promo_code: 'first_only' });
+        return await failBooking('INVALID_INPUT', { promo_code: 'first_only' });
       }
     }
 
@@ -623,7 +664,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // guard: if somehow the shop lost Connect between intent
       // creation and booking submit, refuse the PI rather than
       // trusting it.
-      if (!shop.stripe_account_id) return err('UNEXPECTED');
+      if (!shop.stripe_account_id) return await failBooking('UNEXPECTED');
 
       const verify = await verifyDepositPaymentIntent({
         paymentIntentId: input.payment_intent_id,
@@ -637,7 +678,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           tags: { layer: 'booking', reason: verify.reason },
           extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
         });
-        return err('UNEXPECTED');
+        return await failBooking('UNEXPECTED');
       }
       // Phase A — set 'paid' at insert when Stripe already says
       // succeeded. The webhook handler is still authoritative for
@@ -695,8 +736,8 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // unique_violation; Supabase exposes it via `error.code`.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const e = insertAppt.error as any;
-      if (e?.code === '23505') return err('CONFLICT');
-      return err('UNEXPECTED');
+      if (e?.code === '23505') return await failBooking('CONFLICT');
+      return await failBooking('UNEXPECTED');
     }
     const apptId = (insertAppt.data as { id: string }).id;
 
@@ -737,7 +778,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           },
         });
       }
-      return err('UNEXPECTED');
+      return await failBooking('UNEXPECTED');
     }
 
     // ── Decrement loyalty balance (Phase 50) ─────────────────────────
