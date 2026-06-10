@@ -177,7 +177,13 @@ function renderIssueSection(issue, event) {
     lines.push('');
   }
 
-  return lines.join('\n');
+  // Everything in this section is derived from the Sentry API (issue title,
+  // exception message, stack-frame text, breadcrumbs, tag values) and is
+  // UNTRUSTED — production errors routinely embed user-supplied strings from
+  // the public booking surface. Fence the whole section so the workflow prompt
+  // can flag it as data-not-instructions (see the SECURITY rule there) and the
+  // agent never executes anything an attacker stuffed into an error payload.
+  return ['<untrusted-sentry-data>', lines.join('\n'), '</untrusted-sentry-data>'].join('\n');
 }
 
 function renderHeader(count) {
@@ -209,7 +215,7 @@ function renderHeader(count) {
     `   - The label \`sentry-autofix\` (\`gh pr create --label sentry-autofix\`).`,
     `5. **Skip + log** if you can't fix it cleanly. Don't push a PR that isn't a real fix.`,
     '',
-    `Run \`pnpm typecheck && pnpm lint && pnpm format --check && pnpm test\` before opening`,
+    `Run \`pnpm typecheck && pnpm lint && pnpm format:check && pnpm test\` before opening`,
     `the PR. If any gate fails, fix or skip — never open a failing PR.`,
     '',
     '---',
