@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, ShieldOff } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Label } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
@@ -34,6 +36,9 @@ type Factor = {
 export function TwoFactorClient() {
   const supabase = createSupabaseBrowserClient();
   const { show } = useToast();
+  const t = useTranslations('pages.settings.twoFactor');
+  const tCommon = useTranslations('common');
+  const [confirmFactorId, setConfirmFactorId] = useState<string | null>(null);
   const [factors, setFactors] = useState<Factor[] | null>(null);
   const [enrollment, setEnrollment] = useState<{
     factorId: string;
@@ -115,8 +120,7 @@ export function TwoFactorClient() {
     });
   }
 
-  function unenroll(factorId: string) {
-    if (!window.confirm('Disable this two-factor method?')) return;
+  function doUnenroll(factorId: string) {
     startTransition(async () => {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
       if (error) {
@@ -184,7 +188,7 @@ export function TwoFactorClient() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => unenroll(f.id)}
+                    onClick={() => setConfirmFactorId(f.id)}
                     disabled={isPending}
                   >
                     Remove
@@ -246,6 +250,21 @@ export function TwoFactorClient() {
           ) : null}
         </CardBody>
       </Card>
+
+      <ConfirmDialog
+        open={confirmFactorId !== null}
+        title={t('confirmDelete.title')}
+        description={t('confirmDelete.description')}
+        destructive
+        loading={isPending}
+        confirmLabel={tCommon('actions.delete')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => {
+          if (confirmFactorId) doUnenroll(confirmFactorId);
+          setConfirmFactorId(null);
+        }}
+        onCancel={() => setConfirmFactorId(null)}
+      />
     </div>
   );
 }

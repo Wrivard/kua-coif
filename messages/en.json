@@ -1273,6 +1273,18 @@
           "saved": "Program saved"
         }
       },
+      "reviews": {
+        "confirmDelete": {
+          "title": "Delete this review?",
+          "description": "This review will be permanently deleted. This action cannot be undone."
+        }
+      },
+      "twoFactor": {
+        "confirmDelete": {
+          "title": "Disable this method?",
+          "description": "This two-factor method will be removed from your account."
+        }
+      },
       "waitingList": {
         "title": "Waiting List",
         "configTitle": "Configuration",

@@ -1,8 +1,9 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { z } from 'zod';
+import { getClientIp } from '@/lib/security/client-ip';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
 import { mapSupabaseAuthError, type AuthErrorCode } from './errors';
@@ -32,12 +33,6 @@ function safeRedirectTarget(input: string | null | undefined, locale: Locale): s
   return input;
 }
 
-/** Best-effort client IP for rate limiting (Vercel sets x-forwarded-for). */
-function clientIp(): string {
-  const h = headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
-}
-
 // ---------------------------------------------------------------------------
 // Sign in
 // ---------------------------------------------------------------------------
@@ -46,7 +41,7 @@ export async function signInAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   // 1. Rate-limit BEFORE touching Supabase to blunt brute-force attempts.
-  const ip = clientIp();
+  const ip = getClientIp();
   const rl = await checkRateLimit(`signin:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     return { ok: false, errorCode: 'TOO_MANY_REQUESTS' };

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { shopLocale } from '@/lib/i18n-locale';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
@@ -978,7 +979,7 @@ export const cancelAppointment = withAction({
           .filter((n): n is string => Boolean(n))
           .map((name) => ({ name }));
         if (client?.email && shop) {
-          const emailLocale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
+          const emailLocale = shopLocale(shop.default_language);
           await sendEmail({
             shopId: ctx.shopId,
             kind: 'cancellation',

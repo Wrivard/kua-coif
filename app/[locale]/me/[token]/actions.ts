@@ -1,6 +1,6 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { getClientIp } from '@/lib/security/client-ip';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -35,11 +35,6 @@ const schema = z.object({
 
 export type ExportMyDataInput = z.infer<typeof schema>;
 
-function clientIp(): string {
-  const h = headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
-}
-
 export type SelfExport = {
   exported_at: string;
   client: {
@@ -65,7 +60,7 @@ export type SelfExport = {
 
 export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfExport>> {
   try {
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`me-export:${ip}`, { max: 10, windowMs: 60 * 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
 
@@ -230,7 +225,7 @@ export async function cancelMyAppointment(
   raw: CancelMyAppointmentInput,
 ): Promise<Result<CancelMyAppointmentResult>> {
   try {
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`me-cancel:${ip}`, { max: 10, windowMs: 60 * 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
 

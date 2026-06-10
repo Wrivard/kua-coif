@@ -25,6 +25,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { appUrl } from '@/lib/env/app-url';
 import { captureException } from '@/lib/observability';
 import { sendEmail } from '@/lib/email/send';
 import { WaitlistSlotOpen } from '@/lib/email/templates/waitlist-slot-open';
@@ -114,9 +115,7 @@ export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<v
         if (now - lastMs < DEDUP_WINDOW_MS) continue;
       }
 
-      const bookingUrl = shop.alias
-        ? `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? ''}/${entry.locale}/book/${shop.alias}`
-        : null;
+      const bookingUrl = shop.alias ? `${appUrl()}/${entry.locale}/book/${shop.alias}` : null;
 
       // Fire-and-forget per entry — sendEmail catches its own errors
       // via Sentry, and we don't want one bad address to block the

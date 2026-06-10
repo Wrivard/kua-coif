@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
+import { getClientIp } from '@/lib/security/client-ip';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,7 +34,7 @@ const eventSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = getClientIp(req.headers);
   const rl = await checkRateLimit(`widget-event:${ip}`, { max: 60, windowMs: 60 * 1000 });
   if (!rl.allowed) {
     return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });

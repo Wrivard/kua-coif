@@ -7,6 +7,7 @@ import { dispatchSms } from '@/lib/sms/dispatch';
 import { birthdayGreetingSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
 import { formatShopTime } from '@/lib/business/timezone';
+import { shopLocale } from '@/lib/i18n-locale';
 import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
@@ -144,7 +145,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
           ),
         );
 
-        const locale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
+        const locale = shopLocale(shop.default_language);
 
         for (const client of matches) {
           // ── Email branch ────────────────────────────────────────

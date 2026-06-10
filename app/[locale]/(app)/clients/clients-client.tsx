@@ -25,7 +25,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
+import { cn, normalizePhoneKey } from '@/lib/utils';
 import type { ClientRow } from '@/db/rows';
 import { ClientFormModal } from './client-form-modal';
 import {
@@ -127,7 +127,7 @@ export function ClientsClient({
         // Canonical NANP key = last 10 digits, matching the DB's
         // phone_normalized column, so '+1 514…' and bare-10-digit variants
         // of the same number are flagged as the same duplicate.
-        const key = c.phone.replace(/\D/g, '').slice(-10);
+        const key = normalizePhoneKey(c.phone);
         if (key.length > 0) {
           const list = byPhone.get(key) ?? [];
           list.push(c.id);
@@ -236,12 +236,12 @@ export function ClientsClient({
   // The other clients sharing `keep`'s canonical phone or email — the
   // candidates to fold into it. Same normalization as the duplicate badge.
   function partnersOf(keep: ClientRow): ClientRow[] {
-    const kp = keep.phone ? keep.phone.replace(/\D/g, '').slice(-10) : '';
+    const kp = keep.phone ? normalizePhoneKey(keep.phone) : '';
     const ke = keep.email?.toLowerCase() ?? '';
     return clients.filter(
       (c) =>
         c.id !== keep.id &&
-        ((kp.length > 0 && c.phone?.replace(/\D/g, '').slice(-10) === kp) ||
+        ((kp.length > 0 && c.phone && normalizePhoneKey(c.phone) === kp) ||
           (ke.length > 0 && c.email?.toLowerCase() === ke)),
     );
   }

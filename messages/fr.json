@@ -1273,6 +1273,18 @@
           "saved": "Programme enregistré"
         }
       },
+      "reviews": {
+        "confirmDelete": {
+          "title": "Supprimer cet avis ?",
+          "description": "Cet avis sera supprimé définitivement. Cette action est irréversible."
+        }
+      },
+      "twoFactor": {
+        "confirmDelete": {
+          "title": "Désactiver cette méthode ?",
+          "description": "Cette méthode de double authentification sera retirée de ton compte."
+        }
+      },
       "waitingList": {
         "title": "Liste d’attente",
         "configTitle": "Configuration",

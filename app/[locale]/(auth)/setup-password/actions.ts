@@ -1,8 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { z } from 'zod';
+import { getClientIp } from '@/lib/security/client-ip';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { defaultLocale, locales, type Locale } from '@/i18n';
@@ -44,8 +44,7 @@ export async function setupPasswordAction(
   _prev: SetupPasswordState | undefined,
   formData: FormData,
 ): Promise<SetupPasswordState> {
-  const h = headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = getClientIp();
   const rl = await checkRateLimit(`setup:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return { kind: 'rate-limited' };
 

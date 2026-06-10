@@ -1,7 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { headers } from 'next/headers';
+import { getClientIp } from '@/lib/security/client-ip';
 import { waitUntil } from '@vercel/functions';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -27,6 +27,7 @@ import {
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { computeBookingPricing } from '@/lib/business/booking-pricing';
+import { normalizePhoneKey } from '@/lib/utils';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -127,11 +128,6 @@ export const publicBookingSchema = z.object({
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
-function clientIp(): string {
-  const h = headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
-}
-
 /**
  * Public booking — accepts an anonymous request, performs every safety check
  * server-side, then writes the appointment with source='online'.
@@ -153,7 +149,7 @@ function clientIp(): string {
  */
 export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: string }>> {
   // Rate limit BEFORE parsing to keep abuse cheap.
-  const ip = clientIp();
+  const ip = getClientIp();
   const rl = await checkRateLimit(`book:${ip}`, { max: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return err('RATE_LIMITED');
 
@@ -522,7 +518,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // generated phone_normalized column. The old ilike '%digits%' substring
     // match manufactured duplicates ('+1 514…' vs bare digits never matched)
     // and could resolve to the WRONG client (cross-client loyalty/PII leak).
-    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+    const phoneKey = normalizePhoneKey(input.phone);
     let clientId: string | null = null;
     let clientLoyaltyBalanceCents = 0;
     let clientIsNew = false;
@@ -1037,7 +1033,7 @@ export async function addToWaitlistPublic(
   try {
     // Rate limit by IP — waitlist abuse risk is low, but spam still
     // possible. Looser than booking (20 / 10 min vs 10).
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`waitlist:${ip}`, {
       max: 20,
       windowMs: 10 * 60 * 1000,
@@ -1124,7 +1120,7 @@ export async function lookupLoyaltyByPhone(
   raw: LoyaltyLookupInput,
 ): Promise<Result<{ balanceCents: number }>> {
   try {
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`loyalty:${ip}`, {
       max: 60,
       windowMs: 10 * 60 * 1000,
@@ -1142,7 +1138,7 @@ export async function lookupLoyaltyByPhone(
     const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
     if (!shopId) return err('NOT_FOUND');
 
-    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+    const phoneKey = normalizePhoneKey(input.phone);
     if (phoneKey.length < 7) return ok({ balanceCents: 0 });
 
     const clientRes = await supabase
@@ -1272,7 +1268,7 @@ export async function createBookingPaymentIntent(
     // mount, so a strict cap is fine. 30/10min is loose enough for
     // legitimate retries (back+forward navigation) and tight enough
     // to throttle abuse (Stripe charges us per intent).
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`bookpay:${ip}`, {
       max: 30,
       windowMs: 10 * 60 * 1000,
@@ -1407,11 +1403,11 @@ export async function createBookingPaymentIntent(
         : 0;
       const postPromoTotal = subtotalDollars - discountForGuard;
       if (input.phone && postPromoTotal > 0) {
-        // Match phone_normalized (last-10 NANP), same canonicalization the
-        // booking write uses. Without .slice(-10) an 11-digit number (with
-        // country code) never matched, so its loyalty credit was missing from
-        // the pre-charge amount preview while the real charge applied it.
-        const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+        // Match phone_normalized (last-10 NANP via normalizePhoneKey), the same
+        // canonicalization the booking write uses — an 11-digit number with
+        // country code must map to the same key or its loyalty credit goes
+        // missing from the pre-charge preview while the real charge applies it.
+        const phoneKey = normalizePhoneKey(input.phone);
         if (phoneKey.length >= 7) {
           const clientRes = await supabase
             .from('clients')

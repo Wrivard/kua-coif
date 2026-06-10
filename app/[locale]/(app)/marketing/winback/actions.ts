@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { appUrl } from '@/lib/env/app-url';
+import { shopLocale } from '@/lib/i18n-locale';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
@@ -58,7 +60,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       default_language: string;
     } | null;
     if (!shop || !shop.alias) return err('UNEXPECTED');
-    const locale: 'fr' | 'en' = shop.default_language === 'en' ? 'en' : 'fr';
+    const locale = shopLocale(shop.default_language);
 
     // 2. Recurrence key — one winback per client per year per channel.
     //    Stops the operator from sending the same client multiple
@@ -81,7 +83,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       if (row.channel === 'sms') alreadySms.add(row.client_id);
     }
 
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+    const base = appUrl();
     const bookingUrl = `${base}/${locale}/book/${encodeURIComponent(shop.alias)}`;
 
     let sent = 0;
