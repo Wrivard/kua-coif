@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logDurableAudit } from '@/lib/audit-log';
+import { revalidateShopConfig } from '@/lib/server-actions/revalidate';
 import { barberSettingsBatchSchema } from './schema';
 
 const PATH = '/settings/barbers';
@@ -50,6 +51,10 @@ export const saveBarberSettings = withAction({
       diff: { rows: input.rows.length },
     });
     revalidatePath(PATH);
+    // Plan 017 — the slots route caches barber_settings
+    // (`barber-settings:${shopId}`); bust it so a changed booking interval /
+    // lead-time window takes effect immediately instead of after the 300s TTL.
+    revalidateShopConfig(ctx.shopId);
     return ok({ count: input.rows.length });
   },
 });
