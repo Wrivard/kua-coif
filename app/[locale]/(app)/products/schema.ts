@@ -14,7 +14,9 @@ export const productSchema = z.object({
     .max(50)
     .nullable()
     .or(z.literal('').transform(() => null)),
-  tax_ids: z.array(z.string().uuid()),
+  // Dedup so a doubled tax_id can't reach the M:N writer (the RPC also
+  // `select distinct`s, but de-duping at the edge keeps the payload honest).
+  tax_ids: z.array(z.string().uuid()).transform((a) => [...new Set(a)]),
 });
 export type ProductInput = z.infer<typeof productSchema>;
 
