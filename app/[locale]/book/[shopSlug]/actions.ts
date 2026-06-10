@@ -27,6 +27,7 @@ import {
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { computeBookingPricing } from '@/lib/business/booking-pricing';
+import { normalizePhoneKey } from '@/lib/utils';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -518,7 +519,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // generated phone_normalized column. The old ilike '%digits%' substring
     // match manufactured duplicates ('+1 514…' vs bare digits never matched)
     // and could resolve to the WRONG client (cross-client loyalty/PII leak).
-    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+    const phoneKey = normalizePhoneKey(input.phone);
     let clientId: string | null = null;
     let clientLoyaltyBalanceCents = 0;
     let clientIsNew = false;
@@ -1138,7 +1139,7 @@ export async function lookupLoyaltyByPhone(
     const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
     if (!shopId) return err('NOT_FOUND');
 
-    const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+    const phoneKey = normalizePhoneKey(input.phone);
     if (phoneKey.length < 7) return ok({ balanceCents: 0 });
 
     const clientRes = await supabase
@@ -1403,11 +1404,11 @@ export async function createBookingPaymentIntent(
         : 0;
       const postPromoTotal = subtotalDollars - discountForGuard;
       if (input.phone && postPromoTotal > 0) {
-        // Match phone_normalized (last-10 NANP), same canonicalization the
-        // booking write uses. Without .slice(-10) an 11-digit number (with
-        // country code) never matched, so its loyalty credit was missing from
-        // the pre-charge amount preview while the real charge applied it.
-        const phoneKey = input.phone.replace(/\D/g, '').slice(-10);
+        // Match phone_normalized (last-10 NANP via normalizePhoneKey), the same
+        // canonicalization the booking write uses — an 11-digit number with
+        // country code must map to the same key or its loyalty credit goes
+        // missing from the pre-charge preview while the real charge applies it.
+        const phoneKey = normalizePhoneKey(input.phone);
         if (phoneKey.length >= 7) {
           const clientRes = await supabase
             .from('clients')

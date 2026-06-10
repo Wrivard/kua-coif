@@ -8,6 +8,7 @@ import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import type { ClientRow } from '@/db/rows';
+import { normalizePhoneKey } from '@/lib/utils';
 import {
   anonymizeClientSchema,
   clientSchema,
@@ -29,7 +30,7 @@ export const createClient = withAction({
     // duplicate (same normalized phone OR email in this shop, excluding
     // anonymized rows). The merge flow resolves any that still slip through.
     const dupDb = createSupabaseServiceRoleClient();
-    const phoneNorm = input.phone ? input.phone.replace(/\D/g, '').slice(-10) : '';
+    const phoneNorm = input.phone ? normalizePhoneKey(input.phone) : '';
     if (phoneNorm.length >= 7) {
       const dup = await dupDb
         .from('clients')
