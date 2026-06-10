@@ -83,10 +83,14 @@ select ok(
 -- Test 2: user A cannot INSERT a client into shop B (RLS WITH CHECK rejects,
 -- SQLSTATE 42501 insufficient_privilege).
 -- ---------------------------------------------------------------------------
+-- 4-arg form: the 3rd arg is the expected error MESSAGE (3-arg form treated
+-- our description as one and failed the maiden CI run) — NULL skips message
+-- matching, the 4th arg is the description.
 select throws_ok(
   $$insert into public.clients (shop_id, first_name)
     values ('44444444-4444-4444-4444-444444444444', 'Mallory')$$,
   '42501',
+  null,
   'owner of shop A cannot insert a client into shop B (RLS rejects)'
 );
 

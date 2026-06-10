@@ -29,17 +29,28 @@ begin
   if v_user_id is null then
     v_user_id := gen_random_uuid();
 
+    -- The token/change columns are varchar NULL in the schema, but GoTrue
+    -- scans them into plain Go strings: a NULL makes the user-by-email query
+    -- fail with "unexpected_failure / Database error querying schema" at
+    -- login (observed on the maiden e2e run, 06fe654). Hand-inserted users
+    -- must seed them as '' the way GoTrue itself does.
     insert into auth.users (
       id, instance_id, aud, role, email,
       encrypted_password, email_confirmed_at,
       raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at
+      created_at, updated_at,
+      confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values (
       v_user_id, '00000000-0000-0000-0000-000000000000',
       'authenticated', 'authenticated', 'ci-e2e@kua.test',
       crypt('ci-e2e-Password123!', gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
-      now(), now()
+      now(), now(),
+      '', '',
+      '', '', '',
+      '', '', ''
     );
 
     -- GoTrue password login requires a matching email identity row.
