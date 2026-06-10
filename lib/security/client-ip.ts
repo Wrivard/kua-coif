@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { headers, type UnsafeUnwrappedHeaders } from 'next/headers';
 
 /**
  * Best-effort client IP for rate limiting. Reads the first hop of
@@ -15,6 +15,6 @@ import { headers } from 'next/headers';
  * rate limits behave differently per endpoint.
  */
 export function getClientIp(source?: Headers): string {
-  const h = source ?? headers();
+  const h = source ?? (headers() as unknown as UnsafeUnwrappedHeaders);
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
 }

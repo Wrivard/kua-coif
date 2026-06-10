@@ -13,7 +13,11 @@ export const dynamic = 'force-dynamic';
  * (publish / reject / delete). RLS already restricts to the active
  * shop's rows so the query needs no extra `.eq('shop_id', ...)`.
  */
-export default async function ReviewsPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function ReviewsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

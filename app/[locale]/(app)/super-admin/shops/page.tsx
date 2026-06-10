@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
  * across tenants — gated by `requireKuaAdmin` which ensures only Küa team
  * members reach the page.
  */
-export default async function AdminShopsPage({ params }: { params: { locale: string } }) {
+export default async function AdminShopsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   await requireKuaAdmin();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -42,7 +42,7 @@ import { formatCurrencyCAD } from '@/lib/utils';
  */
 export const dynamic = 'force-dynamic';
 
-type Props = { params: { locale: string; id: string } };
+type Props = { params: Promise<{ locale: string; id: string }> };
 
 type ShopRow = {
   id: string;
@@ -83,7 +83,8 @@ type ApptRow = {
   client_name_snapshot: string | null;
 };
 
-export default async function ShopDetailPage({ params }: Props) {
+export default async function ShopDetailPage(props: Props) {
+  const params = await props.params;
   await requireKuaAdmin();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServiceRoleClient() as any;

@@ -24,11 +24,11 @@ export const dynamic = 'force-dynamic';
  * pages, two entry points — like a control panel that highlights
  * different angles.
  */
-export default async function MarketingPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function MarketingPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

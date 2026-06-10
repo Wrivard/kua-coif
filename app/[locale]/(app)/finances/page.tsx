@@ -31,13 +31,15 @@ export const dynamic = 'force-dynamic';
  */
 type SearchParams = { start?: string; end?: string };
 
-export default async function FinancesPage({
-  params: { locale },
-  searchParams,
-}: {
-  params: { locale: string };
-  searchParams: SearchParams;
+export default async function FinancesPage(props: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

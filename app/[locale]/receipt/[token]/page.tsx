@@ -18,11 +18,13 @@ export const dynamic = 'force-dynamic';
  * dependency added). The customer hits "Print" in their browser →
  * "Save as PDF" → done. Same artifact, ~100KB lighter bundle.
  */
-export default async function ReceiptPage({
-  params: { locale, token },
-}: {
-  params: { locale: string; token: string };
+export default async function ReceiptPage(props: {
+  params: Promise<{ locale: string; token: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, token } = params;
+
   setRequestLocale(locale);
 
   const payload = verifyToken(decodeURIComponent(token), 'receipt');

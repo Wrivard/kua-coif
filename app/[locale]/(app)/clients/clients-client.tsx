@@ -404,6 +404,7 @@ export function ClientsClient({
             >
               <AlertTriangle className="h-3.5 w-3.5" /> {t('locateDuplicates')}
             </Button>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download from an API route; <Link> does client nav, not a file download */}
             <a
               href="/api/export/clients"
               className="inline-flex h-8 items-center gap-2 rounded-sm border border-border bg-bg-surface px-3 text-xs font-medium text-text-primary hover:bg-bg-surface-2"

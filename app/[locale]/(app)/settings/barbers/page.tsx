@@ -6,11 +6,11 @@ import { BarberSettingsClient, type BarberSettingsRow } from './barber-settings-
 
 export const dynamic = 'force-dynamic';
 
-export default async function BarberSettingsPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function BarberSettingsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   // B19 — manager+ only (the settings save already is). A barber-role user is

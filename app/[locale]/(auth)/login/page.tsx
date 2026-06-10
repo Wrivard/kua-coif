@@ -4,11 +4,16 @@ import Link from 'next/link';
 import { LoginForm } from './login-form';
 
 type Props = {
-  params: { locale: string };
-  searchParams: { redirect?: string; signedUp?: string };
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ redirect?: string; signedUp?: string }>;
 };
 
-export default function LoginPage({ params: { locale }, searchParams }: Props) {
+export default async function LoginPage(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <LoginPageContent locale={locale} searchParams={searchParams} />;
 }

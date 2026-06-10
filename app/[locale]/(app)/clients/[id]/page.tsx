@@ -38,11 +38,13 @@ const STATUS_VARIANT: Record<ApptStatus, BadgeVariant> = {
   no_show: 'warning',
 };
 
-export default async function ClientDetailPage({
-  params: { locale, id },
-}: {
-  params: { locale: string; id: string };
+export default async function ClientDetailPage(props: {
+  params: Promise<{ locale: string; id: string }>;
 }) {
+  const params = await props.params;
+
+  const { locale, id } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

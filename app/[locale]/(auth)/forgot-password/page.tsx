@@ -3,9 +3,13 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { ForgotPasswordForm } from './forgot-password-form';
 
-type Props = { params: { locale: string } };
+type Props = { params: Promise<{ locale: string }> };
 
-export default function ForgotPasswordPage({ params: { locale } }: Props) {
+export default async function ForgotPasswordPage(props: Props) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <ForgotPasswordContent locale={locale} />;
 }

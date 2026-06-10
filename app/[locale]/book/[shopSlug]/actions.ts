@@ -31,7 +31,10 @@ import { normalizePhoneKey } from '@/lib/utils';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
-export const publicBookingSchema = z.object({
+// Next 15 — a 'use server' module may export ONLY async functions. This schema
+// is internal to the action (no external importer), so it stays unexported; the
+// inferred type below is a compile-time-only `export type`, which is allowed.
+const publicBookingSchema = z.object({
   shop_slug: z.string().trim().min(1),
   barber_id: z.string().uuid().nullable(),
   service_ids: z.array(z.string().uuid()).min(1, 'SERVICE_REQUIRED'),

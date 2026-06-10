@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
-import { changePassword, changePasswordSchema, type ChangePasswordInput } from './actions';
+import { changePassword } from './actions';
+import { changePasswordSchema, type ChangePasswordInput } from './schema';
 
 export function PasswordClient() {
   const t = useTranslations('pages.settings.password');

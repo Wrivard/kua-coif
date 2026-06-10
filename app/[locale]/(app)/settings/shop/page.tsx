@@ -5,11 +5,11 @@ import { ShopDetailsClient, type ShopFullRow, type ShopHourRow } from './shop-de
 
 export const dynamic = 'force-dynamic';
 
-export default async function ShopDetailsPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function ShopDetailsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

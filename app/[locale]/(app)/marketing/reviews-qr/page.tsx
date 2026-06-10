@@ -20,11 +20,11 @@ export const dynamic = 'force-dynamic';
  * is still useful to the operator (they need somewhere to plug in
  * the URL the first time).
  */
-export default async function ReviewsQrPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function ReviewsQrPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

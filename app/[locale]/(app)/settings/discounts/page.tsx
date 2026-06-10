@@ -6,11 +6,11 @@ import { DiscountsClient } from './discounts-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DiscountsPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function DiscountsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

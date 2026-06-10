@@ -28,11 +28,16 @@ import { AppointmentsCalendar, type CalendarAppointment } from './appointments-c
 export const dynamic = 'force-dynamic';
 
 type Props = {
-  params: { locale: string };
-  searchParams: { date?: string; view?: string };
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 };
 
-export default async function AppointmentsPage({ params: { locale }, searchParams }: Props) {
+export default async function AppointmentsPage(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

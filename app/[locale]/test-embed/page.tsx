@@ -20,8 +20,8 @@ import { ArrowLeft, ExternalLink, Info } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 type Props = {
-  params: { locale: string };
-  searchParams: { slug?: string; mode?: string; theme?: string };
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ slug?: string; mode?: string; theme?: string }>;
 };
 
 const VALID_MODES = ['inline', 'floating-button', 'modal'] as const;
@@ -45,7 +45,12 @@ function snippetFor(mode: WidgetMode, slug: string, locale: 'fr' | 'en', theme: 
 <script src="/widget.js" async></script>`;
 }
 
-export default function TestEmbedPage({ params: { locale }, searchParams }: Props) {
+export default async function TestEmbedPage(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   const slug = (searchParams?.slug ?? '').trim();
   const widgetLocale = locale === 'en' ? 'en' : 'fr';
@@ -75,7 +80,6 @@ export default function TestEmbedPage({ params: { locale }, searchParams }: Prop
           ) : null}
         </span>
       </div>
-
       <main className="mx-auto max-w-3xl space-y-8 px-4 py-12">
         <header className="space-y-2">
           <a

@@ -8,7 +8,8 @@ import { PlatformConfigClient } from './platform-config-client';
 // gating, feature flags, etc.) land in this same row.
 export const dynamic = 'force-dynamic';
 
-export default async function PlatformConfigPage({ params }: { params: { locale: string } }) {
+export default async function PlatformConfigPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
   // requireKuaAdmin redirects non-admins to /no-shop so the existence
   // of /admin/platform-config isn't leaked to logged-in shop members.
   await requireKuaAdmin();

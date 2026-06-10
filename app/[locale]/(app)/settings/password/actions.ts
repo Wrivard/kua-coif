@@ -1,24 +1,12 @@
 'use server';
 
-import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { mapSupabaseAuthError } from '@/lib/auth/errors';
 import { logAuditAction } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
-
-export const changePasswordSchema = z
-  .object({
-    current_password: z.string().min(1, 'CURRENT_PASSWORD_REQUIRED'),
-    new_password: z.string().min(8, 'PASSWORD_TOO_SHORT').max(72),
-    confirm_password: z.string(),
-  })
-  .refine((d) => d.new_password === d.confirm_password, {
-    message: 'PASSWORDS_DONT_MATCH',
-    path: ['confirm_password'],
-  });
-export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+import { changePasswordSchema } from './schema';
 
 export const changePassword = withAction({
   schema: changePasswordSchema,

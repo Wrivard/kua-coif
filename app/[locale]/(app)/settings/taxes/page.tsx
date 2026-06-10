@@ -8,7 +8,11 @@ import { TaxesClient } from './taxes-client';
 // not static rendering — so force-dynamic stays accurate.
 export const dynamic = 'force-dynamic';
 
-export default async function TaxesPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function TaxesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 

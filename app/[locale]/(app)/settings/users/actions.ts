@@ -90,7 +90,7 @@ export const inviteUser = withAction({
     }
 
     // ── Path B: invite a brand-new user ──────────────────────────────────
-    const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
+    const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
     const inviteRes = await sb.auth.admin.inviteUserByEmail(input.email, {
       redirectTo: `${origin}/${defaultLocale}/setup-password`,
     });

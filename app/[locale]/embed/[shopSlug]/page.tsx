@@ -19,7 +19,7 @@ import { PreviewWrapper } from './preview-wrapper';
 export const revalidate = 60;
 
 type Props = {
-  params: { locale: string; shopSlug: string };
+  params: Promise<{ locale: string; shopSlug: string }>;
   // Loop 66 — `?preview=1` opts into the live-preview listener mounted
   // by the /settings/widget admin iframe. Public widget.js loads never
   // pass this flag, so the listener is dead code for third-party
@@ -30,7 +30,7 @@ type Props = {
   // Phase H+14 — `?source=` tags the load with which integration mode
   // mounted it, so the analytics funnel can split conversion by
   // surface. Defaults to 'direct' (no widget.js, plain /embed/ load).
-  searchParams?: { preview?: string; theme?: string; source?: string };
+  searchParams?: Promise<{ preview?: string; theme?: string; source?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -47,10 +47,12 @@ export const metadata: Metadata = {
  * automatically. Loaded inside an iframe injected by `public/widget.js` (or
  * directly in the admin live-preview pane).
  */
-export default async function EmbedBookingPage({
-  params: { locale, shopSlug },
-  searchParams,
-}: Props) {
+export default async function EmbedBookingPage(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+
+  const { locale, shopSlug } = params;
+
   setRequestLocale(locale);
   const isPreview = searchParams?.preview === '1';
   // Phase H+13 — per-instance theme override via URL. Validated against

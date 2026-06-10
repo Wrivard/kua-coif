@@ -22,11 +22,11 @@ const LOOKBACK_DAYS = 60;
  * Operator selects rows + hits "Send review request"; the server action
  * generates signed tokens per appointment + dispatches email + SMS.
  */
-export default async function ReviewCampaignPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function ReviewCampaignPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');

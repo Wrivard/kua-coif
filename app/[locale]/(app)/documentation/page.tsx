@@ -4,7 +4,11 @@ import { PageHeader } from '@/components/ui/page-header';
 import { DocumentationBrowser } from './documentation-browser';
 import type { DocLocale } from './content';
 
-export default function DocumentationPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function DocumentationPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   return <Content locale={locale} />;
 }

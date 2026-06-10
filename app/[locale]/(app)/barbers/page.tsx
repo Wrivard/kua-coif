@@ -7,7 +7,11 @@ import { BarbersClient, type GoogleConnectionView } from './barbers-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function BarbersPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function BarbersPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
   // B19 — the roster exposes colleague PII (email/phone) and is a management

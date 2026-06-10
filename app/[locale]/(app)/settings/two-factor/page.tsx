@@ -14,11 +14,11 @@ export const dynamic = 'force-dynamic';
  * challenges once we wire it up (V1.1) — for V1 enrollment is
  * voluntary and protects only re-auth events.
  */
-export default async function TwoFactorPage({
-  params: { locale },
-}: {
-  params: { locale: string };
-}) {
+export default async function TwoFactorPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params;
+
+  const { locale } = params;
+
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
