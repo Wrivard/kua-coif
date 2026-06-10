@@ -55,7 +55,7 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
     // The token only carries the appointment_id — the rest comes from DB.
     const apptRes = await supabase
       .from('appointments')
-      .select('id, shop_id, barber_id, client_id')
+      .select('id, shop_id, barber_id, client_id, public_link_version')
       .eq('id', payload.resourceId)
       .limit(1);
     const appt = ((apptRes.data as Array<{
@@ -63,8 +63,12 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
       shop_id: string;
       barber_id: string;
       client_id: string;
+      public_link_version: number | null;
     }> | null) ?? [])[0];
     if (!appt) return err('NOT_FOUND');
+    // Revocation (plan 013): stale token version → same NOT_FOUND path as a
+    // bad token (never a distinct error that would confirm the appt exists).
+    if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) return err('NOT_FOUND');
 
     // Block duplicate submissions — one review per appointment.
     const existingRes = await supabase

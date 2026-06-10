@@ -27,7 +27,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
 | 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | DONE (operator: create AUTOFIX_GH_PAT secret + branch protection) |
 | 012 | Missed-schedule monitoring for the business crons (Sentry check-ins) | P2 | S | 008 (same file: notifications cron) | DONE (operator: Sentry alert rule on missed/failed monitors) |
-| 013 | Versioned/revocable receipt + review + reschedule tokens | P2 | M | — | TODO |
+| 013 | Versioned/revocable receipt + review + reschedule tokens | P2 | M | — | DONE — migration DEPLOYED to prod 2026-06-10 |
 | 014 | Single-source booking pricing + parity tests | P1 | M | 001 (same file) | DONE (17 tests incl. 5 parity) |
 | 015 | Supabase mock harness + tests for the 3 money flows | P1 | L | 014 (pricing extracted first) | TODO |
 | 016 | CI verification hardening (db job, RLS test, types drift, TZ=UTC leg, e2e) | P1 | M | 002 (the TZ=UTC leg guards it) | DONE (db-e2e.yml non-blocking — promote after 7 green days) |
