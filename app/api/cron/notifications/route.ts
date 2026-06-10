@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
+import { getShopSmtpConfig, type ShopSmtpConfig } from '@/lib/email/smtp';
 import { AppointmentReminder } from '@/lib/email/templates/appointment-reminder';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
@@ -184,6 +185,39 @@ async function runNotificationsCron(): Promise<NextResponse> {
     for (const d of due) dueBySlot[d.slot].add(d.appointmentId);
   }
 
+  // Plan 018 — preload the per-(shop,kind) email automation flags + per-shop
+  // SMTP configs ONCE for the distinct shops with due reminders, then pass them
+  // to sendEmail via `preloaded` so it skips its two internal DB reads on every
+  // message this tick (was 2 reads × N reminders → 1 batch + 1 read/shop).
+  const dueShopIds = [
+    ...new Set(
+      [...dueBySlot[1], ...dueBySlot[2]]
+        .map((id) => candidateById.get(id)?.shop_id)
+        .filter((s): s is string => Boolean(s)),
+    ),
+  ];
+  const emailAutomationByShopKind = new Map<string, boolean>();
+  const smtpByShop = new Map<string, ShopSmtpConfig | null>();
+  if (dueShopIds.length > 0) {
+    const autoRes = await sb
+      .from('notification_automations')
+      .select('shop_id, kind, enabled')
+      .in('shop_id', dueShopIds)
+      .eq('channel', 'email');
+    for (const r of (autoRes.data as Array<{
+      shop_id: string;
+      kind: string;
+      enabled: boolean;
+    }> | null) ?? []) {
+      emailAutomationByShopKind.set(`${r.shop_id}:${r.kind}`, r.enabled);
+    }
+    await Promise.all(
+      dueShopIds.map(async (sid) => {
+        smtpByShop.set(sid, await getShopSmtpConfig(sid));
+      }),
+    );
+  }
+
   // Slot 1 → 'reminder_24h', slot 2 → 'reminder_1h': stable notification_sends +
   // AutomationKind keys (names are legacy; the timing is now configurable).
   for (const [kind, slot] of [
@@ -260,6 +294,13 @@ async function runNotificationsCron(): Promise<NextResponse> {
           const result = await sendEmail({
             shopId: appt.shop_id,
             kind: kind satisfies AutomationKind,
+            // Plan 018 — preloaded config skips sendEmail's 2 internal reads.
+            // Missing automation row → opt-in default true (matches
+            // isAutomationEnabled's failsafe).
+            preloaded: {
+              automationEnabled: emailAutomationByShopKind.get(`${appt.shop_id}:${kind}`) ?? true,
+              smtpCfg: smtpByShop.get(appt.shop_id) ?? null,
+            },
             to: appt.client.email,
             // B5 — offset-agnostic subject (reminder timing is configurable);
             // the body carries the actual date + time.
