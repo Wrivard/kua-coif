@@ -1,5 +1,5 @@
 /**
- * Loop 54 (P100 slice 2) — SMS dispatch helper.
+ * Loop 54 (P100 slice 2) â€” SMS dispatch helper.
  *
  * Wraps the Twilio REST client with the shop-side config lookup +
  * the `notification_sends` ledger write. The cron at
@@ -21,10 +21,10 @@ import type { AutomationKind } from '@/lib/email/send';
 export type DispatchSmsInput = {
   shopId: string;
   /**
-   * Loop 62 — `null` means "I'll manage my own ledger" (used by the
+   * Loop 62 â€” `null` means "I'll manage my own ledger" (used by the
    * birthday + future marketing-campaign crons, which write to
    * `client_marketing_sends` instead of `notification_sends`).
-   * Non-null means "write the notification_sends row for me" — the
+   * Non-null means "write the notification_sends row for me" â€” the
    * usual appointment-scoped reminder/confirmation flow.
    */
   appointmentId: string | null;
@@ -38,14 +38,14 @@ export type DispatchSmsInput = {
    */
   statusCallbackUrl?: string;
   /**
-   * Loop 63 SR — set true for OPERATOR-INITIATED sends (bulk review
+   * Loop 63 SR â€” set true for OPERATOR-INITIATED sends (bulk review
    * campaign, manual lapsed-client outreach, etc.) to bypass the
    * `notification_automations` toggle. That gate is for AUTOMATED
-   * sends — birthday cron, reminders, etc. — where the shop owner
+   * sends â€” birthday cron, reminders, etc. â€” where the shop owner
    * has a per-shop-kind enable/disable preference. A manager
    * clicking "Send" in a campaign UI has already expressed intent;
    * applying the matrix toggle on top would silently swallow their
-   * send if e.g. birthday-SMS was disabled (the previous bug —
+   * send if e.g. birthday-SMS was disabled (the previous bug â€”
    * review-campaign reused `kind: 'birthday'` as a placeholder and
    * inherited the gate).
    *
@@ -62,8 +62,7 @@ export type DispatchSmsResult =
 export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsResult> {
   if (!encryptionConfigured()) return { sent: false, reason: 'no-encryption' };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // Load the shop's Twilio creds. Service-role bypasses the
   // REVOKE on twilio_auth_token_enc.
@@ -81,12 +80,12 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
     return { sent: false, reason: 'no-config' };
   }
 
-  // Automation gate — same `notification_automations` table as
+  // Automation gate â€” same `notification_automations` table as
   // email but scoped to channel='sms'. Falls back to a `true`
   // default when no row exists (opt-in by default, owner can flip
   // off in /settings/notifications once the UI ships).
   //
-  // Loop 63 SR — skip the gate entirely for operator-initiated
+  // Loop 63 SR â€” skip the gate entirely for operator-initiated
   // sends. Bulk campaigns aren't automations; gating them by the
   // matrix toggle would silently swallow manual clicks.
   if (!input.bypassAutomationGate) {
@@ -103,7 +102,7 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
     }
   }
 
-  // Twilio call — decrypt creds, fire, capture errors.
+  // Twilio call â€” decrypt creds, fire, capture errors.
   try {
     const result = await sendSms(
       {
@@ -123,16 +122,16 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
         extra: { shopId: input.shopId, appointmentId: input.appointmentId },
       });
 
-      // Loop 54 SR — a Twilio 4xx other than 401 is *permanent*:
+      // Loop 54 SR â€” a Twilio 4xx other than 401 is *permanent*:
       // a bad phone number (`To` malformed), a body length /
       // content rejection, a number-not-on-account error, etc.
       // Without a notification_sends row, the cron retries every
-      // 15 min forever — flooding Sentry + Twilio's rate limiter.
+      // 15 min forever â€” flooding Sentry + Twilio's rate limiter.
       // We treat 401 as transient (operator can fix bad creds in
       // /settings/notifications) and 5xx as transient (Twilio
       // brownouts retry naturally on the next tick).
       //
-      // Loop 62 — only write the failure row when appointmentId is
+      // Loop 62 â€” only write the failure row when appointmentId is
       // non-null. Marketing-campaign callers manage their own ledger
       // (client_marketing_sends).
       const httpStatus = result.status;
@@ -161,7 +160,7 @@ export async function dispatchSms(input: DispatchSmsInput): Promise<DispatchSmsR
     // double-tick scenario. `provider_message_id` lets the Loop 55
     // status webhook find this row from the Twilio callback.
     //
-    // Loop 62 — skip the ledger write when appointmentId is null
+    // Loop 62 â€” skip the ledger write when appointmentId is null
     // (marketing-campaign callers write to client_marketing_sends).
     if (input.appointmentId !== null) {
       await admin

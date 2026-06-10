@@ -1,7 +1,7 @@
 /**
- * Post-appointment review request — Loop 64.
+ * Post-appointment review request â€” Loop 64.
  *
- * Called from `updateAppointment` on the not-completed → completed
+ * Called from `updateAppointment` on the not-completed â†’ completed
  * transition, alongside the loyalty award + QuickBooks sync. When a
  * visit wraps up and the client has an email on file, we ask them for
  * a review with the same signed-token link the bulk
@@ -16,8 +16,8 @@
  *   - **Idempotent.** One ask per appointment, ever. We reuse the
  *     existing `client_marketing_sends` ledger
  *     (kind='review_request', channel='email',
- *     recurrence_key=appointment_id) — the SAME key the bulk campaign
- *     writes — so a re-toggle (completed → booked → completed) or an
+ *     recurrence_key=appointment_id) â€” the SAME key the bulk campaign
+ *     writes â€” so a re-toggle (completed â†’ booked â†’ completed) or an
  *     appointment already covered by a bulk send never double-mails.
  *     The ledger's UNIQUE (client_id, kind, channel, recurrence_key)
  *     is the backstop against a concurrent double-fire.
@@ -37,7 +37,7 @@ import { sendEmail } from '@/lib/email/send';
 import { ReviewRequest } from '@/lib/email/templates/review-request';
 import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
 
-// 90 days — long enough that a client clicking a week later still sees
+// 90 days â€” long enough that a client clicking a week later still sees
 // the form, short enough that a leaked token can't be replayed years
 // on. Matches the TTL used by `sendReviewCampaign`.
 const REVIEW_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
@@ -52,15 +52,14 @@ export async function sendReviewRequestOnCompletion({
   /** Nullable: walk-in appointments (Phase 72) have no client row. */
   clientId: string | null;
 }): Promise<void> {
-  // Walk-in with no client → nobody to email.
+  // Walk-in with no client â†’ nobody to email.
   if (!clientId) return;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     // Client must exist, not be anonymized, and have an email. Defense
-    // in depth on `anonymized_at` mirrors `sendReviewCampaign` — a
+    // in depth on `anonymized_at` mirrors `sendReviewCampaign` â€” a
     // forgotten client must never receive marketing.
     const clientRes = await admin
       .from('clients')
@@ -73,10 +72,10 @@ export async function sendReviewRequestOnCompletion({
       anonymized_at: string | null;
       marketing_opted_out: boolean | null;
     } | null;
-    // CASL — skip anonymized clients and those who opted out of marketing.
+    // CASL â€” skip anonymized clients and those who opted out of marketing.
     if (!client || client.anonymized_at || client.marketing_opted_out || !client.email) return;
 
-    // Idempotency pre-check — already asked about THIS appointment?
+    // Idempotency pre-check â€” already asked about THIS appointment?
     // recurrence_key = appointment_id, the same key the bulk campaign
     // writes, so the two paths can't both mail the same visit.
     const alreadyRes = await admin
@@ -104,8 +103,8 @@ export async function sendReviewRequestOnCompletion({
     const base = appUrl();
     // Embed the appointment's current revocation version (plan 013) so a
     // leaked auto-review link can be killed from the drawer. One extra
-    // single-row read per completion — this path is per-event, not
-    // batched, so it's a +1, not an N+1. Absent/unset ⇒ 0 (legacy).
+    // single-row read per completion â€” this path is per-event, not
+    // batched, so it's a +1, not an N+1. Absent/unset â‡’ 0 (legacy).
     const verRes = await admin
       .from('appointments')
       .select('public_link_version')
@@ -123,12 +122,12 @@ export async function sendReviewRequestOnCompletion({
 
     const result = await sendEmail({
       shopId,
-      // No 'review_request' AutomationKind — bypass the matrix gate,
+      // No 'review_request' AutomationKind â€” bypass the matrix gate,
       // matching `sendReviewCampaign`.
       to: client.email,
       subject:
         locale === 'fr'
-          ? `Comment s'est passée ta visite chez ${shop.name} ?`
+          ? `Comment s'est passÃ©e ta visite chez ${shop.name} ?`
           : `How was your visit at ${shop.name}?`,
       template: ReviewRequest({
         locale,
