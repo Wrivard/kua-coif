@@ -3,6 +3,13 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { combineShopDateTime, shopDayEnd, shopDayStart } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import {
+  getCachedShopByAlias,
+  getCachedBookableBarbers,
+  getCachedShopHours,
+  getCachedShopDaysOff,
+  getCachedBarberSettings,
+} from '@/lib/data/calendar-config';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,56 +45,38 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceRoleClient() as any;
 
-  // Resolve shop.
-  const shopRes = await supabase
-    .from('shops')
-    .select('id, timezone, allow_booking_any_barber')
-    .eq('alias', params.shopSlug)
-    .limit(1);
-  const shop = ((shopRes.data as Array<{
-    id: string;
-    timezone: string;
-    allow_booking_any_barber: boolean;
-  }> | null) ?? [])[0];
+  // Resolve shop. Slow-changing config (shop projection, bookable barbers,
+  // hours, days-off, barber_settings) comes from the per-shop Data Cache
+  // (lib/data/calendar-config) — those tables change a few times a week and
+  // every mutating action busts their tag. Only appointments + blocked_time
+  // stay LIVE below (they're volatile by the minute). The response itself
+  // remains `no-store` so the wizard always recomputes against fresh bookings.
+  const shop = await getCachedShopByAlias(params.shopSlug);
   if (!shop) return NextResponse.json({ slots: [] }, { status: 404 });
 
-  // Resolve target barber (or "first confirmed" if 'any').
+  // Resolve target barber (or "first confirmed bookable" if 'any') against the
+  // cached confirmed+bookable list (B6/B17) — same filter the per-call queries
+  // used (shop-scoped, status=confirmed, bookable=true, sort_order asc) — so we
+  // never surface a hidden / soft-deleted / cross-shop barber. The booking
+  // action re-checks live, so a stale list can never become a wrong booking.
+  const bookableBarbers = await getCachedBookableBarbers(shop.id);
   let barberId: string | null = null;
   if (barber && barber !== 'any') {
-    // Validate the supplied barber is bookable in THIS shop (B6/B17) — don't
-    // surface slots for a hidden / soft-deleted / cross-shop barber. The
-    // booking action re-checks too, but the slots API shouldn't advertise them.
-    const oneRes = await supabase
-      .from('barbers')
-      .select('id')
-      .eq('id', barber)
-      .eq('shop_id', shop.id)
-      .eq('status', 'confirmed')
-      .eq('bookable', true)
-      .maybeSingle();
-    barberId = (oneRes.data as { id: string } | null)?.id ?? null;
+    barberId = bookableBarbers.some((b) => b.id === barber) ? barber : null;
   } else if (shop.allow_booking_any_barber) {
-    const anyRes = await supabase
-      .from('barbers')
-      .select('id, sort_order')
-      .eq('shop_id', shop.id)
-      .eq('status', 'confirmed')
-      .eq('bookable', true)
-      .order('sort_order', { ascending: true })
-      .limit(1);
-    barberId = ((anyRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+    barberId = bookableBarbers[0]?.id ?? null;
   }
   if (!barberId) return NextResponse.json({ slots: [] });
 
-  // Load the day's schedule.
+  // Load the day's schedule. The Promise.all runs exactly TWO live DB queries
+  // (appointments, blocked_time); the other three entries resolve from the
+  // per-shop Data Cache.
   const dayStart = shopDayStart(new Date(`${date}T12:00:00Z`), shop.timezone);
   const dayEnd = shopDayEnd(dayStart, shop.timezone);
-  const [hoursRes, daysOffRes, apptsRes, blockedRes, settingsRes] = await Promise.all([
-    supabase
-      .from('shop_hours')
-      .select('weekday, enabled, open_time, close_time')
-      .eq('shop_id', shop.id),
-    supabase.from('shop_days_off').select('date').eq('shop_id', shop.id),
+  const [hours, daysOff, settingsRows, apptsRes, blockedRes] = await Promise.all([
+    getCachedShopHours(shop.id),
+    getCachedShopDaysOff(shop.id),
+    getCachedBarberSettings(shop.id),
     supabase
       .from('appointments')
       .select('id, barber_id, start_at, end_at, status')
@@ -100,22 +89,8 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
       .eq('shop_id', shop.id)
       .gte('start_at', dayStart.toISOString())
       .lt('start_at', dayEnd.toISOString()),
-    supabase
-      .from('barber_settings')
-      .select(
-        'scope, barber_id, client_booking_interval_min, days_book_in_advance, mins_book_before_appt',
-      )
-      .eq('shop_id', shop.id),
   ]);
 
-  const hours =
-    (hoursRes.data as Array<{
-      weekday: number;
-      enabled: boolean;
-      open_time: string | null;
-      close_time: string | null;
-    }> | null) ?? [];
-  const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
   const existing: ExistingAppointment[] = (
     (apptsRes.data as Array<{
       id: string;
@@ -140,14 +115,6 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
     start_at: new Date(b.start_at),
     end_at: new Date(b.end_at),
   }));
-  const settingsRows =
-    (settingsRes.data as Array<{
-      scope: 'shop' | 'barber';
-      barber_id: string | null;
-      client_booking_interval_min: number;
-      days_book_in_advance: number;
-      mins_book_before_appt: number;
-    }> | null) ?? [];
   const barberOverride = settingsRows.find((r) => r.scope === 'barber' && r.barber_id === barberId);
   const shopDefault = settingsRows.find((r) => r.scope === 'shop');
   const settings = barberOverride ?? shopDefault;
