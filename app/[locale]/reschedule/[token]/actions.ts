@@ -6,7 +6,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { err, ok, type Result } from '@/lib/server-actions/result';
 import { captureException } from '@/lib/observability';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
@@ -222,7 +222,7 @@ export async function reschedulePublicAppointment(
       return err('UNEXPECTED');
     }
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: appt.shop_id,
       actorId: '00000000-0000-0000-0000-000000000000',
       action: 'update',

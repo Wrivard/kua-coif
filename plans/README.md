@@ -17,15 +17,15 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 |------|-------|----------|--------|------------|--------|
 | 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | DONE |
 | 002 | Make day-window parsing independent of the server runtime timezone | P1 | S | — | DONE |
-| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | IN PROGRESS |
-| 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | IN PROGRESS |
+| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE (migration to deploy: staging→prod + barber smoke) |
+| 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | DONE |
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
 | 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
-| 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | TODO |
+| 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | DONE |
 | 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | TODO |
 | 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
-| 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | TODO |
-| 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | TODO |
+| 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
+| 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | DONE (operator: create AUTOFIX_GH_PAT secret + branch protection) |
 | 012 | Missed-schedule monitoring for the business crons (Sentry check-ins) | P2 | S | 008 (same file: notifications cron) | TODO |
 | 013 | Versioned/revocable receipt + review + reschedule tokens | P2 | M | — | TODO |
 | 014 | Single-source booking pricing + parity tests | P1 | M | 001 (same file) | TODO |
