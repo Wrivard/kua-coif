@@ -1,20 +1,24 @@
 -- =============================================================================
--- rls_cross_shop.sql
+-- rls_cross_shop.sql  (pgTAP)
 -- Regression test: a member of shop A must NEVER see/write rows of shop B.
 --
--- Run with:
---   supabase test db   (uses the local CLI)
--- or, against any Postgres reachable via psql:
---   psql "$DATABASE_URL" -f supabase/tests/rls_cross_shop.sql
+-- Real pgTAP (plan / ok / is / throws_ok / finish), consumed by the standard
+-- Supabase TAP runner, which boots the local stack:
+--   supabase test db
 --
--- The test creates two synthetic users + shops in a transaction and rolls back
--- at the end, so it's safe to run repeatedly.
+-- The suite provisions two synthetic users + shops inside a transaction and
+-- rolls back at the end, so it is safe to run repeatedly. Each cross-tenant
+-- guarantee maps to exactly one pgTAP assertion (see plan() below).
 -- =============================================================================
 
 begin;
+create extension if not exists pgtap;
+select plan(6);
 
 -- ---------------------------------------------------------------------------
 -- Helper: switch the connection to behave as "authenticated user <uuid>".
+-- (Unchanged from the original suite. RLS only applies to non-superuser roles,
+-- so we MUST drop into `authenticated` for the policies to take effect.)
 -- ---------------------------------------------------------------------------
 create or replace function pg_temp.act_as(p_user uuid)
 returns void
@@ -29,89 +33,93 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Setup — bypass RLS to provision fixtures.
+-- Setup — bypass RLS (as postgres) to provision fixtures. Deterministic UUIDs
+-- so the assertions below can reference the synthetic shop/user rows directly.
 -- ---------------------------------------------------------------------------
 set local role postgres;
 
--- Two fake auth users (we insert directly into auth.users for the test).
-do $$
-declare
-  v_user_a uuid := gen_random_uuid();
-  v_user_b uuid := gen_random_uuid();
-  v_shop_a uuid;
-  v_shop_b uuid;
-  v_visible_count int;
-begin
-  insert into auth.users (id, email, instance_id, aud, role, encrypted_password,
-                          email_confirmed_at, created_at, updated_at)
-  values
-    (v_user_a, 'rls-test-a@example.com', '00000000-0000-0000-0000-000000000000',
-     'authenticated', 'authenticated', '', now(), now(), now()),
-    (v_user_b, 'rls-test-b@example.com', '00000000-0000-0000-0000-000000000000',
-     'authenticated', 'authenticated', '', now(), now(), now());
+-- Two fake auth users; profiles are auto-created by the on-auth.users trigger.
+insert into auth.users (id, email, instance_id, aud, role, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('11111111-1111-1111-1111-111111111111', 'rls-test-a@example.com',
+   '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '',
+   now(), now(), now()),
+  ('22222222-2222-2222-2222-222222222222', 'rls-test-b@example.com',
+   '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '',
+   now(), now(), now());
 
-  -- Profiles get auto-created by the trigger. Provision shops + memberships:
-  insert into public.shops (name, country) values ('Shop A — test', 'Canada')
-    returning id into v_shop_a;
-  insert into public.shops (name, country) values ('Shop B — test', 'Canada')
-    returning id into v_shop_b;
+-- A shop per user + the matching owner membership.
+insert into public.shops (id, name, country) values
+  ('33333333-3333-3333-3333-333333333333', 'Shop A — test', 'Canada'),
+  ('44444444-4444-4444-4444-444444444444', 'Shop B — test', 'Canada');
 
-  insert into public.shop_members (shop_id, user_id, role, status)
-    values (v_shop_a, v_user_a, 'owner', 'confirmed'),
-           (v_shop_b, v_user_b, 'owner', 'confirmed');
+insert into public.shop_members (shop_id, user_id, role, status) values
+  ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'owner', 'confirmed'),
+  ('44444444-4444-4444-4444-444444444444', '22222222-2222-2222-2222-222222222222', 'owner', 'confirmed');
 
-  -- One client in each shop.
-  insert into public.clients (shop_id, first_name, phone)
-    values (v_shop_a, 'Alice', '+15555550001'),
-           (v_shop_b, 'Bob',   '+15555550002');
+-- One client in each shop.
+insert into public.clients (shop_id, first_name, phone) values
+  ('33333333-3333-3333-3333-333333333333', 'Alice', '+15555550001'),
+  ('44444444-4444-4444-4444-444444444444', 'Bob',   '+15555550002');
 
-  -- -------------------------------------------------------------------------
-  -- Test 1: user A sees only shop A's clients.
-  -- -------------------------------------------------------------------------
-  perform pg_temp.act_as(v_user_a);
-  select count(*) into v_visible_count from public.clients;
-  if v_visible_count <> 1 then
-    raise exception 'RLS LEAK: user A should see 1 client, saw %', v_visible_count;
-  end if;
+-- ---------------------------------------------------------------------------
+-- Test 1: user A (shop A) sees only shop A's clients.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111'::uuid);
 
-  if exists (select 1 from public.clients where first_name = 'Bob') then
-    raise exception 'RLS LEAK: user A is able to read shop B''s client (Bob)';
-  end if;
+select is(
+  (select count(*)::int from public.clients),
+  1,
+  'owner of shop A sees exactly 1 client (their own shop)'
+);
 
-  -- -------------------------------------------------------------------------
-  -- Test 2: user A cannot insert a client into shop B.
-  -- -------------------------------------------------------------------------
-  begin
-    insert into public.clients (shop_id, first_name) values (v_shop_b, 'Mallory');
-    raise exception 'RLS LEAK: user A inserted into shop B';
-  exception when others then
-    -- expected — the policy must reject this.
-    null;
-  end;
+select ok(
+  not exists (select 1 from public.clients where first_name = 'Bob'),
+  'owner of shop A cannot read shop B''s client (Bob)'
+);
 
-  -- -------------------------------------------------------------------------
-  -- Test 3: user B mirror check.
-  -- -------------------------------------------------------------------------
-  perform pg_temp.act_as(v_user_b);
-  select count(*) into v_visible_count from public.clients;
-  if v_visible_count <> 1 then
-    raise exception 'RLS LEAK: user B should see 1 client, saw %', v_visible_count;
-  end if;
-  if exists (select 1 from public.clients where first_name = 'Alice') then
-    raise exception 'RLS LEAK: user B is able to read shop A''s client (Alice)';
-  end if;
+-- ---------------------------------------------------------------------------
+-- Test 2: user A cannot INSERT a client into shop B (RLS WITH CHECK rejects,
+-- SQLSTATE 42501 insufficient_privilege).
+-- ---------------------------------------------------------------------------
+select throws_ok(
+  $$insert into public.clients (shop_id, first_name)
+    values ('44444444-4444-4444-4444-444444444444', 'Mallory')$$,
+  '42501',
+  'owner of shop A cannot insert a client into shop B (RLS rejects)'
+);
 
-  -- -------------------------------------------------------------------------
-  -- Test 4: anonymous (no auth.uid) sees nothing.
-  -- -------------------------------------------------------------------------
-  perform set_config('role', 'anon', true);
-  perform set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-  select count(*) into v_visible_count from public.clients;
-  if v_visible_count <> 0 then
-    raise exception 'RLS LEAK: anonymous user can see % client rows', v_visible_count;
-  end if;
+-- ---------------------------------------------------------------------------
+-- Test 3: user B (shop B) mirror check.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222'::uuid);
 
-  raise notice 'rls_cross_shop tests PASSED';
-end$$;
+select is(
+  (select count(*)::int from public.clients),
+  1,
+  'owner of shop B sees exactly 1 client (their own shop)'
+);
 
+select ok(
+  not exists (select 1 from public.clients where first_name = 'Alice'),
+  'owner of shop B cannot read shop A''s client (Alice)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Test 4: anonymous (no auth.uid) sees nothing.
+-- ---------------------------------------------------------------------------
+select set_config('role', 'anon', true);
+select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+
+select is(
+  (select count(*)::int from public.clients),
+  0,
+  'anonymous (no auth.uid) sees zero client rows'
+);
+
+-- Reset to the privileged role so finish() is unaffected by the anon context.
+set local role postgres;
+
+select * from finish();
 rollback;
