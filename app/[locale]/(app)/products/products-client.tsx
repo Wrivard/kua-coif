@@ -10,6 +10,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
+import { SearchBar } from '@/components/ui/search-bar';
 import { SectionSwitcher } from '@/components/ui/section-switcher';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrencyCAD } from '@/lib/utils';
@@ -58,6 +59,10 @@ export function ProductsClient({
   };
   const [confirmDelete, setConfirmDelete] = useState<AnyRow | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Client-side product search (name / sku / brand / category) — same pattern
+  // as the Clients roster. Brands+categories are a handful of rows so we don't
+  // search them; the products table is the only one that grows.
+  const [search, setSearch] = useState('');
 
   const brandById = useMemo(() => new Map(brands.map((b) => [b.id, b])), [brands]);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -71,6 +76,19 @@ export function ProductsClient({
     }
     return m;
   }, [links]);
+
+  // Filtered view for the products table. The haystack folds in the resolved
+  // brand + category NAMES (not ids) so a search for "AURA" or "AFRO" matches.
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => {
+      const brand = brandById.get(p.brand_id ?? '')?.name ?? '';
+      const category = categoryById.get(p.category_id ?? '')?.name ?? '';
+      const hay = `${p.name} ${p.sku ?? ''} ${brand} ${category}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [products, search, brandById, categoryById]);
 
   // Retail / wholesale rollups shown next to the toolbar (annexe Image 11).
   const retailValue = products.reduce((sum, p) => sum + p.price * p.current_inventory, 0);
@@ -99,6 +117,14 @@ export function ProductsClient({
       setConfirmDelete(null);
       if (result.ok) {
         show({ variant: 'success', title: t('toasts.deleted') });
+      } else if (result.errorCode === 'CONFLICT' && (r.kind === 'brand' || r.kind === 'category')) {
+        // W1 (Kai) makes deleteBrand/deleteCategory return CONFLICT when
+        // products still reference them. Guide the manager to the fix instead
+        // of the generic "reload and retry".
+        show({
+          variant: 'danger',
+          title: t(r.kind === 'brand' ? 'conflicts.brandInUse' : 'conflicts.categoryInUse'),
+        });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
@@ -148,15 +174,25 @@ export function ProductsClient({
     {
       id: 'inv',
       header: t('columns.inventory'),
-      cell: (r) => (
-        <span className={isLowStock(r) ? 'font-semibold text-danger' : undefined}>
-          {r.current_inventory}
-        </span>
-      ),
+      // WCAG 1.4.1 — low stock was signalled by colour ALONE. Pair it with the
+      // same warning Badge + icon + accessible label used for negative margin
+      // so it's perceivable without colour (and announced by screen readers).
+      cell: (r) =>
+        isLowStock(r) ? (
+          <span className="flex items-center justify-end gap-1.5 font-semibold text-danger">
+            {r.current_inventory}
+            <Badge variant="warning" title={t('warnings.lowStock')}>
+              <AlertTriangle className="h-3 w-3" aria-hidden />
+              <span className="sr-only">{t('warnings.lowStock')}</span>
+            </Badge>
+          </span>
+        ) : (
+          r.current_inventory
+        ),
       sortable: true,
       sortValue: (r) => r.current_inventory,
       align: 'right',
-      width: '90px',
+      width: '110px',
     },
     {
       id: 'lowInv',
@@ -277,6 +313,15 @@ export function ProductsClient({
           under 1280px viewports. */}
       <PageHeader
         title={t('title')}
+        center={
+          view === 'products' ? (
+            <SearchBar
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+            />
+          ) : undefined
+        }
         actions={
           <>
             <a
@@ -330,8 +375,9 @@ export function ProductsClient({
         {view === 'products' && (
           <DataTable
             columns={productColumns}
-            data={products}
+            data={filteredProducts}
             getRowKey={(r) => r.id}
+            virtualize
             emptyState={{ title: t('emptyTitle'), description: t('emptyHint') }}
           />
         )}

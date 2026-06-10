@@ -539,8 +539,6 @@
     },
     "products": {
       "title": "Products",
-      "soon": "Inventory, brands, categories — Phase 4.",
-      "summary": "Retail value {retail} · Supply value {wholesale} · {low} low-stock",
       "stats": {
         "retail": "Retail value",
         "wholesale": "Supply value",
@@ -569,7 +567,8 @@
         "brand": "Brand"
       },
       "warnings": {
-        "negativeMargin": "Negative margin: supply price exceeds retail price."
+        "negativeMargin": "Negative margin: supply price exceeds retail price.",
+        "lowStock": "Low stock"
       },
       "confirmDelete": {
         "title": "Delete this item?",
@@ -609,6 +608,13 @@
         "deleted": "Item deleted",
         "brandSaved": "Brand saved",
         "categorySaved": "Category saved"
+      },
+      "searchPlaceholder": "Search products…",
+      "conflicts": {
+        "brandInUse": "This brand is used by products. Reassign them before deleting it.",
+        "categoryInUse": "This category is used by products. Reassign them before deleting it.",
+        "brandDuplicate": "A brand with this name already exists.",
+        "categoryDuplicate": "A category with this name already exists."
       }
     },
     "support": {

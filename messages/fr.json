@@ -539,8 +539,6 @@
     },
     "products": {
       "title": "Produits",
-      "soon": "Inventaire, marques, catégories — Phase 4.",
-      "summary": "Valeur détail {retail} · Valeur fournisseur {wholesale} · {low} sous le seuil",
       "stats": {
         "retail": "Valeur détail",
         "wholesale": "Valeur fournisseur",
@@ -569,7 +567,8 @@
         "brand": "Marque"
       },
       "warnings": {
-        "negativeMargin": "Marge négative : prix fournisseur supérieur au prix de vente."
+        "negativeMargin": "Marge négative : prix fournisseur supérieur au prix de vente.",
+        "lowStock": "Stock bas"
       },
       "confirmDelete": {
         "title": "Supprimer cet élément ?",
@@ -609,6 +608,13 @@
         "deleted": "Élément supprimé",
         "brandSaved": "Marque enregistrée",
         "categorySaved": "Catégorie enregistrée"
+      },
+      "searchPlaceholder": "Rechercher un produit…",
+      "conflicts": {
+        "brandInUse": "Cette marque est utilisée par des produits. Réassigne-les avant de la supprimer.",
+        "categoryInUse": "Cette catégorie est utilisée par des produits. Réassigne-les avant de la supprimer.",
+        "brandDuplicate": "Une marque portant ce nom existe déjà.",
+        "categoryDuplicate": "Une catégorie portant ce nom existe déjà."
       }
     },
     "support": {
