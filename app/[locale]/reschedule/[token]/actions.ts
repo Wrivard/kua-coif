@@ -1,6 +1,6 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { getClientIp } from '@/lib/security/client-ip';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
@@ -30,11 +30,6 @@ const schema = z.object({
 
 export type ReschedulePublicInput = z.infer<typeof schema>;
 
-function clientIp(): string {
-  const h = headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
-}
-
 function toMinutes(t: string): number {
   const [hh, mm] = t.split(':').map(Number);
   return (hh ?? 0) * 60 + (mm ?? 0);
@@ -50,7 +45,7 @@ export async function reschedulePublicAppointment(
   raw: ReschedulePublicInput,
 ): Promise<Result<{ id: string }>> {
   try {
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`reschedule:${ip}`, {
       max: 15,
       windowMs: 10 * 60 * 1000,

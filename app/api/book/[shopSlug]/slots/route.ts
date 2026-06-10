@@ -11,6 +11,7 @@ import {
   getCachedShopDaysOff,
   getCachedBarberSettings,
 } from '@/lib/data/calendar-config';
+import { getClientIp } from '@/lib/security/client-ip';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,7 +27,7 @@ export const runtime = 'nodejs';
  * Public endpoint — rate-limited by IP to keep scraping cheap.
  */
 export async function GET(req: NextRequest, { params }: { params: { shopSlug: string } }) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = getClientIp(req.headers);
   const rl = await checkRateLimit(`slots:${ip}`, { max: 30, windowMs: 60 * 1000 });
   if (!rl.allowed) {
     return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });

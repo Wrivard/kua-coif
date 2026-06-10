@@ -1,6 +1,6 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { getClientIp } from '@/lib/security/client-ip';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
@@ -30,14 +30,9 @@ const schema = z.object({
 
 export type SubmitReviewInput = z.infer<typeof schema>;
 
-function clientIp(): string {
-  const h = headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
-}
-
 export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result<{ id: string }>> {
   try {
-    const ip = clientIp();
+    const ip = getClientIp();
     const rl = await checkRateLimit(`review:${ip}`, { max: 20, windowMs: 10 * 60 * 1000 });
     if (!rl.allowed) return err('RATE_LIMITED');
 

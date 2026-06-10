@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { getClientIp } from '@/lib/security/client-ip';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
@@ -37,7 +38,7 @@ export async function forgotPasswordAction(
   formData: FormData,
 ): Promise<ForgotPasswordState> {
   const h = headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = getClientIp(h);
   const rl = await checkRateLimit(`forgot:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return { kind: 'rate-limited' };
 

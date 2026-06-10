@@ -1,8 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { z } from 'zod';
+import { getClientIp } from '@/lib/security/client-ip';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
@@ -40,8 +40,7 @@ export async function resetPasswordAction(
   _prev: ResetPasswordState | undefined,
   formData: FormData,
 ): Promise<ResetPasswordState> {
-  const h = headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = getClientIp();
   const rl = await checkRateLimit(`reset:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) return { kind: 'rate-limited' };
 
