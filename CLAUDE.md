@@ -25,7 +25,7 @@ Bilingual **fr + en**, French default (Québec).
   by `shop_id`; a member sees only their shops. Types in `db/types.ts`
   (regenerate with `pnpm db:types:local` / `:remote`).
 - **Stripe Connect** — deposits / PaymentIntents / Elements (`lib/stripe/*`).
-- **next-intl v3** (`messages/fr.json`, `messages/en.json`), fr default.
+- **next-intl v4** (`messages/fr.json`, `messages/en.json`), fr default.
 - **Tailwind** with CSS-variable tokens (`app/globals.css`). **Light + dark
   themes, light is the default** (`lib/theme.ts`: explicit choice → system →
   light). Do not reintroduce a hardcoded `dark` class.
