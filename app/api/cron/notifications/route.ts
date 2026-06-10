@@ -7,22 +7,32 @@ import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
 import { captureException } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
+import {
+  dueReminders,
+  offsetMinutes,
+  MAX_REMINDER_OFFSET_MIN,
+  type ReminderOffsets,
+} from '@/lib/business/reminders';
 
 /**
  * Reminder cron — Phase 25c.
  *
  * Scheduled every 15 minutes by GitHub Actions
  * (.github/workflows/cron-notifications.yml) — NOT vercel.json: Vercel Hobby
- * caps at 2 daily crons, so the 15-minute reminder cron lives in Actions. Two
- * windows we care about each tick:
+ * caps at 2 daily crons, so the 15-minute reminder cron lives in Actions.
  *
- *   - `reminder_24h`: appointments starting in [now+23h45, now+24h15]
- *   - `reminder_1h`:  appointments starting in [now+0h45, now+1h15]
+ * Two reminder slots per appointment, with CONFIGURABLE offsets (Barbers audit
+ * B5): the timing comes from each barber's effective barber_settings
+ * (reminder1/2_h/m, with the per-barber override falling back to the shop
+ * default, then 24h/1h). Each tick loads candidate appointments across the
+ * whole reminder horizon and `lib/business/reminders.dueReminders()` (pure,
+ * unit-tested) picks which (appointment, slot) reminders fall in this tick's
+ * ±15-min catch window. Slot 1 keys as `reminder_24h`, slot 2 as `reminder_1h`
+ * (legacy stable keys for notification_sends + the automation toggle).
  *
- * The 30-minute window per kind matches the cron interval so the same
- * appointment isn't picked up twice, but we also write to
- * `notification_sends` on success and `INSERT … ON CONFLICT DO NOTHING`
- * to belt-and-braces against duplicate sends if a tick gets retried.
+ * Idempotency: we write to `notification_sends` (UNIQUE on appointment_id,
+ * kind, channel) on success, so the overlapping catch windows across ticks
+ * each fire a given reminder exactly once.
  *
  * Security: the GitHub Actions workflow passes `Authorization: Bearer
  * <CRON_SECRET>` via curl. We reject any other caller with 401. In
@@ -76,46 +86,99 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServiceRoleClient() as any;
 
-  const now = Date.now();
-  // 30-minute windows — matches the cron interval (15 min) plus a safety
-  // overlap so a slightly-late tick doesn't miss an appointment that
-  // landed in the previous bucket.
-  const window24h = {
-    from: new Date(now + (24 * 60 - 15) * 60_000).toISOString(),
-    to: new Date(now + (24 * 60 + 15) * 60_000).toISOString(),
-  };
-  const window1h = {
-    from: new Date(now + (60 - 15) * 60_000).toISOString(),
-    to: new Date(now + (60 + 15) * 60_000).toISOString(),
-  };
+  const nowMs = Date.now();
+  const HALF_WINDOW_MS = 15 * 60_000; // ±15 min catch window (matches the 15-min schedule)
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
-  for (const [kind, window] of [
-    ['reminder_24h', window24h],
-    ['reminder_1h', window1h],
-  ] as Array<['reminder_24h' | 'reminder_1h', { from: string; to: string }]>) {
-    try {
-      // Pull every candidate appointment + everything we need to render the
-      // email in one shot. We fetch all statuses except 'cancelled' /
-      // 'no_show' so reschedules in the window still get a reminder.
-      const apptsRes = await sb
-        .from('appointments')
-        .select(
-          // Loop 54 — `client.phone` pulled for the SMS branch below.
-          `id, shop_id, start_at, status, barber_id, client_id,
-           client:clients(first_name, email, phone),
-           shop:shops(name, timezone, street, municipality, province, phone, default_language),
-           appointment_services(services(name)),
-           barber:barbers(display_name)`,
-        )
-        .gte('start_at', window.from)
-        .lte('start_at', window.to)
-        .in('status', ['booked', 'confirmed', 'arrived']);
+  // B5 — load every candidate appointment in the broad reminder horizon (now →
+  // now + max configurable offset + the catch window) across all shops in ONE
+  // query; dueReminders() then picks which are actually due this tick from each
+  // barber's effective reminder1/2 offsets, replacing the old fixed 24h/1h
+  // windows. (We fetch all statuses except cancelled/no_show so reschedules
+  // still get a reminder.)
+  const candidatesRes = await sb
+    .from('appointments')
+    .select(
+      `id, shop_id, start_at, status, barber_id, client_id,
+       client:clients(first_name, email, phone),
+       shop:shops(name, timezone, street, municipality, province, phone, default_language),
+       appointment_services(services(name)),
+       barber:barbers(display_name)`,
+    )
+    .gte('start_at', new Date(nowMs).toISOString())
+    .lte('start_at', new Date(nowMs + (MAX_REMINDER_OFFSET_MIN + 15) * 60_000).toISOString())
+    .in('status', ['booked', 'confirmed', 'arrived']);
+  const allCandidates = (candidatesRes.data as ApptRow[] | null) ?? [];
 
-      const candidates = (apptsRes.data as ApptRow[] | null) ?? [];
+  const FALLBACK: ReminderOffsets = { slot1Min: 24 * 60, slot2Min: 60 };
+  const candidateById = new Map<string, ApptRow>();
+  const dueBySlot: Record<1 | 2, Set<string>> = { 1: new Set<string>(), 2: new Set<string>() };
+  if (allCandidates.length > 0) {
+    for (const c of allCandidates) candidateById.set(c.id, c);
+    // Effective reminder offsets per barber: override → shop default → fallback.
+    const shopIds = [...new Set(allCandidates.map((c) => c.shop_id))];
+    const settingsRes = await sb
+      .from('barber_settings')
+      .select('scope, barber_id, shop_id, reminder1_h, reminder1_m, reminder2_h, reminder2_m')
+      .in('shop_id', shopIds);
+    const settingsRows =
+      (settingsRes.data as Array<{
+        scope: 'shop' | 'barber';
+        barber_id: string | null;
+        shop_id: string;
+        reminder1_h: number;
+        reminder1_m: number;
+        reminder2_h: number;
+        reminder2_m: number;
+      }> | null) ?? [];
+    const shopDefaultByShop = new Map<string, ReminderOffsets>();
+    const barberOverride = new Map<string, ReminderOffsets>();
+    for (const r of settingsRows) {
+      const offs: ReminderOffsets = {
+        slot1Min: offsetMinutes(r.reminder1_h, r.reminder1_m),
+        slot2Min: offsetMinutes(r.reminder2_h, r.reminder2_m),
+      };
+      if (r.scope === 'shop') shopDefaultByShop.set(r.shop_id, offs);
+      else if (r.barber_id) barberOverride.set(r.barber_id, offs);
+    }
+    const offsetsByBarber = new Map<string, ReminderOffsets>();
+    for (const c of allCandidates) {
+      if (!offsetsByBarber.has(c.barber_id)) {
+        offsetsByBarber.set(
+          c.barber_id,
+          barberOverride.get(c.barber_id) ?? shopDefaultByShop.get(c.shop_id) ?? FALLBACK,
+        );
+      }
+    }
+    const due = dueReminders(
+      allCandidates.map((c) => ({
+        id: c.id,
+        startMs: new Date(c.start_at).getTime(),
+        barberId: c.barber_id,
+      })),
+      offsetsByBarber,
+      FALLBACK,
+      nowMs,
+      HALF_WINDOW_MS,
+    );
+    for (const d of due) dueBySlot[d.slot].add(d.appointmentId);
+  }
+
+  // Slot 1 → 'reminder_24h', slot 2 → 'reminder_1h': stable notification_sends +
+  // AutomationKind keys (names are legacy; the timing is now configurable).
+  for (const [kind, slot] of [
+    ['reminder_24h', 1],
+    ['reminder_1h', 2],
+  ] as Array<['reminder_24h' | 'reminder_1h', 1 | 2]>) {
+    const dueIds = [...dueBySlot[slot]];
+    if (dueIds.length === 0) continue;
+    try {
+      const candidates = dueIds
+        .map((id) => candidateById.get(id))
+        .filter((c): c is ApptRow => Boolean(c));
       if (candidates.length === 0) continue;
 
       // Filter out appointments we've already notified for this kind. One
@@ -181,14 +244,12 @@ export async function GET(req: NextRequest) {
             shopId: appt.shop_id,
             kind: kind satisfies AutomationKind,
             to: appt.client.email,
+            // B5 — offset-agnostic subject (reminder timing is configurable);
+            // the body carries the actual date + time.
             subject:
-              kind === 'reminder_24h'
-                ? locale === 'fr'
-                  ? `Rappel : ton rendez-vous demain chez ${appt.shop.name}`
-                  : `Reminder: your appointment tomorrow at ${appt.shop.name}`
-                : locale === 'fr'
-                  ? `Rappel : ton rendez-vous dans 1 heure chez ${appt.shop.name}`
-                  : `Reminder: your appointment in 1 hour at ${appt.shop.name}`,
+              locale === 'fr'
+                ? `Rappel : ton rendez-vous chez ${appt.shop.name}`
+                : `Reminder: your appointment at ${appt.shop.name}`,
             template: AppointmentReminder({
               locale,
               kind,

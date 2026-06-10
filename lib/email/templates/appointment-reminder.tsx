@@ -34,44 +34,39 @@ export type AppointmentReminderProps = {
   };
 };
 
-const copy = (locale: 'fr' | 'en', kind: AppointmentReminderProps['kind']) => {
-  const is24 = kind === 'reminder_24h';
+// B5 — reminder timing is now configurable per barber/shop, so the copy is
+// offset-agnostic: it references "your upcoming appointment" + the actual date
+// and time (rendered below) rather than "tomorrow" / "in 1 hour". The `kind`
+// still drives the body's service-list detail (slot-1 reminder is fuller).
+const copy = (locale: 'fr' | 'en') => {
   if (locale === 'fr') {
     return {
-      preview: is24 ? 'Ton rendez-vous est demain' : 'Ton rendez-vous est dans 1 heure',
-      title: is24 ? 'Rappel — demain' : 'Rappel — dans 1 heure',
+      preview: 'Ton prochain rendez-vous',
+      title: 'Rappel de rendez-vous',
       hello: (n: string) => `Bonjour ${n},`,
-      intro: is24
-        ? "C'est un petit rappel : tu as un rendez-vous demain. Voici les détails :"
-        : 'Ton rendez-vous est dans une heure. À tout de suite !',
+      intro: 'Voici les détails de ton prochain rendez-vous :',
       when: 'Quand',
       with: 'Avec',
       services: 'Services',
       anyPro: 'Premier·ère professionnel·le disponible',
       addressLabel: 'Adresse',
       phoneLabel: 'Téléphone',
-      outro: is24
-        ? 'Si tu dois reporter ou annuler, contacte directement le salon dès maintenant.'
-        : 'À très bientôt !',
+      outro: 'Si tu dois reporter ou annuler, contacte le salon dès que possible.',
       signature: "— L'équipe",
     };
   }
   return {
-    preview: is24 ? 'Your appointment is tomorrow' : 'Your appointment is in 1 hour',
-    title: is24 ? 'Reminder — tomorrow' : 'Reminder — in 1 hour',
+    preview: 'Your upcoming appointment',
+    title: 'Appointment reminder',
     hello: (n: string) => `Hi ${n},`,
-    intro: is24
-      ? 'Quick reminder: you have an appointment tomorrow. Here are the details:'
-      : 'Your appointment is in one hour. See you soon!',
+    intro: 'Here are the details of your upcoming appointment:',
     when: 'When',
     with: 'With',
     services: 'Services',
     anyPro: 'First available professional',
     addressLabel: 'Address',
     phoneLabel: 'Phone',
-    outro: is24
-      ? 'If you need to reschedule or cancel, contact the shop now.'
-      : 'See you very soon!',
+    outro: 'If you need to reschedule or cancel, contact the shop as soon as possible.',
     signature: '— The team',
   };
 };
@@ -83,7 +78,7 @@ export function AppointmentReminder({
   client,
   appointment,
 }: AppointmentReminderProps) {
-  const L = copy(locale, kind);
+  const L = copy(locale);
   const startDate = new Date(appointment.startAt);
   const formattedDate = formatHeaderDate(startDate, locale, shop.timezone);
   const formattedTime = formatShopTime(appointment.startAt, shop.timezone, 'HH:mm');

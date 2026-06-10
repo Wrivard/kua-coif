@@ -27,21 +27,30 @@ type ReminderInput = {
   shopPhone: string | null;
 };
 
+// B5 — reminder offsets are now configurable per barber/shop, so the copy must
+// be offset-agnostic: show the actual appointment date + time instead of
+// "tomorrow" / "in 1 hour". reminder24hSms = the first (fuller) reminder,
+// reminder1hSms = the second (terser, time-only) reminder.
 export function reminder24hSms(input: ReminderInput): string {
-  const time = formatShopTime(input.startAtIso, input.timezone, 'HH:mm');
+  const when = formatShopTime(
+    input.startAtIso,
+    input.timezone,
+    input.locale === 'fr' ? 'd MMM, HH:mm' : 'MMM d, HH:mm',
+  );
   if (input.locale === 'fr') {
     const tail = input.shopPhone ? ` Annuler? ${input.shopPhone}` : '';
-    return `Rappel: rendez-vous demain à ${time} chez ${input.shopName}.${tail}`;
+    return `Rappel: rendez-vous le ${when} chez ${input.shopName}.${tail}`;
   }
   const tail = input.shopPhone ? ` Cancel? ${input.shopPhone}` : '';
-  return `Reminder: appointment tomorrow at ${time} at ${input.shopName}.${tail}`;
+  return `Reminder: appointment ${when} at ${input.shopName}.${tail}`;
 }
 
 export function reminder1hSms(input: ReminderInput): string {
+  const time = formatShopTime(input.startAtIso, input.timezone, 'HH:mm');
   if (input.locale === 'fr') {
-    return `Ton rendez-vous chez ${input.shopName} commence dans 1 heure. À tout de suite!`;
+    return `Rappel: ton rendez-vous chez ${input.shopName} est à ${time}. À bientôt!`;
   }
-  return `Your appointment at ${input.shopName} starts in 1 hour. See you soon!`;
+  return `Reminder: your appointment at ${input.shopName} is at ${time}. See you soon!`;
 }
 
 /**
