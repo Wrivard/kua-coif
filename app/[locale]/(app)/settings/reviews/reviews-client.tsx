@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, Star, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
@@ -29,7 +31,10 @@ export function ReviewsClient({
   barberNames: Record<string, string>;
 }) {
   const { show } = useToast();
+  const t = useTranslations('pages.settings.reviews');
+  const tCommon = useTranslations('common');
   const [isPending, startTransition] = useTransition();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
     return {
@@ -51,8 +56,7 @@ export function ReviewsClient({
     });
   }
 
-  function remove(id: string) {
-    if (!window.confirm('Delete this review permanently?')) return;
+  function doRemove(id: string) {
     startTransition(async () => {
       const result = await deleteReview({ review_id: id });
       if (result.ok) show({ variant: 'success', title: 'Deleted' });
@@ -92,7 +96,7 @@ export function ReviewsClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => remove(r.id)}
+                    onClick={() => setConfirmId(r.id)}
                     disabled={isPending}
                     className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Delete"
@@ -114,7 +118,7 @@ export function ReviewsClient({
               actions={
                 <button
                   type="button"
-                  onClick={() => remove(r.id)}
+                  onClick={() => setConfirmId(r.id)}
                   disabled={isPending}
                   className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Delete"
@@ -135,7 +139,7 @@ export function ReviewsClient({
               actions={
                 <button
                   type="button"
-                  onClick={() => remove(r.id)}
+                  onClick={() => setConfirmId(r.id)}
                   disabled={isPending}
                   className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Delete"
@@ -147,6 +151,21 @@ export function ReviewsClient({
           )}
         </Section>
       </div>
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title={t('confirmDelete.title')}
+        description={t('confirmDelete.description')}
+        destructive
+        loading={isPending}
+        confirmLabel={tCommon('actions.delete')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => {
+          if (confirmId) doRemove(confirmId);
+          setConfirmId(null);
+        }}
+        onCancel={() => setConfirmId(null)}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { SectionMasthead } from '@/components/ui/section-masthead';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { deleteWaitlistEntry, updateWaitlistEntryStatus, upsertWaitingList } from './actions';
 // Loop 59 hotfix — schema + type live in `./schema` not `./actions`
@@ -50,6 +51,7 @@ export function WaitingListClient({
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, setValue } = useForm<WaitingListInput>({
     resolver: zodResolver(waitingListSchema),
@@ -88,8 +90,7 @@ export function WaitingListClient({
     });
   }
 
-  function onDelete(id: string) {
-    if (!window.confirm(t('confirmDelete'))) return;
+  function doDelete(id: string) {
     startTransition(async () => {
       const result = await deleteWaitlistEntry({ entry_id: id });
       if (result.ok) show({ variant: 'success', title: t('toasts.deleted') });
@@ -224,7 +225,7 @@ export function WaitingListClient({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => onDelete(e.id)}
+                                onClick={() => setConfirmId(e.id)}
                                 disabled={isPending}
                                 aria-label={t('entries.actions.delete')}
                                 className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
@@ -243,6 +244,20 @@ export function WaitingListClient({
           </div>
         </section>
       </div>
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title={t('confirmDelete')}
+        destructive
+        loading={isPending}
+        confirmLabel={tCommon('actions.delete')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => {
+          if (confirmId) doDelete(confirmId);
+          setConfirmId(null);
+        }}
+        onCancel={() => setConfirmId(null)}
+      />
     </>
   );
 }
