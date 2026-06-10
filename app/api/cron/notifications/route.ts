@@ -5,7 +5,7 @@ import { AppointmentReminder } from '@/lib/email/templates/appointment-reminder'
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { reminder1hSms, reminder24hSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
-import { captureException } from '@/lib/observability';
+import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 import {
   dueReminders,
@@ -81,7 +81,14 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
+  // Cron Monitor check-in lives INSIDE the auth gate so unauthorized probes
+  // never emit a check-in. Slug + crontab mirror .github/workflows/cron-notifications.yml.
+  return withCronMonitor('cron-notifications', { type: 'crontab', value: '*/15 * * * *' }, () =>
+    runNotificationsCron(),
+  );
+}
 
+async function runNotificationsCron(): Promise<NextResponse> {
   const startedAt = Date.now();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServiceRoleClient() as any;

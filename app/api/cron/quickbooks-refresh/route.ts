@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { decrypt, encrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { refreshQbToken, quickbooksConfigured } from '@/lib/quickbooks/server';
-import { captureException } from '@/lib/observability';
+import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
@@ -45,6 +45,13 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
+  // Check-in inside the auth gate. Slug + crontab mirror vercel.json.
+  return withCronMonitor('cron-quickbooks-refresh', { type: 'crontab', value: '15 2 * * *' }, () =>
+    runQuickbooksRefreshCron(),
+  );
+}
+
+async function runQuickbooksRefreshCron(): Promise<NextResponse> {
   if (!quickbooksConfigured() || !encryptionConfigured()) {
     // No QuickBooks app credentials OR no encryption key — nothing
     // we can do. Return 200 with a no-op summary so the cron run
