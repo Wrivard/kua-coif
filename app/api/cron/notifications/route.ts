@@ -14,6 +14,10 @@ import {
   MAX_REMINDER_OFFSET_MIN,
   type ReminderOffsets,
 } from '@/lib/business/reminders';
+import {
+  resolveEffectiveBarberSettings,
+  BARBER_SETTINGS_DEFAULTS,
+} from '@/lib/business/barber-settings';
 
 /**
  * Reminder cron — Phase 25c.
@@ -131,7 +135,12 @@ async function runNotificationsCron(): Promise<NextResponse> {
     });
   }
 
-  const FALLBACK: ReminderOffsets = { slot1Min: 24 * 60, slot2Min: 60 };
+  // B20 — the no-rows default offsets come from the shared resolver's DEFAULTS
+  // (24h / 1h); the cron no longer hardcodes its own reminder fallback.
+  const DEFAULT_OFFSETS: ReminderOffsets = {
+    slot1Min: offsetMinutes(BARBER_SETTINGS_DEFAULTS.reminder1_h, BARBER_SETTINGS_DEFAULTS.reminder1_m),
+    slot2Min: offsetMinutes(BARBER_SETTINGS_DEFAULTS.reminder2_h, BARBER_SETTINGS_DEFAULTS.reminder2_m),
+  };
   const candidateById = new Map<string, ApptRow>();
   const dueBySlot: Record<1 | 2, Set<string>> = { 1: new Set<string>(), 2: new Set<string>() };
   if (allCandidates.length > 0) {
@@ -152,23 +161,22 @@ async function runNotificationsCron(): Promise<NextResponse> {
         reminder2_h: number;
         reminder2_m: number;
       }> | null) ?? [];
-    const shopDefaultByShop = new Map<string, ReminderOffsets>();
-    const barberOverride = new Map<string, ReminderOffsets>();
+    // Group rows per shop so the resolver's shop-row match is shop-scoped, then
+    // resolve effective reminder offsets per barber (override → shop → defaults).
+    const rowsByShop = new Map<string, typeof settingsRows>();
     for (const r of settingsRows) {
-      const offs: ReminderOffsets = {
-        slot1Min: offsetMinutes(r.reminder1_h, r.reminder1_m),
-        slot2Min: offsetMinutes(r.reminder2_h, r.reminder2_m),
-      };
-      if (r.scope === 'shop') shopDefaultByShop.set(r.shop_id, offs);
-      else if (r.barber_id) barberOverride.set(r.barber_id, offs);
+      const arr = rowsByShop.get(r.shop_id) ?? [];
+      arr.push(r);
+      rowsByShop.set(r.shop_id, arr);
     }
     const offsetsByBarber = new Map<string, ReminderOffsets>();
     for (const c of allCandidates) {
       if (!offsetsByBarber.has(c.barber_id)) {
-        offsetsByBarber.set(
-          c.barber_id,
-          barberOverride.get(c.barber_id) ?? shopDefaultByShop.get(c.shop_id) ?? FALLBACK,
-        );
+        const eff = resolveEffectiveBarberSettings(rowsByShop.get(c.shop_id) ?? [], c.barber_id);
+        offsetsByBarber.set(c.barber_id, {
+          slot1Min: offsetMinutes(eff.reminder1_h, eff.reminder1_m),
+          slot2Min: offsetMinutes(eff.reminder2_h, eff.reminder2_m),
+        });
       }
     }
     const due = dueReminders(
@@ -178,7 +186,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
         barberId: c.barber_id,
       })),
       offsetsByBarber,
-      FALLBACK,
+      DEFAULT_OFFSETS,
       nowMs,
       HALF_WINDOW_MS,
     );
