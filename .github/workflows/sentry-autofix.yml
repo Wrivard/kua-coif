@@ -74,7 +74,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Aligned with ci.yml (Node 22) + package.json engines (>=22) so the
+          # autofix agent validates fixes on the same runtime CI gates them.
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies (frozen lockfile)

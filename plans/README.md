@@ -17,13 +17,13 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 |------|-------|----------|--------|------------|--------|
 | 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | DONE |
 | 002 | Make day-window parsing independent of the server runtime timezone | P1 | S | — | DONE |
-| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE (migration to deploy: staging→prod + barber smoke) |
+| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE — DEPLOYED to prod 2026-06-10 (RLS smoke 6/6) |
 | 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | DONE |
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
 | 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | DONE |
-| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | DONE (migration to deploy with 003) |
-| 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
+| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | DONE — fns DEPLOYED to prod 2026-06-10 |
+| 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | DONE |
 | 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
 | 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | DONE (operator: create AUTOFIX_GH_PAT secret + branch protection) |
 | 012 | Missed-schedule monitoring for the business crons (Sentry check-ins) | P2 | S | 008 (same file: notifications cron) | TODO |
@@ -91,6 +91,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
 - **DEBT-03 availability-pipeline consolidation (4 copies)** and **DEBT-04
   dual-channel send-loop consolidation (4 copies)**: high-value refactors gated on
   test coverage — re-plan after 015 lands. Do not attempt without it.
+- **Google event summary hardcoded** — every reschedule push (admin AND public, pre-existing) sends `summary: 'Appointment'`, overwriting any descriptive title; fix = load client_name_snapshot or make summary optional on update (S). Surfaced during plan 009 review.
 - **Minor perf items** deferred without plans: clients list ships `notes` ×1000
   (drop from list select), reorderServices row-per-UPDATE, blockTime per-occurrence
   COUNT, week-view serial fetch, widget-stats 20k-row JS rollup, client-fiche

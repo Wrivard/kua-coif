@@ -14,6 +14,8 @@ import { stripeConfigured } from '@/lib/stripe/server';
 import { markRefundedByIntent, refundPaymentIntentFull } from '@/lib/stripe/payments';
 import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
+import { deleteAppointmentMirror } from '@/lib/google/sync';
+import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
 
 /**
  * Phase 68 — Self-service Loi 25 export.
@@ -246,7 +248,7 @@ export async function cancelMyAppointment(
     const apptRes = await supabase
       .from('appointments')
       .select(
-        'id, shop_id, barber_id, client_id, start_at, status, payment_status, payment_intent_id',
+        'id, shop_id, barber_id, client_id, start_at, status, payment_status, payment_intent_id, google_event_id',
       )
       .eq('id', parsed.data.appointment_id)
       .limit(1);
@@ -260,6 +262,7 @@ export async function cancelMyAppointment(
         status: 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
         payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed' | null;
         payment_intent_id: string | null;
+        google_event_id: string | null;
       }> | null) ?? [])[0] ?? null;
     if (!appt) return err('NOT_FOUND');
     if (appt.client_id !== payload.resourceId) return err('NOT_FOUND');
@@ -381,6 +384,33 @@ export async function cancelMyAppointment(
         mins_cancel_before_appt: minsBefore,
         ip,
       },
+    });
+
+    // ── Admin-parity side-effects (Google mirror + waitlist) ──────────
+    // When an ADMIN cancels, the barber's mirrored Google event is
+    // deleted and matching waitlist entries are told the slot opened.
+    // The /me self-cancel froze the same slot but did neither — the
+    // barber kept a ghost event and the waitlist (whose whole point is
+    // filling freed slots) stayed silent on the very path that frees the
+    // most. Both are `void` best-effort: they must never change the
+    // cancel's result, and each catches its own errors via Sentry.
+    if (appt.google_event_id) {
+      void deleteAppointmentMirror({
+        appointmentId: appt.id,
+        barberId: appt.barber_id,
+        googleEventId: appt.google_event_id,
+      });
+    }
+    // Resolve the shop timezone the waitlist helper needs to compute the
+    // shop-local date for window matching (mirrors the admin path).
+    const tzRes = await supabase.from('shops').select('timezone').eq('id', appt.shop_id).limit(1);
+    const timezone =
+      ((tzRes.data as Array<{ timezone: string }> | null) ?? [])[0]?.timezone ?? 'America/Toronto';
+    void notifyMatchingWaitlistOnCancel({
+      shopId: appt.shop_id,
+      barberId: appt.barber_id,
+      startAtIso: appt.start_at,
+      timezone,
     });
 
     // Best-effort cancellation email + revalidate the /me page so

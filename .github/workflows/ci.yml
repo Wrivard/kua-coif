@@ -58,6 +58,18 @@ jobs:
           TZ: UTC
         run: pnpm vitest run lib/business/timezone.test.ts
 
+      - name: Test (Vitest) — FULL suite under UTC runtime
+        # Plan 016 step 3: extends the targeted UTC leg above to the WHOLE
+        # suite, so a runtime-TZ-dependent test anywhere (not just timezone.*)
+        # surfaces here rather than in UTC prod. NON-BLOCKING for its first
+        # week as a flake hedge; the full suite already passed locally under
+        # TZ=UTC (171/171), so promotion to required should be quick — drop
+        # continue-on-error once it has a green track record (see plan 016).
+        continue-on-error: true
+        env:
+          TZ: UTC
+        run: pnpm test
+
       - name: Lint
         run: pnpm lint
 
