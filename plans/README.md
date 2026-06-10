@@ -24,7 +24,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | TODO |
 | 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | TODO |
 | 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
-| 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | TODO |
+| 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
 | 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | TODO |
 | 012 | Missed-schedule monitoring for the business crons (Sentry check-ins) | P2 | S | 008 (same file: notifications cron) | TODO |
 | 013 | Versioned/revocable receipt + review + reschedule tokens | P2 | M | — | TODO |
