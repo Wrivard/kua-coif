@@ -115,9 +115,7 @@ export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<v
         if (now - lastMs < DEDUP_WINDOW_MS) continue;
       }
 
-      const bookingUrl = shop.alias
-        ? `${appUrl()}/${entry.locale}/book/${shop.alias}`
-        : null;
+      const bookingUrl = shop.alias ? `${appUrl()}/${entry.locale}/book/${shop.alias}` : null;
 
       // Fire-and-forget per entry — sendEmail catches its own errors
       // via Sentry, and we don't want one bad address to block the

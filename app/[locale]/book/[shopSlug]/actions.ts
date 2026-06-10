@@ -128,7 +128,6 @@ export const publicBookingSchema = z.object({
 });
 export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
 
-
 /**
  * Public booking — accepts an anonymous request, performs every safety check
  * server-side, then writes the appointment with source='online'.
