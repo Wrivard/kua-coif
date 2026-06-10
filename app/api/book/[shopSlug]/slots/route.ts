@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { combineShopDateTime, shopDayEnd, shopDayStart } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 import {
   getCachedShopByAlias,
   getCachedBookableBarbers,
@@ -115,10 +116,9 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
     start_at: new Date(b.start_at),
     end_at: new Date(b.end_at),
   }));
-  const barberOverride = settingsRows.find((r) => r.scope === 'barber' && r.barber_id === barberId);
-  const shopDefault = settingsRows.find((r) => r.scope === 'shop');
-  const settings = barberOverride ?? shopDefault;
-  const interval = settings?.client_booking_interval_min ?? 30;
+  // B20 — shared resolver (override → shop → defaults). Never null now.
+  const settings = resolveEffectiveBarberSettings(settingsRows, barberId);
+  const interval = settings.client_booking_interval_min;
 
   // Iterate the day's open window by `interval`, run the engine on each.
   const shopWeekday = new Date(`${date}T00:00:00`).getDay();
@@ -148,13 +148,11 @@ export async function GET(req: NextRequest, { params }: { params: { shopSlug: st
       daysOff: daysOff.map((d) => ({ date: d })),
       existing,
       blocked,
-      settings: settings
-        ? {
-            client_booking_interval_min: settings.client_booking_interval_min,
-            days_book_in_advance: settings.days_book_in_advance,
-            mins_book_before_appt: settings.mins_book_before_appt,
-          }
-        : null,
+      settings: {
+        client_booking_interval_min: settings.client_booking_interval_min,
+        days_book_in_advance: settings.days_book_in_advance,
+        mins_book_before_appt: settings.mins_book_before_appt,
+      },
     });
     if (verdict.ok) slots.push(startTime);
   }

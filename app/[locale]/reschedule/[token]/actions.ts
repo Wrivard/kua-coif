@@ -10,6 +10,7 @@ import { logDurableAudit } from '@/lib/audit-log';
 import { verifyToken } from '@/lib/security/signed-tokens';
 import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/timezone';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 import { pushAppointment } from '@/lib/google/sync';
 
 /**
@@ -179,10 +180,8 @@ export async function reschedulePublicAppointment(
         days_book_in_advance: number;
         mins_book_before_appt: number;
       }> | null) ?? [];
-    const settings =
-      settingsRows.find((r) => r.scope === 'barber' && r.barber_id === appt.barber_id) ??
-      settingsRows.find((r) => r.scope === 'shop') ??
-      null;
+    // B20 — shared resolver (override → shop → defaults). Never null now.
+    const settings = resolveEffectiveBarberSettings(settingsRows, appt.barber_id);
     const shopWeekday = new Date(`${input.new_date}T00:00:00`).getDay();
     const verdict = checkAvailability({
       start_at: newStartAt,
@@ -196,13 +195,11 @@ export async function reschedulePublicAppointment(
       daysOff: daysOff.map((d) => ({ date: d })),
       existing,
       blocked,
-      settings: settings
-        ? {
-            client_booking_interval_min: settings.client_booking_interval_min,
-            days_book_in_advance: settings.days_book_in_advance,
-            mins_book_before_appt: settings.mins_book_before_appt,
-          }
-        : null,
+      settings: {
+        client_booking_interval_min: settings.client_booking_interval_min,
+        days_book_in_advance: settings.days_book_in_advance,
+        mins_book_before_appt: settings.mins_book_before_appt,
+      },
     });
     if (!verdict.ok) {
       return err(
