@@ -1,0 +1,86 @@
+name: DB + e2e (non-blocking)
+
+# Heavy verification jobs split OUT of ci.yml on purpose: they need Docker
+# (local Supabase) and a browser (Playwright), run for minutes, and land
+# NON-BLOCKING first (continue-on-error) so a new-job flake never red-walls a
+# PR. Keeping them in their own workflow lets the operator promote each check
+# to "required" independently once it has a track record (plan 016).
+#
+# PROMOTION CRITERION (both jobs): after 7 consecutive green days, remove the
+# job's `continue-on-error: true` and add the check to branch protection on
+# `main` (Settings → Branches → require `db` / `e2e`). Until then these are
+# informational.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: db-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db:
+    name: migrations · RLS suite · types drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # NON-BLOCKING — see PROMOTION CRITERION at the top of this file.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # GitHub ubuntu-latest runners ship Docker, so the local Supabase stack
+      # (Postgres + GoTrue + the rest) boots here. config.toml under supabase/
+      # supplies all the config — no secrets needed for a local stack.
+      - name: Start local Supabase
+        run: npx --yes supabase start
+
+      # `db reset` drops, re-applies EVERY migration, then runs seed.sql — this
+      # is the migration-apply check: a broken migration fails the job instead
+      # of being discovered against prod.
+      - name: Apply all migrations + seed
+        run: npx --yes supabase db reset
+
+      # The cross-tenant RLS regression suite (supabase/tests/rls_cross_shop.sql)
+      # — the guard for the product's #1 stated risk — runs NOWHERE today. Here
+      # it runs on every push/PR.
+      - name: RLS cross-shop regression suite
+        run: npx --yes supabase test db
+
+      - name: Types drift gate (REPORT-ONLY)
+        # The committed db/types.ts was generated from the LINKED project
+        # (`supabase gen types --linked`); locally generated types can differ
+        # cosmetically (version header line, declaration ordering). This run
+        # could NOT be validated against Docker in the authoring environment, so
+        # the gate WARNS rather than fails — a spurious header diff must not
+        # red-wall the job. Promote to a hard gate (normalize the header, then
+        # `diff -q ... || { echo '::error::...'; exit 1; }`) once a real CI run
+        # confirms the only differences are header/ordering noise. See plan 016.
+        run: |
+          npx --yes supabase gen types typescript --local > /tmp/types.gen.ts
+          if ! diff -q /tmp/types.gen.ts db/types.ts > /dev/null 2>&1; then
+            echo "::warning::db/types.ts differs from freshly generated local types. If real, run 'pnpm db:types:local' (or :remote) and commit. Report-only until the diff is confirmed header/ordering noise — see plan 016."
+          else
+            echo "db/types.ts is in sync with the local schema."
+          fi
+
+      - name: Stop Supabase
+        if: always()
+        run: npx --yes supabase stop --no-backup || true
