@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Download, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -17,7 +17,7 @@ import { formatCurrencyCAD } from '@/lib/utils';
 import type { ProductBrandRow, ProductCategoryRow, ProductRow, TaxRow } from '@/db/rows';
 import { ProductFormModal } from './product-form-modal';
 import { BrandFormModal, CategoryFormModal } from './taxonomy-form-modals';
-import { deleteBrand, deleteCategory, deleteProduct } from './actions';
+import { deleteBrand, deleteCategory, deleteProduct, toggleProductStatus } from './actions';
 
 type View = 'products' | 'brands' | 'categories';
 
@@ -97,6 +97,20 @@ export function ProductsClient({
     (p) => p.current_inventory <= p.low_inventory_threshold,
   ).length;
 
+  // W2b — soft enable/disable, mirroring services. Pass the explicit next status
+  // (not a blind flip) so a stale client view can't race the toggle.
+  function onToggleStatus(p: ProductRow) {
+    startTransition(async () => {
+      const next = p.status === 'enabled' ? 'disabled' : 'enabled';
+      const result = await toggleProductStatus({ id: p.id, status: next });
+      if (result.ok) {
+        show({ variant: 'info', title: t('toasts.statusFlipped', { name: p.name }) });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   function isLowStock(p: ProductRow) {
     return p.current_inventory <= p.low_inventory_threshold;
   }
@@ -136,8 +150,14 @@ export function ProductsClient({
     {
       id: 'name',
       header: t('columns.name'),
+      // W2b — a disabled product reads as muted (the status badge column is the
+      // primary cue; this dims the row's anchor text for an at-a-glance signal).
       cell: (r) => (
-        <span className="flex items-center gap-2 font-medium">
+        <span
+          className={`flex items-center gap-2 font-medium ${
+            r.status === 'disabled' ? 'text-text-muted' : ''
+          }`}
+        >
           {r.name}
           {isNegativeMargin(r) ? (
             <Badge variant="warning" title={t('warnings.negativeMargin')}>
@@ -238,9 +258,22 @@ export function ProductsClient({
       cell: (r) => brandById.get(r.brand_id ?? '')?.name ?? <EmptyCell />,
     },
     {
+      id: 'status',
+      header: t('columns.status'),
+      width: '110px',
+      cell: (r) =>
+        r.status === 'enabled' ? (
+          <Badge variant="success">{t('status.enabled')}</Badge>
+        ) : (
+          <Badge>{t('status.disabled')}</Badge>
+        ),
+      sortable: true,
+      sortValue: (r) => r.status,
+    },
+    {
       id: 'actions',
       header: '',
-      width: '90px',
+      width: '120px',
       align: 'right',
       cell: (r) => (
         <RowActions
@@ -249,6 +282,11 @@ export function ProductsClient({
               icon: Pencil,
               label: tCommon('actions.edit'),
               onClick: () => setProductMode({ kind: 'edit', product: r }),
+            },
+            {
+              icon: Power,
+              label: r.status === 'enabled' ? t('actions.disable') : t('actions.enable'),
+              onClick: () => onToggleStatus(r),
             },
             {
               icon: Trash2,

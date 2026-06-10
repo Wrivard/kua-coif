@@ -32,7 +32,14 @@ vi.mock('@/lib/supabase/server', () => ({ createSupabaseServerClient: () => h.sb
 vi.mock('@/lib/audit-log', () => ({ logAuditAction: (...a: unknown[]) => h.logAuditAction(...a) }));
 vi.mock('next/cache', () => ({ revalidatePath: (...a: unknown[]) => h.revalidatePath(...a) }));
 
-import { createProduct, updateProduct, deleteBrand, toggleProductStatus } from './actions';
+import {
+  createProduct,
+  updateProduct,
+  createBrand,
+  createCategory,
+  deleteBrand,
+  toggleProductStatus,
+} from './actions';
 import { productSchema } from './schema';
 
 const SHOP_A = 'shop-a';
@@ -191,6 +198,38 @@ describe('createProduct — unique name', () => {
 
     const res = await createProduct(productInput());
 
+    // W2b — the CONFLICT now carries a `{ name: 'duplicate' }` payload so the
+    // form can surface it inline on the name field.
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { name: 'duplicate' },
+    });
+    expect(h.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('createBrand / createCategory — unique name (W2b)', () => {
+  it('createBrand maps a 23505 duplicate name to CONFLICT (not UNEXPECTED, not Sentry)', async () => {
+    setup(
+      { product_brands: [] },
+      { errors: { product_brands: { insert: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await createBrand({ name: 'AURA' });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    expect(h.captureException).not.toHaveBeenCalled();
+  });
+
+  it('createCategory maps a 23505 duplicate name to CONFLICT (not UNEXPECTED, not Sentry)', async () => {
+    setup(
+      { product_categories: [] },
+      { errors: { product_categories: { insert: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await createCategory({ name: 'AFRO' });
+
     expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
     expect(h.captureException).not.toHaveBeenCalled();
   });
@@ -236,7 +275,13 @@ describe('updateProduct — optimistic concurrency', () => {
       updateInput({ expected_updated_at: '2026-06-10T09:00:00.000Z' }),
     );
 
-    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    // W2b — stale precondition carries a `{ concurrency: 'stale' }` payload so
+    // the form shows a "reload" toast instead of a name-field error.
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { concurrency: 'stale' },
+    });
     expect(rpc).not.toHaveBeenCalled();
   });
 
