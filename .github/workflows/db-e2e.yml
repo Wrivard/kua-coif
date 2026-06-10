@@ -136,11 +136,15 @@ jobs:
           # `-o env` emits KEY="value" lines; GITHUB_ENV takes them literally, so
           # the quotes ended up INSIDE the values and the dev server died at boot
           # with `TypeError: Invalid URL` (maiden run). Strip the quotes and keep
-          # only the two keys the app needs.
+          # only the keys the app needs. SUPABASE_SERVICE_ROLE_KEY is required by
+          # lib/supabase/service-role.ts (public booking shop resolve, crons) —
+          # without it every server-side service-role call threw and ALL e2e
+          # specs failed (run 2, c291a35).
           npx --yes supabase status -o env \
             --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
             --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
-            | grep -E '^NEXT_PUBLIC_' | sed 's/"//g' >> "$GITHUB_ENV"
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | grep -E '^(NEXT_PUBLIC_|SUPABASE_SERVICE_ROLE_KEY)' | sed 's/"//g' >> "$GITHUB_ENV"
 
       - name: Install Playwright Chromium
         run: npx --yes playwright install chromium --with-deps
