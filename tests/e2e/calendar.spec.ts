@@ -61,6 +61,14 @@ test.describe('admin calendar', () => {
    * useDraggable → DndContext.onDragEnd → handleDragEnd → rescheduleAppointment.
    */
   test('drag moves an appointment to a new time (lazy grid + reschedule)', async ({ page }) => {
+    // This test MUTATES the seed (drags Jules Lethor off 08:15 and never
+    // restores), so a second run against the same DB fails. Only run it where
+    // the DB is disposable: CI resets the database per run (E2E_FRESH_DB=1).
+    // Against a persistent local DB it would corrupt the seed, so we skip it.
+    test.skip(
+      !process.env.E2E_FRESH_DB,
+      'drag test mutates the seed — run only against a fresh db (CI resets per run)',
+    );
     await signIn(page);
     await page.goto('/fr/?date=2026-05-22');
 
