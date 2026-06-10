@@ -63,15 +63,10 @@ jobs:
       # — the guard for the product's #1 stated risk — runs NOWHERE today. Here
       # it runs on every push/PR.
       - name: RLS cross-shop regression suite
-        # `supabase test db` expects pgTAP (plan()/finish()) — rls_cross_shop.sql
-        # is a self-asserting plain-SQL script (raises on violation, rolls back),
-        # so the TAP harness reported "Tests: 0 / No plan found → FAIL" on the
-        # maiden run. Run it the way the file's own header documents: psql with
-        # ON_ERROR_STOP — any raised assertion fails the step. Converting the
-        # suite to real pgTAP is the recorded follow-up (plans/README.md).
-        run: |
-          DB_URL="$(npx --yes supabase status -o env --override-name db.url=DB_URL | sed -n 's/^DB_URL="\?\([^"]*\)"\?$/\1/p')"
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_cross_shop.sql
+        # rls_cross_shop.sql is real pgTAP now (plan()/ok()/throws_ok()/finish()),
+        # converted from the self-asserting plain-SQL hotfix — so the standard
+        # Supabase TAP runner consumes it directly again (no more psql shim).
+        run: npx --yes supabase test db
 
       - name: Types drift gate (REPORT-ONLY)
         # The committed db/types.ts was generated from the LINKED project
