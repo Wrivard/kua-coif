@@ -10,6 +10,12 @@ export default defineConfig({
     },
   },
   test: {
+    // TZ policy (plan 016): tests must pass under ANY runtime timezone — no
+    // test may depend on the machine's local TZ. CI proves this by running the
+    // suite twice: a TZ=America/Toronto leg (reproducible shop-tz math) AND a
+    // TZ=UTC leg (catches the prod-serverless runtime-TZ class). Use the shop
+    // timezone helpers in lib/business/timezone for any wall-clock conversion;
+    // never `new Date()`-local arithmetic in a test's assertions.
     environment: 'jsdom',
     globals: true,
     include: ['**/*.test.{ts,tsx}'],

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { encryptionConfigured } from '@/lib/crypto/aes';
 import { renewBarberCalendarSubscription } from '@/lib/google/sync';
-import { captureException } from '@/lib/observability';
+import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
@@ -45,6 +45,15 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
+  // Check-in inside the auth gate. Slug + crontab mirror vercel.json.
+  return withCronMonitor(
+    'cron-google-channel-renew',
+    { type: 'crontab', value: '30 2 * * *' },
+    () => runGoogleChannelRenewCron(),
+  );
+}
+
+async function runGoogleChannelRenewCron(): Promise<NextResponse> {
   if (!encryptionConfigured()) {
     return NextResponse.json({ ok: true, processed: 0, reason: 'no-encryption-key' });
   }

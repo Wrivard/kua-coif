@@ -72,3 +72,43 @@ export function setUser(user: { id: string; email?: string } | null) {
   if (user) Sentry.setUser({ id: user.id, email: user.email });
   else Sentry.setUser(null);
 }
+
+/**
+ * Wrap a cron route's work in a Sentry Cron Monitor check-in pair so a run that
+ * NEVER happens (expired CRON_SECRET, GitHub silently auto-disabling the
+ * scheduled workflow, runner outage) trips a "missed" alert — the failure mode
+ * in-route `captureException` can't see. `withMonitor` upserts the monitor from
+ * `schedule`, so no dashboard setup is needed; the monitor appears after the
+ * first real run.
+ *
+ * Best-effort: monitoring must NEVER break the cron. `Sentry.withMonitor`
+ * (verified present in @sentry/core 10.54.0, re-exported through @sentry/nextjs)
+ * runs the callback and returns its result whether or not Sentry is initialized,
+ * so the only guard we keep is for a future SDK where the export is gone — then
+ * we just run the work unmonitored.
+ */
+export async function withCronMonitor<T>(
+  slug: string,
+  schedule: { type: 'crontab'; value: string },
+  fn: () => Promise<T>,
+): Promise<T> {
+  // `withMonitor` is a SERVER-only Sentry export — cron monitors don't exist in
+  // the browser SDK. This module is universal (captureException pulls it into the
+  // client bundle via global-error.tsx), so we reach withMonitor through a runtime
+  // alias rather than `Sentry.withMonitor`: a static namespace access makes the
+  // client build error "'withMonitor' is not exported". On the client the alias
+  // is undefined and we run the work unmonitored; on the server (where every cron
+  // actually runs) it's the real function.
+  const sentry = Sentry as unknown as {
+    withMonitor?: <R>(slug: string, cb: () => R, cfg: unknown) => R;
+  };
+  if (typeof sentry.withMonitor !== 'function') {
+    return fn();
+  }
+  return sentry.withMonitor(slug, fn, {
+    schedule,
+    checkinMargin: 10, // minutes of lateness tolerated before a run counts as "missed"
+    maxRuntime: 5, // minutes in-progress before the run is considered timed-out
+    timezone: 'UTC',
+  });
+}
