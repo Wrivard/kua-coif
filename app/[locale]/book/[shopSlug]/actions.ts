@@ -24,6 +24,7 @@ import {
 } from '@/lib/stripe/payments';
 import { sendSlackBookingNotification } from '@/lib/notifications/slack';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
+import { computeBookingPricing } from '@/lib/business/booking-pricing';
 
 const phoneRegex = /^[+\d\s().-]{7,20}$/;
 
@@ -288,7 +289,6 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return err('NOT_FOUND');
     }
     const totalMinutes = services.reduce((sum, s) => sum + s.duration_min, 0);
-    const subtotal = services.reduce((sum, s) => sum + s.price, 0);
 
     // ── Promo code validation (Phase 41) ──────────────────────────────
     // Validate first; if invalid, refuse the booking with a specific
@@ -306,7 +306,6 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       redemptions: number;
     };
     let promoCodeRow: PromoCodeRow | null = null;
-    let discountAmount = 0;
     if (input.promo_code) {
       const promoRes = await supabase
         .from('promo_codes')
@@ -333,22 +332,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // history, but for a public booking we don't have a stable client
       // identity until find-or-create runs below. We defer this check
       // until after the client is resolved — see below.
-
-      // Compute discount.
-      if (promoCodeRow.type === 'percent') {
-        discountAmount = (subtotal * promoCodeRow.value) / 100;
-      } else {
-        discountAmount = promoCodeRow.value;
-      }
-      // Cap at subtotal — promo codes can't drive an appointment negative.
-      if (discountAmount > subtotal) discountAmount = subtotal;
+      //
+      // Plan 014 — the discount ARITHMETIC moved to the shared pricing
+      // engine (called once below, after the client + loyalty are resolved).
+      // Only the promo POLICY (invalid / expired / one-time) stays here.
     }
-    // `totalAmount` is mutable because the loyalty deduction (Phase 50)
-    // happens AFTER the find-or-create client lookup below. The promo
-    // discount is computed here; loyalty stacks on top of it. Both are
-    // capped at the running total — neither can drive a booking negative.
-    let totalAmount = subtotal - discountAmount;
-    let loyaltyCreditCents = 0;
 
     // ── Resolve barber ────────────────────────────────────────────────
     let barberId = input.barber_id;
@@ -580,15 +568,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
 
     // ── Loyalty credit auto-apply (Phase 50) ─────────────────────────
     // Applied AFTER promo so the customer gets full mileage out of both
-    // incentives. Capped at the running totalAmount (in cents to avoid
-    // float drift) so a generous balance can zero the bill but never
-    // go negative. The DB column has a CHECK (>= 0) so this is doubly
-    // protected.
-    if (clientLoyaltyBalanceCents > 0 && totalAmount > 0) {
-      const runningCents = Math.round(totalAmount * 100);
-      loyaltyCreditCents = Math.min(clientLoyaltyBalanceCents, runningCents);
-      totalAmount = Math.max(0, totalAmount - loyaltyCreditCents / 100);
-    }
+    // incentives, capped at the running total (in cents) so a generous
+    // balance can zero the bill but never go negative. Plan 014 — this
+    // arithmetic now lives in the shared pricing engine (called once below);
+    // `clientLoyaltyBalanceCents` was fetched during find-or-create above
+    // and feeds the engine. The DB column's CHECK (>= 0) is the backstop.
 
     // ── Promo first_appointment_only check (Phase 41) ────────────────
     // Deferred until we know the client's identity. "First appointment"
@@ -641,21 +625,26 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     //                 in-shop BALANCE, not the deposit.
     //   - 'none'    : no PI on this path, leave the value at 0.
     //
-    // Phase E — the tip stacks on top of either base in both modes.
-    // Same formula as `createBookingPaymentIntent`. The tip is persisted
-    // separately on `appointments.tip_amount_cents` so the receipt +
-    // finances can break it out from the service total.
-    //
-    // The `'full'` formula deliberately mirrors what
-    // `createBookingPaymentIntent` does. Any drift between the two
-    // formulas → verify rejects a legit PI with `wrong_amount`.
-    const tipCentsForVerify = Math.max(0, Math.min(100_000, input.tip_amount_cents ?? 0));
-    const recomputedDepositCents = input.payment_intent_id
-      ? (shop.payment_mode === 'full'
-          ? Math.round(totalAmount * 100)
-          : services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0)) +
-        tipCentsForVerify
-      : 0;
+    // Plan 014 — recompute the charge via the SAME shared pricing engine
+    // the mint side (`createBookingPaymentIntent`) uses, so the verify
+    // can never reject a legitimate PI over a one-cent formula drift (that
+    // would be a full public-booking outage). Promo POLICY (invalid /
+    // expired / used / first-appointment) was enforced above; the engine only
+    // does arithmetic on the resolved promo + the already-fetched loyalty
+    // balance. The tip is clamped (0..$1,000) and stacked inside the engine,
+    // and persisted separately on `appointments.tip_amount_cents` so the
+    // receipt + finances can break it out from the service total.
+    const pricing = computeBookingPricing({
+      paymentMode: shop.payment_mode,
+      services,
+      promo: promoCodeRow ? { type: promoCodeRow.type, value: promoCodeRow.value } : null,
+      loyaltyBalanceCents: clientLoyaltyBalanceCents,
+      tipAmountCents: input.tip_amount_cents,
+    });
+    const totalAmount = pricing.totalDollars;
+    const discountAmount = pricing.discountDollars;
+    const loyaltyCreditCents = pricing.loyaltyCreditCents;
+    const recomputedDepositCents = input.payment_intent_id ? pricing.chargeCents : 0;
 
     let verifiedPaymentStatus: 'paid' | 'pending' = 'pending';
     if (input.payment_intent_id) {
@@ -722,7 +711,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         // a "tip paid" line for money that was never charged. Owner
         // collects in-shop and reconciles via the regular charge
         // flow.
-        tip_amount_cents: input.payment_intent_id ? tipCentsForVerify : 0,
+        tip_amount_cents: input.payment_intent_id ? pricing.tipCents : 0,
         ...paymentFields,
       })
       .select('id')
@@ -1351,47 +1340,28 @@ export async function createBookingPaymentIntent(
     }
     // Phase D — split paths per `payment_mode`:
     //   - 'full'    : charge the entire service price upfront (minus
-    //                 discounts, see Phase D.3 below)
+    //                 discounts).
     //   - 'deposit' : charge per-service `deposit_amount_cents` — the
     //                 historical V1 behavior; discounts apply to the
     //                 in-shop BALANCE, not the deposit.
     //
-    // The branches diverge on units. 'deposit' uses cents directly
-    // because `deposit_amount_cents` is already an integer column.
-    // 'full' uses DOLLARS internally to byte-match `bookPublicAppointment`'s
-    // `Math.round(totalAmount * 100)` verify formula — sum-then-round
-    // vs per-service round can disagree on pathological prices like
-    // 1.005, and a single-cent drift fails the verify with
-    // `wrong_amount`. Keeping both sides on the same dollar arithmetic
-    // path is the surest way to avoid that bug class.
-    let depositCents: number;
+    // Plan 014 — the charge ARITHMETIC (subtotal → promo → loyalty cap →
+    // tip → round) now lives in the shared pricing engine so
+    // this MINT side and the VERIFY side in `bookPublicAppointment` can't
+    // drift: a one-cent divergence rejects a legitimate PI with
+    // `wrong_amount`, i.e. a full public-booking outage. We keep the POLICY
+    // here: promo eligibility (expiry / one-time, silent-degrade of an
+    // invalid promo to no-discount) and the loyalty fetch — including its
+    // `effectiveLoyaltyBalanceCents` expiry-zeroing side effect, gated on a
+    // positive post-promo total exactly as before.
+    let resolvedPromo: { type: 'percent' | 'fixed'; value: number } | null = null;
+    let loyaltyBalanceCents = 0;
     if (shop.payment_mode === 'full') {
-      // Phase D.3 — promo + loyalty in 'full' mode.
-      //
-      // In 'deposit' mode the upfront charge is a partial slice of
-      // the service price; whatever's left to settle at the shop
-      // already absorbs the customer's discounts. Touching the
-      // deposit here would either double-count or shortchange the
-      // salon.
-      //
-      // In 'full' mode the upfront charge IS the total — so the
-      // same promo + loyalty math that `bookPublicAppointment`
-      // applies to `totalAmount` MUST also drive the PI amount.
-      // Otherwise the customer overpays (PI = full price,
-      // totalAmount = discounted) or the verify rejects a legit PI.
-      //
-      // We validate promo READ-ONLY (no redemption bump — that
-      // happens in `bookPublicAppointment` after a successful
-      // insert). Loyalty is read via `effectiveLoyaltyBalanceCents`
-      // so an expired credit returns zero and the customer can't
-      // redeem it. Invalid/expired promo codes degrade silently to
-      // no-discount here; the booking action surfaces a field-error
-      // at submit so the wizard can flag the input. The PI then
-      // mismatches and the verify rejects — acceptable failure
-      // mode (UNEXPECTED toast, customer retries with corrected
-      // promo).
-      const subtotalDollars = svcs.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
-      let discountDollars = 0;
+      // We validate promo READ-ONLY (no redemption bump — that happens in
+      // `bookPublicAppointment` after a successful insert). Invalid /
+      // expired / one-time-used promos degrade silently to no-discount here;
+      // the booking action surfaces a field-error at submit so the wizard
+      // can flag the input.
       if (input.promo_code) {
         const promoRes = await supabase
           .from('promo_codes')
@@ -1411,13 +1381,25 @@ export async function createBookingPaymentIntent(
           (!promo.expiration_date || new Date(promo.expiration_date).getTime() >= Date.now()) &&
           !(promo.one_time && promo.redemptions > 0)
         ) {
-          const raw =
-            promo.type === 'percent' ? (subtotalDollars * promo.value) / 100 : promo.value;
-          discountDollars = Math.min(raw, subtotalDollars);
+          resolvedPromo = { type: promo.type, value: promo.value };
         }
       }
-      let totalDollars = subtotalDollars - discountDollars;
-      if (input.phone && totalDollars > 0) {
+      // Loyalty fetch — gated on a positive POST-PROMO total exactly as
+      // before, so the `effectiveLoyaltyBalanceCents` expiry-zeroing side
+      // effect fires under the same condition. This subtotal/discount is the
+      // FETCH GUARD only; the engine recomputes the authoritative charge
+      // (and re-applies the cents-based loyalty cap) below.
+      const subtotalDollars = svcs.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
+      const discountForGuard = resolvedPromo
+        ? Math.min(
+            resolvedPromo.type === 'percent'
+              ? (subtotalDollars * resolvedPromo.value) / 100
+              : resolvedPromo.value,
+            subtotalDollars,
+          )
+        : 0;
+      const postPromoTotal = subtotalDollars - discountForGuard;
+      if (input.phone && postPromoTotal > 0) {
         // Match phone_normalized (last-10 NANP), same canonicalization the
         // booking write uses. Without .slice(-10) an 11-digit number (with
         // country code) never matched, so its loyalty credit was missing from
@@ -1437,34 +1419,26 @@ export async function createBookingPaymentIntent(
               loyalty_balance_expires_at: string | null;
             }> | null) ?? [])[0] ?? null;
           if (row) {
-            const effective = await effectiveLoyaltyBalanceCents({
+            loyaltyBalanceCents = await effectiveLoyaltyBalanceCents({
               clientId: row.id,
               balanceCents: row.loyalty_balance_cents ?? 0,
               expiresAt: row.loyalty_balance_expires_at,
             });
-            // Mirror bookPublicAppointment's cents-based cap: credit
-            // can't drive total negative.
-            const runningCents = Math.round(totalDollars * 100);
-            const creditCents = Math.min(effective, runningCents);
-            totalDollars = Math.max(0, totalDollars - creditCents / 100);
           }
         }
       }
-      depositCents = Math.round(totalDollars * 100);
-    } else {
-      depositCents = svcs.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
     }
 
-    // Phase E — tip stacks on top of the base charge in BOTH 'full' and
-    // 'deposit' modes. The customer who picked a tip means to pay it
-    // upfront alongside whatever the payment_mode asks for. We don't
-    // re-validate against tips_config tiers here — the wizard's UI is
-    // the source of truth for which tier was picked, and the server-
-    // side cap at $1000 (in the schema) is the abuse-prevention gate.
-    // Custom tip amounts are first-class; the UI surfaces tier
-    // buttons as shortcuts.
-    const tipCents = Math.max(0, Math.min(100_000, input.tip_amount_cents ?? 0));
-    depositCents += tipCents;
+    // Single source of truth for the charge — mirrors the verify side. Tip
+    // stacks on top of the per-mode base inside the engine (clamped 0..$1,000).
+    const pricing = computeBookingPricing({
+      paymentMode: shop.payment_mode,
+      services: svcs,
+      promo: resolvedPromo,
+      loyaltyBalanceCents,
+      tipAmountCents: input.tip_amount_cents,
+    });
+    const depositCents = pricing.chargeCents;
 
     if (depositCents <= 0) {
       // 'full' mode: every service was free OR discounts covered the

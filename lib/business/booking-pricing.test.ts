@@ -35,14 +35,18 @@ describe('computeBookingPricing — unit cases', () => {
   });
 
   it('full + percent promo → discount = subtotal * value / 100', () => {
-    const r = computeBookingPricing(input({ services: [svc(75)], promo: { type: 'percent', value: 20 } }));
+    const r = computeBookingPricing(
+      input({ services: [svc(75)], promo: { type: 'percent', value: 20 } }),
+    );
     expect(r.discountDollars).toBe(15);
     expect(r.totalDollars).toBe(60);
     expect(r.chargeCents).toBe(6000);
   });
 
   it('full + fixed promo LARGER than subtotal → discount caps at subtotal (bill floors at 0)', () => {
-    const r = computeBookingPricing(input({ services: [svc(50)], promo: { type: 'fixed', value: 80 } }));
+    const r = computeBookingPricing(
+      input({ services: [svc(50)], promo: { type: 'fixed', value: 80 } }),
+    );
     expect(r.discountDollars).toBe(50);
     expect(r.totalDollars).toBe(0);
     expect(r.chargeCents).toBe(0);
@@ -64,7 +68,11 @@ describe('computeBookingPricing — unit cases', () => {
 
   it('promo + loyalty stack in order (promo FIRST, then loyalty on the discounted total)', () => {
     const r = computeBookingPricing(
-      input({ services: [svc(100)], promo: { type: 'percent', value: 50 }, loyaltyBalanceCents: 3000 }),
+      input({
+        services: [svc(100)],
+        promo: { type: 'percent', value: 50 },
+        loyaltyBalanceCents: 3000,
+      }),
     );
     expect(r.discountDollars).toBe(50); // 50% of 100
     expect(r.loyaltyCreditCents).toBe(3000); // min(3000, round(50*100))
@@ -103,13 +111,18 @@ describe('computeBookingPricing — unit cases', () => {
   });
 
   it('mode none → chargeCents 0 even with a tip (matches the verify side `: 0` branch)', () => {
-    const r = computeBookingPricing(input({ paymentMode: 'none', services: [svc(50)], tipAmountCents: 5000 }));
+    const r = computeBookingPricing(
+      input({ paymentMode: 'none', services: [svc(50)], tipAmountCents: 5000 }),
+    );
     expect(r.chargeCents).toBe(0);
   });
 
   it('float-sensitive: three services at 19.99 + 15% promo → exact cents (sum-then-round)', () => {
     const r = computeBookingPricing(
-      input({ services: [svc(19.99), svc(19.99), svc(19.99)], promo: { type: 'percent', value: 15 } }),
+      input({
+        services: [svc(19.99), svc(19.99), svc(19.99)],
+        promo: { type: 'percent', value: 15 },
+      }),
     );
     // subtotal 59.97 → discount 8.9955 → total 50.9745 → round(5097.45) = 5097
     expect(r.discountDollars).toBeCloseTo(8.9955, 4);
@@ -168,7 +181,12 @@ function verifyFullReference(
   clientLoyaltyBalanceCents: number,
   tip: number | null | undefined,
   hasPaymentIntent: boolean,
-): { totalAmount: number; loyaltyCreditCents: number; discountAmount: number; recomputedDepositCents: number } {
+): {
+  totalAmount: number;
+  loyaltyCreditCents: number;
+  discountAmount: number;
+  recomputedDepositCents: number;
+} {
   const subtotal = services.reduce((sum, s) => sum + s.price, 0);
   let discountAmount = 0;
   if (promo) {
@@ -187,13 +205,18 @@ function verifyFullReference(
     totalAmount = Math.max(0, totalAmount - loyaltyCreditCents / 100);
   }
   const tipCentsForVerify = Math.max(0, Math.min(100_000, tip ?? 0));
-  const recomputedDepositCents = hasPaymentIntent ? Math.round(totalAmount * 100) + tipCentsForVerify : 0;
+  const recomputedDepositCents = hasPaymentIntent
+    ? Math.round(totalAmount * 100) + tipCentsForVerify
+    : 0;
   return { totalAmount, loyaltyCreditCents, discountAmount, recomputedDepositCents };
 }
 
 /** Verbatim copy of the DEPOSIT branch (both sides identical):
  *  Σ deposit_amount_cents + clamped tip. */
-function depositReference(services: BookingPricingService[], tip: number | null | undefined): number {
+function depositReference(
+  services: BookingPricingService[],
+  tip: number | null | undefined,
+): number {
   let depositCents = services.reduce((sum, s) => sum + Number(s.deposit_amount_cents ?? 0), 0);
   const tipCents = Math.max(0, Math.min(100_000, tip ?? 0));
   depositCents += tipCents;
@@ -205,7 +228,9 @@ describe('computeBookingPricing — PARITY with the old inline formulas', () => 
     const svcs = [svc(19.99), svc(19.99), svc(19.99)];
     const promo = { type: 'percent' as const, value: 15 };
     const tip = 250;
-    const r = computeBookingPricing(input({ services: svcs, promo, loyaltyBalanceCents: 0, tipAmountCents: tip }));
+    const r = computeBookingPricing(
+      input({ services: svcs, promo, loyaltyBalanceCents: 0, tipAmountCents: tip }),
+    );
     expect(r.chargeCents).toBe(mintFullReference(svcs, promo, 0, tip));
   });
 
@@ -214,7 +239,9 @@ describe('computeBookingPricing — PARITY with the old inline formulas', () => 
     const promo = { type: 'percent' as const, value: 20 };
     const loyalty = 1500;
     const tip = 500;
-    const r = computeBookingPricing(input({ services: svcs, promo, loyaltyBalanceCents: loyalty, tipAmountCents: tip }));
+    const r = computeBookingPricing(
+      input({ services: svcs, promo, loyaltyBalanceCents: loyalty, tipAmountCents: tip }),
+    );
     const ref = verifyFullReference(svcs, promo, loyalty, tip, true);
     expect(r.totalDollars).toBe(ref.totalAmount);
     expect(r.loyaltyCreditCents).toBe(ref.loyaltyCreditCents);
@@ -225,14 +252,18 @@ describe('computeBookingPricing — PARITY with the old inline formulas', () => 
   it('parity #3 — deposit branch: Σ deposit cents + tip matches the deposit reference', () => {
     const svcs = [svc(100, 1000), svc(80, 2000), svc(50, null)];
     const tip = 750;
-    const r = computeBookingPricing(input({ paymentMode: 'deposit', services: svcs, tipAmountCents: tip }));
+    const r = computeBookingPricing(
+      input({ paymentMode: 'deposit', services: svcs, tipAmountCents: tip }),
+    );
     expect(r.chargeCents).toBe(depositReference(svcs, tip));
   });
 
   it('parity #4 — mint full: loyalty LARGER than total floors identically', () => {
     const svcs = [svc(20)];
     const loyalty = 5000;
-    const r = computeBookingPricing(input({ services: svcs, loyaltyBalanceCents: loyalty, tipAmountCents: 0 }));
+    const r = computeBookingPricing(
+      input({ services: svcs, loyaltyBalanceCents: loyalty, tipAmountCents: 0 }),
+    );
     expect(r.chargeCents).toBe(mintFullReference(svcs, null, loyalty, 0));
   });
 
@@ -241,7 +272,9 @@ describe('computeBookingPricing — PARITY with the old inline formulas', () => 
     const promo = { type: 'percent' as const, value: 50 };
     const loyalty = 3000;
     const tip = 100;
-    const r = computeBookingPricing(input({ services: svcs, promo, loyaltyBalanceCents: loyalty, tipAmountCents: tip }));
+    const r = computeBookingPricing(
+      input({ services: svcs, promo, loyaltyBalanceCents: loyalty, tipAmountCents: tip }),
+    );
     const ref = verifyFullReference(svcs, promo, loyalty, tip, true);
     expect(r.totalDollars).toBe(ref.totalAmount);
     expect(r.loyaltyCreditCents).toBe(ref.loyaltyCreditCents);

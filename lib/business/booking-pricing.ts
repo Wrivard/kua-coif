@@ -67,7 +67,9 @@ export function computeBookingPricing(input: BookingPricingInput): BookingPricin
   let discountDollars = 0;
   if (input.promo) {
     const raw =
-      input.promo.type === 'percent' ? (subtotalDollars * input.promo.value) / 100 : input.promo.value;
+      input.promo.type === 'percent'
+        ? (subtotalDollars * input.promo.value) / 100
+        : input.promo.value;
     discountDollars = Math.min(raw, subtotalDollars);
   }
 
