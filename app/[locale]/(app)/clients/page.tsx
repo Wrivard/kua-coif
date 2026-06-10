@@ -54,7 +54,12 @@ export default async function ClientsPage({ params: { locale } }: { params: { lo
       .select('client_id')
       .eq('shop_id', shopId)
       .eq('barber_id', viewerBarberId)
-      .not('client_id', 'is', null);
+      .not('client_id', 'is', null)
+      // Bound the scan: a barber's ACTIVE clients live in their RECENT
+      // appointments, so take the 2000 most recent (≈ a year at ~8/day) rather
+      // than rely on PostgREST's silent 1000-row cap on an unordered scan.
+      .order('start_at', { ascending: false })
+      .limit(2000);
     const clientIds = Array.from(
       new Set(
         ((apptIdsRes.data as Array<{ client_id: string | null }> | null) ?? [])

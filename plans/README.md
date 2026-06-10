@@ -17,12 +17,12 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 |------|-------|----------|--------|------------|--------|
 | 001 | Refund the PaymentIntent when public booking fails after charge | P1 | M | — | DONE |
 | 002 | Make day-window parsing independent of the server runtime timezone | P1 | S | — | DONE |
-| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE (migration to deploy: staging→prod + barber smoke) |
+| 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | DONE — DEPLOYED to prod 2026-06-10 (RLS smoke 6/6) |
 | 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | DONE |
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
 | 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | DONE |
-| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | TODO |
+| 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | DONE — fns DEPLOYED to prod 2026-06-10 |
 | 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
 | 010 | Persist the rotated QuickBooks refresh token on the sync path | P2 | S | — | DONE |
 | 011 | Harden the sentry-autofix workflow (CI on PRs, format gate, injection) | P2 | S | — | DONE (operator: create AUTOFIX_GH_PAT secret + branch protection) |

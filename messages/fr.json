@@ -717,6 +717,7 @@
       "soon": "Rapports, revenus, payouts — Phase 7.",
       "todayLink": "Bilan quotidien →",
       "disputesLink": "Contestations →",
+      "truncated": "Plage trop large — résultats tronqués à 5000 rendez-vous ; réduisez la plage de dates.",
       "disputes": {
         "title": "Contestations",
         "subtitle": "Contestations (chargebacks) reçues sur les transactions de ce salon.",
