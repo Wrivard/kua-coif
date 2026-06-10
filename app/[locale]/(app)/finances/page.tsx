@@ -45,7 +45,14 @@ export default async function FinancesPage({
     getTranslations({ locale, namespace: 'pages.finances' }),
     getCurrentShop(),
   ]);
-  const timezone = shop?.timezone ?? 'America/Toronto';
+  // `requireRoleInCurrentShop('manager')` above guarantees an active-shop
+  // membership, so `shop` is non-null in practice; narrow it here (matching
+  // the calendar page's guard) so every read below can be EXPLICITLY scoped
+  // to the active shop. RLS (`is_shop_member`) spans EVERY shop the user
+  // belongs to, so without the explicit filter a multi-shop owner's revenue
+  // would merge across shops while the header claims the active one.
+  if (!shop?.id) throw new Error('Finances load failed: no active shop resolved');
+  const timezone = shop.timezone ?? 'America/Toronto';
 
   // ── Range resolution ──────────────────────────────────────────────
   // The form submits dates as YYYY-MM-DD strings in the shop's local
@@ -65,9 +72,14 @@ export default async function FinancesPage({
       .from('appointments')
       .select('id, barber_id, total_amount, status, start_at')
       .eq('status', 'completed')
+      .eq('shop_id', shop.id)
       .gte('start_at', rangeStart.toISOString())
       .lt('start_at', rangeEnd.toISOString()),
-    supabase.from('clients').select('id, loyalty_balance_cents').gt('loyalty_balance_cents', 0),
+    supabase
+      .from('clients')
+      .select('id, loyalty_balance_cents')
+      .eq('shop_id', shop.id)
+      .gt('loyalty_balance_cents', 0),
   ]);
 
   type ApptRow = {
@@ -124,6 +136,10 @@ export default async function FinancesPage({
             'barber_id, scope, cumulative, tier1_threshold, tier1_pct, tier2_threshold, tier2_pct, tier3_threshold, tier3_pct, tier4_threshold, tier4_pct, tier5_threshold, tier5_pct',
           )
           .eq('scope', 'services')
+          // `barberIds` already come from shop-scoped appointments, so this
+          // is transitively scoped; the explicit `shop_id` filter is
+          // defense-in-depth and matches the active-shop rule applied above.
+          .eq('shop_id', shop.id)
           .in('barber_id', barberIds)
       : Promise.resolve({ data: [] }),
   ]);

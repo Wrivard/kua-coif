@@ -59,7 +59,13 @@ export default async function CloseOutPage({
     getTranslations({ locale, namespace: 'pages.finances.today' }),
     getCurrentShop(),
   ]);
-  const timezone = shop?.timezone ?? 'America/Toronto';
+  // `requireRoleInCurrentShop('manager')` above guarantees an active-shop
+  // membership, so `shop` is non-null in practice; narrow it here (matching
+  // the calendar page's guard) so the day's read can be EXPLICITLY scoped to
+  // the active shop. RLS spans every shop the user belongs to, which would
+  // otherwise merge a multi-shop owner's close-out across shops.
+  if (!shop?.id) throw new Error('Close-out load failed: no active shop resolved');
+  const timezone = shop.timezone ?? 'America/Toronto';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
@@ -88,6 +94,7 @@ export default async function CloseOutPage({
       .select(
         'id, barber_id, client_id, total_amount, status, payment_status, tip_amount_cents, source, start_at, end_at',
       )
+      .eq('shop_id', shop.id)
       .gte('start_at', dayStart.toISOString())
       .lt('start_at', dayEnd.toISOString())
       .order('start_at', { ascending: true }),
