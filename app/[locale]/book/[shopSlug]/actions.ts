@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { headers } from 'next/headers';
+import { waitUntil } from '@vercel/functions';
 import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { err, ok, type Result } from '@/lib/server-actions/result';
@@ -261,18 +262,64 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return err(...args);
     };
 
-    // ── Resolve services ──────────────────────────────────────────────
-    // `name` added in Phase 24 so the confirmation email can list services
-    // by name. Cheap — same query, one extra column.
-    const servicesRes = await supabase
-      .from('services')
-      // Loop 29 self-review — pull deposit_amount_cents in the same
-      // query so the deposit recompute below doesn't run a second
-      // round-trip (which could miss rows in the narrow window where a
-      // service is deleted between fetches).
-      .select('id, name, duration_min, price, status, deposit_amount_cents')
-      .eq('shop_id', shop.id)
-      .in('id', input.service_ids);
+    // ── Resolve services + promo + barber in ONE batch (plan 018) ─────
+    // All three reads depend ONLY on shop.id, so they run in parallel instead
+    // of three sequential round-trips. The VALIDATIONS below run in the SAME
+    // order as before (services → promo → barber), so error precedence is
+    // byte-identical — e.g. an invalid promo still wins over an invalid
+    // barber. `name` (Phase 24) lists services in the confirmation email;
+    // `deposit_amount_cents` (Loop 29) feeds the deposit recompute without a
+    // second round-trip; barber `display_name` is widened in here so the
+    // email/Slack tail can reuse it instead of re-querying the row.
+    type PromoCodeRow = {
+      id: string;
+      type: 'percent' | 'fixed';
+      value: number;
+      first_appointment_only: boolean;
+      one_time: boolean;
+      expiration_date: string | null;
+      redemptions: number;
+    };
+    const barberQuery = input.barber_id
+      ? // SECURITY (Barbers audit B6) — validate an explicit barber_id belongs
+        // to THIS shop and is bookable (confirmed); never trust it verbatim
+        // (could otherwise book a soft-deleted / 'staff' / cross-shop barber).
+        supabase
+          .from('barbers')
+          .select('id, display_name')
+          .eq('id', input.barber_id)
+          .eq('shop_id', shop.id)
+          .eq('status', 'confirmed')
+          .eq('bookable', true)
+          .maybeSingle()
+      : supabase
+          .from('barbers')
+          .select('id, display_name')
+          .eq('shop_id', shop.id)
+          .eq('status', 'confirmed')
+          .eq('bookable', true)
+          .order('sort_order', { ascending: true })
+          .limit(1);
+    const [servicesRes, promoRes, barberRes] = await Promise.all([
+      supabase
+        .from('services')
+        .select('id, name, duration_min, price, status, deposit_amount_cents')
+        .eq('shop_id', shop.id)
+        .in('id', input.service_ids),
+      input.promo_code
+        ? supabase
+            .from('promo_codes')
+            .select(
+              'id, type, value, first_appointment_only, one_time, expiration_date, redemptions',
+            )
+            .eq('shop_id', shop.id)
+            .eq('code', input.promo_code)
+            .limit(1)
+        : Promise.resolve(null),
+      barberQuery,
+    ]);
+
+    // Validate services (order-preserved: first).
     const services =
       (servicesRes.data as Array<{
         id: string;
@@ -290,83 +337,43 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     }
     const totalMinutes = services.reduce((sum, s) => sum + s.duration_min, 0);
 
-    // ── Promo code validation (Phase 41) ──────────────────────────────
-    // Validate first; if invalid, refuse the booking with a specific
-    // error code so the UI can highlight the field. Then apply the
-    // discount to compute the final total. Redemption bump happens
-    // AFTER appointment insert succeeds — keep DB writes ordered to
-    // avoid a refund-style cleanup if the booking fails downstream.
-    type PromoCodeRow = {
-      id: string;
-      type: 'percent' | 'fixed';
-      value: number;
-      first_appointment_only: boolean;
-      one_time: boolean;
-      expiration_date: string | null;
-      redemptions: number;
-    };
+    // Validate promo (order-preserved: after services, before barber). The
+    // discount ARITHMETIC moved to the shared pricing engine (plan 014); only
+    // the promo POLICY (invalid / expired / one-time) stays here. The
+    // first_appointment_only check is deferred until the client is resolved.
     let promoCodeRow: PromoCodeRow | null = null;
     if (input.promo_code) {
-      const promoRes = await supabase
-        .from('promo_codes')
-        .select('id, type, value, first_appointment_only, one_time, expiration_date, redemptions')
-        .eq('shop_id', shop.id)
-        .eq('code', input.promo_code)
-        .limit(1);
-      promoCodeRow = ((promoRes.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
+      promoCodeRow = ((promoRes?.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
       if (!promoCodeRow) {
         return err('INVALID_INPUT', { promo_code: 'invalid' });
       }
-      // Expired?
       if (
         promoCodeRow.expiration_date &&
         new Date(promoCodeRow.expiration_date).getTime() < Date.now()
       ) {
         return err('INVALID_INPUT', { promo_code: 'expired' });
       }
-      // One-time and already used?
       if (promoCodeRow.one_time && promoCodeRow.redemptions > 0) {
         return err('INVALID_INPUT', { promo_code: 'used' });
       }
-      // First-appointment only: this requires looking up the client's
-      // history, but for a public booking we don't have a stable client
-      // identity until find-or-create runs below. We defer this check
-      // until after the client is resolved — see below.
-      //
-      // Plan 014 — the discount ARITHMETIC moved to the shared pricing
-      // engine (called once below, after the client + loyalty are resolved).
-      // Only the promo POLICY (invalid / expired / one-time) stays here.
     }
 
-    // ── Resolve barber ────────────────────────────────────────────────
+    // Validate barber (order-preserved: last) + capture display_name for the
+    // email/Slack tail (plan 018 — no late re-query).
     let barberId = input.barber_id;
+    let barberDisplayName: string | null = null;
     if (!barberId) {
       if (!shop.allow_booking_any_barber) return err('INVALID_INPUT');
-      const anyBarberRes = await supabase
-        .from('barbers')
-        .select('id, sort_order')
-        .eq('shop_id', shop.id)
-        .eq('status', 'confirmed')
-        .eq('bookable', true)
-        .order('sort_order', { ascending: true })
-        .limit(1);
-      barberId = (anyBarberRes.data as Array<{ id: string }> | null)?.[0]?.id ?? null;
+      const row =
+        ((barberRes.data as Array<{ id: string; display_name: string | null }> | null) ?? [])[0] ??
+        null;
+      barberId = row?.id ?? null;
+      barberDisplayName = row?.display_name ?? null;
       if (!barberId) return err('NOT_FOUND');
     } else {
-      // SECURITY (Barbers audit B6) — a supplied barber_id was previously used
-      // verbatim, skipping the confirmed-status + shop checks that only ran on
-      // the "any barber" path. A crafted POST could then book against a
-      // soft-deleted, 'staff', or cross-shop barber. Re-validate the explicit
-      // id belongs to THIS shop and is bookable (confirmed).
-      const barberRes = await supabase
-        .from('barbers')
-        .select('id')
-        .eq('id', barberId)
-        .eq('shop_id', shop.id)
-        .eq('status', 'confirmed')
-        .eq('bookable', true)
-        .maybeSingle();
-      if (!barberRes.data) return err('INVALID_INPUT');
+      const row = barberRes.data as { id: string; display_name: string | null } | null;
+      if (!row) return err('INVALID_INPUT');
+      barberDisplayName = row.display_name ?? null;
     }
 
     // ── Compose UTC instants ─────────────────────────────────────────
@@ -521,13 +528,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     let clientId: string | null = null;
     let clientLoyaltyBalanceCents = 0;
     let clientIsNew = false;
+    // Plan 018 — `me_token_version` widened into the lookup/insert selects so
+    // the confirmation email's /me link can be minted without a third client
+    // round-trip in the tail.
+    let clientMeTokenVersion = 0;
     if (phoneKey.length >= 7) {
       const clientLookup = await supabase
         .from('clients')
         // Loop 35 — `loyalty_balance_expires_at` pulled too so the
         // effective-balance helper can zero out expired credits before
         // we apply them.
-        .select('id, loyalty_balance_cents, loyalty_balance_expires_at')
+        .select('id, loyalty_balance_cents, loyalty_balance_expires_at, me_token_version')
         .eq('shop_id', shop.id)
         .eq('phone_normalized', phoneKey)
         .limit(1);
@@ -536,8 +547,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           id: string;
           loyalty_balance_cents: number | null;
           loyalty_balance_expires_at: string | null;
+          me_token_version: number | null;
         }> | null) ?? [])[0] ?? null;
       clientId = existingClient?.id ?? null;
+      clientMeTokenVersion = existingClient?.me_token_version ?? 0;
       // Loop 35 — `effectiveLoyaltyBalanceCents` returns 0 + zeroes the
       // row in the DB when the expiry has passed, so subsequent reads
       // agree and the customer can't redeem an expired credit.
@@ -560,10 +573,12 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           email: input.email || null,
           phone: input.phone,
         })
-        .select('id')
+        .select('id, me_token_version')
         .single();
       if (insertClient.error || !insertClient.data) return await failBooking('UNEXPECTED');
-      clientId = (insertClient.data as { id: string }).id;
+      const inserted = insertClient.data as { id: string; me_token_version: number | null };
+      clientId = inserted.id;
+      clientMeTokenVersion = inserted.me_token_version ?? 0;
     }
 
     // ── Loyalty credit auto-apply (Phase 50) ─────────────────────────
@@ -840,25 +855,13 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       },
     });
 
-    // Loop 33 self-review — hoisted the barber-name lookup out of
-    // the email branch so the Slack branch below doesn't re-query
-    // the same row. Computed once when both downstream surfaces
-    // (email + Slack) need it, and skipped entirely when neither
-    // fires. For the "any barber" path we leave the value null and
-    // the email template / Slack helper fall back to their localized
-    // "first available" strings.
-    const willEmail = Boolean(input.email);
+    // Plan 018 — the barber's display_name was already fetched in the parallel
+    // preamble above (widened select), so there's no late re-query here. For
+    // the "any barber" path it's the picked barber's name; a null value falls
+    // back to the email template / Slack helper's localized "first available"
+    // string.
     const willSlack = Boolean(shop.slack_webhook_url);
-    let professionalName: string | null = null;
-    if (barberId && (willEmail || willSlack)) {
-      const barberRes = await supabase
-        .from('barbers')
-        .select('display_name')
-        .eq('id', barberId)
-        .limit(1);
-      professionalName =
-        ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ?? null;
-    }
+    const professionalName: string | null = barberDisplayName;
 
     // ── Send branded confirmation email (Phase 24) ────────────────────
     // No-op when Resend env vars aren't set (lib/email/send.ts handles
@@ -884,19 +887,13 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // original "contact the salon" outro — the template handles meUrl=null.
       let meUrl: string | null = null;
       if (clientId) {
-        const verRes = await supabase
-          .from('clients')
-          .select('me_token_version')
-          .eq('id', clientId)
-          .limit(1);
-        const meVer =
-          ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
-            ?.me_token_version ?? 0;
+        // Plan 018 — `me_token_version` was captured in the client
+        // lookup/insert above, so no extra read here.
         const meToken = signToken({
           kind: 'me',
           resourceId: clientId,
           expiresInSeconds: 60 * 60 * 24 * 90,
-          ver: meVer,
+          ver: clientMeTokenVersion,
         });
         // Phase H — `appUrl()` centralizes the NEXT_PUBLIC_APP_URL read
         // and warns once to Sentry in production when missing (broken
@@ -908,44 +905,56 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       //   - `notification_automations.enabled === false` → silent skip
       //   - shop has SMTP configured → ship from the salon's own domain
       //   - else Resend Küa-branded fallback (Phase 24 behavior)
-      // We await so the action's tail latency reflects the send (Sentry
-      // tracing) but never block the booking on it.
-      await sendEmail({
-        shopId: shop.id,
-        kind: 'booking_confirmation',
-        to: input.email,
-        subject:
-          input.locale === 'fr'
-            ? `Ton rendez-vous chez ${shop.name} est confirmé`
-            : `Your appointment at ${shop.name} is confirmed`,
-        template: AppointmentConfirmation({
-          locale: input.locale,
-          shop: {
-            name: shop.name,
-            addressLine: addressLine || null,
-            phone: shop.phone,
-            timezone: shop.timezone,
-            // Phase 62b — per-shop email branding.
-            emailLogoUrl: shop.email_logo_url,
-            emailAccentColor: shop.email_accent_color,
-          },
-          client: { firstName: input.first_name },
-          appointment: {
-            startAt: startAt.toISOString(),
-            services: services.map((s) => ({ name: s.name, durationMin: s.duration_min })),
-            totalAmount,
-            professionalName,
-            // Phase G SR — surface the self-service link so the email's
-            // outro becomes a "Manage my appointment" CTA. Null when
-            // we couldn't mint a token (no client_id).
-            meUrl,
-          },
-        }),
-        tags: [
-          { name: 'kind', value: 'booking_confirmation' },
-          { name: 'shop', value: input.shop_slug },
-        ],
-      });
+      // Plan 018 — DEFER the send off the critical path via `waitUntil`: the
+      // confirmation email (especially an SMTP transport at 0.5–2s) must not
+      // delay the booking response. All template inputs are built above,
+      // before the response, so there is no lazy closure over mutable state.
+      // On Vercel's nodejs runtime `waitUntil` keeps the function alive until
+      // the promise settles; off-Vercel (local/tests) it's a safe no-op and
+      // the promise still runs. Its own rejection is caught → Sentry so a send
+      // failure never surfaces as a booking error nor an unhandled rejection.
+      waitUntil(
+        sendEmail({
+          shopId: shop.id,
+          kind: 'booking_confirmation',
+          to: input.email,
+          subject:
+            input.locale === 'fr'
+              ? `Ton rendez-vous chez ${shop.name} est confirmé`
+              : `Your appointment at ${shop.name} is confirmed`,
+          template: AppointmentConfirmation({
+            locale: input.locale,
+            shop: {
+              name: shop.name,
+              addressLine: addressLine || null,
+              phone: shop.phone,
+              timezone: shop.timezone,
+              // Phase 62b — per-shop email branding.
+              emailLogoUrl: shop.email_logo_url,
+              emailAccentColor: shop.email_accent_color,
+            },
+            client: { firstName: input.first_name },
+            appointment: {
+              startAt: startAt.toISOString(),
+              services: services.map((s) => ({ name: s.name, durationMin: s.duration_min })),
+              totalAmount,
+              professionalName,
+              // Phase G SR — surface the self-service link so the email's
+              // outro becomes a "Manage my appointment" CTA. Null when
+              // we couldn't mint a token (no client_id).
+              meUrl,
+            },
+          }),
+          tags: [
+            { name: 'kind', value: 'booking_confirmation' },
+            { name: 'shop', value: input.shop_slug },
+          ],
+        }).catch((e) =>
+          captureException(e, {
+            tags: { layer: 'public-booking', step: 'confirmation-email-deferred' },
+          }),
+        ),
+      );
     }
 
     // ── Loop 33 (Phase 90) — owner Slack notification ──────────────

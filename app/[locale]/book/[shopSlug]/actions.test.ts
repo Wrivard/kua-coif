@@ -175,6 +175,28 @@ describe('bookPublicAppointment', () => {
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
   });
 
+  it('a failing confirmation email does NOT affect the booking result (plan 018 deferred send)', async () => {
+    // The email is dispatched via waitUntil(...).catch(...) off the critical
+    // path, so a transport failure must never change the action's result.
+    h.sendEmail.mockRejectedValue(new Error('smtp exploded'));
+    const mock = createSupabaseMock(baseFixtures());
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput());
+
+    expect(res.ok).toBe(true);
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+    // The deferred send's own rejection is swallowed into Sentry (never an
+    // unhandled rejection). Flush microtasks so the .catch has run.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        tags: expect.objectContaining({ step: 'confirmation-email-deferred' }),
+      }),
+    );
+  });
+
   it('slot race: a 23505 on the appointment insert maps to CONFLICT and refunds the charged PI', async () => {
     h.verifyDepositPaymentIntent.mockResolvedValue({ valid: true, status: 'succeeded' });
     h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
