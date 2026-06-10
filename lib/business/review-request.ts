@@ -100,10 +100,22 @@ export async function sendReviewRequestOnCompletion({
     // to a relative path if NEXT_PUBLIC_APP_URL is unset (broken link
     // beats no link), same as `sendReviewCampaign`.
     const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? '';
+    // Embed the appointment's current revocation version (plan 013) so a
+    // leaked auto-review link can be killed from the drawer. One extra
+    // single-row read per completion — this path is per-event, not
+    // batched, so it's a +1, not an N+1. Absent/unset ⇒ 0 (legacy).
+    const verRes = await admin
+      .from('appointments')
+      .select('public_link_version')
+      .eq('id', appointmentId)
+      .maybeSingle();
+    const linkVer =
+      (verRes.data as { public_link_version: number | null } | null)?.public_link_version ?? 0;
     const token = signToken({
       kind: 'review',
       resourceId: appointmentId,
       expiresInSeconds: REVIEW_TOKEN_TTL_SECONDS,
+      ver: linkVer,
     });
     const reviewUrl = `${base}/${locale}/review/${encodeURIComponent(token)}`;
 

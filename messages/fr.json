@@ -288,7 +288,8 @@
         "updated": "Rendez-vous mis à jour",
         "cancelled": "Rendez-vous annulé",
         "cancelledAndRefunded": "Rendez-vous annulé et remboursé",
-        "refunded": "Remboursement effectué"
+        "refunded": "Remboursement effectué",
+        "linksRevoked": "Liens publics révoqués"
       },
       "walkInNoClient": "Sans rendez-vous (aucune fiche client)",
       "customerLinks": {
@@ -304,6 +305,13 @@
         "reschedule": "Lien de reprogrammation copié",
         "review": "Lien d'avis copié",
         "me": "Lien libre-service copié"
+      },
+      "revokeLinks": {
+        "action": "Révoquer les liens publics",
+        "hint": "Désactive les liens reçu / avis / reprogrammation déjà partagés.",
+        "title": "Révoquer les liens publics ?",
+        "confirm": "Tous les liens reçu, avis et reprogrammation existants cesseront de fonctionner. Cette action est irréversible — il faudra en générer de nouveaux. Le lien libre-service (/me) n'est pas affecté.",
+        "confirmLabel": "Révoquer"
       }
     },
     "clients": {

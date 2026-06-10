@@ -38,7 +38,7 @@ export default async function ReceiptPage({
     .from('appointments')
     .select(
       `id, start_at, end_at, total_amount, deposit_amount_cents, tip_amount_cents,
-       payment_status, payment_intent_id, source,
+       payment_status, payment_intent_id, source, public_link_version,
        shop:shops(name, street, municipality, province, postal_code, phone, email,
                   email_logo_url, email_accent_color, timezone),
        barber:barbers(display_name),
@@ -56,6 +56,7 @@ export default async function ReceiptPage({
     payment_status: string;
     payment_intent_id: string | null;
     source: string;
+    public_link_version: number | null;
     shop: {
       name: string;
       street: string | null;
@@ -77,6 +78,10 @@ export default async function ReceiptPage({
     } | null;
   }> | null) ?? [])[0];
   if (!appt) notFound();
+  // Revocation (plan 013): the token's embedded version must match the
+  // appointment's current one; a bump invalidates every outstanding
+  // receipt/review/reschedule link. Absent ⇒ 0 keeps legacy tokens valid.
+  if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) notFound();
 
   const linksRes = await supabase
     .from('appointment_services')
