@@ -95,25 +95,18 @@ export async function GET(req: NextRequest) {
         const todayMonth = Number(monthStr);
         const todayDay = Number(dayStr);
 
-        // 2. Find clients with matching birthday in this shop. The
-        //    `clients_birthday_md_idx` partial index (Loop 62
-        //    migration) makes this O(matching-rows) per shop.
-        const clientsRes = await sb
-          .from('clients')
-          .select('id, shop_id, first_name, email, phone, date_of_birth')
-          .eq('shop_id', shop.id)
-          .not('date_of_birth', 'is', null)
-          .is('anonymized_at', null)
-          // CASL — never send a birthday CEM to a client who opted out.
-          .eq('marketing_opted_out', false);
-        const allWithDob = (clientsRes.data as ClientRow[] | null) ?? [];
-        const matches = allWithDob.filter((c) => {
-          if (!c.date_of_birth) return false;
-          // ISO `YYYY-MM-DD` slice — index positions are stable.
-          const m = Number(c.date_of_birth.slice(5, 7));
-          const d = Number(c.date_of_birth.slice(8, 10));
-          return m === todayMonth && d === todayDay;
+        // 2. Find clients whose birthday is today (month/day), matched
+        //    SQL-side by birthday_clients() so the `clients_birthday_md_idx`
+        //    partial index actually serves the query. The old path fetched
+        //    every DOB-bearing client and filtered month/day in JS — silently
+        //    capped at the PostgREST 1000-row default, so a big shop's later
+        //    clients never got a greeting. types: regenerate db/types.ts post-deploy.
+        const matchesRes = await sb.rpc('birthday_clients', {
+          p_shop: shop.id,
+          p_month: todayMonth,
+          p_day: todayDay,
         });
+        const matches = (matchesRes.data as ClientRow[] | null) ?? [];
         if (matches.length === 0) continue;
 
         // 3. Already-sent lookup for THIS year. Same pattern as the

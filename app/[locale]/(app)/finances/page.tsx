@@ -13,6 +13,7 @@ import {
   tierConfigFromRow,
   type CommissionTierDbRow,
 } from '@/lib/business/commissions';
+import { captureException } from '@/lib/observability';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,12 @@ export default async function FinancesPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServerClient() as any;
 
+  // Explicit bound on the range aggregation. PostgREST silently caps a SELECT
+  // at db-max-rows (1000), so a wide range would sum a TRUNCATED set and
+  // under-report revenue/commissions as if it were the full picture. Bound at
+  // 5000 and, if we hit it, alert (Sentry) + warn on-page rather than render a
+  // wrong total silently.
+  const RANGE_LIMIT = 5000;
   const [apptsRes, clientsRes] = await Promise.all([
     supabase
       .from('appointments')
@@ -74,12 +81,14 @@ export default async function FinancesPage({
       .eq('status', 'completed')
       .eq('shop_id', shop.id)
       .gte('start_at', rangeStart.toISOString())
-      .lt('start_at', rangeEnd.toISOString()),
+      .lt('start_at', rangeEnd.toISOString())
+      .limit(RANGE_LIMIT),
     supabase
       .from('clients')
       .select('id, loyalty_balance_cents')
       .eq('shop_id', shop.id)
-      .gt('loyalty_balance_cents', 0),
+      .gt('loyalty_balance_cents', 0)
+      .limit(RANGE_LIMIT),
   ]);
 
   type ApptRow = {
@@ -93,6 +102,19 @@ export default async function FinancesPage({
 
   const appts = (apptsRes.data as ApptRow[] | null) ?? [];
   const loyaltyClients = (clientsRes.data as ClientRow[] | null) ?? [];
+  const rangeTruncated = appts.length === RANGE_LIMIT || loyaltyClients.length === RANGE_LIMIT;
+  if (rangeTruncated) {
+    captureException(new Error('[finances] range query hit the 5000-row bound'), {
+      tags: { layer: 'finances' },
+      extra: {
+        shopId: shop.id,
+        appts: appts.length,
+        loyaltyClients: loyaltyClients.length,
+        rangeStartIso,
+        rangeEndIso,
+      },
+    });
+  }
 
   // ── Headline metrics ──────────────────────────────────────────────
   const grossRevenue = appts.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
@@ -326,6 +348,14 @@ export default async function FinancesPage({
         }
       />
       <div className="space-y-6 p-6">
+        {rangeTruncated ? (
+          <div
+            role="alert"
+            className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
+          >
+            {t('truncated')}
+          </div>
+        ) : null}
         {/* Date-range filter — Phase 51. Plain GET form so the URL is
             shareable / bookmarkable, and the server-side render
             re-runs with the new range without any client JS. */}
