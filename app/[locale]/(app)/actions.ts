@@ -6,6 +6,7 @@ import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
+import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 import {
   combineShopDateTime,
   formatShopTime,
@@ -822,9 +823,10 @@ export const cancelAppointment = withAction({
           barber_id: string | null;
           mins_cancel_before_appt: number;
         }> | null) ?? [];
-      const override = rows.find((r) => r.scope === 'barber' && r.barber_id === pre.barber_id);
-      const fallback = rows.find((r) => r.scope === 'shop');
-      const minsBefore = (override ?? fallback)?.mins_cancel_before_appt ?? 0;
+      // B20 — shared resolver. Admin path deliberately ignores
+      // customer_cancellations (a manager override is allowed to cancel
+      // regardless of the customer-facing toggle). No-rows ⇒ mins 0.
+      const minsBefore = resolveEffectiveBarberSettings(rows, pre.barber_id).mins_cancel_before_appt;
       // 0-minute policy is interpreted as "no policy → refund proceeds"
       // (matches the customer-side cancellation semantics: no cancellation
       // window means cancellations are unrestricted). A shop that wants

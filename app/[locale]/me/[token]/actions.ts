@@ -16,6 +16,7 @@ import { sendEmail } from '@/lib/email/send';
 import { AppointmentCancellation } from '@/lib/email/templates/appointment-cancellation';
 import { deleteAppointmentMirror } from '@/lib/google/sync';
 import { notifyMatchingWaitlistOnCancel } from '@/lib/business/waitlist-notify';
+import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 
 /**
  * Phase 68 — Self-service Loi 25 export.
@@ -311,17 +312,16 @@ export async function cancelMyAppointment(
         mins_cancel_before_appt: number;
         customer_cancellations: boolean | null;
       }> | null) ?? [];
-    const override = settingsRows.find(
-      (r) => r.scope === 'barber' && r.barber_id === appt.barber_id,
-    );
-    const fallback = settingsRows.find((r) => r.scope === 'shop');
-    const resolvedSettings = override ?? fallback;
-    const minsBefore = resolvedSettings?.mins_cancel_before_appt ?? 0;
+    // B20 — shared resolver (override → shop → defaults). No-rows ⇒ mins 0
+    // ("no policy") + customer_cancellations true, matching the prior
+    // `?? 0` / `!== false` semantics exactly.
+    const resolvedSettings = resolveEffectiveBarberSettings(settingsRows, appt.barber_id);
+    const minsBefore = resolvedSettings.mins_cancel_before_appt;
 
     // Phase H — explicit "no customer cancels" check. Defaults to TRUE
     // (allowed) when the column is null so a shop that never touched
     // the toggle keeps the default behavior. Only `false` blocks.
-    const customerCancellationsAllowed = resolvedSettings?.customer_cancellations !== false;
+    const customerCancellationsAllowed = resolvedSettings.customer_cancellations;
     if (!customerCancellationsAllowed) {
       return err('INVALID_INPUT', { cancellation: 'not_allowed' });
     }
