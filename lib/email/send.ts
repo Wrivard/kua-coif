@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render } from '@react-email/render';
 import { getEmailConfig } from './client';
-import { getShopSmtpConfig, sendViaShopSmtp } from './smtp';
+import { getShopSmtpConfig, sendViaShopSmtp, type ShopSmtpConfig } from './smtp';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 
@@ -62,6 +62,20 @@ export type SendEmailInput = {
   replyTo?: string;
   /** Free-form tags surfaced in Resend's dashboard for filtering / debugging. */
   tags?: Array<{ name: string; value: string }>;
+  /**
+   * Plan 018 — optional pre-loaded config to skip this call's two internal
+   * DB reads. A loop sending many emails for the same shops (reminder /
+   * birthday / campaign crons) can batch-load both once per tick and pass
+   * them down here. Each field is consulted independently:
+   *   - `automationEnabled` present → use it instead of the per-call
+   *     `notification_automations` lookup (the gate).
+   *   - `smtpCfg` KEY present (even when `null`) → use it instead of the
+   *     per-call `getShopSmtpConfig` lookup (`null` means "no shop SMTP →
+   *     go straight to the Resend fallback").
+   * Omit `preloaded` entirely (or omit a field) to keep the original
+   * per-call lookup — the fallback path is identical.
+   */
+  preloaded?: { automationEnabled?: boolean; smtpCfg?: ShopSmtpConfig | null };
 };
 
 export type SendEmailResult =
@@ -100,7 +114,11 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   // ── Automation gate (per shop + kind) ───────────────────────────────
   if (input.shopId && input.kind) {
     try {
-      const enabled = await isAutomationEnabled(input.shopId, input.kind);
+      // Plan 018 — use the preloaded flag when supplied (a batch caller already
+      // read it); else fall back to the per-call lookup. `??` is safe here:
+      // only undefined falls through, so a preloaded `false` correctly gates.
+      const enabled =
+        input.preloaded?.automationEnabled ?? (await isAutomationEnabled(input.shopId, input.kind));
       if (!enabled) return { sent: false, reason: 'disabled' };
     } catch (err) {
       // Gate lookup failed — log and continue to send. We'd rather send a
@@ -127,7 +145,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   // ── 1. Shop SMTP (preferred when configured) ────────────────────────
   if (input.shopId) {
     try {
-      const cfg = await getShopSmtpConfig(input.shopId);
+      // Plan 018 — use the preloaded config when the caller supplied the
+      // `smtpCfg` key (even `null` = "no shop SMTP, skip the lookup"); else
+      // fall back to the per-call read.
+      const cfg =
+        input.preloaded && 'smtpCfg' in input.preloaded
+          ? (input.preloaded.smtpCfg ?? null)
+          : await getShopSmtpConfig(input.shopId);
       if (cfg) {
         const result = await sendViaShopSmtp({
           cfg,
