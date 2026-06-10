@@ -49,6 +49,15 @@ jobs:
           TZ: America/Toronto
         run: pnpm test
 
+      - name: Test timezone helpers under UTC runtime
+        # The main test run pins TZ=America/Toronto for reproducibility — which
+        # also MASKS runtime-TZ bugs (prod serverless runs UTC). This leg
+        # re-runs the timezone suite under UTC so a runtime-dependent helper
+        # fails loudly here instead of shipping.
+        env:
+          TZ: UTC
+        run: pnpm vitest run lib/business/timezone.test.ts
+
       - name: Lint
         run: pnpm lint
 

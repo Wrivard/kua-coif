@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { combineShopDateTime, formatShopTime, shopDayStart, shopDayEnd } from './timezone';
+import {
+  combineShopDateTime,
+  formatShopTime,
+  parseShopIsoDate,
+  shopDayStart,
+  shopDayEnd,
+} from './timezone';
 
 /**
  * DST correctness for the calendar's timezone helpers (America/Toronto, the
@@ -70,5 +76,35 @@ describe('timezone helpers — DST (America/Toronto)', () => {
     const end = shopDayEnd(new Date('2026-05-22T12:00:00Z'), TZ);
     const nextStart = shopDayStart(new Date('2026-05-23T12:00:00Z'), TZ);
     expect(nextStart.getTime() - end.getTime()).toBe(1);
+  });
+});
+
+/**
+ * `parseShopIsoDate` turns a YYYY-MM-DD string into the start-of-that-day
+ * instant in the shop's timezone. The prior implementation went through
+ * runtime-local midnight, so the answer was only correct when the server's TZ
+ * matched the shop's — Vercel serverless runs TZ=UTC and silently returned the
+ * *previous* day. These assertions pin absolute UTC instants, so they hold
+ * under ANY runtime TZ (the TZ=UTC CI leg re-runs this suite to prove it).
+ */
+describe('parseShopIsoDate (runtime-TZ independent)', () => {
+  it('summer date → start-of-day in EDT (UTC-4)', () => {
+    expect(parseShopIsoDate('2026-06-10', TZ).toISOString()).toBe('2026-06-10T04:00:00.000Z');
+  });
+
+  it('winter date → start-of-day in EST (UTC-5)', () => {
+    expect(parseShopIsoDate('2026-01-10', TZ).toISOString()).toBe('2026-01-10T05:00:00.000Z');
+  });
+
+  it('spring-forward day: midnight is pre-jump, still EST (UTC-5)', () => {
+    // 2026-03-08 clocks jump 02:00→03:00; 00:00 is before the gap, so EST.
+    expect(parseShopIsoDate('2026-03-08', TZ).toISOString()).toBe('2026-03-08T05:00:00.000Z');
+  });
+
+  it('equals combineShopDateTime(iso, "00:00", tz)', () => {
+    const iso = '2026-09-15';
+    expect(parseShopIsoDate(iso, TZ).getTime()).toBe(
+      combineShopDateTime(iso, '00:00', TZ).getTime(),
+    );
   });
 });
