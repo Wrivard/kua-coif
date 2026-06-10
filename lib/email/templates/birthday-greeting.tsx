@@ -39,12 +39,7 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
   };
 };
 
-export function BirthdayGreeting({
-  locale,
-  shop,
-  client,
-  unsubscribeUrl,
-}: BirthdayGreetingProps) {
+export function BirthdayGreeting({ locale, shop, client, unsubscribeUrl }: BirthdayGreetingProps) {
   const L = copy(locale, shop.name, client.firstName);
 
   return (
