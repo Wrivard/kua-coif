@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
 import {
   combineShopDateTime,
@@ -869,7 +869,7 @@ export const cancelAppointment = withAction({
         // Sync-write refunded status (idempotent with the charge.refunded
         // webhook) so a dropped event can't leave the row 'paid'.
         await markRefundedByIntent(rawDb(), pre.payment_intent_id);
-        await logAuditAction({
+        await logDurableAudit({
           shopId: ctx.shopId,
           actorId: ctx.userId,
           action: 'update',
@@ -1133,7 +1133,7 @@ export const bulkCancelAppointments = withAction<
     // the audit_log on a 50-appointment day cancel. The `entityId`
     // points at the first row so the trail is grep-able; the `diff`
     // carries the full ID list for forensics.
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
@@ -1405,7 +1405,7 @@ export const chargeAppointment = withAction<
       // Supabase doesn't throw on row-mismatch updates; treat any non-null
       // error as the PI-orphan trigger.
       if (updateRes.error) throw new Error(updateRes.error.message ?? 'update_failed');
-      await logAuditAction({
+      await logDurableAudit({
         shopId: ctx.shopId,
         actorId: ctx.userId,
         action: 'update',
@@ -1432,7 +1432,7 @@ export const chargeAppointment = withAction<
         extra: { intentId: intent.id, appointmentId: appt.id },
       });
       try {
-        await logAuditAction({
+        await logDurableAudit({
           shopId: ctx.shopId,
           actorId: ctx.userId,
           action: 'update',
@@ -1506,7 +1506,7 @@ export const refundAppointment = withAction({
     // surfaced "erreur inattendue" on a refund that actually went through.
     try {
       await markRefundedByIntent(sb, appt.payment_intent_id);
-      await logAuditAction({
+      await logDurableAudit({
         shopId: ctx.shopId,
         actorId: ctx.userId,
         action: 'update',

@@ -13,14 +13,18 @@ type LogArgs = {
 };
 
 /**
- * Server-side helper to append a row to public.audit_log. Use it from Server
- * Actions for any **non-trivial** mutation (delete, refund, role change, etc.).
- * Regular insert/update on data tables already gets logged by the SQL triggers
- * we set up in Phase 2 — this helper is for additional context the triggers
- * can't capture (which Server Action ran, which sub-step failed, …).
+ * NO-OP at runtime by design. This inserts through the user-session client,
+ * whose write is silently DROPPED by audit_log RLS (the table has no user
+ * INSERT policy — only the SECURITY DEFINER table triggers write to it). It is
+ * kept purely as inline documentation of intent, sitting next to row mutations
+ * the SQL triggers already capture (insert/update/delete on data tables).
  *
- * Failures are swallowed (observability hook only). Audit log MUST NOT block
- * the user's mutation if it can't be written.
+ * Anything whose diff carries semantics the trigger can't reconstruct —
+ * money (refunds, force_refund, orphan PaymentIntents), Loi 25 consent/export,
+ * or any public/anon-session flow that fires no actor-bearing trigger — MUST
+ * use `logDurableAudit` instead (service-role writer, PII-redacted).
+ *
+ * Failures are swallowed (observability hook only); the no-op never throws.
  */
 export async function logAuditAction(args: LogArgs) {
   try {

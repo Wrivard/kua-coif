@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { signToken } from '@/lib/security/signed-tokens';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { appUrl } from '@/lib/env/app-url';
 
 /**
@@ -107,7 +107,7 @@ export const generatePublicLinks = withAction({
     // we log it. The diff records WHICH kinds were generated (the /me
     // link is conditional on the appointment having a client_id) but
     // never the token itself — tokens are bearer credentials.
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
