@@ -1,6 +1,6 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { SHOP_CACHE_TAG } from '@/lib/auth/server';
-import { shopConfigCacheTags } from '@/lib/data/calendar-config';
+import { shopConfigCacheTags, shopAliasCacheTag } from '@/lib/data/calendar-config';
 
 /**
  * Bust the cache on every public surface that may be reading a shop's
@@ -13,13 +13,28 @@ import { shopConfigCacheTags } from '@/lib/data/calendar-config';
  *   wants to verify the booking page reflects it. This helper, called from
  *   the relevant Server Actions, invalidates the cached output immediately.
  *
- *   We use the route-pattern form (`'/[locale]/book/[shopSlug]'`) with the
- *   `'page'` scope so EVERY locale and shopSlug instance of the route is
- *   purged in one call — no need to look up the shop alias from `ctx.shopId`.
+ * Granularity (plan 017):
+ *   - WITH a `shopAlias`: purge ONLY that shop's public ISR — both locales of
+ *     /book and /embed (literal paths) — AND bust its alias-keyed config cache
+ *     (`getCachedShopByAlias`, used by the slots route). Preferred: a one-shop
+ *     edit no longer purges every tenant's booking page.
+ *   - WITHOUT an alias (caller only holds `ctx.shopId`, not the slug): fall
+ *     back to the route-pattern purge of EVERY tenant's /book + /embed. Coarser
+ *     but correct; the alias-keyed shop cache can't be busted here, so it
+ *     relies on its 300s TTL for those callers.
  *
  * Cheap to call: invalidating a page that wasn't cached is a no-op.
  */
-export function revalidatePublicShopSurfaces() {
+export function revalidatePublicShopSurfaces(shopAlias?: string) {
+  if (shopAlias) {
+    revalidatePath(`/fr/book/${shopAlias}`, 'page');
+    revalidatePath(`/en/book/${shopAlias}`, 'page');
+    revalidatePath(`/fr/embed/${shopAlias}`, 'page');
+    revalidatePath(`/en/embed/${shopAlias}`, 'page');
+    revalidateTag(shopAliasCacheTag(shopAlias));
+    return;
+  }
+  // Fallback: alias not in reach — global, every-tenant purge.
   revalidatePath('/[locale]/book/[shopSlug]', 'page');
   revalidatePath('/[locale]/embed/[shopSlug]', 'page');
 }

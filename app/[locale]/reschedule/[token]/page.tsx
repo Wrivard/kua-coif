@@ -32,7 +32,7 @@ export default async function ReschedulePage({
   const apptRes = await supabase
     .from('appointments')
     .select(
-      `id, start_at, end_at, status, barber_id, client_name_snapshot,
+      `id, start_at, end_at, status, barber_id, client_name_snapshot, public_link_version,
        shop:shops(id, name, alias, timezone),
        barber:barbers(display_name)`,
     )
@@ -45,10 +45,14 @@ export default async function ReschedulePage({
     status: string;
     barber_id: string;
     client_name_snapshot: string | null;
+    public_link_version: number | null;
     shop: { id: string; name: string; alias: string; timezone: string } | null;
     barber: { display_name: string } | null;
   }> | null) ?? [])[0];
   if (!appt || !appt.shop) notFound();
+  // Revocation (plan 013): stale token version → 404, same as a bad/expired
+  // token. Absent ⇒ 0 keeps legacy links valid until the first revoke.
+  if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) notFound();
 
   // Block reschedule on terminal-status appointments (UX nicety —
   // the action would refuse anyway, but rendering the form is

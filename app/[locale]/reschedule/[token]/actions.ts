@@ -70,7 +70,7 @@ export async function reschedulePublicAppointment(
     const apptRes = await supabase
       .from('appointments')
       .select(
-        'id, shop_id, barber_id, start_at, end_at, status, google_event_id, shop:shops(id, timezone)',
+        'id, shop_id, barber_id, start_at, end_at, status, google_event_id, public_link_version, shop:shops(id, timezone)',
       )
       .eq('id', payload.resourceId)
       .limit(1);
@@ -82,9 +82,13 @@ export async function reschedulePublicAppointment(
       end_at: string;
       status: string;
       google_event_id: string | null;
+      public_link_version: number | null;
       shop: { id: string; timezone: string } | null;
     }> | null) ?? [])[0];
     if (!appt || !appt.shop) return err('NOT_FOUND');
+    // Revocation (plan 013): stale token version → same NOT_FOUND path as a
+    // bad token (never a distinct error that would confirm the appt exists).
+    if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) return err('NOT_FOUND');
 
     // Block reschedules on terminal-status appointments.
     if (['cancelled', 'no_show', 'completed'].includes(appt.status)) {

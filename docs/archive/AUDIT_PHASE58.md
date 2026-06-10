@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — Phase 58 (post-loop 5 production readiness)
 
 > Snapshot at the end of Loop 5 (Phases 56, 57 delivered; 58, 59 deferred).

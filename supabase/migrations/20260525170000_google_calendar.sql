@@ -131,7 +131,14 @@ begin
     create trigger barber_google_calendar_set_updated_at
       before update on public.barber_google_calendar
       for each row
-      execute function public.set_updated_at();
+      -- tg_set_updated_at = the canonical helper from 20260523000003. This
+      -- line previously said `set_updated_at()` (no tg_ prefix) — a function
+      -- that has never existed in any migration NOR in prod (prod's live
+      -- trigger already points at tg_set_updated_at, so the file had drifted
+      -- from what actually ran). The typo only bit FRESH environments:
+      -- `supabase db reset` failed here with SQLSTATE 42883, caught by the
+      -- db-e2e CI job's maiden run (plan 016).
+      execute function public.tg_set_updated_at();
   end if;
 end$$;
 

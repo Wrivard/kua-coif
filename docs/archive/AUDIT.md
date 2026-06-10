@@ -1,3 +1,5 @@
+> ARCHIVED 2026-06-10 — superseded snapshot; not current state. See docs/archive/README.md.
+
 # AUDIT — fin de Phase 3
 
 > Deep dive de l'état actuel du code (Phases 0–3 livrées) contre la spec
