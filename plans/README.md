@@ -20,7 +20,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 003 | Per-command RLS on catalog/config tables (manager-gate the writes) | P1 | M | — | IN PROGRESS |
 | 004 | Terminal-status + active-shop guards on cancel/update appointment | P1 | S | — | IN PROGRESS |
 | 005 | Scope /finances and /finances/today to the active shop | P1 | S | — | DONE |
-| 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | IN PROGRESS |
+| 006 | Manager gate on the QuickBooks OAuth start route | P1 | S | — | DONE |
 | 007 | Durable audit writes for semantic trails (refunds, consent, orphan PI) | P1 | S | — | TODO |
 | 008 | Bound the unbounded queries (crons, exports, finances, winback) | P2 | M | 005 (same file: finances) | TODO |
 | 009 | Google-mirror + waitlist side-effects on public self-cancel/reschedule | P2 | M | — | TODO |
