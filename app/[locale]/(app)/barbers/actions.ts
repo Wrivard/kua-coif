@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { revalidatePublicShopSurfaces } from '@/lib/server-actions/revalidate';
+import {
+  revalidatePublicShopSurfaces,
+  revalidateShopConfig,
+} from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
@@ -45,7 +48,11 @@ export const createBarber = withAction({
     revalidatePath(BARBERS_PATH);
     // Confirmed-barber list drives the public booking + embed widget — bust
     // their caches too so admins see staff changes propagate immediately.
+    // No-arg (global page purge): the alias isn't loaded on this path.
     revalidatePublicShopSurfaces();
+    // Plan 017 — the slots route caches the confirmed+bookable list
+    // (`bookable-barbers:${shopId}`); bust it so a new/edited barber appears.
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: data.id });
   },
 });
@@ -80,6 +87,8 @@ export const updateBarber = withAction({
     });
     revalidatePath(BARBERS_PATH);
     revalidatePublicShopSurfaces();
+    // Plan 017 — bust the cached bookable-barbers list (name/bookable edits).
+    revalidateShopConfig(ctx.shopId);
     return ok({ id });
   },
 });
@@ -128,6 +137,8 @@ export const deleteBarber = withAction({
     });
     revalidatePath(BARBERS_PATH);
     revalidatePublicShopSurfaces();
+    // Plan 017 — soft-delete removes the barber from the cached bookable list.
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id });
   },
 });
@@ -154,6 +165,8 @@ export const setBarberStatus = withAction({
     });
     revalidatePath(BARBERS_PATH);
     revalidatePublicShopSurfaces();
+    // Plan 017 — status flips (confirmed↔staff/deleted) change bookability.
+    revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id, status: input.status });
   },
 });
