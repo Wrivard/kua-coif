@@ -87,7 +87,15 @@ export function RescheduleClient({
         if (!ctl.signal.aborted) setLoadingSlots(false);
       });
     return () => ctl.abort();
-  }, [date, shop.slug, appointment.durationMin, appointment.barberId, isTerminal, done, retryNonce]);
+  }, [
+    date,
+    shop.slug,
+    appointment.durationMin,
+    appointment.barberId,
+    isTerminal,
+    done,
+    retryNonce,
+  ]);
 
   // 14-day strip starting today.
   const days = useMemo(() => {
