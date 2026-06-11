@@ -53,7 +53,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | DONE (every post-charge return refunds via failBooking +2 tests; phone/email pre-charge gates; Confirm gated on PI readiness, NOT_READY localized; CONFLICT→slot step + Turnstile re-arm + fresh-PI refresh; mint retry button) |
 | 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | TODO (file written) |
 | 038 | Embeddable widget polish (ISR, analytics cache, brand/theme, modal focus, scroll sync, error states) | P2 | M | — | TODO (file written) |
-| 039 | Back-office safety — destructive-action guards, false signals, payroll correctness | P1 | S-M | 032 (notifications-client) | TODO (file written) |
+| 039 | Back-office safety — destructive-action guards, false signals, payroll correctness | P1 | S-M | 032 (notifications-client) | DONE (paid icon gated ×2 vues; confirms anonymize/revoke-me/campagnes/SMTP/Twilio; commissions cumulative per-row + dirty guard; audit-log scopé shop + rows clavier; dot finances retiré) |
 | 040 | Calendar journey upgrades (deletable blocked time, date jump, appt deep-link, view URL, one status map) — console-journeys backlog (charge/inline-client/fiche/services-search/finances-nav) deferred inside | P2 | M-L | 032/033/039 (calendar files) | TODO (file written) |
 | 041 | Public-surface i18n consolidation (token pages, marketing, close-out, scoped catalog) | P2 | M | 037/039/043/044/045 | TODO (file written) |
 | 042 | SPIKE — per-day availability density in booking/reschedule date strips | P3 | M | — | TODO (file written) |
