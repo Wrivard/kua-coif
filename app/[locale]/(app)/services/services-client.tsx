@@ -154,6 +154,15 @@ export function ServicesClient({
       setConfirmDelete(null);
       if (result.ok) {
         show({ variant: 'success', title: t('toasts.deleted', { name: row.name }) });
+      } else if (result.errorCode === 'CONFLICT') {
+        // Services W2b — the server now maps the FK RESTRICT (23503) to
+        // CONFLICT: this service has appointment history and can't be
+        // hard-deleted. Point at the sane path (disable) instead of the
+        // old opaque "unexpected error".
+        show({
+          variant: 'danger',
+          title: t('toasts.deleteBlockedBooked', { name: row.name }),
+        });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }

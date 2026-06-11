@@ -479,6 +479,7 @@
         "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form.",
         "errors": {
           "nameTooLong": "Name is too long (120 characters max).",
+          "nameDuplicate": "This name is already used in this shop.",
           "amount": "Enter a valid amount (e.g. 25.00)."
         }
       },
@@ -486,7 +487,9 @@
         "created": "Service created",
         "updated": "Service updated",
         "deleted": "\"{name}\" deleted",
+        "deleteBlockedBooked": "\"{name}\" has appointments in its history and can't be deleted. Disable it instead.",
         "statusFlipped": "\"{name}\" status updated",
+        "staleConflict": "Someone else edited this in the meantime — reload the page before saving.",
         "reordered": "Order saved"
       },
       "categories": {
@@ -505,7 +508,8 @@
           "created": "Category added",
           "renamed": "Category renamed",
           "deleted": "\"{name}\" deleted",
-          "deleteBlocked": "\"{name}\" still has services. Reassign or remove them first."
+          "deleteBlocked": "\"{name}\" still has services. Reassign or remove them first.",
+          "duplicate": "\"{name}\" already exists in this shop."
         }
       }
     },

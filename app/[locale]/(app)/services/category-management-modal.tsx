@@ -53,6 +53,10 @@ export function CategoryManagementModal({ categories, services, onClose }: Props
       if (result.ok) {
         show({ variant: 'success', title: t('toasts.created') });
         setNewName('');
+      } else if (result.errorCode === 'CONFLICT' && result.fieldErrors?.name === 'duplicate') {
+        // Services W2b — unique(shop_id, name) landed: a duplicate is a normal
+        // user case, name it instead of the generic conflict copy.
+        show({ variant: 'danger', title: t('toasts.duplicate', { name }) });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
@@ -68,6 +72,10 @@ export function CategoryManagementModal({ categories, services, onClose }: Props
         show({ variant: 'success', title: t('toasts.renamed') });
         setEditId(null);
         setEditName('');
+      } else if (result.errorCode === 'CONFLICT' && result.fieldErrors?.name === 'duplicate') {
+        // Rename collision with another category in this shop — keep the row
+        // in edit mode so the user can adjust the name in place.
+        show({ variant: 'danger', title: t('toasts.duplicate', { name }) });
       } else {
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }

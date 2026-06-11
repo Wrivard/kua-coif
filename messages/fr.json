@@ -479,6 +479,7 @@
         "depositHint": "Montant prélevé au booking (0 = pas d'acompte). V1.1 affichera le formulaire de paiement Stripe.",
         "errors": {
           "nameTooLong": "Le nom est trop long (120 caractères max).",
+          "nameDuplicate": "Ce nom est déjà utilisé dans cette boutique.",
           "amount": "Entre un montant valide (ex. 25,00)."
         }
       },
@@ -486,7 +487,9 @@
         "created": "Service créé",
         "updated": "Service mis à jour",
         "deleted": "« {name} » supprimé",
+        "deleteBlockedBooked": "« {name} » a des rendez-vous à son historique et ne peut pas être supprimé. Désactive-le plutôt.",
         "statusFlipped": "Statut de « {name} » mis à jour",
+        "staleConflict": "Modifié entre-temps par quelqu'un d'autre — recharge la page avant de sauvegarder.",
         "reordered": "Ordre enregistré"
       },
       "categories": {
@@ -505,7 +508,8 @@
           "created": "Catégorie ajoutée",
           "renamed": "Catégorie renommée",
           "deleted": "« {name} » supprimée",
-          "deleteBlocked": "« {name} » contient encore des services. Réassigne-les ou supprime-les d'abord."
+          "deleteBlocked": "« {name} » contient encore des services. Réassigne-les ou supprime-les d'abord.",
+          "duplicate": "« {name} » existe déjà dans cette boutique."
         }
       }
     },
