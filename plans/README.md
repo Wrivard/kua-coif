@@ -43,6 +43,23 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | DONE (design: plans/026-OUTPUT-csv-import-design.md) |
 | 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | DONE (design: plans/027-OUTPUT-barber-invite-design.md — model C hybrid; exposure walk CLEAN) |
 | 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
+| 029 | Token system truth-up (`<alpha-value>` opacity utilities + danger/accent AA + radius lock) | P1 | M | — | TODO (file written) |
+| 030 | Callout/Alert primitive + adopt across ~25 inline alerts | P2 | M | 029 | TODO (file written) |
+| 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | TODO (file written) |
+| 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | TODO (file written) |
+| 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
+| 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | TODO (file written) |
+| 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | TODO (file written) |
+| 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | TODO (file written) |
+| 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | TODO (file written) |
+| 038 | Embeddable widget polish (ISR, analytics cache, brand/theme, modal focus, scroll sync, error states) | P2 | M | — | TODO (file written) |
+| 039 | Back-office safety — destructive-action guards, false signals, payroll correctness | P1 | S-M | 032 (notifications-client) | TODO (file written) |
+| 040 | Calendar journey upgrades (deletable blocked time, date jump, appt deep-link, view URL, one status map) — console-journeys backlog (charge/inline-client/fiche/services-search/finances-nav) deferred inside | P2 | M-L | 032/033/039 (calendar files) | TODO (file written) |
+| 041 | Public-surface i18n consolidation (token pages, marketing, close-out, scoped catalog) | P2 | M | 037/039/043/044/045 | TODO (file written) |
+| 042 | SPIKE — per-day availability density in booking/reschedule date strips | P3 | M | — | TODO (file written) |
+| 043 | Review conversion pack (star deep-links from email + Google handoff) | P2 | M | 037 | TODO (file written) |
+| 044 | /me as hub — per-appointment reschedule/receipt links (structurally fixes expired-link) | P2 | S-M | 037 | TODO (file written) |
+| 045 | SPIKE — receipt TPS/TVQ tax breakdown | P3 | M | — | TODO (file written) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 
@@ -61,6 +78,33 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
   motivated many casts.
 - Plans 026–028 are design/spike plans: deliverable is a written design +
   prototype notes + open questions, NOT a full feature.
+
+### UI/UX front-end audit roster (029–045)
+
+Generated 2026-06-10 from a focused front-end UX audit (5 read-only lanes on
+Fable 5: back-office journeys, booking conversion, perceived perf/reactivity,
+premium craft/motion, token pages + widget). Full findings + verdicts in the
+memory note `kua-coiffure-uiux-audit`. Plan FILES 029 and 032 are written;
+030/031/033–045 are the approved roadmap and land in waves (rows above define
+scope/priority/deps). Three axes:
+
+- **Premium** ("ship the design already designed"): 029 (keystone — the
+  `<alpha-value>` bug silently kills ~70 opacity-token classes; everything below
+  builds on it) → 030 (Callout primitive) → 031 (exit motion + tab indicator).
+  030 and 031 REQUIRE 029 (their tints/rings only render once the opacity
+  utilities compile).
+- **Fast/reactive**: 032 (calendar-nav feedback + optimistic toggles) → 033
+  (optimistic appointment create/cancel — same calendar file, run after 032) ;
+  034 (shaped skeletons + finances soft-nav) is independent.
+- **Journeys/trust**: 035 (booking false dead-ends) → 036 (booking money-path —
+  same `booking-wizard.tsx`, run after 035; also touches
+  `book/[shopSlug]/actions.ts`, where plans 001/014/018/022 are already DONE, so
+  no live conflict). 037 (token-surface trust) unblocks 043 + 044. 039 edits
+  `settings/notifications/notifications-client.tsx` — coordinate with 032 (run
+  032 first or rebase). 040/041 are broad; split further if a contract exceeds
+  ~5 items over a small file set.
+- **Note**: 036 is a money path (overlaps plan-001's `failBooking` net + the
+  security review) — its STOP conditions are load-bearing; review closely.
 
 ## Findings considered and rejected
 
@@ -96,6 +140,27 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
   (drop from list select), reorderServices row-per-UPDATE, blockTime per-occurrence
   COUNT, week-view serial fetch, widget-stats 20k-row JS rollup, client-fiche
   stats from capped page. Each S; bundle opportunistically.
+
+(UI/UX audit 2026-06-10:)
+
+- **Booking-wizard double-border seams** (card-in-card): cosmetic only, no
+  conversion effect, token system renders it consistently — not worth doing.
+- **Clients list → react-virtual purely for products parity**: the 25/page
+  pagination + ≥2-char server search works at current scale, and the 1000-row cap
+  is already tracked in-code as a "next wave" item. Don't virtualize for parity's
+  sake; revisit only if a shop crosses ~1000 clients (the cap risk is the real
+  finding, not the windowing).
+- **Recon lead "loading.tsx coverage tiny"**: WRONG as stated — `(app)/loading.tsx`
+  + `(app)/error.tsx` are group boundaries covering all ~40 routes by inheritance.
+  Real gap is skeleton SHAPE + a missing `settings/loading.tsx` (folded into 034),
+  not absence.
+- **Recon lead "React 19 primitives absent → dead pauses"**: OVERSTATED — every
+  mutation already uses `useTransition` + loading button. The real reactivity gaps
+  are narrow (calendar nav, optimistic toggles, optimistic appt create/cancel =
+  plans 032/033), not a blanket `useOptimistic` rollout.
+- **PERF-06 `force-dynamic` + `staleTimes:0`** (45 pages): largest raw back-nav
+  win but needs a staleness product-decision on the live calendar — left for the
+  operator to weigh; not auto-planned. Revisit as a deliberate call.
 
 ## What was NOT audited
 
