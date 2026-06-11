@@ -182,6 +182,21 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     return err('INVALID_INPUT', { cf_turnstile_response: turnstileResult.reason });
   }
 
+  // ── 036b — refund net for the final catch ─────────────────────────
+  // Plan 036 routed every post-charge `return err(...)` through
+  // `failBooking` (best-effort refund), but an uncaught EXCEPTION bypassed
+  // them all and hit the final catch, which returned UNEXPECTED with the
+  // customer still charged. This context is hoisted OUTSIDE the try (the
+  // catch can't see `shop`/`failBooking`, both block-scoped inside it):
+  // armed once the shop is resolved, DISARMED the moment the booking is
+  // durable (appointment + service links written) so a throw in the
+  // notification tail can never refund a real booking.
+  let refundOnThrow: {
+    paymentIntentId: string;
+    connectedAccountId: string;
+    shopId: string;
+  } | null = null;
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceRoleClient() as any;
@@ -261,6 +276,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       }
       return err(...args);
     };
+
+    // Arm the final-catch refund net over the same span failBooking covers:
+    // from here on, a charged customer with no durable booking gets their
+    // money back even when the failure is a THROW, not a `return`.
+    if (input.payment_intent_id && shop.stripe_account_id) {
+      refundOnThrow = {
+        paymentIntentId: input.payment_intent_id,
+        connectedAccountId: shop.stripe_account_id,
+        shopId: shop.id,
+      };
+    }
 
     // ── Resolve services + promo + barber in ONE batch (plan 018) ─────
     // All three reads depend ONLY on shop.id, so they run in parallel instead
@@ -789,6 +815,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return await failBooking('UNEXPECTED');
     }
 
+    // 036b — the booking is durable from here (appointment + links). A
+    // failure in the tail (loyalty/audit/email/Slack) must NOT refund a
+    // customer who holds a real appointment.
+    refundOnThrow = null;
+
     // ── Decrement loyalty balance (Phase 50) ─────────────────────────
     // Best-effort: a balance-update failure shouldn't kill the booking
     // (the user got their appointment, that's what matters). We computed
@@ -983,6 +1014,36 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     return ok({ id: apptId });
   } catch (e) {
     captureException(e, { tags: { layer: 'public-booking' } });
+    // 036b — same best-effort refund semantics as failBooking, for the
+    // exception path failBooking can't reach. `refundOwnedIntentBestEffort`
+    // only refunds a PI that provably belongs to THIS shop and actually
+    // captured money, and a refund failure must not mask the UNEXPECTED
+    // response (captured, then we still return).
+    if (refundOnThrow) {
+      try {
+        const r = await refundOwnedIntentBestEffort({
+          paymentIntentId: refundOnThrow.paymentIntentId,
+          expectedConnectedAccountId: refundOnThrow.connectedAccountId,
+        });
+        if (!r.refunded && r.reason !== 'wrong_shop' && r.reason !== 'not_charged') {
+          captureException(new Error(`[booking] refund-on-throw skipped: ${r.reason}`), {
+            tags: { layer: 'public-booking', step: 'refund-on-throw' },
+            extra: {
+              shopId: refundOnThrow.shopId,
+              paymentIntentId: refundOnThrow.paymentIntentId,
+            },
+          });
+        }
+      } catch (refundError) {
+        captureException(refundError, {
+          tags: { layer: 'public-booking', step: 'refund-on-throw' },
+          extra: {
+            shopId: refundOnThrow.shopId,
+            paymentIntentId: refundOnThrow.paymentIntentId,
+          },
+        });
+      }
+    }
     return err('UNEXPECTED');
   }
 }
