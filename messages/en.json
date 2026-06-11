@@ -379,6 +379,14 @@
         "title": "Delete this client?",
         "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
       },
+      "confirmAnonymize": {
+        "title": "Anonymize this client?",
+        "description": "\"{name}\"'s personal data (name, email, phone, notes) will be permanently erased (Quebec Bill 25). This cannot be undone."
+      },
+      "confirmRevokeMe": {
+        "title": "Revoke access links?",
+        "description": "\"{name}\"'s existing self-service links (appointment management) will stop working immediately."
+      },
       "form": {
         "addTitle": "New client",
         "editTitle": "Edit client",

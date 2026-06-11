@@ -379,6 +379,14 @@
         "title": "Supprimer ce client ?",
         "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
       },
+      "confirmAnonymize": {
+        "title": "Anonymiser ce client ?",
+        "description": "Les données personnelles de « {name} » (nom, courriel, téléphone, notes) seront effacées définitivement (Loi 25). Cette action est irréversible."
+      },
+      "confirmRevokeMe": {
+        "title": "Révoquer les liens d’accès ?",
+        "description": "Les liens self-service existants de « {name} » (gestion de rendez-vous) cesseront de fonctionner immédiatement."
+      },
       "form": {
         "addTitle": "Nouveau client",
         "editTitle": "Modifier le client",

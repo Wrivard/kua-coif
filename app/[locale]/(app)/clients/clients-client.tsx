@@ -76,6 +76,11 @@ export function ClientsClient({
   const [showDupesOnly, setShowDupesOnly] = useState(false);
   const [mode, setMode] = useState<Mode>({ kind: 'closed' });
   const [confirmDelete, setConfirmDelete] = useState<ClientRow | null>(null);
+  // Plan 039 (CLI-01) — anonymize is an irreversible Loi 25 PII scrub one
+  // icon away from Delete, and revoke-me kills the client's self-service
+  // links; both fired instantly. Same ConfirmDialog machine as Delete/Merge.
+  const [confirmAnonymize, setConfirmAnonymize] = useState<ClientRow | null>(null);
+  const [confirmRevokeMe, setConfirmRevokeMe] = useState<ClientRow | null>(null);
   // Merge flow: `mergeFor` is the client to KEEP (opens the partner picker);
   // `mergeConfirm` is the chosen {keep, merge} pair awaiting confirmation.
   const [mergeFor, setMergeFor] = useState<ClientRow | null>(null);
@@ -221,6 +226,7 @@ export function ClientsClient({
   function onAnonymize(row: ClientRow) {
     startTransition(async () => {
       const result = await anonymizeClient({ id: row.id });
+      setConfirmAnonymize(null);
       if (result.ok) {
         show({ variant: 'info', title: t('toasts.anonymized', { name: clientLabel(row) }) });
       } else {
@@ -262,6 +268,7 @@ export function ClientsClient({
   function onRevokeMe(row: ClientRow) {
     startTransition(async () => {
       const result = await revokeMeAccess({ id: row.id });
+      setConfirmRevokeMe(null);
       if (result.ok) {
         show({ variant: 'info', title: t('toasts.revokedMe', { name: clientLabel(row) }) });
       } else {
@@ -343,7 +350,8 @@ export function ClientsClient({
               label: t('actions.anonymize'),
               title: t('actions.anonymize'),
               tone: 'warning',
-              onClick: () => onAnonymize(r),
+              // Plan 039 (CLI-01) — confirm first; the scrub is irreversible.
+              onClick: () => setConfirmAnonymize(r),
             },
             // Revoke the client's outstanding /me self-service links (manager+).
             ...(canManage
@@ -352,7 +360,7 @@ export function ClientsClient({
                     icon: ShieldOff,
                     label: t('actions.revokeMe'),
                     title: t('actions.revokeMe'),
-                    onClick: () => onRevokeMe(r),
+                    onClick: () => setConfirmRevokeMe(r),
                   },
                 ]
               : []),
@@ -511,6 +519,41 @@ export function ClientsClient({
         cancelLabel={tCommon('actions.cancel')}
         onConfirm={() => confirmDelete && onDelete(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      {/* Plan 039 (CLI-01) — anonymize is an irreversible Loi 25 PII scrub;
+          it gets the same destructive confirm as Delete. */}
+      <ConfirmDialog
+        open={confirmAnonymize !== null}
+        title={t('confirmAnonymize.title')}
+        description={
+          confirmAnonymize
+            ? t('confirmAnonymize.description', { name: clientLabel(confirmAnonymize) })
+            : ''
+        }
+        destructive
+        loading={isPending}
+        confirmLabel={t('actions.anonymize')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => confirmAnonymize && onAnonymize(confirmAnonymize)}
+        onCancel={() => setConfirmAnonymize(null)}
+      />
+
+      {/* Plan 039 (CLI-01) — revoking /me links locks the client out of
+          self-service; recoverable (links re-mint) but worth a confirm. */}
+      <ConfirmDialog
+        open={confirmRevokeMe !== null}
+        title={t('confirmRevokeMe.title')}
+        description={
+          confirmRevokeMe
+            ? t('confirmRevokeMe.description', { name: clientLabel(confirmRevokeMe) })
+            : ''
+        }
+        loading={isPending}
+        confirmLabel={t('actions.revokeMe')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={() => confirmRevokeMe && onRevokeMe(confirmRevokeMe)}
+        onCancel={() => setConfirmRevokeMe(null)}
       />
 
       {/* Merge — pick which duplicate to fold into the kept client. */}
