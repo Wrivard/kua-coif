@@ -18,29 +18,19 @@ import { SuperAdminNav } from '@/components/ui/super-admin-nav';
  */
 export const dynamic = 'force-dynamic';
 
-type HistoryRow = {
-  id: string;
-  changed_at: string;
-  changed_by: string | null;
-  old_app_fee_bps: number;
-  new_app_fee_bps: number;
-  note: string | null;
-};
-
 export default async function PlatformConfigHistoryPage(props: {
   params: Promise<{ locale: string }>;
 }) {
   const params = await props.params;
   await requireKuaAdmin();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   const historyRes = await sb
     .from('platform_config_history')
     .select('id, changed_at, changed_by, old_app_fee_bps, new_app_fee_bps, note')
     .order('changed_at', { ascending: false })
     .limit(100);
-  const history = (historyRes.data as HistoryRow[] | null) ?? [];
+  const history = historyRes.data ?? [];
 
   // Resolve who in one batch.
   const userIds = Array.from(new Set(history.map((h) => h.changed_by).filter(Boolean) as string[]));
@@ -49,10 +39,7 @@ export default async function PlatformConfigHistoryPage(props: {
       ? await sb.from('profiles').select('id, email, full_name').in('id', userIds)
       : { data: [] };
   const profilesById = new Map<string, { email: string; full_name: string | null }>(
-    (
-      (profilesRes.data as Array<{ id: string; email: string; full_name: string | null }> | null) ??
-      []
-    ).map((p) => [p.id, { email: p.email, full_name: p.full_name }]),
+    (profilesRes.data ?? []).map((p) => [p.id, { email: p.email, full_name: p.full_name }]),
   );
 
   return (

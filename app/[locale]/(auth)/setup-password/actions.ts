@@ -58,8 +58,7 @@ export async function setupPasswordAction(
     return { kind: 'invalid', reason: 'mismatch' };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
 
   // Get the signed-in user — the client component exchanged the code, so
   // this should return a valid user.
@@ -81,8 +80,7 @@ export async function setupPasswordAction(
   //    rightly so for the general case. Here it's safe: the user proved
   //    ownership of the email via the PKCE link, and we only flip rows
   //    that already belonged to them.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   await admin
     .from('shop_members')
     .update({ status: 'confirmed' })

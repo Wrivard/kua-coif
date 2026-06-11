@@ -16,17 +16,11 @@ export default async function WidgetSettingsPage(props: { params: Promise<{ loca
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   // RLS limits this to the current shop. We need name+alias for the live preview
   // iframe URL and the snippet code; widget_config to seed the form.
   const { data } = await supabase.from('shops').select('id, name, alias, widget_config').limit(1);
-  const row = ((data as Array<{
-    id: string;
-    name: string;
-    alias: string | null;
-    widget_config: unknown;
-  }> | null) ?? [])[0];
+  const row = (data ?? [])[0];
 
   const initialConfig = parseWidgetConfig(row?.widget_config);
 

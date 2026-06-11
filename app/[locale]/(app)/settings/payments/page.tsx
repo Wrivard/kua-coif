@@ -50,8 +50,7 @@ export default async function PaymentsPage(props: { params: Promise<{ locale: st
   // disclosure even though no mutations succeed.
   await requireRoleInCurrentShop('owner');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const { data: shopData } = await supabase
     .from('shops')
     .select(

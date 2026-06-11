@@ -19,14 +19,13 @@ type Props = { params: Promise<{ locale: string; shopSlug: string }> };
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
   const { data } = await supabase
     .from('shops')
     .select('name, description')
     .eq('alias', params.shopSlug)
     .limit(1);
-  const shop = ((data as Array<{ name: string; description: string | null }> | null) ?? [])[0];
+  const shop = (data ?? [])[0];
   if (!shop) return { title: 'Booking' };
   // BUG-07 — localize the title/description on the route locale instead of
   // hardcoding French, so EN share links / browser tabs / search snippets read
@@ -51,8 +50,7 @@ export default async function BookingPage(props: Props) {
 
   setRequestLocale(locale);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   // 1. Resolve shop by alias. This is a public read — the shop row needs an
   //    RLS exception for non-authenticated visitors. For V1 we rely on the

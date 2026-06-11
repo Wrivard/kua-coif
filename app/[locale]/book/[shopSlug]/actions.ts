@@ -198,8 +198,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
   } | null = null;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // ── Resolve shop ──────────────────────────────────────────────────
     // We also pull the contact fields here so the Phase 24 confirmation
@@ -226,21 +225,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       )
       .eq('alias', input.shop_slug)
       .limit(1);
-    const shop = ((shopRes.data as Array<{
-      id: string;
-      name: string;
-      timezone: string;
-      allow_booking_any_barber: boolean;
-      street: string | null;
-      municipality: string | null;
-      province: string | null;
-      phone: string | null;
-      email_logo_url: string | null;
-      email_accent_color: string | null;
-      stripe_account_id: string | null;
-      slack_webhook_url: string | null;
-      payment_mode: 'full' | 'deposit' | 'none';
-    }> | null) ?? [])[0];
+    const shop = (shopRes.data ?? [])[0];
     if (!shop) return err('NOT_FOUND');
 
     // ── Refund-on-failure safety net (plan 001) ──────────────────────
@@ -346,15 +331,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     ]);
 
     // Validate services (order-preserved: first).
-    const services =
-      (servicesRes.data as Array<{
-        id: string;
-        name: string;
-        duration_min: number;
-        price: number;
-        status: 'enabled' | 'disabled';
-        deposit_amount_cents: number | null;
-      }> | null) ?? [];
+    const services = servicesRes.data ?? [];
     if (
       services.length !== input.service_ids.length ||
       services.some((s) => s.status !== 'enabled')
@@ -372,7 +349,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // first_appointment_only check is deferred until the client is resolved.
     let promoCodeRow: PromoCodeRow | null = null;
     if (input.promo_code) {
-      promoCodeRow = ((promoRes?.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
+      promoCodeRow = (promoRes?.data ?? [])[0] ?? null;
       if (!promoCodeRow) {
         // Plan 036 — a typo'd promo used to charge-then-reject WITHOUT a
         // refund (the wizard only validates promo at submit). Route through
@@ -442,47 +419,19 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .eq('shop_id', shop.id),
     ]);
 
-    const hours =
-      (hoursRes.data as Array<{
-        weekday: number;
-        enabled: boolean;
-        open_time: string | null;
-        close_time: string | null;
-      }> | null) ?? [];
-    const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
-    const existing: ExistingAppointment[] = (
-      (apptsRes.data as Array<{
-        id: string;
-        barber_id: string;
-        start_at: string;
-        end_at: string;
-        status: ExistingAppointment['status'];
-      }> | null) ?? []
-    ).map((a) => ({
+    const hours = hoursRes.data ?? [];
+    const daysOff = (daysOffRes.data ?? []).map((d) => d.date);
+    const existing: ExistingAppointment[] = (apptsRes.data ?? []).map((a) => ({
       ...a,
       start_at: new Date(a.start_at),
       end_at: new Date(a.end_at),
     }));
-    const blocked = (
-      (blockedRes.data as Array<{
-        barber_id: string | null;
-        start_at: string;
-        end_at: string;
-      }> | null) ?? []
-    ).map((b) => ({
+    const blocked = (blockedRes.data ?? []).map((b) => ({
       barber_id: b.barber_id,
       start_at: new Date(b.start_at),
       end_at: new Date(b.end_at),
     }));
-    const settingsRows =
-      (settingsRes.data as Array<{
-        scope: 'shop' | 'barber';
-        barber_id: string | null;
-        allow_multiple_services: boolean;
-        client_booking_interval_min: number;
-        days_book_in_advance: number;
-        mins_book_before_appt: number;
-      }> | null) ?? [];
+    const settingsRows = settingsRes.data ?? [];
     // B20 — one shared resolver (override row → shop row → documented DEFAULTS).
     // `settings` is now never null: a shop with no settings rows gets the
     // defaults instead of skipping the interval / days / mins constraints.
@@ -572,13 +521,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .eq('shop_id', shop.id)
         .eq('phone_normalized', phoneKey)
         .limit(1);
-      const existingClient =
-        ((clientLookup.data as Array<{
-          id: string;
-          loyalty_balance_cents: number | null;
-          loyalty_balance_expires_at: string | null;
-          me_token_version: number | null;
-        }> | null) ?? [])[0] ?? null;
+      const existingClient = (clientLookup.data ?? [])[0] ?? null;
       clientId = existingClient?.id ?? null;
       clientMeTokenVersion = existingClient?.me_token_version ?? 0;
       // Loop 35 — `effectiveLoyaltyBalanceCents` returns 0 + zeroes the
@@ -606,7 +549,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .select('id, me_token_version')
         .single();
       if (insertClient.error || !insertClient.data) return await failBooking('UNEXPECTED');
-      const inserted = insertClient.data as { id: string; me_token_version: number | null };
+      const inserted = insertClient.data;
       clientId = inserted.id;
       clientMeTokenVersion = inserted.me_token_version ?? 0;
     }
@@ -630,7 +573,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         .select('id')
         .eq('client_id', clientId)
         .limit(1);
-      const hasPrior = ((existingApptRes.data as Array<{ id: string }> | null) ?? []).length > 0;
+      const hasPrior = (existingApptRes.data ?? []).length > 0;
       if (hasPrior) {
         return await failBooking('INVALID_INPUT', { promo_code: 'first_only' });
       }
@@ -680,7 +623,9 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // and persisted separately on `appointments.tip_amount_cents` so the
     // receipt + finances can break it out from the service total.
     const pricing = computeBookingPricing({
-      paymentMode: shop.payment_mode,
+      // `shops.payment_mode` is a CHECK-constrained text column, so the
+      // generated type is `string` — narrow it to the engine's union.
+      paymentMode: shop.payment_mode as 'full' | 'deposit' | 'none',
       services,
       promo: promoCodeRow ? { type: promoCodeRow.type, value: promoCodeRow.value } : null,
       loyaltyBalanceCents: clientLoyaltyBalanceCents,
@@ -768,12 +713,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       // wizard tells the customer the slot is taken, same UX as a
       // synchronous availability fail. Postgres error code 23505 =
       // unique_violation; Supabase exposes it via `error.code`.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const e = insertAppt.error as any;
-      if (e?.code === '23505') return await failBooking('CONFLICT');
+      if (insertAppt.error?.code === '23505') return await failBooking('CONFLICT');
       return await failBooking('UNEXPECTED');
     }
-    const apptId = (insertAppt.data as { id: string }).id;
+    const apptId = insertAppt.data.id;
 
     // Link services. Mirror the admin createAppointment recovery: the
     // appointment row already exists, so if this (atomic, single-statement)
@@ -803,12 +746,8 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
             appointmentId: apptId,
             shopId: shop.id,
             paymentIntentId: input.payment_intent_id ?? null,
-            linkError: String(
-              (linkServices.error as { message?: string })?.message ?? linkServices.error,
-            ),
-            deleteError: String(
-              (rollback.error as { message?: string })?.message ?? rollback.error,
-            ),
+            linkError: String(linkServices.error.message ?? linkServices.error),
+            deleteError: String(rollback.error.message ?? rollback.error),
           },
         });
       }
@@ -853,10 +792,7 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           .select('redemptions, total_redemption_value')
           .eq('id', promoCodeRow.id)
           .single();
-        const current = currentRes.data as {
-          redemptions: number;
-          total_redemption_value: number;
-        } | null;
+        const current = currentRes.data;
         if (current) {
           await supabase
             .from('promo_codes')
@@ -1118,12 +1054,11 @@ export async function addToWaitlistPublic(
     if (!parsed.success) return err('INVALID_INPUT');
     const input = parsed.data;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Resolve shop by slug.
     const shopRes = await supabase.from('shops').select('id').eq('alias', input.shop_slug).limit(1);
-    const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+    const shopId = (shopRes.data ?? [])[0]?.id ?? null;
     if (!shopId) return err('NOT_FOUND');
 
     const insertRes = await supabase
@@ -1146,7 +1081,7 @@ export async function addToWaitlistPublic(
       .single();
     if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
 
-    const entryId = (insertRes.data as { id: string }).id;
+    const entryId = insertRes.data.id;
     await logDurableAudit({
       shopId,
       actorId: '00000000-0000-0000-0000-000000000000',
@@ -1202,11 +1137,10 @@ export async function lookupLoyaltyByPhone(
     if (!parsed.success) return err('INVALID_INPUT');
     const input = parsed.data;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     const shopRes = await supabase.from('shops').select('id').eq('alias', input.shop_slug).limit(1);
-    const shopId = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0]?.id ?? null;
+    const shopId = (shopRes.data ?? [])[0]?.id ?? null;
     if (!shopId) return err('NOT_FOUND');
 
     const phoneKey = normalizePhoneKey(input.phone);
@@ -1222,12 +1156,7 @@ export async function lookupLoyaltyByPhone(
       .eq('shop_id', shopId)
       .eq('phone_normalized', phoneKey)
       .limit(1);
-    const row =
-      ((clientRes.data as Array<{
-        id: string;
-        loyalty_balance_cents: number | null;
-        loyalty_balance_expires_at: string | null;
-      }> | null) ?? [])[0] ?? null;
+    const row = (clientRes.data ?? [])[0] ?? null;
     if (!row) return ok({ balanceCents: 0 });
     const effective = await effectiveLoyaltyBalanceCents({
       clientId: row.id,
@@ -1356,8 +1285,7 @@ export async function createBookingPaymentIntent(
       return ok({ kind: 'no_deposit' as const });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Resolve shop + Stripe Connect status + Phase D payment_mode.
     const shopRes = await supabase
@@ -1365,13 +1293,7 @@ export async function createBookingPaymentIntent(
       .select('id, stripe_account_id, stripe_connect_status, payment_mode')
       .eq('alias', input.shop_slug)
       .limit(1);
-    const shop =
-      ((shopRes.data as Array<{
-        id: string;
-        stripe_account_id: string | null;
-        stripe_connect_status: string;
-        payment_mode: 'full' | 'deposit' | 'none';
-      }> | null) ?? [])[0] ?? null;
+    const shop = (shopRes.data ?? [])[0] ?? null;
     if (!shop) return err('NOT_FOUND');
 
     // Phase D — shop chose to collect everything in-shop. Skip the
@@ -1398,17 +1320,10 @@ export async function createBookingPaymentIntent(
       .select('id, price, deposit_amount_cents, status')
       .eq('shop_id', shop.id)
       .in('id', input.service_ids);
-    const svcs =
-      (svcsRes.data as Array<{
-        id: string;
-        // `services.price` is stored in DOLLARS (numeric column). We
-        // multiply by 100 to compare against deposit_amount_cents
-        // (which is integer cents). Confirmed by the rest of the
-        // codebase (`price_snapshot` columns also store dollars).
-        price: number;
-        deposit_amount_cents: number | null;
-        status: 'enabled' | 'disabled';
-      }> | null) ?? [];
+    // `services.price` is stored in DOLLARS (numeric column) while
+    // `deposit_amount_cents` is integer cents — confirmed by the rest of
+    // the codebase (`price_snapshot` columns also store dollars).
+    const svcs = svcsRes.data ?? [];
     if (svcs.length !== input.service_ids.length || svcs.some((s) => s.status !== 'enabled')) {
       return err('NOT_FOUND');
     }
@@ -1443,13 +1358,7 @@ export async function createBookingPaymentIntent(
           .eq('shop_id', shop.id)
           .eq('code', input.promo_code)
           .limit(1);
-        const promo = ((promoRes.data as Array<{
-          type: 'percent' | 'fixed';
-          value: number;
-          expiration_date: string | null;
-          one_time: boolean;
-          redemptions: number;
-        }> | null) ?? [])[0];
+        const promo = (promoRes.data ?? [])[0];
         if (
           promo &&
           (!promo.expiration_date || new Date(promo.expiration_date).getTime() >= Date.now()) &&
@@ -1486,12 +1395,7 @@ export async function createBookingPaymentIntent(
             .eq('shop_id', shop.id)
             .eq('phone_normalized', phoneKey)
             .limit(1);
-          const row =
-            ((clientRes.data as Array<{
-              id: string;
-              loyalty_balance_cents: number | null;
-              loyalty_balance_expires_at: string | null;
-            }> | null) ?? [])[0] ?? null;
+          const row = (clientRes.data ?? [])[0] ?? null;
           if (row) {
             loyaltyBalanceCents = await effectiveLoyaltyBalanceCents({
               clientId: row.id,
@@ -1506,7 +1410,9 @@ export async function createBookingPaymentIntent(
     // Single source of truth for the charge — mirrors the verify side. Tip
     // stacks on top of the per-mode base inside the engine (clamped 0..$1,000).
     const pricing = computeBookingPricing({
-      paymentMode: shop.payment_mode,
+      // `shops.payment_mode` is a CHECK-constrained text column, so the
+      // generated type is `string` — narrow it to the engine's union.
+      paymentMode: shop.payment_mode as 'full' | 'deposit' | 'none',
       services: svcs,
       promo: resolvedPromo,
       loyaltyBalanceCents,

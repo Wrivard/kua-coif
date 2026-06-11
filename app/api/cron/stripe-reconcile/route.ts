@@ -13,7 +13,7 @@ import { captureException, withCronMonitor } from '@/lib/observability';
  * quickbooks-refresh + google-channel-renew), and app-level jobs (reminders,
  * birthday greetings) already run from Actions for the same reason. This
  * route re-derives payment_status for rows stuck at 'pending' whose
- * success/failure webhook was missed — see lib/stripe/reconcile.ts.
+ * success/failure webhook was missed â€” see lib/stripe/reconcile.ts.
  *
  * Security: the workflow passes `Authorization: Bearer <CRON_SECRET>`; in
  * production a missing CRON_SECRET is fail-CLOSED (lib/security/cron-auth).
@@ -37,18 +37,17 @@ export async function GET(req: NextRequest) {
 }
 
 async function runStripeReconcileCron(): Promise<NextResponse> {
-  // No Stripe configured (local/dev/preview without keys) — nothing to do.
+  // No Stripe configured (local/dev/preview without keys) â€” nothing to do.
   if (!stripeConfigured()) {
     return NextResponse.json({ ok: true, skipped: 'stripe_not_configured' });
   }
 
   const startedAt = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   try {
     const summary = await reconcileStripePayments({ sb, stripe: getStripe() });
-    // Surface per-row failures as one aggregate alert — individual rows are
+    // Surface per-row failures as one aggregate alert â€” individual rows are
     // best-effort and only bump the counter, so a wholesale Stripe/API
     // outage would otherwise return a green 200 and go unnoticed.
     if (summary.failed > 0) {

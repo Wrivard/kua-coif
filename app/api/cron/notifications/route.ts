@@ -21,10 +21,10 @@ import {
 } from '@/lib/business/barber-settings';
 
 /**
- * Reminder cron — Phase 25c.
+ * Reminder cron â€” Phase 25c.
  *
  * Scheduled every 15 minutes by GitHub Actions
- * (.github/workflows/cron-notifications.yml) — NOT vercel.json: Vercel Hobby
+ * (.github/workflows/cron-notifications.yml) â€” NOT vercel.json: Vercel Hobby
  * caps at 2 daily crons, so the 15-minute reminder cron lives in Actions.
  *
  * Two reminder slots per appointment, with CONFIGURABLE offsets (Barbers audit
@@ -33,7 +33,7 @@ import {
  * default, then 24h/1h). Each tick loads candidate appointments across the
  * whole reminder horizon and `lib/business/reminders.dueReminders()` (pure,
  * unit-tested) picks which (appointment, slot) reminders fall in this tick's
- * ±15-min catch window. Slot 1 keys as `reminder_24h`, slot 2 as `reminder_1h`
+ * Â±15-min catch window. Slot 1 keys as `reminder_24h`, slot 2 as `reminder_1h`
  * (legacy stable keys for notification_sends + the automation toggle).
  *
  * Idempotency: we write to `notification_sends` (UNIQUE on appointment_id,
@@ -60,7 +60,7 @@ type ApptRow = {
   status: string;
   barber_id: string;
   client_id: string;
-  // Loop 54 (P100) — `phone` added so the SMS branch can route to
+  // Loop 54 (P100) â€” `phone` added so the SMS branch can route to
   // the customer. Null phone = SMS-skip even if the shop has Twilio
   // wired up.
   client: { first_name: string; email: string | null; phone: string | null } | null;
@@ -96,17 +96,16 @@ export async function GET(req: NextRequest) {
 
 async function runNotificationsCron(): Promise<NextResponse> {
   const startedAt = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   const nowMs = Date.now();
-  const HALF_WINDOW_MS = 15 * 60_000; // ±15 min catch window (matches the 15-min schedule)
+  const HALF_WINDOW_MS = 15 * 60_000; // Â±15 min catch window (matches the 15-min schedule)
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
-  // B5 — load every candidate appointment in the broad reminder horizon (now →
+  // B5 â€” load every candidate appointment in the broad reminder horizon (now â†’
   // now + max configurable offset + the catch window) across all shops in ONE
   // query; dueReminders() then picks which are actually due this tick from each
   // barber's effective reminder1/2 offsets, replacing the old fixed 24h/1h
@@ -136,7 +135,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
     });
   }
 
-  // B20 — the no-rows default offsets come from the shared resolver's DEFAULTS
+  // B20 â€” the no-rows default offsets come from the shared resolver's DEFAULTS
   // (24h / 1h); the cron no longer hardcodes its own reminder fallback.
   const DEFAULT_OFFSETS: ReminderOffsets = {
     slot1Min: offsetMinutes(
@@ -152,7 +151,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
   const dueBySlot: Record<1 | 2, Set<string>> = { 1: new Set<string>(), 2: new Set<string>() };
   if (allCandidates.length > 0) {
     for (const c of allCandidates) candidateById.set(c.id, c);
-    // Effective reminder offsets per barber: override → shop default → fallback.
+    // Effective reminder offsets per barber: override â†’ shop default â†’ fallback.
     const shopIds = [...new Set(allCandidates.map((c) => c.shop_id))];
     const settingsRes = await sb
       .from('barber_settings')
@@ -169,7 +168,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
         reminder2_m: number;
       }> | null) ?? [];
     // Group rows per shop so the resolver's shop-row match is shop-scoped, then
-    // resolve effective reminder offsets per barber (override → shop → defaults).
+    // resolve effective reminder offsets per barber (override â†’ shop â†’ defaults).
     const rowsByShop = new Map<string, typeof settingsRows>();
     for (const r of settingsRows) {
       const arr = rowsByShop.get(r.shop_id) ?? [];
@@ -200,10 +199,10 @@ async function runNotificationsCron(): Promise<NextResponse> {
     for (const d of due) dueBySlot[d.slot].add(d.appointmentId);
   }
 
-  // Plan 018 — preload the per-(shop,kind) email automation flags + per-shop
+  // Plan 018 â€” preload the per-(shop,kind) email automation flags + per-shop
   // SMTP configs ONCE for the distinct shops with due reminders, then pass them
   // to sendEmail via `preloaded` so it skips its two internal DB reads on every
-  // message this tick (was 2 reads × N reminders → 1 batch + 1 read/shop).
+  // message this tick (was 2 reads Ã— N reminders â†’ 1 batch + 1 read/shop).
   const dueShopIds = [
     ...new Set(
       [...dueBySlot[1], ...dueBySlot[2]]
@@ -233,7 +232,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
     );
   }
 
-  // Slot 1 → 'reminder_24h', slot 2 → 'reminder_1h': stable notification_sends +
+  // Slot 1 â†’ 'reminder_24h', slot 2 â†’ 'reminder_1h': stable notification_sends +
   // AutomationKind keys (names are legacy; the timing is now configurable).
   for (const [kind, slot] of [
     ['reminder_24h', 1],
@@ -249,7 +248,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
 
       // Filter out appointments we've already notified for this kind. One
       // batched lookup against `notification_sends` rather than N queries.
-      // Loop 53 — scope to `channel='email'` because the table is now
+      // Loop 53 â€” scope to `channel='email'` because the table is now
       // shared with the SMS pipeline; without this filter, an SMS row
       // would block an EMAIL send for the same appointment+kind.
       const candidateIds = candidates.map((c) => c.id);
@@ -265,10 +264,10 @@ async function runNotificationsCron(): Promise<NextResponse> {
         ),
       );
 
-      // Loop 54 — parallel lookup for SMS sends. Email and SMS each
+      // Loop 54 â€” parallel lookup for SMS sends. Email and SMS each
       // get their own row in `notification_sends` (UNIQUE on
       // appointment_id, kind, channel), so we track them
-      // independently — an appointment might get an email but not an
+      // independently â€” an appointment might get an email but not an
       // SMS (shop has no Twilio configured) or vice versa (client
       // has no email but a phone).
       const alreadySmsRes = await sb
@@ -285,7 +284,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
 
       for (const appt of candidates) {
         if (!appt.client || !appt.shop) {
-          // Missing the joined client/shop row — nothing we can
+          // Missing the joined client/shop row â€” nothing we can
           // render for either channel. Count once and move on.
           skipped += 1;
           continue;
@@ -293,7 +292,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
 
         const locale = shopLocale(appt.shop.default_language);
 
-        // ── Email branch ────────────────────────────────────────
+        // â”€â”€ Email branch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (alreadySet.has(appt.id) || !appt.client.email) {
           skipped += 1;
         } else {
@@ -309,15 +308,15 @@ async function runNotificationsCron(): Promise<NextResponse> {
           const result = await sendEmail({
             shopId: appt.shop_id,
             kind: kind satisfies AutomationKind,
-            // Plan 018 — preloaded config skips sendEmail's 2 internal reads.
-            // Missing automation row → opt-in default true (matches
+            // Plan 018 â€” preloaded config skips sendEmail's 2 internal reads.
+            // Missing automation row â†’ opt-in default true (matches
             // isAutomationEnabled's failsafe).
             preloaded: {
               automationEnabled: emailAutomationByShopKind.get(`${appt.shop_id}:${kind}`) ?? true,
               smtpCfg: smtpByShop.get(appt.shop_id) ?? null,
             },
             to: appt.client.email,
-            // B5 — offset-agnostic subject (reminder timing is configurable);
+            // B5 â€” offset-agnostic subject (reminder timing is configurable);
             // the body carries the actual date + time.
             subject:
               locale === 'fr'
@@ -349,7 +348,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
             sent += 1;
             // Record the send for idempotence on the next tick. The unique
             // constraint guards against the rare double-tick scenario.
-            // Loop 53 — explicit `channel: 'email'` (column has the same
+            // Loop 53 â€” explicit `channel: 'email'` (column has the same
             // default but defensive against any future schema flip).
             await sb
               .from('notification_sends')
@@ -361,7 +360,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
               })
               .select('id');
           } else if (result.reason === 'disabled') {
-            // Automation toggle is off — that's a soft skip, not a failure.
+            // Automation toggle is off â€” that's a soft skip, not a failure.
             // Don't write to notification_sends so flipping the toggle on
             // mid-cycle picks up the appointment on the next tick.
             skipped += 1;
@@ -370,7 +369,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
           }
         }
 
-        // ── SMS branch (Loop 54) ────────────────────────────────
+        // â”€â”€ SMS branch (Loop 54) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Mirrors the email branch but routes through `dispatchSms`,
         // which encapsulates the per-shop Twilio config lookup +
         // automation-toggle check + notification_sends write. If
@@ -396,7 +395,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
                   shopPhone: appt.shop.phone,
                 });
 
-          // Loop 55 — register the per-shop status callback. Null
+          // Loop 55 â€” register the per-shop status callback. Null
           // in dev / when NEXT_PUBLIC_APP_URL isn't an HTTPS host;
           // Twilio rejects http: callbacks anyway, so we just skip
           // the registration rather than fail the send.
@@ -417,7 +416,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
             smsResult.reason === 'no-config' ||
             smsResult.reason === 'no-encryption'
           ) {
-            // Soft skips — shop hasn't activated Twilio or the
+            // Soft skips â€” shop hasn't activated Twilio or the
             // platform encryption key isn't set in this env.
             skipped += 1;
           } else {
@@ -432,7 +431,7 @@ async function runNotificationsCron(): Promise<NextResponse> {
   }
 
   // Aggregate failure alert. Individual soft send-failures (result.sent ===
-  // false for a non-'disabled' reason) only bump `failed` — they don't throw —
+  // false for a non-'disabled' reason) only bump `failed` â€” they don't throw â€”
   // so a run where the whole email/SMS pipeline is down would otherwise return
   // a green 200 and go unnoticed. Surface the count so a broken automation is
   // visible in Sentry on the very next tick.

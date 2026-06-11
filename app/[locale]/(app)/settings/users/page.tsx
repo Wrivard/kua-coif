@@ -14,10 +14,8 @@ export default async function UsersPage(props: { params: Promise<{ locale: strin
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
-  // Pivot members → profile email/name. We join in-code since the
-  // codegen types aren't live yet.
+  const supabase = createSupabaseServerClient();
+  // Pivot members → profile email/name, joined in-code.
   const [membersRes, profilesRes] = await Promise.all([
     supabase
       .from('shop_members')
@@ -26,20 +24,8 @@ export default async function UsersPage(props: { params: Promise<{ locale: strin
     supabase.from('profiles').select('id, email, full_name'),
   ]);
 
-  const members =
-    (membersRes.data as Array<{
-      id: string;
-      user_id: string;
-      role: UserRole;
-      status: ShopMemberStatus;
-      created_at: string;
-    }> | null) ?? [];
-  const profiles =
-    (profilesRes.data as Array<{
-      id: string;
-      email: string;
-      full_name: string | null;
-    }> | null) ?? [];
+  const members = membersRes.data ?? [];
+  const profiles = profilesRes.data ?? [];
   const profilesById = new Map(profiles.map((p) => [p.id, p]));
 
   const view: MemberView[] = members.map((m) => {

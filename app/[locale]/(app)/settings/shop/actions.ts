@@ -18,8 +18,7 @@ export const updateShopDetails = withAction({
   schema: shopDetailsSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     // Return the (possibly just-changed) alias so we can revalidate this shop's
     // public surfaces granularly + bust its alias-keyed slots-route cache.
     const { data, error } = await sb
@@ -56,8 +55,7 @@ export const updateShopHours = withAction({
   schema: shopHoursSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     // Upsert each weekday row. shop_hours has UNIQUE (shop_id, weekday).
     const rows = input.map((h) => ({ shop_id: ctx.shopId, ...h }));
     const { error } = await sb.from('shop_hours').upsert(rows, { onConflict: 'shop_id,weekday' });

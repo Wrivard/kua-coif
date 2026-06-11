@@ -69,8 +69,7 @@ export default async function CloseOutPage(props: {
   if (!shop?.id) throw new Error('Close-out load failed: no active shop resolved');
   const timezone = shop.timezone ?? 'America/Toronto';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
 
   // ── Day resolution ────────────────────────────────────────────────
   // ?date=YYYY-MM-DD overrides; otherwise today in shop tz.
@@ -101,24 +100,9 @@ export default async function CloseOutPage(props: {
       .lt('start_at', dayEnd.toISOString())
       .order('start_at', { ascending: true }),
   ]);
-  const cashDrawerStart = Number(
-    (drawerRes.data as { default_cash_drawer_balance: number | null } | null)
-      ?.default_cash_drawer_balance ?? 0,
-  );
+  const cashDrawerStart = Number(drawerRes.data?.default_cash_drawer_balance ?? 0);
 
-  type ApptRow = {
-    id: string;
-    barber_id: string;
-    client_id: string | null;
-    total_amount: number;
-    status: 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
-    payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
-    tip_amount_cents: number | null;
-    source: 'admin' | 'online';
-    start_at: string;
-    end_at: string;
-  };
-  const appts = (apptsRes.data as ApptRow[] | null) ?? [];
+  const appts = apptsRes.data ?? [];
 
   // ── Headline metrics ──────────────────────────────────────────────
   // Revenue is only counted on completed appointments — the same rule
@@ -189,18 +173,13 @@ export default async function CloseOutPage(props: {
   ]);
 
   const barberNameById = new Map(
-    ((barberNamesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map(
-      (b) => [b.id, b.display_name] as const,
-    ),
+    (barberNamesRes.data ?? []).map((b) => [b.id, b.display_name] as const),
   );
   const clientNameById = new Map(
-    (
-      (clientNamesRes.data as Array<{
-        id: string;
-        first_name: string;
-        last_name: string | null;
-      }> | null) ?? []
-    ).map((c) => [c.id, `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`]),
+    (clientNamesRes.data ?? []).map((c) => [
+      c.id,
+      `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`,
+    ]),
   );
 
   const barberRows = barberIds

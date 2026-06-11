@@ -38,8 +38,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
   schema: sendReviewCampaignSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     // 1. Load the selected appointments + their clients + shop info.
     //    Re-verifies shop_id ownership defensively (the `withAction`
@@ -51,21 +50,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       )
       .in('id', input.appointment_ids)
       .eq('shop_id', ctx.shopId);
-    type ApptRow = {
-      id: string;
-      shop_id: string;
-      start_at: string;
-      status: string;
-      public_link_version: number | null;
-      client: {
-        id: string;
-        first_name: string;
-        email: string | null;
-        phone: string | null;
-        anonymized_at: string | null;
-      } | null;
-    };
-    const appts = (apptsRes.data as ApptRow[] | null) ?? [];
+    const appts = apptsRes.data ?? [];
     if (appts.length === 0) return err('NOT_FOUND');
 
     // 2. Shop info for the email/SMS templates.
@@ -74,7 +59,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       .select('id, name, default_language')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as { id: string; name: string; default_language: string } | null;
+    const shop = shopRes.data;
     if (!shop) return err('UNEXPECTED');
     const locale = shopLocale(shop.default_language);
 
@@ -88,10 +73,10 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       .in('recurrence_key', input.appointment_ids);
     const alreadyEmail = new Set<string>();
     const alreadySms = new Set<string>();
-    for (const row of (alreadyRes.data as Array<{
-      recurrence_key: string;
-      channel: string;
-    }> | null) ?? []) {
+    for (const row of alreadyRes.data ?? []) {
+      // recurrence_key is nullable in the schema; the `.in(...)` filter above
+      // guarantees it's set on every returned row.
+      if (!row.recurrence_key) continue;
       if (row.channel === 'email') alreadyEmail.add(row.recurrence_key);
       if (row.channel === 'sms') alreadySms.add(row.recurrence_key);
     }

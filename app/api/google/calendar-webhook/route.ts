@@ -5,7 +5,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 
 /**
- * Loop 50 (Phase 97 from AUDIT_PHASE70) — Google Calendar webhook
+ * Loop 50 (Phase 97 from AUDIT_PHASE70) â€” Google Calendar webhook
  * handler.
  *
  * Google POSTs an empty body and a set of `X-Goog-*` headers
@@ -14,7 +14,7 @@ import { captureException } from '@/lib/observability';
  *      at subscription time (drops spoofed POSTs).
  *   2. Bust the `google-busy` cache tag so the next FreeBusy read
  *      hits Google fresh.
- *   3. Reply 200 fast — Google retries 4xx/5xx with backoff and
+ *   3. Reply 200 fast â€” Google retries 4xx/5xx with backoff and
  *      may de-subscribe a flapping channel.
  *
  * The `sync` resource-state is Google's initial-handshake POST and
@@ -33,7 +33,7 @@ import { captureException } from '@/lib/observability';
  *     (Google doesn't sign these notifications; the token IS the
  *     proof). Channel-token rotation on a schedule.
  *   - Per-barber cache invalidation (current `revalidateTag('google-busy')`
- *     busts every shop's overlay). Acceptable for V1 — the next
+ *     busts every shop's overlay). Acceptable for V1 â€” the next
  *     read re-fetches only the visible day per barber, ~250ms.
  */
 export const dynamic = 'force-dynamic';
@@ -53,8 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const res = await admin
       .from('barber_google_calendar')
       .select('barber_id, webhook_token')
@@ -62,11 +61,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .maybeSingle();
     const row = res.data as { barber_id: string; webhook_token: string | null } | null;
 
-    // Unknown channel ID OR token mismatch → drop silently with 200.
+    // Unknown channel ID OR token mismatch â†’ drop silently with 200.
     // 4xx would trigger Google's retry/backoff; we don't want that
     // for spoofed POSTs, just black-hole them.
     //
-    // Security audit #9 — constant-time compare. The webhook_channel_id
+    // Security audit #9 â€” constant-time compare. The webhook_channel_id
     // we mint is part of the URL Google calls back; if leaked, an
     // attacker could brute-force the token via timing differences in
     // a naive `!==` compare. timingSafeEqual + length pre-check is the
@@ -87,7 +86,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return new NextResponse(null, { status: 200 });
     }
 
-    // Real change — bust the FreeBusy cache. The tag is shared
+    // Real change â€” bust the FreeBusy cache. The tag is shared
     // across all barbers; the next read re-fetches the visible day
     // for the barber the calendar actually shows. A future loop
     // could shard the cache key per-barber for finer invalidation.
@@ -105,7 +104,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     captureException(e, {
       tags: { layer: 'google-webhook', channelId: channelId.slice(0, 8) },
     });
-    // 200 anyway — Google's retry only helps for transient errors,
+    // 200 anyway â€” Google's retry only helps for transient errors,
     // and our DB issues won't resolve on a retry. Sentry captured;
     // the next manual push will eventually re-sync.
     return new NextResponse(null, { status: 200 });

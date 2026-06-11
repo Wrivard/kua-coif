@@ -37,8 +37,7 @@ export default async function WinbackPage(props: { params: Promise<{ locale: str
   const shopId = await getCurrentShopId();
   if (!shopId) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // 1. Every non-anonymized contactable client in the shop. We then
   //    filter further by appointment activity below.
@@ -47,28 +46,16 @@ export default async function WinbackPage(props: { params: Promise<{ locale: str
     .select('id, first_name, last_name, email, phone')
     .eq('shop_id', shopId)
     .is('anonymized_at', null);
-  type ClientRow = {
-    id: string;
-    first_name: string;
-    last_name: string | null;
-    email: string | null;
-    phone: string | null;
-  };
-  const clients = ((clientsRes.data as ClientRow[] | null) ?? []).filter((c) => c.email || c.phone);
+  const clients = (clientsRes.data ?? []).filter((c) => c.email || c.phone);
   if (clients.length === 0) return <WinbackClient locale={locale} candidates={[]} />;
 
   // 2. Per-client activity rollup (latest non-cancelled visit + ever-completed),
   //    computed SQL-side by client_activity() — one row per client. The old path
   //    pulled the shop's ENTIRE appointment history and aggregated in JS, which
   //    the PostgREST 1000-row cap truncated silently: past the cap, active
-  //    clients looked lapsed and got mass-emailed. types: regenerate db/types.ts post-deploy.
+  //    clients looked lapsed and got mass-emailed.
   const activityRes = await admin.rpc('client_activity', { p_shop: shopId });
-  type ActivityRow = {
-    client_id: string;
-    last_active_at: string | null;
-    has_completed: boolean;
-  };
-  const activity = (activityRes.data as ActivityRow[] | null) ?? [];
+  const activity = activityRes.data ?? [];
   const stats = new Map<string, { latestActiveAt: string | null; hasCompleted: boolean }>();
   for (const r of activity) {
     stats.set(r.client_id, { latestActiveAt: r.last_active_at, hasCompleted: r.has_completed });
@@ -95,9 +82,7 @@ export default async function WinbackPage(props: { params: Promise<{ locale: str
           .eq('kind', 'winback')
           .eq('recurrence_key', yearStr)
           .in('client_id', lapsedIds);
-  const alreadyAskedThisYear = new Set(
-    ((sentRes.data as Array<{ client_id: string }> | null) ?? []).map((r) => r.client_id),
-  );
+  const alreadyAskedThisYear = new Set((sentRes.data ?? []).map((r) => r.client_id));
 
   const candidates: Candidate[] = lapsed
     .filter((c) => !alreadyAskedThisYear.has(c.id))

@@ -1,5 +1,5 @@
 /**
- * Loyalty program orchestration — Phase 43.
+ * Loyalty program orchestration â€” Phase 43.
  *
  * Called from `updateAppointment` when the status transitions to
  * 'completed'. We look up the shop's loyalty config, decide whether the
@@ -7,13 +7,13 @@
  * the goal is hit).
  *
  * Configurable per shop in `/settings/loyalty`:
- *   - enabled                   — gate flag
- *   - type                      — 'transaction' (count visits) or 'value' (sum spent)
- *   - goal_count                — visits needed for a reward
- *   - min_transaction_amount    — minimum $ for a visit to qualify
- *   - reward_amount             — reward in dollars granted at goal
- *   - include_product_sales     — currently ignored (V1.5 retail integration)
- *   - include_tips              — same
+ *   - enabled                   â€” gate flag
+ *   - type                      â€” 'transaction' (count visits) or 'value' (sum spent)
+ *   - goal_count                â€” visits needed for a reward
+ *   - min_transaction_amount    â€” minimum $ for a visit to qualify
+ *   - reward_amount             â€” reward in dollars granted at goal
+ *   - include_product_sales     â€” currently ignored (V1.5 retail integration)
+ *   - include_tips              â€” same
  *
  * Both `type='transaction'` (count qualifying visits) and `type='value'`
  * (accumulate dollars spent toward a dollar goal) are implemented. In
@@ -30,17 +30,17 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 
 /**
- * Loop 35 (P1.92) — return the effective loyalty balance for a row
+ * Loop 35 (P1.92) â€” return the effective loyalty balance for a row
  * fetched with `loyalty_balance_cents` + `loyalty_balance_expires_at`.
  *
  * Lazy expiry: when the row has a balance but the expiry has passed,
  * zero the row in the DB and return 0. Callers must pass the
- * `clientId` so the helper can patch — and the DB write is best-
+ * `clientId` so the helper can patch â€” and the DB write is best-
  * effort (a write failure shouldn't fail the booking, the next
  * lookup will retry).
  *
  * Pass `loyalty_balance_expires_at = null` to treat as "never
- * expires" — that's the legacy state of rows from before Loop 35.
+ * expires" â€” that's the legacy state of rows from before Loop 35.
  * Those won't auto-expire until the next reward is granted (which
  * sets the timestamp).
  */
@@ -55,10 +55,9 @@ export async function effectiveLoyaltyBalanceCents(args: {
   if (Number.isNaN(expiresAt.getTime())) return args.balanceCents;
   if (expiresAt.getTime() > Date.now()) return args.balanceCents;
 
-  // Expired — zero the row so subsequent reads agree, then return 0.
+  // Expired â€” zero the row so subsequent reads agree, then return 0.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin
       .from('clients')
       .update({ loyalty_balance_cents: 0, loyalty_balance_expires_at: null })
@@ -68,7 +67,7 @@ export async function effectiveLoyaltyBalanceCents(args: {
       tags: { layer: 'loyalty', stage: 'expire' },
       extra: { clientId: args.clientId },
     });
-    // Fall through — return 0 even if the patch failed, so the caller
+    // Fall through â€” return 0 even if the patch failed, so the caller
     // doesn't accidentally apply an expired credit.
   }
   return 0;
@@ -89,8 +88,7 @@ type LoyaltyConfig = {
  * misconfigured (goal=0), or when the row doesn't exist.
  */
 async function resolveLoyaltyConfig(shopId: string): Promise<LoyaltyConfig | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const res = await admin
     .from('loyalty_program')
     .select(
@@ -104,10 +102,10 @@ async function resolveLoyaltyConfig(shopId: string): Promise<LoyaltyConfig | nul
 }
 
 /**
- * Pure reward calculation (no I/O) — the unit-testable core of the loyalty
+ * Pure reward calculation (no I/O) â€” the unit-testable core of the loyalty
  * engine. Transaction mode counts qualifying visits (+1 each, reset on a
- * hit). Value mode accumulates dollars spent — `currentCounter` carries
- * cumulative CENTS and `goalCount` is read as the dollar goal — carrying
+ * hit). Value mode accumulates dollars spent â€” `currentCounter` carries
+ * cumulative CENTS and `goalCount` is read as the dollar goal â€” carrying
  * the remainder past the goal so a large ticket keeps its progress. At
  * most one reward is granted per completion.
  */
@@ -139,10 +137,10 @@ export function computeLoyaltyProgress(args: {
  * Award loyalty progress for a completed appointment.
  *
  * Idempotency: callers should only invoke this on the actual
- * unpaid→completed transition, not on every save. Hooking it into
+ * unpaidâ†’completed transition, not on every save. Hooking it into
  * `updateAppointment` is fine because that action is what flips the
  * status; if it gets called twice for the same status flip, the second
- * call increments the counter twice — defensive but rare.
+ * call increments the counter twice â€” defensive but rare.
  *
  * Reward logic: when (counter + 1) >= goal_count, grant the reward and
  * reset to 0. The "+ 1" is the current visit. Reset means a client
@@ -163,12 +161,11 @@ export async function awardLoyaltyOnCompletion({
     const config = await resolveLoyaltyConfig(shopId);
     if (!config) return;
 
-    // Below the minimum transaction amount → no progress.
+    // Below the minimum transaction amount â†’ no progress.
     if (totalAmount < config.min_transaction_amount) return;
 
     // Pull current counter + balance.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const cRes = await admin
       .from('clients')
       .select('loyalty_counter, loyalty_balance_cents')
@@ -188,11 +185,15 @@ export async function awardLoyaltyOnCompletion({
       totalAmount,
     });
 
-    // Loop 35 (P1.92) — extend the balance expiry to one year out
+    // Loop 35 (P1.92) â€” extend the balance expiry to one year out
     // whenever a reward is granted. A regular customer's clock keeps
     // resetting; an inactive customer's runs out. No change to the
     // expiry timestamp when no reward is granted on this visit.
-    const patch: Record<string, unknown> = {
+    const patch: {
+      loyalty_counter: number;
+      loyalty_balance_cents: number;
+      loyalty_balance_expires_at?: string;
+    } = {
       loyalty_counter: nextCounter,
       loyalty_balance_cents: client.loyalty_balance_cents + rewardCents,
     };

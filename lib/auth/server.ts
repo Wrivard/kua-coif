@@ -8,7 +8,7 @@ import type { UserRole } from '@/db/enums';
 import { defaultLocale } from '@/i18n';
 
 /**
- * Phase 65 — cookie name that holds the user's currently-selected shop.
+ * Phase 65 â€” cookie name that holds the user's currently-selected shop.
  * The shop switcher in the sidebar writes this via the `selectShop`
  * server action. `getCurrentShopId` reads it and validates against the
  * user's memberships before trusting the value.
@@ -20,13 +20,13 @@ export const SHOP_COOKIE = 'kua_active_shop';
  * Components, Server Actions, Route Handlers, and `generateMetadata`.
  *
  * `cache()` dedupes repeated calls within the same request (e.g. layout reads
- * the user, page reads the user — only one round-trip to Supabase).
+ * the user, page reads the user â€” only one round-trip to Supabase).
  */
 
 /**
  * Resolve the current user from the request cookies.
  *
- * Uses `getSession()` (not `getUser()`) — `getSession()` parses the JWT
+ * Uses `getSession()` (not `getUser()`) â€” `getSession()` parses the JWT
  * from cookies and validates its signature locally (~5ms), only making
  * a network call when the access token is expired (auto-refresh).
  * `getUser()` always POSTs to /auth/v1/user (~150ms) which would be
@@ -73,11 +73,11 @@ const MEMBERSHIPS_CACHE_TAG = 'memberships';
 
 /**
  * Cross-request cache of a user's confirmed memberships (60s TTL), keyed by
- * user id — mirrors `getCachedShopRow`. Removes an uncached `shop_members`
+ * user id â€” mirrors `getCachedShopRow`. Removes an uncached `shop_members`
  * SELECT from every authenticated page load (was React-`cache()`-only =
  * deduped within a request but re-queried on every new request). Service-
  * role client so the cached query is request-independent; safe because it's
- * scoped to the validated user's own rows. Staleness ≤60s; bust sooner via
+ * scoped to the validated user's own rows. Staleness â‰¤60s; bust sooner via
  * `revalidateTag('memberships')` from membership-mutating actions.
  */
 const getCachedMemberships = unstable_cache(
@@ -122,7 +122,7 @@ export { MEMBERSHIPS_CACHE_TAG };
 /**
  * Require the current user to be a confirmed member of *some* shop. If they
  * have none, send them to the onboarding flow (Phase 9). For now we redirect
- * to a "no shop" page that doesn't exist yet — middleware will surface a 404
+ * to a "no shop" page that doesn't exist yet â€” middleware will surface a 404
  * which is acceptable for the design system phase.
  */
 export async function requireShopMember(opts?: { locale?: string }) {
@@ -135,13 +135,13 @@ export async function requireShopMember(opts?: { locale?: string }) {
 }
 
 /**
- * Resolve the "current shop" — Phase 65 cookie-aware version.
+ * Resolve the "current shop" â€” Phase 65 cookie-aware version.
  *
  * Reads `SHOP_COOKIE` from the request cookies. If the cookie names a
  * shop the user is still a confirmed member of, that's the active shop.
  * If the cookie is missing or names a shop they no longer belong to
  * (membership revoked, account deleted, etc.), fall back to the first
- * membership — same behavior as before Phase 65.
+ * membership â€” same behavior as before Phase 65.
  *
  * The cookie is set by the `selectShop` server action and cleared on
  * sign-out by the existing Supabase Auth cookie reset.
@@ -162,7 +162,7 @@ export async function getCurrentShopId(): Promise<string | null> {
  * Cached in two layers:
  *  1. **Cross-request** via `unstable_cache` keyed by shop_id (Vercel Data
  *     Cache, 60s TTL). Identical reads from different requests within the
- *     same minute reuse the cached value — saves the Postgres round-trip
+ *     same minute reuse the cached value â€” saves the Postgres round-trip
  *     entirely on the hot path. Bust the cache via `revalidateTag('shop')`
  *     in any Server Action that mutates the shop row.
  *  2. **Within a single request** via React `cache()` so layout + page +
@@ -218,20 +218,20 @@ export const getCurrentShop = cache(async (): Promise<CurrentShop | null> => {
 export { SHOP_CACHE_TAG };
 
 /**
- * Gate a route on the Küa super-admin flag (Phase 22). Looks up
+ * Gate a route on the KÃ¼a super-admin flag (Phase 22). Looks up
  * `profiles.is_kua_admin` for the current user; redirects to `/no-shop` if
- * not authenticated or not a Küa team member. The boolean is column-level
+ * not authenticated or not a KÃ¼a team member. The boolean is column-level
  * locked against client-side updates (only service-role can flip it), so
  * trusting it here is safe.
  */
 const KUA_ADMIN_CACHE_TAG = 'kua-admin';
 
 /**
- * Cross-request cache of the Küa super-admin flag (60s TTL), keyed by user
- * id — mirrors `getCachedShopRow`. Removes an uncached `profiles` SELECT
+ * Cross-request cache of the KÃ¼a super-admin flag (60s TTL), keyed by user
+ * id â€” mirrors `getCachedShopRow`. Removes an uncached `profiles` SELECT
  * from every authenticated page load. Service-role client (request-
  * independent; the flag is column-locked against client writes). Staleness
- * ≤60s; bust via `revalidateTag('kua-admin')` if a flag flips.
+ * â‰¤60s; bust via `revalidateTag('kua-admin')` if a flag flips.
  */
 const getCachedIsKuaAdmin = unstable_cache(
   async (userId: string): Promise<boolean> => {
@@ -276,7 +276,7 @@ export async function requireKuaAdmin(opts?: { locale?: string }) {
   const user = await requireUser({ locale: opts?.locale });
   const isAdmin = await getIsKuaAdmin();
   if (!isAdmin) {
-    // We bounce non-admins to /no-shop rather than throwing — keeps the URL
+    // We bounce non-admins to /no-shop rather than throwing â€” keeps the URL
     // discoverable without leaking that the admin section exists.
     redirect(`/${opts?.locale ?? defaultLocale}/no-shop`);
   }
@@ -284,7 +284,7 @@ export async function requireKuaAdmin(opts?: { locale?: string }) {
 }
 
 /**
- * Phase H+5 — resolve the `barbers.id` row for the currently-signed-in user
+ * Phase H+5 â€” resolve the `barbers.id` row for the currently-signed-in user
  * in the active shop. Returns null when:
  *   - no user (unauthenticated)
  *   - no active shop
@@ -303,8 +303,7 @@ export const getCurrentBarberId = cache(async (): Promise<string | null> => {
   if (!user) return null;
   const shopId = await getCurrentShopId();
   if (!shopId) return null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
   const res = await sb
     .from('barbers')
     .select('id')
@@ -323,20 +322,20 @@ export const getCurrentBarberId = cache(async (): Promise<string | null> => {
 
 /**
  * Gate a Server Action / page on a minimum role within the active shop.
- * Throws (so `error.tsx` can render) instead of redirecting — callers in form
+ * Throws (so `error.tsx` can render) instead of redirecting â€” callers in form
  * actions usually want to surface the error to the user.
  *
- * Security audit #2 (CRITICAL) — cookie-aware membership lookup.
+ * Security audit #2 (CRITICAL) â€” cookie-aware membership lookup.
  *
  * Pre-fix, this pinned `memberships[0]` regardless of the active-shop
  * cookie. A multi-shop user (e.g. `owner` in shop A, `barber` in shop
  * B) who flipped the cookie to shop B would have their owner role
- * SILENTLY APPLIED against shop B's pages — `/finances`,
+ * SILENTLY APPLIED against shop B's pages â€” `/finances`,
  * `/marketing/*`, `/settings/audit-log`, `/settings/notifications`,
  * `testSmtpConnection`, `testTwilioConfig`, `upload-actions.ts`.
  * Cookie was validated for the data layer via `getCurrentShopId()`
  * but the role gate ignored it. Same bug class as the `withAction`
- * fix in commit 4227721 — this surface never got it.
+ * fix in commit 4227721 â€” this surface never got it.
  *
  * Fix: read `getCurrentShopId()` (which validates the cookie against
  * memberships) and look up the membership for THAT shop_id. Falls

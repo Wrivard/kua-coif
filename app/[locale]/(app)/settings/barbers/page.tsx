@@ -24,8 +24,7 @@ export default async function BarberSettingsPage(props: { params: Promise<{ loca
   const shopId = await getCurrentShopId();
   if (!shopId) throw new Error('Barber settings load failed: no active shop resolved');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const [barbersRes, settingsRes] = await Promise.all([
     supabase
       .from('barbers')
@@ -37,7 +36,7 @@ export default async function BarberSettingsPage(props: { params: Promise<{ loca
   ]);
 
   const barbers = (barbersRes.data as BarberRow[] | null) ?? [];
-  const settings = (settingsRes.data as BarberSettingsRow[] | null) ?? [];
+  const settings = settingsRes.data ?? [];
 
   return <BarberSettingsClient barbers={barbers} settings={settings} />;
 }

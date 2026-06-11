@@ -64,8 +64,7 @@ export async function reschedulePublicAppointment(
     const payload = verifyToken(input.token, 'reschedule');
     if (!payload) return err('INVALID_INPUT');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Resolve appointment + shop + total duration in one go.
     // Plan 037 — `client_id`/`total_amount` + shop `name`/`phone` widened in
@@ -77,19 +76,7 @@ export async function reschedulePublicAppointment(
       )
       .eq('id', payload.resourceId)
       .limit(1);
-    const appt = ((apptRes.data as Array<{
-      id: string;
-      shop_id: string;
-      barber_id: string;
-      client_id: string | null;
-      start_at: string;
-      end_at: string;
-      status: string;
-      total_amount: number | null;
-      google_event_id: string | null;
-      public_link_version: number | null;
-      shop: { id: string; timezone: string; name: string; phone: string | null } | null;
-    }> | null) ?? [])[0];
+    const appt = (apptRes.data ?? [])[0];
     if (!appt || !appt.shop) return err('NOT_FOUND');
     // Revocation (plan 013): stale token version → same NOT_FOUND path as a
     // bad token (never a distinct error that would confirm the appt exists).
@@ -144,46 +131,19 @@ export async function reschedulePublicAppointment(
         .eq('shop_id', appt.shop_id),
     ]);
 
-    const hours =
-      (hoursRes.data as Array<{
-        weekday: number;
-        enabled: boolean;
-        open_time: string | null;
-        close_time: string | null;
-      }> | null) ?? [];
-    const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
-    const existing: ExistingAppointment[] = (
-      (apptsRes.data as Array<{
-        id: string;
-        barber_id: string;
-        start_at: string;
-        end_at: string;
-        status: ExistingAppointment['status'];
-      }> | null) ?? []
-    ).map((a) => ({
+    const hours = hoursRes.data ?? [];
+    const daysOff = (daysOffRes.data ?? []).map((d) => d.date);
+    const existing: ExistingAppointment[] = (apptsRes.data ?? []).map((a) => ({
       ...a,
       start_at: new Date(a.start_at),
       end_at: new Date(a.end_at),
     }));
-    const blocked = (
-      (blockedRes.data as Array<{
-        barber_id: string | null;
-        start_at: string;
-        end_at: string;
-      }> | null) ?? []
-    ).map((b) => ({
+    const blocked = (blockedRes.data ?? []).map((b) => ({
       barber_id: b.barber_id,
       start_at: new Date(b.start_at),
       end_at: new Date(b.end_at),
     }));
-    const settingsRows =
-      (settingsRes.data as Array<{
-        scope: 'shop' | 'barber';
-        barber_id: string | null;
-        client_booking_interval_min: number;
-        days_book_in_advance: number;
-        mins_book_before_appt: number;
-      }> | null) ?? [];
+    const settingsRows = settingsRes.data ?? [];
     // B20 — shared resolver (override → shop → defaults). Never null now.
     const settings = resolveEffectiveBarberSettings(settingsRows, appt.barber_id);
     const shopWeekday = new Date(`${input.new_date}T00:00:00`).getDay();
@@ -279,16 +239,12 @@ export async function reschedulePublicAppointment(
             .eq('appointment_id', appt.id),
           supabase.from('barbers').select('display_name').eq('id', appt.barber_id).single(),
         ]);
-        const customer = clientRes.data as { first_name: string; email: string | null } | null;
-        const services = (
-          (servicesRes.data as Array<{
-            services: { name: string; duration_min: number } | null;
-          }> | null) ?? []
-        )
+        const customer = clientRes.data;
+        const services = (servicesRes.data ?? [])
           .map((r) => r.services)
           .filter((s): s is { name: string; duration_min: number } => Boolean(s))
           .map((s) => ({ name: s.name, durationMin: s.duration_min }));
-        const barber = barberRes.data as { display_name: string | null } | null;
+        const barber = barberRes.data;
         if (customer?.email) {
           const emailLocale = input.locale;
           await sendEmail({

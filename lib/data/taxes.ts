@@ -7,12 +7,12 @@ export const TAXES_CACHE_TAG = 'taxes';
 
 /**
  * Cross-request cache of a shop's taxes (Vercel Data Cache), keyed by shop
- * id — same two-layer pattern as `getCachedShopRow` in lib/auth/server.ts.
+ * id â€” same two-layer pattern as `getCachedShopRow` in lib/auth/server.ts.
  *
  * Taxes are slow-changing config read on /settings/taxes (and assignable on
  * /products + /services), so caching removes a cold Postgres query from those
  * loads. The pages stay dynamic (they read auth cookies); only the *query*
- * is cached. Service-role client + explicit `shop_id` scope — service-role
+ * is cached. Service-role client + explicit `shop_id` scope â€” service-role
  * bypasses RLS, so the shop filter is REQUIRED for tenant isolation; the
  * caller has already proven membership before we key by shopId.
  *
@@ -21,8 +21,7 @@ export const TAXES_CACHE_TAG = 'taxes';
  */
 export const getCachedTaxes = unstable_cache(
   async (shopId: string): Promise<TaxRow[]> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const { data } = await admin
       .from('taxes')
       .select('*')

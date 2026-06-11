@@ -1,9 +1,9 @@
 /**
- * Loop 42 (Phase 122 from AUDIT_PHASE70) — Waitlist auto-notify.
+ * Loop 42 (Phase 122 from AUDIT_PHASE70) â€” Waitlist auto-notify.
  *
  * When an appointment is cancelled, find any `waiting` entries whose
  * preferences match the freed slot and send them an email. The
- * customer-facing UX is "your dream slot just opened up — book now
+ * customer-facing UX is "your dream slot just opened up â€” book now
  * before it's taken again."
  *
  * Match rules (V1):
@@ -11,7 +11,7 @@
  *   - entry.date_window covers the cancelled slot's date (shop-local)
  *   - entry.preferred_barber_id matches the freed barber OR is null
  *     ("any barber" preference)
- *   - service_ids NOT enforced — entries with mismatched services
+ *   - service_ids NOT enforced â€” entries with mismatched services
  *     still get notified because in practice customers are flexible
  *     about secondary services. A future loop can tighten this once
  *     we have telemetry on false-positive rates.
@@ -44,10 +44,9 @@ const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
-    // Shop-local date of the freed slot — the entry's date_window is
+    // Shop-local date of the freed slot â€” the entry's date_window is
     // stored as DATE (no time component), so we compare against the
     // shop-local YYYY-MM-DD rather than UTC.
     const slotDate = shopIsoDate(new Date(slot.startAtIso), slot.timezone);
@@ -103,7 +102,7 @@ export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<v
 
     const now = Date.now();
     for (const entry of entries) {
-      // Skip silently if no email — V1 can't SMS so the entry is just
+      // Skip silently if no email â€” V1 can't SMS so the entry is just
       // a manual-followup record for the owner.
       if (!entry.email) continue;
 
@@ -117,9 +116,9 @@ export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<v
 
       const bookingUrl = shop.alias ? `${appUrl()}/${entry.locale}/book/${shop.alias}` : null;
 
-      // Fire-and-forget per entry — sendEmail catches its own errors
+      // Fire-and-forget per entry â€” sendEmail catches its own errors
       // via Sentry, and we don't want one bad address to block the
-      // rest. Awaiting sequentially is fine because notifyMatching…
+      // rest. Awaiting sequentially is fine because notifyMatchingâ€¦
       // is itself called via `void` from the cancel action.
       await sendEmail({
         shopId: slot.shopId,
@@ -153,7 +152,7 @@ export async function notifyMatchingWaitlistOnCancel(slot: FreedSlot): Promise<v
         ],
       });
 
-      // Mark notified — even if the SMTP send fails internally, we
+      // Mark notified â€” even if the SMTP send fails internally, we
       // don't want to retry forever. The `notified_at` lets the owner
       // see in the UI that a notification attempt was made.
       await admin

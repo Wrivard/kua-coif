@@ -37,8 +37,7 @@ export default async function AuditLogPage(props: { params: Promise<{ locale: st
     return <AuditLogClient locale={locale} rows={[]} />;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServerClient() as any;
+  const sb = createSupabaseServerClient();
   // Pull the latest 100 entries. We don't fetch the `diff` JSON here because
   // it can be large — the client renders a "view" expandable that re-queries
   // by id (V1.1). For now we include it inline so the user can copy-paste
@@ -49,16 +48,7 @@ export default async function AuditLogPage(props: { params: Promise<{ locale: st
     .eq('shop_id', shopId)
     .order('occurred_at', { ascending: false })
     .limit(100);
-  const rows =
-    (res.data as Array<{
-      id: number;
-      occurred_at: string;
-      actor_id: string | null;
-      action: string;
-      entity: string;
-      entity_id: string | null;
-      diff: Json | null;
-    }> | null) ?? [];
+  const rows = res.data ?? [];
 
   // Fetch actor display names in a second pass (one IN query). Cheaper than
   // a join + simpler to type-cast.
@@ -66,8 +56,7 @@ export default async function AuditLogPage(props: { params: Promise<{ locale: st
   let actors: Record<string, { email: string; fullName: string | null }> = {};
   if (actorIds.length > 0) {
     const aRes = await sb.from('profiles').select('id, email, full_name').in('id', actorIds);
-    const aRows =
-      (aRes.data as Array<{ id: string; email: string; full_name: string | null }> | null) ?? [];
+    const aRows = aRes.data ?? [];
     actors = Object.fromEntries(
       aRows.map((a) => [a.id, { email: a.email, fullName: a.full_name }]),
     );

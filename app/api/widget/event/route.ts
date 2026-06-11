@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { getClientIp } from '@/lib/security/client-ip';
+import type { Json } from '@/db/types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -10,19 +11,19 @@ export const runtime = 'nodejs';
 /**
  * POST /api/widget/event
  *
- * Phase H+14 — public widget analytics ingestion. The booking wizard
+ * Phase H+14 â€” public widget analytics ingestion. The booking wizard
  * (mounted in /embed/[shopSlug]) posts one row per impression / step
  * view / booking complete / abandon. The settings page rolls these up
  * into the conversion-funnel card.
  *
  * Anti-abuse:
- *   - Rate limit per IP (60/min — well above the 4-5 events a real
+ *   - Rate limit per IP (60/min â€” well above the 4-5 events a real
  *     booking generates).
  *   - shopSlug must resolve to a real shop_id (rejects forged inserts).
  *   - Zod-validated event_type / source / step_kind enums (the DB
  *     check constraints are the second line of defence).
  *
- * Returns 204 No Content on success — we don't echo the row back.
+ * Returns 204 No Content on success â€” we don't echo the row back.
  */
 const eventSchema = z.object({
   shopSlug: z.string().min(1).max(100),
@@ -50,10 +51,9 @@ async function resolveShopId(shopSlug: string): Promise<string | null> {
   const hit = aliasCache.get(shopSlug);
   if (hit && hit.expiresAt > now) return hit.id;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
   const shopRes = await supabase.from('shops').select('id').eq('alias', shopSlug).limit(1);
-  const shop = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0];
+  const shop = (shopRes.data ?? [])[0];
   const id = shop?.id ?? null;
 
   if (aliasCache.size >= ALIAS_CACHE_MAX_ENTRIES) aliasCache.clear();
@@ -92,8 +92,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   // Best-effort write. A failed insert is logged but doesn't block
   // the wizard's UX (analytics is a side-channel, never on the
@@ -104,7 +103,8 @@ export async function POST(req: NextRequest) {
     step_kind: stepKind ?? null,
     session_id: sessionId,
     source,
-    meta: meta ?? {},
+    // `meta` is validated JSON from the request body; the column is jsonb (Json).
+    meta: (meta ?? {}) as Json,
   });
   if (error) {
     return NextResponse.json({ error: 'INSERT_FAILED' }, { status: 500 });

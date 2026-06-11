@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
+import type { Database } from '@/db/types';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
 
@@ -25,9 +26,8 @@ export const moderateReview = withAction({
   schema: moderateSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
-    const patch: Record<string, unknown> = { status: input.status };
+    const sb = createSupabaseServerClient();
+    const patch: Database['public']['Tables']['reviews']['Update'] = { status: input.status };
     if (input.status === 'published') patch.published_at = new Date().toISOString();
     const { error } = await sb
       .from('reviews')
@@ -54,8 +54,7 @@ export const deleteReview = withAction({
   schema: deleteSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('reviews')
       .delete()

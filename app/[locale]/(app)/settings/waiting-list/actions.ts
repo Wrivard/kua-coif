@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
+import type { Database } from '@/db/types';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
 // Loop 59 hotfix — schema moved to `./schema` because `'use server'`
@@ -15,8 +16,7 @@ export const upsertWaitingList = withAction({
   schema: waitingListSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('waiting_list_config')
       .upsert({ shop_id: ctx.shopId, ...input }, { onConflict: 'shop_id' });
@@ -48,9 +48,10 @@ export const updateWaitlistEntryStatus = withAction({
   schema: updateEntryStatusSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
-    const patch: Record<string, unknown> = { status: input.status };
+    const sb = createSupabaseServerClient();
+    const patch: Database['public']['Tables']['waiting_list_entries']['Update'] = {
+      status: input.status,
+    };
     if (input.status === 'notified') patch.notified_at = new Date().toISOString();
     const { error } = await sb
       .from('waiting_list_entries')
@@ -79,8 +80,7 @@ export const deleteWaitlistEntry = withAction({
   schema: deleteEntrySchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('waiting_list_entries')
       .delete()

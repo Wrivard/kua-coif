@@ -1,27 +1,27 @@
 /**
- * Phase F — platform_config reader.
+ * Phase F â€” platform_config reader.
  *
- * Single source of truth for the Küa-wide application fee BPS. Replaces
+ * Single source of truth for the KÃ¼a-wide application fee BPS. Replaces
  * the `STRIPE_APP_FEE_BPS` env var as the canonical source; the env var
  * now only serves as the graceful-degradation fallback if the DB read
  * fails (e.g. service-role auth blip during a payment flow).
  *
  * The fee value is cached in-process for 30s so the hot booking path
  * doesn't hit Postgres on every PI mint. A super-admin save flips the
- * cache by setting `lastInvalidatedAt` — anything older than that is
+ * cache by setting `lastInvalidatedAt` â€” anything older than that is
  * forced to refetch.
  *
  * The fetch uses the service-role client because the booking path is
  * unauthenticated (public booking from a wizard); the RLS policy gates
  * super-admin writes anyway.
  *
- * DEPLOYMENT NOTE — UNSET `STRIPE_APP_FEE_BPS` AFTER ROLLOUT.
+ * DEPLOYMENT NOTE â€” UNSET `STRIPE_APP_FEE_BPS` AFTER ROLLOUT.
  *
  * Pre-Phase F, the env var was the canonical fee source. Post-Phase F
  * the DB row is canonical and the migration seeds it at 0. If a
  * production deployment still has STRIPE_APP_FEE_BPS=N (N>0) in env,
  * the fee silently flips to 0% on rollout (the DB wins in steady
- * state — the env only kicks in during a DB outage, which then
+ * state â€” the env only kicks in during a DB outage, which then
  * temporarily restores the OLD env-based fee, surprising).
  *
  * Operator runbook:
@@ -55,8 +55,7 @@ export async function getPlatformAppFeeBps(): Promise<number> {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServiceRoleClient() as any;
+    const sb = createSupabaseServiceRoleClient();
     const res = await sb.from('platform_config').select('app_fee_bps').eq('id', 1).single();
     const row = res.data as { app_fee_bps: number } | null;
     const bps = Number(row?.app_fee_bps ?? 0);
@@ -75,7 +74,7 @@ export async function getPlatformAppFeeBps(): Promise<number> {
  * using the current platform-config BPS. Used by `createDepositPaymentIntent`
  * and `getReusableDepositPaymentIntent` to decide what fee to apply.
  *
- * Pure helper that takes BPS as a parameter — kept that way so the
+ * Pure helper that takes BPS as a parameter â€” kept that way so the
  * caller can fetch BPS once and pass it through to multiple call
  * sites in the same request, sharing a single DB read.
  */

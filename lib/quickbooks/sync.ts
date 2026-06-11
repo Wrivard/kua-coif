@@ -1,5 +1,5 @@
 /**
- * Loop 49 (Phase 99 from AUDIT_PHASE70) — QuickBooks sync helper.
+ * Loop 49 (Phase 99 from AUDIT_PHASE70) â€” QuickBooks sync helper.
  *
  * Orchestrates the per-appointment SalesReceipt creation when an
  * appointment hits status='completed'. Best-effort by design: a QB
@@ -43,23 +43,22 @@ export async function pushAppointmentToQuickbooks(args: {
   appointmentId: string;
   shopId: string;
 }): Promise<void> {
-  // The whole helper is best-effort — any uncaught error gets
+  // The whole helper is best-effort â€” any uncaught error gets
   // routed through Sentry and the caller continues. The outer
   // try/catch matches the same pattern used by
   // `lib/business/waitlist-notify.ts` and `lib/google/sync.ts`.
   try {
     if (!quickbooksConfigured() || !encryptionConfigured()) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     // Pull the shop's QB state + the appointment row + linked
-    // services in parallel. Three independent reads — no dependency
+    // services in parallel. Three independent reads â€” no dependency
     // between them.
     const [shopRes, apptRes, servicesRes] = await Promise.all([
       admin
         .from('shops')
-        // Loop 49 self-review — pull timezone too so the SalesReceipt
+        // Loop 49 self-review â€” pull timezone too so the SalesReceipt
         // TxnDate is computed in the shop's local time. UTC-slicing
         // an 11pm-ET appointment would land on the NEXT day in QB.
         .select(
@@ -69,10 +68,10 @@ export async function pushAppointmentToQuickbooks(args: {
         .single(),
       admin
         .from('appointments')
-        // Loop 52 (P99 follow-up) — `client_id` pulled so we can
+        // Loop 52 (P99 follow-up) â€” `client_id` pulled so we can
         // route the SalesReceipt under the real customer rather
         // than the shop's default Walk-in. Null client_id = true
-        // walk-in (no client row) → Walk-in fallback below.
+        // walk-in (no client row) â†’ Walk-in fallback below.
         .select('id, start_at, total_amount, quickbooks_sales_receipt_id, client_id')
         .eq('id', args.appointmentId)
         .single(),
@@ -100,7 +99,7 @@ export async function pushAppointmentToQuickbooks(args: {
     } | null;
 
     if (!shop || !appt) return;
-    // Idempotency guard — receipt already exists.
+    // Idempotency guard â€” receipt already exists.
     if (appt.quickbooks_sales_receipt_id) return;
     // Skip when QB isn't connected.
     if (
@@ -114,22 +113,22 @@ export async function pushAppointmentToQuickbooks(args: {
     // Refresh the token. Intuit ROTATES the refresh token on every
     // refresh: the response carries a NEW refresh_token and the old
     // one stays valid only ~24h. We persist it here, immediately
-    // (below) — the daily cron only refreshes tokens within 14 days
+    // (below) â€” the daily cron only refreshes tokens within 14 days
     // of expiry (~100-day lifetime), so for ~86 days it would never
     // persist a sync-path rotation; the stored token would then die
-    // within ~24h (next refresh → invalid_grant → shop flips to
+    // within ~24h (next refresh â†’ invalid_grant â†’ shop flips to
     // disconnected). The cron remains the near-expiry safety net for
     // shops that don't complete appointments often enough to keep the
     // token alive on the sync path.
     const refreshed = await refreshQbToken(decrypt(shop.quickbooks_refresh_token_enc));
     const accessToken = refreshed.access_token;
 
-    // Persist the rotated refresh token — best-effort but LOUD.
+    // Persist the rotated refresh token â€” best-effort but LOUD.
     // Mirrors the cron's proven block
     // (app/api/cron/quickbooks-refresh/route.ts). The try/catch wraps
     // ONLY this write: a persistence failure must not abort the
     // receipt push (the access token in hand is still valid), but it
-    // must never be silent — it goes to Sentry with sync-specific tags.
+    // must never be silent â€” it goes to Sentry with sync-specific tags.
     try {
       const newRefreshEnc = encrypt(refreshed.refresh_token);
       const newExpiresAt = new Date(
@@ -151,15 +150,15 @@ export async function pushAppointmentToQuickbooks(args: {
       });
     }
 
-    // Step 2 — resolve the QB Customer to attach. Two paths:
+    // Step 2 â€” resolve the QB Customer to attach. Two paths:
     //
-    //   (a) The appointment has a `client_id` → look up the client
+    //   (a) The appointment has a `client_id` â†’ look up the client
     //       row. If `quickbooks_customer_id` is cached, use it.
     //       Otherwise find-or-create in QB by DisplayName matching
     //       (`<first> <last>`) and cache the result.
     //
     //   (b) Null `client_id` (legitimate walk-in with no client
-    //       row) → fall back to the shop's cached "Walk-in"
+    //       row) â†’ fall back to the shop's cached "Walk-in"
     //       customer, creating it lazily on first such receipt.
     //
     // Loop 49 routed everything through (b); Loop 52 (P99 follow-
@@ -181,11 +180,11 @@ export async function pushAppointmentToQuickbooks(args: {
         customerId = client.quickbooks_customer_id;
       } else if (client) {
         // Build a DisplayName that QB will accept. Empty `last_name`
-        // → use `first_name` alone; collisions with existing QB
+        // â†’ use `first_name` alone; collisions with existing QB
         // customers of the same name will resolve to the EXISTING
         // record (find-step succeeds), which is the right user-
         // visible behaviour even if it sometimes merges two
-        // Küa-distinct clients into one QB row. A V1.5 loop can
+        // KÃ¼a-distinct clients into one QB row. A V1.5 loop can
         // disambiguate via phone number when QB exposes the
         // PrimaryPhone in queries.
         const displayName = client.last_name
@@ -205,7 +204,7 @@ export async function pushAppointmentToQuickbooks(args: {
           .eq('id', client.id);
       } else {
         // client_id pointed at a row that doesn't exist anymore
-        // (shouldn't happen, but defend-in-depth) — fall through
+        // (shouldn't happen, but defend-in-depth) â€” fall through
         // to Walk-in.
         customerId = await resolveWalkinCustomer({
           admin,
@@ -221,7 +220,7 @@ export async function pushAppointmentToQuickbooks(args: {
       });
     }
 
-    // Step 3 — build SalesReceipt line items. Empty service list
+    // Step 3 â€” build SalesReceipt line items. Empty service list
     // (which would mean a no-services appointment, unusual but
     // possible) gets a single "Appointment" line so the receipt
     // total isn't zero.
@@ -240,8 +239,8 @@ export async function pushAppointmentToQuickbooks(args: {
             },
           ];
 
-    // Step 4 — POST SalesReceipt. `TxnDate` is the appointment's
-    // shop-local date (NOT UTC-sliced — a 23h ET appointment would
+    // Step 4 â€” POST SalesReceipt. `TxnDate` is the appointment's
+    // shop-local date (NOT UTC-sliced â€” a 23h ET appointment would
     // have a UTC date of next-day, which puts the receipt on the
     // wrong day in QB).
     const receipt = await createQbSalesReceipt({
@@ -250,13 +249,13 @@ export async function pushAppointmentToQuickbooks(args: {
       customerId,
       txnDate: shopIsoDate(new Date(appt.start_at), shop.timezone),
       lines,
-      privateNote: `Küa appointment ${appt.id}`,
+      privateNote: `KÃ¼a appointment ${appt.id}`,
     });
 
-    // Step 5 — persist the receipt ID for idempotency. If this
+    // Step 5 â€” persist the receipt ID for idempotency. If this
     // update fails (rare), the appointment stays unsynced and the
     // next attempt creates a DUPLICATE receipt in QB. That's the
-    // documented trade-off — duplicates are visible in QB and easy
+    // documented trade-off â€” duplicates are visible in QB and easy
     // for an owner to delete.
     await admin
       .from('appointments')
@@ -271,7 +270,7 @@ export async function pushAppointmentToQuickbooks(args: {
 }
 
 /**
- * Loop 52 — resolve (find-or-create + cache) the shop's default
+ * Loop 52 â€” resolve (find-or-create + cache) the shop's default
  * "Walk-in" customer. Pulled out of the inline path so both the
  * null-client_id branch and the "client_id pointed at a deleted
  * row" fallback can share it without duplicating the cache write.
@@ -297,7 +296,7 @@ async function resolveWalkinCustomer({
     accessToken,
     // Per-shop prefix so an owner with multiple companies in QB
     // can tell them apart.
-    displayName: `${shop.name} — Walk-in`,
+    displayName: `${shop.name} â€” Walk-in`,
   });
   await admin
     .from('shops')

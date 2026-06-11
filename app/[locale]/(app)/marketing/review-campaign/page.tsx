@@ -34,8 +34,7 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
   const shopId = await getCurrentShopId();
   if (!shopId) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // 1. Pull completed appointments in the window + join client info +
   //    services in one query. Supabase's embedded-resource syntax does
@@ -53,21 +52,7 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
     .gte('start_at', since)
     .order('start_at', { ascending: false });
 
-  type ApptRow = {
-    id: string;
-    start_at: string;
-    status: string;
-    client: {
-      id: string;
-      first_name: string;
-      last_name: string | null;
-      email: string | null;
-      phone: string | null;
-      anonymized_at: string | null;
-    } | null;
-    appointment_services: Array<{ services: { name: string } | null }> | null;
-  };
-  const allAppts = (apptsRes.data as ApptRow[] | null) ?? [];
+  const allAppts = apptsRes.data ?? [];
 
   // 2. Filter out anonymized clients + clients with no contact info.
   const contactable = allAppts.filter(
@@ -82,19 +67,13 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
   //    the reminder cron's alreadySet.
   const ids = contactable.map((a) => a.id);
   const reviewsRes = await admin.from('reviews').select('appointment_id').in('appointment_id', ids);
-  const reviewed = new Set(
-    ((reviewsRes.data as Array<{ appointment_id: string }> | null) ?? []).map(
-      (r) => r.appointment_id,
-    ),
-  );
+  const reviewed = new Set((reviewsRes.data ?? []).map((r) => r.appointment_id));
   const sentRes = await admin
     .from('client_marketing_sends')
     .select('recurrence_key')
     .eq('kind', 'review_request')
     .in('recurrence_key', ids);
-  const sent = new Set(
-    ((sentRes.data as Array<{ recurrence_key: string }> | null) ?? []).map((r) => r.recurrence_key),
-  );
+  const sent = new Set((sentRes.data ?? []).map((r) => r.recurrence_key));
 
   const candidates: Candidate[] = contactable
     .filter((a) => !reviewed.has(a.id) && !sent.has(a.id))

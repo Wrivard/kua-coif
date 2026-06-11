@@ -1,184 +1,147 @@
 /**
- * Manual row types for tables we use today.
+ * Row type aliases sourced from the generated `db/types.ts` (Database).
  *
- * Source of truth = the migrations in `supabase/migrations/`. Once `pnpm
- * db:types:remote` runs against a live DB, `db/types.ts` becomes authoritative
- * and these types collapse to `Database['public']['Tables']['X']['Row']`
- * aliases. Until then, every CRUD screen imports row shapes from here.
+ * These used to be hand-maintained shapes; codegen shipped, so each now
+ * collapses to a `Pick<>` of the generated Row. Pick (rather than a bare alias)
+ * preserves the exact narrow column set each screen actually fetches AND turns a
+ * renamed/removed column into a compile error here instead of a runtime
+ * surprise. The ~39 importers keep compiling unchanged.
  */
-import type {
-  AppointmentSource,
-  AppointmentStatus,
-  CommissionScope,
-  DiscountAssignment,
-  DiscountType,
-  LoyaltyType,
-  PayoutDiscountMode,
-  ServiceStatus,
-  ShopMemberStatus,
-  UserRole,
-} from './enums';
+import type { Database } from './types';
 
-export type ServiceRow = {
-  id: string;
-  shop_id: string;
-  category_id: string | null;
-  name: string;
-  duration_min: number;
-  price: number;
-  status: ServiceStatus;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-};
+type Row<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
 
-export type ServiceCategoryRow = {
-  id: string;
-  shop_id: string;
-  name: string;
-  sort_order: number;
-};
+export type ServiceRow = Pick<
+  Row<'services'>,
+  | 'id'
+  | 'shop_id'
+  | 'category_id'
+  | 'name'
+  | 'duration_min'
+  | 'price'
+  | 'status'
+  | 'sort_order'
+  | 'created_at'
+  | 'updated_at'
+>;
 
-export type TaxRow = {
-  id: string;
-  shop_id: string;
-  name: string;
-  percentage: number;
-  add_to_price: boolean;
-  external_orders_only: boolean;
-  enabled: boolean;
-};
+export type ServiceCategoryRow = Pick<
+  Row<'service_categories'>,
+  'id' | 'shop_id' | 'name' | 'sort_order'
+>;
 
-export type ServiceTaxLinkRow = {
-  service_id: string;
-  tax_id: string;
-};
+export type TaxRow = Pick<
+  Row<'taxes'>,
+  'id' | 'shop_id' | 'name' | 'percentage' | 'add_to_price' | 'external_orders_only' | 'enabled'
+>;
 
-export type BarberRow = {
-  id: string;
-  shop_id: string;
-  user_id: string | null;
-  display_name: string;
-  email: string | null;
-  phone: string | null;
-  avatar_url: string | null;
-  personnel_id: string | null;
-  sort_order: number;
-  status: ShopMemberStatus;
-  // Barbers audit B17 — excludes a confirmed barber from PUBLIC booking
-  // (without soft-deleting them, which also drops their calendar column).
-  bookable: boolean;
-};
+export type ServiceTaxLinkRow = Pick<Row<'service_taxes'>, 'service_id' | 'tax_id'>;
 
-export type ClientRow = {
-  id: string;
-  shop_id: string;
-  first_name: string;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  // Loop 62 — optional ISO date `YYYY-MM-DD`. Drives the daily
-  // birthday-greetings cron.
-  date_of_birth: string | null;
-  notes: string | null;
-  created_at: string;
-};
+export type BarberRow = Pick<
+  Row<'barbers'>,
+  | 'id'
+  | 'shop_id'
+  | 'user_id'
+  | 'display_name'
+  | 'email'
+  | 'phone'
+  | 'avatar_url'
+  | 'personnel_id'
+  | 'sort_order'
+  | 'status'
+  | 'bookable'
+>;
 
-export type ProductBrandRow = {
-  id: string;
-  shop_id: string;
-  name: string;
-};
+export type ClientRow = Pick<
+  Row<'clients'>,
+  | 'id'
+  | 'shop_id'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone'
+  | 'date_of_birth'
+  | 'notes'
+  | 'created_at'
+>;
 
-export type ProductCategoryRow = {
-  id: string;
-  shop_id: string;
-  name: string;
-};
+export type ProductBrandRow = Pick<Row<'product_brands'>, 'id' | 'shop_id' | 'name'>;
 
-export type ProductRow = {
-  id: string;
-  shop_id: string;
-  brand_id: string | null;
-  category_id: string | null;
-  name: string;
-  price: number;
-  supply_price: number;
-  current_inventory: number;
-  low_inventory_threshold: number;
-  sku: string | null;
-  // W2 (migration 20260610150000) — soft enable/disable, mirrors services.status.
-  status: 'enabled' | 'disabled';
-  // Optimistic-concurrency precondition source for the edit form (W2b).
-  updated_at: string;
-};
+export type ProductCategoryRow = Pick<Row<'product_categories'>, 'id' | 'shop_id' | 'name'>;
 
-export type AppointmentRow = {
-  id: string;
-  shop_id: string;
-  barber_id: string;
-  client_id: string;
-  start_at: string;
-  end_at: string;
-  status: AppointmentStatus;
-  notes: string | null;
-  source: AppointmentSource;
-  total_amount: number;
-};
+export type ProductRow = Pick<
+  Row<'products'>,
+  | 'id'
+  | 'shop_id'
+  | 'brand_id'
+  | 'category_id'
+  | 'name'
+  | 'price'
+  | 'supply_price'
+  | 'current_inventory'
+  | 'low_inventory_threshold'
+  | 'sku'
+  | 'status'
+  | 'updated_at'
+>;
 
-export type DiscountRow = {
-  id: string;
-  shop_id: string;
-  name: string;
-  type: DiscountType;
-  value: number;
-  assignment: DiscountAssignment;
-};
+export type AppointmentRow = Pick<
+  Row<'appointments'>,
+  | 'id'
+  | 'shop_id'
+  | 'barber_id'
+  | 'client_id'
+  | 'start_at'
+  | 'end_at'
+  | 'status'
+  | 'notes'
+  | 'source'
+  | 'total_amount'
+>;
 
-export type CommissionTierRow = {
-  id: string;
-  shop_id: string;
-  barber_id: string;
-  scope: CommissionScope;
-  cumulative: boolean;
-  tier1_threshold: number;
-  tier1_pct: number;
-  tier2_threshold: number;
-  tier2_pct: number;
-  tier3_threshold: number;
-  tier3_pct: number;
-  tier4_threshold: number;
-  tier4_pct: number;
-  tier5_threshold: number;
-  tier5_pct: number;
-};
+export type DiscountRow = Pick<
+  Row<'discounts'>,
+  'id' | 'shop_id' | 'name' | 'type' | 'value' | 'assignment'
+>;
 
-export type LoyaltyProgramRow = {
-  id: string;
-  shop_id: string;
-  enabled: boolean;
-  type: LoyaltyType;
-  goal_count: number;
-  min_transaction_amount: number;
-  reward_amount: number;
-  include_product_sales: boolean;
-  include_tips: boolean;
-};
+export type CommissionTierRow = Pick<
+  Row<'commission_tiers'>,
+  | 'id'
+  | 'shop_id'
+  | 'barber_id'
+  | 'scope'
+  | 'cumulative'
+  | 'tier1_threshold'
+  | 'tier1_pct'
+  | 'tier2_threshold'
+  | 'tier2_pct'
+  | 'tier3_threshold'
+  | 'tier3_pct'
+  | 'tier4_threshold'
+  | 'tier4_pct'
+  | 'tier5_threshold'
+  | 'tier5_pct'
+>;
 
-export type ShopRow = {
-  id: string;
-  name: string;
-  alias: string | null;
-  timezone: string;
-  default_language: string;
-  payout_discount_mode: PayoutDiscountMode;
-  // omit large fields we rarely fetch — add as needed
-};
+export type LoyaltyProgramRow = Pick<
+  Row<'loyalty_program'>,
+  | 'id'
+  | 'shop_id'
+  | 'enabled'
+  | 'type'
+  | 'goal_count'
+  | 'min_transaction_amount'
+  | 'reward_amount'
+  | 'include_product_sales'
+  | 'include_tips'
+>;
 
-export type ShopMemberRow = {
-  id: string;
-  shop_id: string;
-  user_id: string;
-  role: UserRole;
-  status: ShopMemberStatus;
-};
+export type ShopRow = Pick<
+  Row<'shops'>,
+  'id' | 'name' | 'alias' | 'timezone' | 'default_language' | 'payout_discount_mode'
+>;
+
+export type ShopMemberRow = Pick<
+  Row<'shop_members'>,
+  'id' | 'shop_id' | 'user_id' | 'role' | 'status'
+>;

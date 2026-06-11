@@ -27,8 +27,7 @@ export default async function BarbersPage(props: { params: Promise<{ locale: str
   const shopId = await getCurrentShopId();
   if (!shopId) throw new Error('Barbers load failed: no active shop resolved');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const [barbersRes, googleRes] = await Promise.all([
     supabase
       .from('barbers')
@@ -47,20 +46,15 @@ export default async function BarbersPage(props: { params: Promise<{ locale: str
   ]);
 
   const barbers = (barbersRes.data as BarberRow[] | null) ?? [];
-  const googleConnections =
-    (googleRes.data as Array<{
-      barber_id: string;
-      google_email: string;
-      sync_status: 'active' | 'paused' | 'error';
-      last_error: string | null;
-      last_synced_at: string | null;
-    }> | null) ?? [];
+  const googleConnections = googleRes.data ?? [];
 
   const googleByBarber: Record<string, GoogleConnectionView> = {};
   for (const g of googleConnections) {
     googleByBarber[g.barber_id] = {
       googleEmail: g.google_email,
-      syncStatus: g.sync_status,
+      // `sync_status` is a CHECK-constrained text column (generated as
+      // `string`) — narrow it to the view's union.
+      syncStatus: g.sync_status as GoogleConnectionView['syncStatus'],
       lastError: g.last_error,
       lastSyncedAt: g.last_synced_at,
     };

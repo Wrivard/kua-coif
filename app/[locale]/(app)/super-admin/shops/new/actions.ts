@@ -67,14 +67,13 @@ export async function createShopAction(
     return { kind: 'invalid', fieldErrors };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   try {
     // 1. Reject duplicate alias up front (table has a UNIQUE constraint, but
     //    catching it here yields a cleaner error to the form).
     const existing = await sb.from('shops').select('id').eq('alias', parsed.data.alias).limit(1);
-    if ((existing.data as Array<{ id: string }> | null)?.length ?? 0) {
+    if (existing.data?.length ?? 0) {
       return { kind: 'conflict', reason: 'alias-taken' };
     }
 
@@ -102,7 +101,7 @@ export async function createShopAction(
         message: shopRes.error?.message ?? 'Shop insert failed',
       };
     }
-    const shopId = (shopRes.data as { id: string }).id;
+    const shopId = shopRes.data.id;
 
     // 3. Resolve or invite the owner. We first check if a profile already
     //    exists for that email — multi-shop scenario means we should reuse
@@ -113,7 +112,7 @@ export async function createShopAction(
       .select('id')
       .eq('email', parsed.data.ownerEmail)
       .limit(1);
-    const profile = (profileLookup.data as Array<{ id: string }> | null)?.[0];
+    const profile = profileLookup.data?.[0];
     if (profile) {
       // Double-check they aren't already owner of *this* shop (paranoia).
       const dup = await sb
@@ -123,7 +122,7 @@ export async function createShopAction(
         .eq('user_id', profile.id)
         .eq('role', 'owner')
         .limit(1);
-      if ((dup.data as Array<{ id: string }> | null)?.length ?? 0) {
+      if (dup.data?.length ?? 0) {
         return { kind: 'conflict', reason: 'email-already-owner' };
       }
       ownerUserId = profile.id;
@@ -182,7 +181,7 @@ export async function createShopAction(
       // the displayed (FR) name, which equals the template's `key` since
       // we seed in FR. (When V1.1 adds EN seeding, we'll instead carry
       // the key in a separate column or use a temp lookup table.)
-      const inserted = (catRes.data as Array<{ id: string; name: string }> | null) ?? [];
+      const inserted = catRes.data ?? [];
       const idByKey = new Map(
         catalog.categories.map((c) => {
           const row = inserted.find((r) => r.name === c.name);
@@ -200,7 +199,7 @@ export async function createShopAction(
             duration_min: s.duration_min,
             price: s.price,
             sort_order: i + 1,
-            status: 'enabled',
+            status: 'enabled' as const,
           };
         })
         .filter(<T>(v: T | null): v is T => v !== null);

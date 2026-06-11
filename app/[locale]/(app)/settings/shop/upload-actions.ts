@@ -62,8 +62,7 @@ export async function uploadShopAsset(formData: FormData): Promise<Result<Upload
       return err('INVALID_INPUT', { field: 'file', reason: 'size' });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const shopId = await getCurrentShopId();
     if (!shopId) return err('FORBIDDEN');
 

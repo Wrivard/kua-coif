@@ -48,8 +48,7 @@ export async function forgotPasswordAction(
   });
   if (!parsed.success) return { kind: 'invalid' };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const origin = h.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${origin}/${parsed.data.locale}/reset-password`,

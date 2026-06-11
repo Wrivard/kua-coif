@@ -53,8 +53,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ shopId: 
     return new NextResponse('Service Unavailable', { status: 503 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // 2. Look up the shop's auth token. Service-role bypasses the
   //    REVOKE on twilio_auth_token_enc.

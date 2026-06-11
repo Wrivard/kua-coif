@@ -29,8 +29,7 @@ export const saveBarberSettings = withAction({
   schema: barberSettingsBatchSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const { error } = await admin.rpc('save_barber_settings', {
       p_shop: ctx.shopId,
       p_rows: input.rows,

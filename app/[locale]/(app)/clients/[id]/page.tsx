@@ -57,8 +57,7 @@ export default async function ClientDetailPage(props: {
 
   // Service-role for the joins (RLS-friendly), backstopped by the explicit
   // shop_id filter + the barber-ownership check below.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // Plan 034 (PERF-07) — the client row, the barber-ownership probe and the
   // appointment history key only on `id`/`shopId`/`viewerBarberId`, so they
@@ -95,35 +94,15 @@ export default async function ClientDetailPage(props: {
       .order('start_at', { ascending: false })
       .limit(100),
   ]);
-  const client = clientRes.data as {
-    id: string;
-    first_name: string;
-    last_name: string | null;
-    email: string | null;
-    phone: string | null;
-    date_of_birth: string | null;
-    notes: string | null;
-    created_at: string;
-    anonymized_at: string | null;
-    loyalty_balance_cents: number | null;
-    loyalty_balance_expires_at: string | null;
-  } | null;
+  const client = clientRes.data;
   if (!client) notFound();
 
   // Strict barber: only a client they've actually served.
   if (viewerRole === 'barber') {
     if (!viewerBarberId) notFound();
-    if (((ownRes?.data as Array<{ id: string }> | null) ?? []).length === 0) notFound();
+    if ((ownRes?.data ?? []).length === 0) notFound();
   }
-  type ApptJoin = {
-    id: string;
-    start_at: string;
-    status: ApptStatus;
-    total_amount: number;
-    barber: { display_name: string } | null;
-    services: Array<{ service: { name: string } | null }> | null;
-  };
-  const appts = ((apptRes.data as ApptJoin[] | null) ?? []).map((a) => ({
+  const appts = (apptRes.data ?? []).map((a) => ({
     id: a.id,
     start_at: a.start_at,
     status: a.status,

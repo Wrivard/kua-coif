@@ -21,8 +21,7 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServerClient() as any;
+  const sb = createSupabaseServerClient();
   const { data } = await sb
     .from('reviews')
     .select(
@@ -31,6 +30,8 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
     .order('created_at', { ascending: false })
     .limit(100);
 
+  // Contract cast: ReviewRow narrows `status` to its moderation union
+  // (CHECK-constrained text column, generated as plain string).
   const rows = (data as ReviewRow[] | null) ?? [];
 
   // Pull barber names for any entries with a barber_id.
@@ -40,12 +41,7 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
   let barberNames = new Map<string, string>();
   if (barberIds.length > 0) {
     const namesRes = await sb.from('barbers').select('id, display_name').in('id', barberIds);
-    barberNames = new Map(
-      ((namesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map((b) => [
-        b.id,
-        b.display_name,
-      ]),
-    );
+    barberNames = new Map((namesRes.data ?? []).map((b) => [b.id, b.display_name]));
   }
 
   return <ReviewsClient rows={rows} barberNames={Object.fromEntries(barberNames)} />;

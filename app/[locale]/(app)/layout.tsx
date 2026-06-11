@@ -58,8 +58,7 @@ export default async function AppShellLayout(props: {
   // static label, no dropdown affordance).
   let shopRows: Array<{ shop_id: string; name: string }> = [];
   if (memberships.length > 1) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const namesRes = await admin
       .from('shops')
       .select('id, name')
@@ -67,12 +66,7 @@ export default async function AppShellLayout(props: {
         'id',
         memberships.map((m) => m.shop_id),
       );
-    const names = new Map<string, string>(
-      ((namesRes.data as Array<{ id: string; name: string }> | null) ?? []).map((s) => [
-        s.id,
-        s.name,
-      ]),
-    );
+    const names = new Map<string, string>((namesRes.data ?? []).map((s) => [s.id, s.name]));
     shopRows = memberships.map((m) => ({
       shop_id: m.shop_id,
       name: names.get(m.shop_id) ?? '?',

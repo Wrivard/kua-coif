@@ -116,8 +116,7 @@ export const deleteBarber = withAction({
     try {
       const { unsubscribeBarberCalendar } = await import('@/lib/google/sync');
       await unsubscribeBarberCalendar(input.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const admin = createSupabaseServiceRoleClient() as any;
+      const admin = createSupabaseServiceRoleClient();
       await admin
         .from('barber_google_calendar')
         .delete()
@@ -191,8 +190,7 @@ export const disconnectGoogleCalendar = withAction({
   schema: disconnectGoogleSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     // SECURITY (Barbers audit B2) — bind barber_id to the caller's ACTIVE
     // shop BEFORE any privileged work. The service-role reads/writes below
@@ -204,7 +202,7 @@ export const disconnectGoogleCalendar = withAction({
       .select('shop_id')
       .eq('id', input.barber_id)
       .maybeSingle();
-    const owner = ownerRes.data as { shop_id: string } | null;
+    const owner = ownerRes.data;
     if (!owner || owner.shop_id !== ctx.shopId) return err('NOT_FOUND');
 
     // Loop 36 (P96) — orphan cleanup. Ask Google to delete the mirrored events

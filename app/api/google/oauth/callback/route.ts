@@ -6,13 +6,13 @@ import { captureException } from '@/lib/observability';
 import { verifyOauthState } from '@/lib/security/oauth-state';
 
 /**
- * Google OAuth callback — Phase 34.
+ * Google OAuth callback â€” Phase 34.
  *
  * Google redirects here with `?code=<one-time>&state=<signed>` after the
  * barber consents. We:
  *   1. Verify the `state` cookie matches what Google echoed back (CSRF
  *      protection).
- *   2. Verify the HMAC signature on the state — proves we minted it
+ *   2. Verify the HMAC signature on the state â€” proves we minted it
  *      ourselves and it hasn't been tampered with.
  *   3. Verify the state isn't expired.
  *   4. Exchange the `code` for a refresh_token + access_token pair.
@@ -21,7 +21,7 @@ import { verifyOauthState } from '@/lib/security/oauth-state';
  *   7. Redirect back to /settings/users with a success flag.
  *
  * Errors redirect back to /settings/users with `?google=error&reason=<tag>`
- * so the UI can surface a toast. We never 500 — a failed connect is a
+ * so the UI can surface a toast. We never 500 â€” a failed connect is a
  * UX problem, not a server problem.
  */
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'kua-google-oauth-state';
 
-// Security audit #8 — state verification moved to lib/security/oauth-state.ts.
+// Security audit #8 â€” state verification moved to lib/security/oauth-state.ts.
 // Hard-fails in production when NOTIFICATION_ENCRYPTION_KEY is missing
 // rather than silently using a public constant.
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     return safeRedirect(origin, { google: 'error', reason: 'not_configured' });
   }
   if (!encryptionConfigured()) {
-    // We can't safely store the refresh_token without encryption — bail.
+    // We can't safely store the refresh_token without encryption â€” bail.
     return safeRedirect(origin, { google: 'error', reason: 'encryption_not_configured' });
   }
 
@@ -98,18 +98,17 @@ export async function GET(req: NextRequest) {
     const token = await exchangeCodeForToken({ code, redirectUri });
     if (!token.refresh_token) {
       // Shouldn't happen because we set `prompt=consent` in the start route,
-      // but defensive — Google does occasionally omit refresh_token when
+      // but defensive â€” Google does occasionally omit refresh_token when
       // the user has already granted on a different device recently.
       return safeRedirect(origin, { google: 'error', reason: 'no_refresh_token' });
     }
     const email = (await fetchUserEmail(token.access_token)) ?? 'unknown@google';
 
     // Find the shop this barber belongs to so we can populate shop_id on
-    // the row. The barber_google_calendar table has its own RLS — but the
+    // the row. The barber_google_calendar table has its own RLS â€” but the
     // service-role client bypasses it anyway. Defense-in-depth lives in
     // the start route's auth check.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const barberRes = await admin.from('barbers').select('shop_id').eq('id', barberId).single();
     const barber = barberRes.data as { shop_id: string } | null;
     if (!barber) {
@@ -131,8 +130,8 @@ export async function GET(req: NextRequest) {
       { onConflict: 'barber_id' },
     );
 
-    // Loop 50 (Phase 97) — subscribe the barber's calendar to the
-    // events.watch webhook so changes from outside Küa (event added
+    // Loop 50 (Phase 97) â€” subscribe the barber's calendar to the
+    // events.watch webhook so changes from outside KÃ¼a (event added
     // directly in Google Calendar, mobile app, another system)
     // bust our FreeBusy cache instantly. Best-effort: a subscribe
     // failure just leaves us on the 60s polling fallback. The

@@ -47,21 +47,13 @@ export default async function ReviewPage(props: {
     notFound();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
   const apptRes = await supabase
     .from('appointments')
     .select('id, shop_id, barber_id, client_id, start_at, public_link_version')
     .eq('id', payload.resourceId)
     .limit(1);
-  const appt = ((apptRes.data as Array<{
-    id: string;
-    shop_id: string;
-    barber_id: string;
-    client_id: string;
-    start_at: string;
-    public_link_version: number | null;
-  }> | null) ?? [])[0];
+  const appt = (apptRes.data ?? [])[0];
   if (!appt) notFound();
   // Revocation (plan 013): stale token version → 404, same as a bad/expired
   // token. Absent ⇒ 0 keeps legacy links valid until the first revoke.
@@ -76,13 +68,10 @@ export default async function ReviewPage(props: {
     supabase.from('shops').select('name, public_review_url').eq('id', appt.shop_id).limit(1),
     supabase.from('barbers').select('display_name').eq('id', appt.barber_id).limit(1),
   ]);
-  const shopRow =
-    ((shopRes.data as Array<{ name: string; public_review_url: string | null }> | null) ?? [])[0] ??
-    null;
+  const shopRow = (shopRes.data ?? [])[0] ?? null;
   const shopName = shopRow?.name ?? '?';
   const publicReviewUrl = shopRow?.public_review_url ?? null;
-  const barberName =
-    ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ?? null;
+  const barberName = (barberRes.data ?? [])[0]?.display_name ?? null;
 
   // Check if a review already exists for this appointment — duplicate
   // submissions are blocked at the server-action layer, but rendering
@@ -95,11 +84,7 @@ export default async function ReviewPage(props: {
     .select('id, status, rating')
     .eq('appointment_id', appt.id)
     .limit(1);
-  const existing = ((existingRes.data as Array<{
-    id: string;
-    status: string;
-    rating: number | null;
-  }> | null) ?? [])[0];
+  const existing = (existingRes.data ?? [])[0];
 
   return (
     <ReviewFormClient

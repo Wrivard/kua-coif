@@ -1,5 +1,5 @@
 /**
- * Google Calendar push-sync orchestration — Phase 34.
+ * Google Calendar push-sync orchestration â€” Phase 34.
  *
  * The booking + reschedule + cancel Server Actions call into this module
  * with the new appointment state. We resolve which barber owns the
@@ -7,7 +7,7 @@
  * the change to their personal Google Calendar.
  *
  * Best-effort by design: a Google API failure must NEVER cause the
- * underlying appointment mutation to fail — the Küa calendar is the
+ * underlying appointment mutation to fail â€” the KÃ¼a calendar is the
  * source of truth and the user-facing flow stays intact even if Google
  * is down or the token is revoked. Errors are captured to Sentry +
  * persisted on `barber_google_calendar.last_error` so the settings UI
@@ -51,8 +51,7 @@ type ConnectionRow = {
  */
 async function resolveConnection(barberId: string): Promise<ConnectionRow | null> {
   if (!encryptionConfigured()) return null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const res = await admin
     .from('barber_google_calendar')
     .select('refresh_token_enc, calendar_id, sync_status')
@@ -64,13 +63,12 @@ async function resolveConnection(barberId: string): Promise<ConnectionRow | null
 }
 
 /**
- * Mark a connection as errored. Don't throw — this is itself a best-effort
+ * Mark a connection as errored. Don't throw â€” this is itself a best-effort
  * write. If it fails we still want the appointment mutation to succeed.
  */
 async function markError(barberId: string, error: unknown): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin
       .from('barber_google_calendar')
       .update({
@@ -79,14 +77,13 @@ async function markError(barberId: string, error: unknown): Promise<void> {
       })
       .eq('barber_id', barberId);
   } catch {
-    // Swallow — see comment above.
+    // Swallow â€” see comment above.
   }
 }
 
 async function markSynced(barberId: string): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin
       .from('barber_google_calendar')
       .update({
@@ -106,8 +103,7 @@ async function markSynced(barberId: string): Promise<void> {
  */
 async function persistEventId(appointmentId: string, eventId: string | null): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin.from('appointments').update({ google_event_id: eventId }).eq('id', appointmentId);
   } catch (e) {
     captureException(e, { tags: { layer: 'google-sync', stage: 'persist-event-id' } });
@@ -130,7 +126,7 @@ export type AppointmentForSync = {
  * Push a new or updated appointment to Google. Decides between create vs
  * update based on whether we already have a googleEventId.
  *
- * Always returns gracefully — errors are logged + marked but the caller
+ * Always returns gracefully â€” errors are logged + marked but the caller
  * doesn't need to handle them.
  */
 export async function pushAppointment(appt: AppointmentForSync): Promise<void> {
@@ -158,7 +154,7 @@ export async function pushAppointment(appt: AppointmentForSync): Promise<void> {
         await markSynced(appt.barberId);
         return;
       } catch (e) {
-        // The remote event might have been deleted manually — fall through
+        // The remote event might have been deleted manually â€” fall through
         // to create a new one rather than leaving the appointment unsynced.
         captureException(e, {
           tags: { layer: 'google-sync', stage: 'update-fallthrough' },
@@ -196,7 +192,7 @@ export async function pushAppointment(appt: AppointmentForSync): Promise<void> {
  *
  * Cached via `unstable_cache` keyed by (barber, window) with a 60s TTL.
  * The pure call costs ~250ms (refresh + freeBusy); cache hit is ~5ms.
- * 60s is short enough that Google events booked from outside Küa show
+ * 60s is short enough that Google events booked from outside KÃ¼a show
  * up within a minute on the calendar.
  */
 export type BusyBlock = { start: string; end: string };
@@ -275,7 +271,7 @@ export async function deleteAppointmentMirror({
 }
 
 // ---------------------------------------------------------------------------
-// Loop 50 (Phase 97) — webhook subscription orchestrators
+// Loop 50 (Phase 97) â€” webhook subscription orchestrators
 // ---------------------------------------------------------------------------
 //
 // `subscribeBarberCalendar` is called either by the OAuth callback
@@ -289,7 +285,7 @@ export async function deleteAppointmentMirror({
 
 function webhookUrl(): string | null {
   const base = appUrl();
-  // Google rejects HTTP and IP-literal hosts — short-circuit when
+  // Google rejects HTTP and IP-literal hosts â€” short-circuit when
   // the base URL is missing or local.
   if (!base || !base.startsWith('https://')) return null;
   return `${base}/api/google/calendar-webhook`;
@@ -297,7 +293,7 @@ function webhookUrl(): string | null {
 
 export async function subscribeBarberCalendar(barberId: string): Promise<void> {
   const url = webhookUrl();
-  if (!url) return; // dev / missing config — skip silently
+  if (!url) return; // dev / missing config â€” skip silently
   const conn = await resolveConnection(barberId);
   if (!conn) return;
   try {
@@ -308,8 +304,7 @@ export async function subscribeBarberCalendar(barberId: string): Promise<void> {
       calendarId: conn.calendar_id,
       webhookUrl: url,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin
       .from('barber_google_calendar')
       .update({
@@ -328,7 +323,7 @@ export async function subscribeBarberCalendar(barberId: string): Promise<void> {
 }
 
 /**
- * Loop 51 — channel renewal. Subscribe a new channel + stop the old
+ * Loop 51 â€” channel renewal. Subscribe a new channel + stop the old
  * one in a single orchestration. Used by the daily renewal cron
  * (`/api/cron/google-channel-renew`) to rotate channels before the
  * ~30-day expiry kills them.
@@ -336,15 +331,14 @@ export async function subscribeBarberCalendar(barberId: string): Promise<void> {
  * Order matters: we subscribe NEW first, persist its columns,
  * THEN stop the old. If we stopped first and the new subscribe
  * failed, the barber's overlay would drop to 60s polling for a
- * window — by going new-first the worst case is two live channels
+ * window â€” by going new-first the worst case is two live channels
  * for a few seconds (both deliver the same notifications; the
  * handler dedupes by channel ID lookup).
  */
 export async function renewBarberCalendarSubscription(barberId: string): Promise<void> {
   const url = webhookUrl();
   if (!url) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const res = await admin
     .from('barber_google_calendar')
     .select('refresh_token_enc, calendar_id, webhook_channel_id, webhook_resource_id, sync_status')
@@ -363,17 +357,17 @@ export async function renewBarberCalendarSubscription(barberId: string): Promise
     const refreshToken = decrypt(row.refresh_token_enc);
     const token = await refreshAccessToken(refreshToken);
 
-    // Step 1 — new channel.
+    // Step 1 â€” new channel.
     const sub = await subscribeCalendarWatch({
       accessToken: token.access_token,
       calendarId: row.calendar_id,
       webhookUrl: url,
     });
 
-    // Step 2 — persist new columns. Once this write lands, future
+    // Step 2 â€” persist new columns. Once this write lands, future
     // notifications route to the new channel ID; any in-flight
     // notification on the old channel still validates because the
-    // OLD token is gone — but the handler silently drops mismatches
+    // OLD token is gone â€” but the handler silently drops mismatches
     // with 200, so no Google-side retry storm.
     await admin
       .from('barber_google_calendar')
@@ -385,7 +379,7 @@ export async function renewBarberCalendarSubscription(barberId: string): Promise
       })
       .eq('barber_id', barberId);
 
-    // Step 3 — politely stop the old channel. Best-effort: a
+    // Step 3 â€” politely stop the old channel. Best-effort: a
     // failure here just leaves an orphan channel on Google's side
     // that'll naturally expire within the original ~30-day window.
     if (row.webhook_channel_id && row.webhook_resource_id) {
@@ -411,8 +405,7 @@ export async function renewBarberCalendarSubscription(barberId: string): Promise
 }
 
 export async function unsubscribeBarberCalendar(barberId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const res = await admin
     .from('barber_google_calendar')
     .select('refresh_token_enc, webhook_channel_id, webhook_resource_id')
@@ -451,7 +444,7 @@ export async function unsubscribeBarberCalendar(barberId: string): Promise<void>
         })
         .eq('barber_id', barberId);
     } catch {
-      // Swallow — best-effort cleanup.
+      // Swallow â€” best-effort cleanup.
     }
   }
 }

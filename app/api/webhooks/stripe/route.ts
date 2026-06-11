@@ -10,7 +10,7 @@ import { shopLocale as toShopLocale } from '@/lib/i18n-locale';
 import type Stripe from 'stripe';
 
 /**
- * Stripe webhook receiver — Phase 28.
+ * Stripe webhook receiver â€” Phase 28.
  *
  * Stripe POSTs events to this endpoint after configuring a webhook in
  * the dashboard. The signing secret (`STRIPE_WEBHOOK_SECRET`) lets us
@@ -25,7 +25,7 @@ import type Stripe from 'stripe';
  * Why the manual `req.text()` then `constructEvent`: Stripe's signature
  * is computed over the RAW request body. `req.json()` would parse +
  * re-stringify and the signature would no longer match. Same reason
- * we set `dynamic = 'force-dynamic'` — Next.js must not cache the
+ * we set `dynamic = 'force-dynamic'` â€” Next.js must not cache the
  * incoming body across requests.
  */
 export const dynamic = 'force-dynamic';
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!webhookSecret) {
     // Misconfiguration: STRIPE_SECRET_KEY is set (stripeConfigured passed) but
     // the signing secret is missing, so we can't verify ANY event. Each one
-    // 500s and Stripe drops it after the 3-day retry window — a silent,
+    // 500s and Stripe drops it after the 3-day retry window â€” a silent,
     // multi-day payment/refund desync. Capture so it surfaces on the very
     // first event instead of going unnoticed.
     captureException(
       new Error(
-        '[stripe-webhook] STRIPE_WEBHOOK_SECRET missing — incoming events cannot be verified',
+        '[stripe-webhook] STRIPE_WEBHOOK_SECRET missing â€” incoming events cannot be verified',
       ),
       { tags: { layer: 'stripe-webhook', stage: 'config' } },
     );
@@ -70,30 +70,29 @@ export async function POST(req: NextRequest): Promise<Response> {
     event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (e) {
     // Bad signature is the most common failure mode. Log it but never
-    // 5xx — Stripe would retry endlessly. 400 tells them to stop.
+    // 5xx â€” Stripe would retry endlessly. 400 tells them to stop.
     captureException(e, { tags: { layer: 'stripe-webhook', stage: 'signature' } });
     return NextResponse.json({ ok: false, error: 'invalid_signature' }, { status: 400 });
   }
 
-  // 3. Phase B — event-ID dedupe. Stripe retries failed deliveries for
+  // 3. Phase B â€” event-ID dedupe. Stripe retries failed deliveries for
   //    up to 3 days; without this guard, the same event can arrive
   //    twice and we'd re-apply the handler.
   //
-  //    Phase B SR (audit fix) — the original check was
+  //    Phase B SR (audit fix) â€” the original check was
   //    `data.length === 0 && !error`, which assumed Supabase would
   //    return an empty array on conflict. Reality: Postgres raises
   //    a unique_violation (code 23505) and Supabase forwards it as
   //    `{ data: null, error: { code: '23505', ... } }`. So the old
   //    check fell through to the handler and the dedupe never
-  //    actually held — idempotency was nominal.
+  //    actually held â€” idempotency was nominal.
   //
   //    Correct pattern: branch on `error.code === '23505'`. Any other
   //    error is a real DB problem; we log it but proceed to the
-  //    handler ("fail open" — better to risk processing an event
+  //    handler ("fail open" â€” better to risk processing an event
   //    twice than drop a `charge.refunded` and leave money out of
   //    sync).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const dedupeRes = await admin
     .from('stripe_events')
     .insert({ id: event.id, event_type: event.type })
@@ -101,13 +100,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   const dedupeError = (dedupeRes as { error: { code?: string; message?: string } | null }).error;
   if (dedupeError) {
     if (dedupeError.code === '23505') {
-      // Already processed — Stripe retried an event we already saw.
+      // Already processed â€” Stripe retried an event we already saw.
       // At-most-once delivery semantics held; return 200 immediately
       // so Stripe stops retrying.
       return NextResponse.json({ ok: true, skipped: 'already_processed' });
     }
     // Some other DB issue (timeout, connection blip, RLS mis-grant).
-    // Log it for visibility but proceed to the handler — we'd rather
+    // Log it for visibility but proceed to the handler â€” we'd rather
     // re-process an event than miss one.
     captureException(
       new Error(`[stripe-webhook] dedupe insert failed: ${dedupeError.message ?? 'unknown'}`),
@@ -118,7 +117,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 4. Route by event type. Defensive switch — unknown events return 200
+  // 4. Route by event type. Defensive switch â€” unknown events return 200
   //    so Stripe doesn't retry, but we log them so we notice if Stripe
   //    starts sending something we should be handling.
   try {
@@ -128,7 +127,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         await persistAccountStatus(account);
         break;
       }
-      // Phase 38 — payment lifecycle.
+      // Phase 38 â€” payment lifecycle.
       case 'payment_intent.succeeded':
       case 'payment_intent.payment_failed':
       case 'payment_intent.processing':
@@ -148,7 +147,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
         break;
       }
-      // Phase H — refund failures.
+      // Phase H â€” refund failures.
       //
       // `charge.refunded` fires when we ASK Stripe for a refund. But the
       // money movement is async (especially for ACH/SEPA destinations):
@@ -157,7 +156,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       // Stripe fires `charge.refund.updated` with `refund.status='failed'`
       // and the money returns to the platform. Without handling this,
       // `payment_status` stays at 'refunded' forever even though the
-      // customer never got their money back — silent correctness bug.
+      // customer never got their money back â€” silent correctness bug.
       //
       // On 'failed' we flip payment_status back to 'paid' so the admin
       // drawer surfaces the row as needing attention. Owner can then
@@ -170,7 +169,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
         break;
       }
-      // Phase B — chargeback / dispute lifecycle.
+      // Phase B â€” chargeback / dispute lifecycle.
       case 'charge.dispute.created':
       case 'charge.dispute.updated':
       case 'charge.dispute.closed': {
@@ -178,17 +177,17 @@ export async function POST(req: NextRequest): Promise<Response> {
         await persistDispute(dispute, event.type === 'charge.dispute.created');
         break;
       }
-      // Phase H — Stripe Radar fraud signal.
+      // Phase H â€” Stripe Radar fraud signal.
       //
       // Fires hours-to-days BEFORE the bank actually disputes the
       // charge, giving us a window to refund proactively (avoid the
       // chargeback fee + the dispute response burden). We don't refund
-      // automatically here — that's a product decision per shop —
+      // automatically here â€” that's a product decision per shop â€”
       // but we log to Sentry with `severity:fraud-warning` so the
       // owner can investigate in the Stripe dashboard.
       //
       // Future: surface this as a shop-side alert ("we got a fraud
-      // warning on this booking — review before the appointment").
+      // warning on this booking â€” review before the appointment").
       case 'radar.early_fraud_warning.created': {
         const warning = event.data.object as Stripe.Radar.EarlyFraudWarning;
         const chargeId =
@@ -207,7 +206,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       // Future:
       //   - 'payout.created' (notify shop owner of incoming payout)
       default: {
-        // Silently accept — Stripe sends lots of events we don't care
+        // Silently accept â€” Stripe sends lots of events we don't care
         // about (e.g., balance.available). Logging them all would be noisy.
         break;
       }
@@ -217,10 +216,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     captureException(e, {
       tags: { layer: 'stripe-webhook', stage: 'handler', event: event.type },
     });
-    // Phase B — 500 still triggers Stripe retry, but the dedupe row
+    // Phase B â€” 500 still triggers Stripe retry, but the dedupe row
     // above guarantees we won't double-process on the retry. Trade-off
     // is that a permanently-broken handler will silently no-op on
-    // every subsequent retry attempt — Sentry tags surface the issue
+    // every subsequent retry attempt â€” Sentry tags surface the issue
     // so we notice before the 3-day retry window closes.
     return NextResponse.json({ ok: false, error: 'handler_failed' }, { status: 500 });
   }
@@ -228,17 +227,16 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 /**
  * Upsert the cached connect status. Uses service-role because the webhook
- * has no Supabase auth context — Stripe is calling us, not a user.
+ * has no Supabase auth context â€” Stripe is calling us, not a user.
  *
  * Looks up the shop by `stripe_account_id` (unique-indexed in the
  * migration), updates the status. If no shop matches we silently no-op:
  * that means the account belongs to a different installation of the app
- * or the row was deleted — neither is our problem.
+ * or the row was deleted â€” neither is our problem.
  */
 async function persistAccountStatus(account: Stripe.Account): Promise<void> {
   const status = mapAccountToStatus(account);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   await admin
     .from('shops')
     .update({ stripe_connect_status: status })
@@ -248,20 +246,19 @@ async function persistAccountStatus(account: Stripe.Account): Promise<void> {
 /**
  * Update the appointment's payment_status from a PaymentIntent event.
  * Looked up by the intent ID (unique-indexed in the appointment_payments
- * migration). No-op when no row matches — happens during partial
+ * migration). No-op when no row matches â€” happens during partial
  * deploys or for intents we didn't create (Stripe's webhook is per
  * project, not per intent).
  */
 async function persistPaymentStatus(intent: Stripe.PaymentIntent): Promise<void> {
   const status = mapIntentStatus(intent.status);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
-  // Phase H — capture the count so we can warn when 0 rows match.
+  const admin = createSupabaseServiceRoleClient();
+  // Phase H â€” capture the count so we can warn when 0 rows match.
   // A 0-row match for `payment_intent.succeeded` is suspicious: either
   // (a) the appointment hasn't been inserted yet (race with the
-  // booking action), (b) the PI belongs to a different Küa install,
+  // booking action), (b) the PI belongs to a different KÃ¼a install,
   // or (c) the row was deleted (Loi 25 anonymization). Phase A SR
-  // pre-flips to 'paid' at insert, so case (a) is mostly closed —
+  // pre-flips to 'paid' at insert, so case (a) is mostly closed â€”
   // but `payment_intent.processing` can still race. We log to Sentry
   // with the intent ID so an operator can grep the audit_log + Stripe
   // dashboard and reconcile manually.
@@ -292,15 +289,14 @@ async function persistPaymentStatus(intent: Stripe.PaymentIntent): Promise<void>
  * free).
  */
 async function persistRefundForIntent(intentId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   // Same shared writer the app-side refund call-sites use, so the webhook and
   // synchronous writes can never drift apart.
   await markRefundedByIntent(admin, intentId);
 }
 
 /**
- * Phase H — undo a refund that failed async. Triggered by
+ * Phase H â€” undo a refund that failed async. Triggered by
  * `charge.refund.updated` with `refund.status='failed'`. Flips
  * `payment_status` back to 'paid' so the admin drawer surfaces the
  * row as needing attention. Also alerts via Sentry so the operator
@@ -309,13 +305,12 @@ async function persistRefundForIntent(intentId: string): Promise<void> {
  * Why not also flip cancelled appointments back to 'booked' on failed
  * refund: the cancel was an independent decision (admin clicked
  * Cancel & Refund, customer self-cancelled). The refund failing
- * doesn't un-cancel the appointment — just means the money is still
+ * doesn't un-cancel the appointment â€” just means the money is still
  * with us instead of moved back. Owner can refund again via a
  * different mechanism (wire, check, in-person credit).
  */
 async function revertRefundForIntent(intentId: string, refundId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   await admin
     .from('appointments')
     .update({ payment_status: 'paid' })
@@ -328,13 +323,13 @@ async function revertRefundForIntent(intentId: string, refundId: string): Promis
 }
 
 /**
- * Phase B — persist a Stripe dispute and (on first creation) fire a
+ * Phase B â€” persist a Stripe dispute and (on first creation) fire a
  * Slack alert to the shop owner.
  *
- * The dispute may not be tied to any Küa appointment (a refund-gone-
+ * The dispute may not be tied to any KÃ¼a appointment (a refund-gone-
  * wrong on a manual charge, a dispute on a long-cancelled appointment
  * whose row was hard-deleted, etc.). We try to link via the PaymentIntent
- * → appointment join, but fall back to a NULL `appointment_id` when no
+ * â†’ appointment join, but fall back to a NULL `appointment_id` when no
  * row matches. The dispute row still gets recorded so the owner sees
  * the alert and can investigate via the Stripe dashboard URL.
  *
@@ -349,8 +344,7 @@ async function revertRefundForIntent(intentId: string, refundId: string): Promis
  * fields on the existing row.
  */
 async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // Charge is always a string ID on the webhook event (no expansion).
   const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id;
@@ -360,7 +354,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
 
-  // 1. Find the appointment + shop. Both can be null — see jsdoc.
+  // 1. Find the appointment + shop. Both can be null â€” see jsdoc.
   let shopId: string | null = null;
   let appointmentId: string | null = null;
   let slackWebhookUrl: string | null = null;
@@ -391,7 +385,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
     }
   }
 
-  // Phase H — fallback resolution via charge.destination when no
+  // Phase H â€” fallback resolution via charge.destination when no
   // appointment matched (Loi 25 anonymization, hard-deleted rows, etc).
   // The dispute object embeds the underlying charge; we retrieve it
   // from Stripe to read `transfer_data.destination`, which is the
@@ -400,7 +394,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
   // Why not expand the charge inline on the dispute webhook payload:
   // Stripe doesn't expand by default and our `event.data.object` is
   // the dispute, not the charge. Retrieving is one extra API call per
-  // orphan dispute — rare enough to be fine.
+  // orphan dispute â€” rare enough to be fine.
   if (!shopId && chargeId) {
     try {
       const stripe = getStripe();
@@ -433,7 +427,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
         }
       }
     } catch (e) {
-      // Stripe retrieve failed — fall through to the orphan branch
+      // Stripe retrieve failed â€” fall through to the orphan branch
       // below. The disputeId still ends up in Sentry.
       captureException(e, {
         tags: { layer: 'stripe-webhook', stage: 'dispute-fallback-retrieve' },
@@ -443,7 +437,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
   }
 
   // Without a shop we can't satisfy the NOT NULL on disputes.shop_id.
-  // Log + skip — Sentry surfaces the orphan for investigation.
+  // Log + skip â€” Sentry surfaces the orphan for investigation.
   if (!shopId) {
     captureException(new Error('[disputes] no matching shop for dispute'), {
       tags: { layer: 'stripe-webhook', kind: 'dispute-orphan' },
@@ -475,7 +469,7 @@ async function persistDispute(dispute: Stripe.Dispute, isCreated: boolean): Prom
     .select('id');
 
   // 3. On creation only, fire the Slack alert. `charge.dispute.updated`
-  //    and `.closed` don't re-notify — the owner already knows; status
+  //    and `.closed` don't re-notify â€” the owner already knows; status
   //    changes are visible via the upserted row + the dashboard URL.
   if (isCreated && slackWebhookUrl) {
     void sendSlackDisputeNotification(slackWebhookUrl, {

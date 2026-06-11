@@ -1,5 +1,5 @@
 /**
- * Per-shop SMTP transport — Phase 25.
+ * Per-shop SMTP transport â€” Phase 25.
  *
  * When a shop fills in its own SMTP credentials in `/settings/notifications`,
  * outgoing emails go via this module instead of our Resend fallback. The
@@ -14,7 +14,7 @@
  *   - `notification_smtp_user`            (often = from_email)
  *   - `notification_smtp_password_enc`    (AES-256-GCM blob, cf. lib/crypto/aes.ts)
  *
- * Anything missing → `getShopSmtpConfig` returns null and the dispatcher
+ * Anything missing â†’ `getShopSmtpConfig` returns null and the dispatcher
  * falls back to Resend.
  */
 import nodemailer, { type Transporter } from 'nodemailer';
@@ -23,7 +23,7 @@ import { decrypt, encryptionConfigured } from '@/lib/crypto/aes';
 import { captureException } from '@/lib/observability';
 import { isPrivateOrLoopbackHost } from '@/lib/security/ssrf';
 
-// Security audit #5 — allowed SMTP ports. Owner can submit any port via
+// Security audit #5 â€” allowed SMTP ports. Owner can submit any port via
 // the settings UI; we restrict to the standard SMTP ports to prevent
 // nodemailer from opening a TCP socket to an arbitrary internal service
 // (e.g., :6379 Redis, :5432 Postgres). Ports below cover SMTPS (465),
@@ -43,13 +43,12 @@ export type ShopSmtpConfig = {
  * Look up the shop's SMTP config via service-role (the encrypted-password
  * column is REVOKE'd from anon + authenticated). Decrypts the password and
  * returns a ready-to-use config, or `null` when any required field is
- * missing — host alone isn't enough, the dispatcher needs all five.
+ * missing â€” host alone isn't enough, the dispatcher needs all five.
  */
 export async function getShopSmtpConfig(shopId: string): Promise<ShopSmtpConfig | null> {
   if (!encryptionConfigured()) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
   const { data } = await sb
     .from('shops')
     .select(
@@ -81,7 +80,7 @@ export async function getShopSmtpConfig(shopId: string): Promise<ShopSmtpConfig 
     const password = decrypt(passwordEnc);
     return { fromEmail, fromName, host, port, user, password };
   } catch (err) {
-    // Bad ciphertext / key rotated without re-encrypt → log + treat as
+    // Bad ciphertext / key rotated without re-encrypt â†’ log + treat as
     // unconfigured so we fall back to Resend instead of throwing in a
     // booking flow.
     captureException(err, { tags: { layer: 'smtp-config', shopId } });
@@ -127,7 +126,7 @@ export type SmtpSendResult = { sent: true; messageId: string } | { sent: false; 
  * here for the "Test connection" Server Action too.
  */
 export async function sendViaShopSmtp(input: SmtpSendInput): Promise<SmtpSendResult> {
-  // Security audit #5 — SSRF guard. Owner-supplied host could point at
+  // Security audit #5 â€” SSRF guard. Owner-supplied host could point at
   // private/loopback IPs (Redis, Postgres, instance metadata). Block
   // unknown ports too so we can't be coerced into TCP-scanning.
   if (!ALLOWED_SMTP_PORTS.has(input.cfg.port)) {
@@ -154,7 +153,7 @@ export async function sendViaShopSmtp(input: SmtpSendInput): Promise<SmtpSendRes
     const message = err instanceof Error ? err.message : 'Unknown SMTP error';
     return { sent: false, error: message };
   } finally {
-    // Best-effort cleanup of the pooled connections — nodemailer's docs
+    // Best-effort cleanup of the pooled connections â€” nodemailer's docs
     // recommend `close()` when the transport is one-shot. For long-running
     // processes you'd reuse the transport; serverless invocations always
     // shut down anyway, so close-or-leak is a wash.
@@ -163,12 +162,12 @@ export async function sendViaShopSmtp(input: SmtpSendInput): Promise<SmtpSendRes
 }
 
 /**
- * One-shot "ping" — opens a connection, authenticates, closes. Surfaced in
+ * One-shot "ping" â€” opens a connection, authenticates, closes. Surfaced in
  * the /settings/notifications UI's "Test connection" button so the user
  * gets a green check before they save credentials they think work.
  */
 export async function verifyShopSmtp(cfg: ShopSmtpConfig): Promise<SmtpSendResult> {
-  // Security audit #5 — same SSRF guard as sendViaShopSmtp. The verify
+  // Security audit #5 â€” same SSRF guard as sendViaShopSmtp. The verify
   // path runs from a Server Action that ANY manager can invoke; without
   // these gates it doubles as an internal-port-scanner.
   if (!ALLOWED_SMTP_PORTS.has(cfg.port)) {
