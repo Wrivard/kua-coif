@@ -162,8 +162,8 @@ export function NotificationsClient({ state }: Props) {
   }
 
   // Plan 039 (SET-04) — both disconnects wipe live transport config behind a
-  // native confirm(); themed ConfirmDialogs now gate them (modeled on the
-  // barbers-client Google-disconnect dialog).
+  // native browser prompt; themed ConfirmDialogs now gate them (modeled on
+  // the barbers-client Google-disconnect dialog).
   const [confirmSmtpDisconnect, setConfirmSmtpDisconnect] = useState(false);
   const [confirmTwilioDisconnect, setConfirmTwilioDisconnect] = useState(false);
 
@@ -689,7 +689,7 @@ export function NotificationsClient({ state }: Props) {
       </div>
 
       {/* Plan 039 (SET-04) — themed confirms for the transport disconnects
-          (SMTP wipe + Twilio wipe), replacing the native confirm() pair. */}
+          (SMTP wipe + Twilio wipe), replacing the native browser prompts. */}
       <ConfirmDialog
         open={confirmSmtpDisconnect}
         title={t('confirmDisconnect.title')}
