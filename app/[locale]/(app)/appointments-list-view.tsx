@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
+import { APPOINTMENT_STATUS_VARIANT } from '@/components/ui/appointment-status';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { formatShopTime } from '@/lib/business/timezone';
 import { formatCurrencyCAD } from '@/lib/utils';
 import type { BarberRow } from '@/db/rows';
-import type { AppointmentStatus } from '@/db/enums';
 import type { CalendarAppointment } from './appointments-calendar';
 
 type Props = {
@@ -19,24 +19,9 @@ type Props = {
   onApptClick: (a: CalendarAppointment) => void;
 };
 
-// Mirror of `statusToColor` in the calendar, but mapped to the Badge
-// variant vocabulary: confirmed/arrived/completed read as "good" (success),
-// booked as a neutral-but-active info, terminal statuses as a muted default.
-function statusBadgeVariant(status: AppointmentStatus): BadgeVariant {
-  switch (status) {
-    case 'confirmed':
-    case 'arrived':
-    case 'completed':
-      return 'success';
-    case 'booked':
-      return 'info';
-    case 'cancelled':
-    case 'no_show':
-      return 'default';
-    default:
-      return 'accent';
-  }
-}
+// Plan 040 (CAL-10) — badge variants come from the ONE shared map. The
+// local copy had drifted: no_show read as a muted nothing here while the
+// grid painted it as a needs-attention warning.
 
 /**
  * Phase 5 — Appointments "List" view. Presentational only: it renders the
@@ -99,7 +84,9 @@ export function AppointmentsListView({
     {
       id: 'status',
       header: t('status'),
-      cell: (a) => <Badge variant={statusBadgeVariant(a.status)}>{tStatus(a.status)}</Badge>,
+      cell: (a) => (
+        <Badge variant={APPOINTMENT_STATUS_VARIANT[a.status]}>{tStatus(a.status)}</Badge>
+      ),
     },
     {
       id: 'amount',
