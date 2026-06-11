@@ -45,7 +45,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
 | 029 | Token system truth-up (`<alpha-value>` opacity utilities + danger/accent AA + radius lock) | P1 | M | — | DONE (8 RGB triplets ×2 themes; danger hover/active/fg AA family; radius md/2xl lock; −focus-ring-bg; compiled-CSS grep green) |
 | 030 | Callout/Alert primitive + adopt across ~25 inline alerts | P2 | M | 029 | TODO (file written) |
-| 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | TODO (file written) |
+| 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | DONE (exit keyframes modal/drawer/toast gated on animationend + reduced-motion/fallback instant path; sliding tab underline + Arrow/Home/End roving keyboard; toast close focus-ring; −static glow on toggle ON + empty-state) |
 | 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | DONE (dedicated nav transition + optimistic header date + grid dim + week-switch skeleton; optimistic service + per-row notification toggles; 245 tests green) |
 | 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
 | 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | TODO (file written) |

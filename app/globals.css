@@ -545,6 +545,102 @@ dialog[open] > .animate-drawer-left {
   }
 }
 
+/* ── Exit choreography (plan 031) — the reverse of the entrances above, in
+   transform + opacity only and on an ease-IN curve so surfaces accelerate as
+   they leave. Modal/Drawer set `data-closing` on the <dialog>, wait for the
+   panel's animationend, then call dialog.close(); toasts add `.animate-toast-out`.
+   `forwards` holds the end (hidden) state across the gap before unmount. These
+   rules come AFTER the `dialog[open]` entrances so they win the specificity tie
+   while both attributes are present, and the reduced-motion override below
+   collapses every one of them to ~0ms. */
+@keyframes kua-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes kua-modal-content-out {
+  from {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.97) translateY(4px);
+    opacity: 0;
+  }
+}
+@keyframes kua-sheet-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+@keyframes kua-drawer-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes kua-drawer-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes kua-toast-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(4px);
+    opacity: 0;
+  }
+}
+
+/* Modal exit — mobile sheet drops, md+ content scales down; backdrop fades. */
+dialog[data-closing] > .animate-modal-content {
+  animation: kua-sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@media (min-width: 768px) {
+  dialog[data-closing] > .animate-modal-content {
+    animation: kua-modal-content-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+}
+dialog[data-closing]::backdrop {
+  animation: kua-fade-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* Drawer exit — mobile sheet drops, md+ slides back out to its anchored side. */
+dialog[data-closing] > .animate-drawer-right,
+dialog[data-closing] > .animate-drawer-left {
+  animation: kua-sheet-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@media (min-width: 768px) {
+  dialog[data-closing] > .animate-drawer-right {
+    animation: kua-drawer-out-right 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  dialog[data-closing] > .animate-drawer-left {
+    animation: kua-drawer-out-left 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+}
+
+/* Toast exit — toast.tsx swaps in this class on dismiss, then removes the item
+   from state on animationend (with a fallback timeout). */
+.animate-toast-out {
+  animation: kua-toast-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 .kua-shimmer-bg {
   background: linear-gradient(
     90deg,
