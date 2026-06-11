@@ -434,6 +434,9 @@
       "manageCategories": "Categories",
       "emptyTitle": "No services yet",
       "emptyHint": "Create categories first, then add your services.",
+      "searchPlaceholder": "Search services…",
+      "searchNoResults": "No results",
+      "searchNoResultsHint": "No service matches \"{query}\".",
       "columns": {
         "sort": "Sort",
         "name": "Service",

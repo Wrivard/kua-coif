@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
+import { SearchBar } from '@/components/ui/search-bar';
 import { useToast } from '@/components/ui/toast';
 import { cn, formatCurrencyCAD } from '@/lib/utils';
 import type { ServiceCategoryRow, ServiceRow, TaxRow } from '@/db/rows';
@@ -76,6 +77,15 @@ export function ServicesClient({
     setOrdered(services);
   }, [services]);
 
+  // Services W3 — search (products parity). The haystack folds in the
+  // resolved category NAME so "barbe" finds the whole section.
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  // GUARD: a filtered view is a PARTIAL list — dragging it would submit a
+  // partial id set to reorderServices and rewrite sort_orders incoherently.
+  // While filtering: handles disappear and onDragEnd no-ops.
+  const filtering = query.length > 0;
+
   // A small activation distance so clicking the action icons / a row never
   // gets swallowed as the start of a drag.
   const sensors = useSensors(
@@ -87,6 +97,14 @@ export function ServicesClient({
   );
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
+  const visible = useMemo(() => {
+    if (!filtering) return ordered;
+    return ordered.filter((s) => {
+      const category = categoryById.get(s.category_id ?? '')?.name ?? '';
+      return `${s.name} ${category}`.toLowerCase().includes(query);
+    });
+  }, [ordered, filtering, query, categoryById]);
   const taxById = useMemo(() => new Map(taxes.map((x) => [x.id, x])), [taxes]);
   const taxIdsByService = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -130,6 +148,8 @@ export function ServicesClient({
   }
 
   function onDragEnd(event: DragEndEvent) {
+    // Never persist an order computed from a PARTIAL (filtered) list.
+    if (filtering) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -195,6 +215,13 @@ export function ServicesClient({
     <>
       <PageHeader
         title={t('title')}
+        center={
+          <SearchBar
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('searchPlaceholder')}
+          />
+        }
         actions={
           <>
             <Button variant="secondary" onClick={() => setCategoriesOpen(true)} size="sm">
@@ -228,10 +255,18 @@ export function ServicesClient({
               }
             />
           </div>
+        ) : filtering && visible.length === 0 ? (
+          <div className="rounded-lg bg-bg-surface shadow-sm">
+            <EmptyState
+              className="rounded-none border-0"
+              title={t('searchNoResults')}
+              description={t('searchNoResultsHint', { query: search.trim() })}
+            />
+          </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext
-              items={ordered.map((s) => s.id)}
+              items={visible.map((s) => s.id)}
               strategy={verticalListSortingStrategy}
             >
               {/* Desktop: dense sortable table. Mirrors the DataTable column
@@ -272,24 +307,30 @@ export function ServicesClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {ordered.map((row) => (
+                    {visible.map((row) => (
                       <SortableServiceRow key={row.id} id={row.id}>
                         {({ attributes, listeners, handleRef, dragging }) => (
                           <>
                             <td className="w-8 px-2 text-text-muted">
-                              <button
-                                type="button"
-                                ref={handleRef}
-                                aria-label={t('actions.dragHandle')}
-                                className={cn(
-                                  'cursor-grab touch-none rounded-md p-1 hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
-                                  dragging && 'cursor-grabbing',
-                                )}
-                                {...attributes}
-                                {...listeners}
-                              >
-                                <GripVertical className="h-4 w-4" aria-hidden />
-                              </button>
+                              {/* Search active = partial list: the handle disappears so a
+                                  drag (pointer OR keyboard) can't start at all. */}
+                              {filtering ? (
+                                <span className="block h-6 w-6" aria-hidden />
+                              ) : (
+                                <button
+                                  type="button"
+                                  ref={handleRef}
+                                  aria-label={t('actions.dragHandle')}
+                                  className={cn(
+                                    'cursor-grab touch-none rounded-md p-1 hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                                    dragging && 'cursor-grabbing',
+                                  )}
+                                  {...attributes}
+                                  {...listeners}
+                                >
+                                  <GripVertical className="h-4 w-4" aria-hidden />
+                                </button>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-sm text-text-primary">
                               <span className="font-medium">{row.name}</span>
@@ -332,7 +373,7 @@ export function ServicesClient({
 
               {/* Mobile: card-per-row, draggable by the grip handle. */}
               <div className="md:hidden">
-                {ordered.map((row) => (
+                {visible.map((row) => (
                   <SortableServiceCard key={row.id} id={row.id}>
                     {({ attributes, listeners, handleRef, dragging }) => (
                       <div
@@ -341,19 +382,23 @@ export function ServicesClient({
                           dragging && 'shadow-md',
                         )}
                       >
-                        <button
-                          type="button"
-                          ref={handleRef}
-                          aria-label={t('actions.dragHandle')}
-                          className={cn(
-                            'mt-0.5 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
-                            dragging && 'cursor-grabbing',
-                          )}
-                          {...attributes}
-                          {...listeners}
-                        >
-                          <GripVertical className="h-4 w-4" aria-hidden />
-                        </button>
+                        {filtering ? (
+                          <span className="mt-0.5 block h-6 w-6 shrink-0" aria-hidden />
+                        ) : (
+                          <button
+                            type="button"
+                            ref={handleRef}
+                            aria-label={t('actions.dragHandle')}
+                            className={cn(
+                              'mt-0.5 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                              dragging && 'cursor-grabbing',
+                            )}
+                            {...attributes}
+                            {...listeners}
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden />
+                          </button>
+                        )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <span className="text-sm font-medium text-text-primary">
