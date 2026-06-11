@@ -136,9 +136,17 @@ export function AppointmentFormModal({
   }, [search, serverResults, clients, picked]);
 
   // Group services by category for the multi-select.
+  //
+  // Services W3 (UX-08) — DISABLED services are excluded: the owner's status
+  // toggle was decorative for walk-ins (the public booking + embed already
+  // filter `enabled`, but this admin picker offered everything). Filtered
+  // HERE rather than in getCachedServices because the calendar still needs
+  // disabled rows to resolve names on EXISTING appointments; this modal is
+  // create-only, so nothing previously selected can be hidden.
   const servicesByCategory = useMemo(() => {
     const map = new Map<string, ServiceRow[]>();
     for (const s of services) {
+      if (s.status !== 'enabled') continue;
       const key = s.category_id ?? '';
       const list = map.get(key) ?? [];
       list.push(s);
