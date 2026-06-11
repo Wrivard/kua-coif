@@ -832,6 +832,7 @@
       "today": {
         "title": "Bilan quotidien",
         "subtitleToday": "Aujourd'hui — {date}",
+        "print": "Imprimer",
         "kpis": {
           "gross": "Revenu brut",
           "tips": "Pourboires perçus",
@@ -1676,6 +1677,19 @@
         "navigation": "Navigation",
         "data": "Données",
         "feedback": "Feedback"
+      }
+    },
+    "unsubscribe": {
+      "title": "Se désabonner du marketing",
+      "body": "{firstName}, confirme que tu ne veux plus recevoir d’emails marketing (offres, anniversaire, demandes d’avis) de {shopName}.",
+      "confirm": "Confirmer le désabonnement",
+      "confirmPending": "Un instant…",
+      "note": "Les messages liés à tes rendez-vous ne sont pas affectés.",
+      "doneTitle": "Tu es désabonné·e",
+      "doneBody": "Tu ne recevras plus d’emails marketing de {shopName}. Les messages liés à tes rendez-vous (confirmations, rappels) continueront d’être envoyés.",
+      "toasts": {
+        "done": "Tu es désabonné·e.",
+        "failed": "Impossible de te désabonner. Le lien est peut-être expiré."
       }
     },
     "embed": {

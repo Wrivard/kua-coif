@@ -56,7 +56,6 @@ export default async function UnsubscribePage(props: {
 
   return (
     <UnsubscribeClient
-      locale={locale}
       token={token}
       shopName={shopName}
       firstName={client.first_name}

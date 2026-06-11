@@ -832,6 +832,7 @@
       "today": {
         "title": "Daily close-out",
         "subtitleToday": "Today — {date}",
+        "print": "Print",
         "kpis": {
           "gross": "Gross revenue",
           "tips": "Tips collected",
@@ -1676,6 +1677,19 @@
         "navigation": "Navigation",
         "data": "Data",
         "feedback": "Feedback"
+      }
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe from marketing",
+      "body": "{firstName}, confirm you no longer want marketing emails (offers, birthday, review requests) from {shopName}.",
+      "confirm": "Confirm unsubscribe",
+      "confirmPending": "One moment…",
+      "note": "Appointment-related messages are not affected.",
+      "doneTitle": "You’re unsubscribed",
+      "doneBody": "You’ll no longer receive marketing emails from {shopName}. Messages about your appointments (confirmations, reminders) are not affected.",
+      "toasts": {
+        "done": "You’re unsubscribed.",
+        "failed": "Could not unsubscribe. The link may have expired."
       }
     },
     "embed": {
