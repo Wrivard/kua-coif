@@ -7,7 +7,13 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { addDays, formatHeaderDate, formatShopTime, shopIsoDate } from '@/lib/business/timezone';
+import {
+  addDays,
+  combineShopDateTime,
+  formatHeaderDate,
+  formatShopTime,
+  shopIsoDate,
+} from '@/lib/business/timezone';
 import { reschedulePublicAppointment } from './actions';
 
 /**
@@ -43,6 +49,10 @@ export function RescheduleClient({
   const [startTime, setStartTime] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[] | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  // Plan 037 (CORRECTNESS-03) — a failed fetch is NOT "no slots". Mirrors
+  // plan 035's booking-wizard hardening so the two error states stay in sync.
+  const [slotError, setSlotError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -51,6 +61,7 @@ export function RescheduleClient({
     if (isTerminal || done) return;
     setSlots(null);
     setStartTime(null);
+    setSlotError(false);
     setLoadingSlots(true);
     const ctl = new AbortController();
     // Slot fetch keyed to the SAME barber the appointment was booked
@@ -62,12 +73,21 @@ export function RescheduleClient({
       `/api/book/${shop.slug}/slots?date=${date}&barber=${appointment.barberId}&duration=${appointment.durationMin}`,
       { signal: ctl.signal },
     )
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((data: { slots?: string[] }) => setSlots(data.slots ?? []))
-      .catch(() => setSlots([]))
-      .finally(() => setLoadingSlots(false));
+      .catch(() => {
+        // Aborts (fast date-switching, unmount) are silent — not a failure.
+        if (ctl.signal.aborted) return;
+        setSlotError(true);
+      })
+      .finally(() => {
+        if (!ctl.signal.aborted) setLoadingSlots(false);
+      });
     return () => ctl.abort();
-  }, [date, shop.slug, appointment.durationMin, appointment.barberId, isTerminal, done]);
+  }, [date, shop.slug, appointment.durationMin, appointment.barberId, isTerminal, done, retryNonce]);
 
   // 14-day strip starting today.
   const days = useMemo(() => {
@@ -85,6 +105,8 @@ export function RescheduleClient({
         token,
         new_date: date,
         new_start_time: startTime,
+        // Plan 037 — the confirmation email ships in the page's language.
+        locale: isFr ? 'fr' : 'en',
       });
       if (result.ok) {
         setDone(true);
@@ -128,6 +150,18 @@ export function RescheduleClient({
   }
 
   if (done) {
+    // Plan 037 (CORRECTNESS-05) — format the new slot like the
+    // current-appointment line ("17 juin · 14:30"), not raw ISO. date +
+    // startTime are shop-local; combineShopDateTime maps them to the right
+    // instant regardless of the visitor's browser timezone.
+    const newInstant = startTime ? combineShopDateTime(date, startTime, shop.timezone) : null;
+    const formattedNew = newInstant
+      ? `${formatHeaderDate(newInstant, isFr ? 'fr' : 'en', shop.timezone)} · ${formatShopTime(
+          newInstant.toISOString(),
+          shop.timezone,
+          'HH:mm',
+        )}`
+      : '';
     return (
       <div className="mx-auto max-w-lg p-6">
         <Card>
@@ -138,8 +172,8 @@ export function RescheduleClient({
             </p>
             <p className="text-sm text-text-secondary">
               {isFr
-                ? `Tu recevras une confirmation par courriel pour le nouveau créneau (${date} · ${startTime}).`
-                : `You'll receive an email confirmation for the new slot (${date} · ${startTime}).`}
+                ? `Tu recevras une confirmation par courriel pour le nouveau créneau (${formattedNew}).`
+                : `You'll receive an email confirmation for the new slot (${formattedNew}).`}
             </p>
           </CardBody>
         </Card>
@@ -218,6 +252,25 @@ export function RescheduleClient({
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-10 rounded-lg" />
                 ))}
+              </div>
+            ) : slotError ? (
+              // Plan 037 (CORRECTNESS-03) — a fetch failure offers a retry
+              // instead of masquerading as "no slots".
+              <div className="space-y-3">
+                <p className="rounded-lg border border-border bg-bg-base p-4 text-center text-sm text-text-muted shadow-sm">
+                  {isFr
+                    ? 'Impossible de charger les disponibilités.'
+                    : "Couldn't load availability."}
+                </p>
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setRetryNonce((n) => n + 1)}
+                  >
+                    {isFr ? 'Réessayer' : 'Try again'}
+                  </Button>
+                </div>
               </div>
             ) : slots && slots.length > 0 ? (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
