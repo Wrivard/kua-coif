@@ -1068,7 +1068,7 @@ export function BookingWizard({
                 proper "done" celebration, not just an icon. */}
             <span
               aria-hidden
-              className="bg-success/15 ring-success/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full ring-4"
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 ring-4 ring-success/10"
             >
               <CheckCircle2 className="h-8 w-8 text-success" />
             </span>
@@ -1149,7 +1149,7 @@ export function BookingWizard({
           sees what they're committing to as they scroll the service list.
           Frosted glass treatment matches the page-header pattern. */}
       {state.step < 4 && selectedServices.length > 0 ? (
-        <div className="bg-bg-surface/90 sticky bottom-3 z-10 rounded-xl border border-border px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl">
+        <div className="sticky bottom-3 z-10 rounded-xl border border-border bg-bg-surface/90 px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">
               {selectedServices.length} {t('summary.servicesLabel')}
@@ -1229,8 +1229,8 @@ function ServiceStep({
           and the inner rows lose their flat-rectangle look for proper
           rounded-lg surfaces with a subtle border to separate from the bg. */}
       {hasSelection ? (
-        <div className="border-accent/25 ring-accent/10 rounded-lg border bg-accent-subtle p-3 shadow-warm-sm ring-1 ring-inset">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+        <div className="rounded-lg border border-accent/25 bg-accent-subtle p-3 shadow-warm-sm ring-1 ring-inset ring-accent/10">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-text">
             {allowMultiService ? t('steps.service.selectedPlural') : t('steps.service.selected')}
           </p>
           <ul className="mt-2 space-y-1.5">
@@ -1285,12 +1285,12 @@ function ServiceStep({
                       key={s.id}
                       type="button"
                       onClick={() => onToggle(s.id)}
-                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-subtle hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span
                           aria-hidden
-                          className="group-hover:border-accent/30 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted transition-colors duration-150 group-hover:bg-accent group-hover:text-accent-fg"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted transition-colors duration-150 group-hover:border-accent/30 group-hover:bg-accent group-hover:text-accent-fg"
                         >
                           <Plus className="h-4 w-4" />
                         </span>
@@ -1392,7 +1392,7 @@ function BarberCard({
         'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         selected
           ? 'border-accent bg-accent-subtle shadow-accent-glow'
-          : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-warm-md',
+          : 'border-border bg-bg-base hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-warm-md',
       )}
       aria-pressed={selected}
     >
@@ -1624,7 +1624,7 @@ function SlotGroup({
                 'h-10 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                 active
                   ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                  : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
+                  : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-warm-md',
               )}
               aria-pressed={active}
             >
@@ -1679,7 +1679,7 @@ function DateStrip({
               'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
               active
                 ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
+                : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-warm-md',
               d.closed &&
                 'cursor-not-allowed opacity-40 hover:translate-y-0 hover:border-border hover:bg-bg-base hover:shadow-warm-sm',
             )}
@@ -1741,7 +1741,7 @@ function WaitlistInlineForm({
 
   if (done) {
     return (
-      <p className="border-success/30 bg-success/10 rounded-lg border p-4 text-center text-sm text-success shadow-warm-sm">
+      <p className="rounded-lg border border-success/30 bg-success/10 p-4 text-center text-sm text-success shadow-warm-sm">
         {t('waitlist.thanks')}
       </p>
     );

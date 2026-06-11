@@ -292,7 +292,7 @@ function BarberColumn({
           return (
             <div
               key={b.id}
-              className="border-danger/20 bg-danger/10 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border text-[11px] font-medium text-danger"
+              className="absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-danger/20 bg-danger/10 text-[11px] font-medium text-danger"
               style={{ top: `${top}px`, height: `${height}px` }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -315,7 +315,7 @@ function BarberColumn({
           return (
             <div
               key={`gbusy-${idx}-${g.start}`}
-              className="bg-bg-surface-2/60 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-border-soft text-[10px] font-medium uppercase tracking-wide text-text-muted"
+              className="absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-border-soft bg-bg-surface-2/60 text-[10px] font-medium uppercase tracking-wide text-text-muted"
               style={{
                 top: `${top}px`,
                 height: `${height}px`,

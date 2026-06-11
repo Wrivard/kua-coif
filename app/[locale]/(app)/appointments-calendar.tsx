@@ -873,7 +873,7 @@ export function AppointmentsCalendar({
             <span
               aria-live="polite"
               className={cn(
-                'border-success/30 bg-success/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
+                'inline-flex h-6 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
                 justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >
@@ -885,7 +885,7 @@ export function AppointmentsCalendar({
             <span
               aria-live="polite"
               className={cn(
-                'border-warning/30 bg-warning/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
+                'inline-flex h-6 items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
                 realtimeStale ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >

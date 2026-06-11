@@ -182,7 +182,7 @@ export default async function BookingPage(props: Props) {
       {shop.marketing_banner_enabled && shop.marketing_banner_text ? (
         <div
           role="status"
-          className="border-accent/30 mb-6 rounded-xl border bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-warm-sm"
+          className="mb-6 rounded-xl border border-accent/30 bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-warm-sm"
         >
           {shop.marketing_banner_text}
         </div>

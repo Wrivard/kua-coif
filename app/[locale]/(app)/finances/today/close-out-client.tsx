@@ -80,7 +80,7 @@ export function CloseOutClient({
         }
       `}</style>
 
-      <div className="no-print bg-bg-base/95 sticky top-[--header-h] z-10 flex justify-end gap-2 border-b border-border px-6 py-3 backdrop-blur">
+      <div className="no-print sticky top-[--header-h] z-10 flex justify-end gap-2 border-b border-border bg-bg-base/95 px-6 py-3 backdrop-blur">
         <Button type="button" size="sm" variant="secondary" onClick={() => window.print()}>
           <Printer className="h-3.5 w-3.5" /> {printLabel}
         </Button>

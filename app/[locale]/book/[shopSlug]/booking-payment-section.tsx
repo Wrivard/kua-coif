@@ -252,7 +252,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
 
     if (state.kind === 'shop_not_connected') {
       return (
-        <div className="border-warning/30 rounded-lg border bg-warning-subtle p-3 text-xs text-warning shadow-warm-sm">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-xs text-warning shadow-warm-sm">
           {t('shopNotConnected')}
         </div>
       );
@@ -262,7 +262,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
       return (
         <div
           role="alert"
-          className="border-danger/30 bg-danger/10 rounded-lg border p-3 text-xs text-danger shadow-warm-sm"
+          className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger shadow-warm-sm"
         >
           {t('intentFailed')}
         </div>

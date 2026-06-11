@@ -353,7 +353,7 @@ export default async function FinancesPage(props: {
         {rangeTruncated ? (
           <div
             role="alert"
-            className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
+            className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
           >
             {t('truncated')}
           </div>
@@ -420,7 +420,7 @@ export default async function FinancesPage(props: {
             display-sm so the eye lands on revenue first. Atmosphere stays
             neutral (var(--hero-glow)) per contract C5. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="border-accent/15 relative overflow-hidden rounded-xl border bg-bg-surface p-6 shadow-accent-md">
+          <div className="relative overflow-hidden rounded-xl border border-accent/15 bg-bg-surface p-6 shadow-accent-md">
             <div aria-hidden className="bg-hero-glow pointer-events-none absolute inset-0" />
             <div className="relative flex h-full flex-col justify-center">
               <p className="type-eyebrow text-accent">{t('kpis.grossRevenue')}</p>

@@ -29,8 +29,8 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 // Phase 75 — Vercel button variants.
 //   - Primary: dark (Vercel's primary CTA is #171717 not the accent)
-//     OPTION — we keep accent purple for now since the Küa brand is
-//     purple-led. Vercel would prefer text-primary background.
+//     OPTION — we keep the accent fill for now since the Küa brand is
+//     sage-led. Vercel would prefer text-primary background.
 //   - Secondary: shadow-as-border replaces `border border-border`.
 //   - Focus ring switches from soft accent to Vercel saturated blue.
 //   - hover:border-border-strong replaced with a slightly stronger
@@ -64,8 +64,8 @@ const variants: Record<ButtonVariant, string> = {
   ),
   ghost: cn('text-text-primary', 'enabled:hover:bg-bg-surface-2', 'focus-visible:ring-focus'),
   danger: cn(
-    'bg-danger text-white shadow-sm',
-    'enabled:hover:opacity-90',
+    'bg-danger text-danger-fg shadow-sm',
+    'enabled:hover:bg-danger-hover enabled:active:bg-danger-active',
     'focus-visible:ring-focus',
   ),
 };

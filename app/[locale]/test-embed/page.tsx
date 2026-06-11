@@ -68,7 +68,7 @@ export default async function TestEmbedPage(props: Props) {
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
       {/* TEST banner — makes it obvious this isn't a real salon site */}
-      <div className="border-accent/30 border-b bg-accent-subtle px-4 py-3 text-center text-xs font-medium text-accent">
+      <div className="border-b border-accent/30 bg-accent-subtle px-4 py-3 text-center text-xs font-medium text-accent-text">
         <span className="inline-flex items-center gap-2">
           <Info className="h-3.5 w-3.5" />
           Test embed harness · mode: <code className="rounded bg-bg-base px-1">{mode}</code>
@@ -180,7 +180,7 @@ export default async function TestEmbedPage(props: Props) {
             </a>
           </>
         ) : (
-          <section className="border-warning/30 bg-warning/10 rounded-lg border p-6 text-sm text-warning">
+          <section className="rounded-lg border border-warning/30 bg-warning/10 p-6 text-sm text-warning">
             <p>
               No <code className="rounded bg-bg-base px-1 text-text-primary">?slug=</code> parameter
               found. Add one to test a specific shop, e.g.{' '}

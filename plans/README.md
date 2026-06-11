@@ -43,7 +43,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | DONE (design: plans/026-OUTPUT-csv-import-design.md) |
 | 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | DONE (design: plans/027-OUTPUT-barber-invite-design.md — model C hybrid; exposure walk CLEAN) |
 | 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
-| 029 | Token system truth-up (`<alpha-value>` opacity utilities + danger/accent AA + radius lock) | P1 | M | — | TODO (file written) |
+| 029 | Token system truth-up (`<alpha-value>` opacity utilities + danger/accent AA + radius lock) | P1 | M | — | DONE (8 RGB triplets ×2 themes; danger hover/active/fg AA family; radius md/2xl lock; −focus-ring-bg; compiled-CSS grep green) |
 | 030 | Callout/Alert primitive + adopt across ~25 inline alerts | P2 | M | 029 | TODO (file written) |
 | 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | TODO (file written) |
 | 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | TODO (file written) |
