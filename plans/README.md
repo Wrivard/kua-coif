@@ -43,6 +43,23 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 026 | SPIKE — CSV client import (kill the POS switching cost) | P3 | M | — | DONE (design: plans/026-OUTPUT-csv-import-design.md) |
 | 027 | SPIKE — Barber invite: link `barbers.user_id` and activate the persona | P3 | M | — | DONE (design: plans/027-OUTPUT-barber-invite-design.md — model C hybrid; exposure walk CLEAN) |
 | 028 | SPIKE — POS-lite step 1: walk-in + charge-at-counter | P3 | L | 027 recommended first (roles), not required | DONE (design: plans/028-OUTPUT-pos-lite-step1-design.md — cash model A; build order walk-in→cash→card) |
+| 029 | Token system truth-up (`<alpha-value>` opacity utilities + danger/accent AA + radius lock) | P1 | M | — | DONE (8 RGB triplets ×2 themes; danger hover/active/fg AA family; radius md/2xl lock; −focus-ring-bg; compiled-CSS grep green) |
+| 030 | Callout/Alert primitive + adopt across ~25 inline alerts | P2 | M | 029 | DONE (Callout on the Badge token recipe, 6 variants + icon/title, role alert/status; kitchen-sink showcase; adopted in the 4 (auth) forms — remaining inline-alert sites stay with their owning plans 032/036/039/040) |
+| 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | DONE (exit keyframes modal/drawer/toast gated on animationend + reduced-motion/fallback instant path; sliding tab underline + Arrow/Home/End roving keyboard; toast close focus-ring; −static glow on toggle ON + empty-state) |
+| 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | DONE (dedicated nav transition + optimistic header date + grid dim + week-switch skeleton; optimistic service + per-row notification toggles; 245 tests green) |
+| 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | DONE (cancel hides on confirm + prunes to struck truth; create renders a phantom with the real id, pruned in place by realtime; 245 tests green) |
+| 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | DONE (pane-only settings/loading.tsx — rail persists; shaped finances/clients/4 token-route skeletons; finances range filter → router.push soft-nav client leaf; clients/[id] 3 reads in one Promise.all, 404 order intact) |
+| 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | DONE (first-bookable-day open; slotError+retry distinct from empty, silent aborts; stale-slot clear; honest barber subtitle; localized metadata; mobile sticky CTA + 44px slots) |
+| 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | DONE (every post-charge return refunds via failBooking +2 tests; phone/email pre-charge gates; Confirm gated on PI readiness, NOT_READY localized; CONFLICT→slot step + Turnstile re-arm + fresh-PI refresh; mint retry button) |
+| 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | DONE (reschedule envoie le courriel promis — best-effort, NEW time, gate booking_confirmation; slotError+retry + date humaine au done; /me solde effectif (expiré→0); TokenLinkInvalid partagé + not-found ×5 segments, sans lien home ni causes; CORRECTNESS-04 policy-bypass reste déféré — décision produit) |
+| 038 | Embeddable widget polish (ISR, analytics cache, brand/theme, modal focus, scroll sync, error states) | P2 | M | — | DONE (embed truly ISR — searchParams off the render path, theme/source client-side, preview → own dynamic route; funnel via SECURITY INVOKER RPC, limit(20000) dropped; 60s alias cache; debounced+filtered MutationObserver; branded FAB + light modal + Kua command queue + focus trap; allow=payment + step-change scroll; embed not-found/error + empty state; 'inter' retired — 2 migrations PENDING next prod deploy) |
+| 039 | Back-office safety — destructive-action guards, false signals, payroll correctness | P1 | S-M | 032 (notifications-client) | DONE (paid icon gated ×2 vues; confirms anonymize/revoke-me/campagnes/SMTP/Twilio; commissions cumulative per-row + dirty guard; audit-log scopé shop + rows clavier; dot finances retiré) |
+| 040 | Calendar journey upgrades (deletable blocked time, date jump, appt deep-link, view URL, one status map) — console-journeys backlog (charge/inline-client/fiche/services-search/finances-nav) deferred inside | P2 | M-L | 032/033/039 (calendar files) | DONE (deleteBlockedTime shop-scoped + durable audit +3 tests; native date jump; ?appt= shop+barber-scoped resolve → day+drawer, nav drops the param; ?view= always synced via replace; APPOINTMENT_STATUS_VARIANT shared by list+fiche; backlog + the 3 deep-link call sites still deferred) |
+| 041 | Public-surface i18n consolidation (token pages, marketing, close-out, scoped catalog) | P2 | M | 037/039/043/044/045 | DONE (catalog scoped per layout — root=cookieBanner, (app)=full, auth/book/embed/token picks via pickMessages; 4 token layouts also FIX the latent useToast-without-provider crash; close-out + unsubscribe + me/reschedule/review/receipt isFr copy → pages.* namespaces; "isFr ?" grep empty; smoke = build-SSR auth/legal + payload greps) |
+| 042 | SPIKE — per-day availability density in booking/reschedule date strips | P3 | M | — | DONE (design: plans/042-OUTPUT-day-availability-design.md — measured: worst-case 14d 575 ms route-shape / 26 ms bucketed, 365d 63 ms bucketed ⇒ no precomputation; single-pass summary mode + bucketing mandatory, short-circuit insufficient alone) |
+| 043 | Review conversion pack (star deep-links from email + Google handoff) | P2 | M | 037 | DONE (5 liens-étoiles email → ?rating=N clampé, Submit explicite obligatoire; thank-you écho de la note réelle; dup = already_submitted traité en succès; handoff Google pour TOUS (zéro gating); étoiles aria-pressed + 48px; copie inline isFr, messages/*.json intacts) |
+| 044 | /me as hub — per-appointment reschedule/receipt links (structurally fixes expired-link) | P2 | S-M | 037 | DONE (tokens reschedule 7j + receipt 365j signés FRAIS par render force-dynamic avec la public_link_version du RDV; cartes Déplacer(primaire)/Reçu/Annuler; cutoff remboursement par RDV via le même resolver que l'action — carte « gratuite jusqu'au » + dialog définitif PAS remboursé/remboursé avec montant du dépôt) |
+| 045 | SPIKE — receipt TPS/TVQ tax breakdown | P3 | M | — | DONE (design: plans/045-OUTPUT-receipt-tax-design.md — taxes inclusive by default, charge never uses the tax engine, no reg columns (migration designed); reconciliation guaranteed structurally: informative « dont » lines + derived net, tax lines gated on reg numbers) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 
@@ -61,6 +78,33 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
   motivated many casts.
 - Plans 026–028 are design/spike plans: deliverable is a written design +
   prototype notes + open questions, NOT a full feature.
+
+### UI/UX front-end audit roster (029–045)
+
+Generated 2026-06-10 from a focused front-end UX audit (5 read-only lanes on
+Fable 5: back-office journeys, booking conversion, perceived perf/reactivity,
+premium craft/motion, token pages + widget). Full findings + verdicts in the
+memory note `kua-coiffure-uiux-audit`. Plan FILES 029 and 032 are written;
+030/031/033–045 are the approved roadmap and land in waves (rows above define
+scope/priority/deps). Three axes:
+
+- **Premium** ("ship the design already designed"): 029 (keystone — the
+  `<alpha-value>` bug silently kills ~70 opacity-token classes; everything below
+  builds on it) → 030 (Callout primitive) → 031 (exit motion + tab indicator).
+  030 and 031 REQUIRE 029 (their tints/rings only render once the opacity
+  utilities compile).
+- **Fast/reactive**: 032 (calendar-nav feedback + optimistic toggles) → 033
+  (optimistic appointment create/cancel — same calendar file, run after 032) ;
+  034 (shaped skeletons + finances soft-nav) is independent.
+- **Journeys/trust**: 035 (booking false dead-ends) → 036 (booking money-path —
+  same `booking-wizard.tsx`, run after 035; also touches
+  `book/[shopSlug]/actions.ts`, where plans 001/014/018/022 are already DONE, so
+  no live conflict). 037 (token-surface trust) unblocks 043 + 044. 039 edits
+  `settings/notifications/notifications-client.tsx` — coordinate with 032 (run
+  032 first or rebase). 040/041 are broad; split further if a contract exceeds
+  ~5 items over a small file set.
+- **Note**: 036 is a money path (overlaps plan-001's `failBooking` net + the
+  security review) — its STOP conditions are load-bearing; review closely.
 
 ## Findings considered and rejected
 
@@ -96,6 +140,27 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
   (drop from list select), reorderServices row-per-UPDATE, blockTime per-occurrence
   COUNT, week-view serial fetch, widget-stats 20k-row JS rollup, client-fiche
   stats from capped page. Each S; bundle opportunistically.
+
+(UI/UX audit 2026-06-10:)
+
+- **Booking-wizard double-border seams** (card-in-card): cosmetic only, no
+  conversion effect, token system renders it consistently — not worth doing.
+- **Clients list → react-virtual purely for products parity**: the 25/page
+  pagination + ≥2-char server search works at current scale, and the 1000-row cap
+  is already tracked in-code as a "next wave" item. Don't virtualize for parity's
+  sake; revisit only if a shop crosses ~1000 clients (the cap risk is the real
+  finding, not the windowing).
+- **Recon lead "loading.tsx coverage tiny"**: WRONG as stated — `(app)/loading.tsx`
+  + `(app)/error.tsx` are group boundaries covering all ~40 routes by inheritance.
+  Real gap is skeleton SHAPE + a missing `settings/loading.tsx` (folded into 034),
+  not absence.
+- **Recon lead "React 19 primitives absent → dead pauses"**: OVERSTATED — every
+  mutation already uses `useTransition` + loading button. The real reactivity gaps
+  are narrow (calendar nav, optimistic toggles, optimistic appt create/cancel =
+  plans 032/033), not a blanket `useOptimistic` rollout.
+- **PERF-06 `force-dynamic` + `staleTimes:0`** (45 pages): largest raw back-nav
+  win but needs a staleness product-decision on the live calendar — left for the
+  operator to weigh; not auto-planned. Revisit as a deliberate call.
 
 ## What was NOT audited
 

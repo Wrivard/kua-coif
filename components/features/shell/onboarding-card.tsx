@@ -76,7 +76,7 @@ export function OnboardingCard({
   const progress = Math.round((doneCount / steps.length) * 100);
 
   return (
-    <div className="border-accent/20 rounded-lg border bg-accent-subtle p-4 shadow-sm">
+    <div className="rounded-lg border border-accent/20 bg-accent-subtle p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-fg">
           <Sparkles className="h-4 w-4" />
@@ -99,14 +99,14 @@ export function OnboardingCard({
                     'group flex items-center gap-3 rounded px-2 py-1.5 text-sm transition-colors',
                     step.done
                       ? 'text-text-muted'
-                      : 'hover:bg-bg-surface-2/60 text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                      : 'text-text-primary hover:bg-bg-surface-2/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                       step.done
-                        ? 'bg-success/15 border-success text-success'
+                        ? 'border-success bg-success/15 text-success'
                         : 'border-border bg-bg-surface',
                     )}
                   >

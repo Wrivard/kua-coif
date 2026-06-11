@@ -34,6 +34,33 @@ const eventSchema = z.object({
   meta: z.record(z.string(), z.unknown()).optional(),
 });
 
+// Plan 038 (PERF-02) — module-level alias→shop_id cache, mirroring the
+// middleware's embed-config cache (middleware.ts): per-instance, 60s TTL,
+// best-effort (cold starts drop it). A real booking fires 4-5 events in
+// under a minute, so this collapses the per-event `shops` lookup to one
+// round-trip per slug per instance per minute. Misses (null) are cached
+// too so a forged slug can't force a query per event; the size guard
+// keeps a slug-spammer from growing the map unbounded.
+type AliasCacheEntry = { id: string | null; expiresAt: number };
+const aliasCache = new Map<string, AliasCacheEntry>();
+const ALIAS_CACHE_TTL_MS = 60_000;
+const ALIAS_CACHE_MAX_ENTRIES = 1000;
+
+async function resolveShopId(shopSlug: string): Promise<string | null> {
+  const now = Date.now();
+  const hit = aliasCache.get(shopSlug);
+  if (hit && hit.expiresAt > now) return hit.id;
+
+  const supabase = createSupabaseServiceRoleClient();
+  const shopRes = await supabase.from('shops').select('id').eq('alias', shopSlug).limit(1);
+  const shop = (shopRes.data ?? [])[0];
+  const id = shop?.id ?? null;
+
+  if (aliasCache.size >= ALIAS_CACHE_MAX_ENTRIES) aliasCache.clear();
+  aliasCache.set(shopSlug, { id, expiresAt: now + ALIAS_CACHE_TTL_MS });
+  return id;
+}
+
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req.headers);
   const rl = await checkRateLimit(`widget-event:${ip}`, { max: 60, windowMs: 60 * 1000 });
@@ -54,25 +81,24 @@ export async function POST(req: NextRequest) {
 
   const { shopSlug, eventType, stepKind, sessionId, source, meta } = parsed.data;
 
-  const supabase = createSupabaseServiceRoleClient();
-
-  // Resolve shop_id from the alias. We DON'T accept shop_id directly
-  // in the payload â€” that would let anyone scribble events against
-  // any shop. The aliasâ†’id lookup is the security boundary.
-  const shopRes = await supabase.from('shops').select('id').eq('alias', shopSlug).limit(1);
-  const shop = ((shopRes.data as Array<{ id: string }> | null) ?? [])[0];
-  if (!shop) {
-    // Silent 204 â€” don't leak "this slug doesn't exist" through the
+  // Resolve shop_id from the alias (60s-cached). We DON'T accept shop_id
+  // directly in the payload — that would let anyone scribble events against
+  // any shop. The alias→id lookup is the security boundary.
+  const shopId = await resolveShopId(shopSlug);
+  if (!shopId) {
+    // Silent 204 — don't leak "this slug doesn't exist" through the
     // analytics endpoint. Scrapers fingerprinting valid shops should
     // use a different surface.
     return new NextResponse(null, { status: 204 });
   }
 
+  const supabase = createSupabaseServiceRoleClient();
+
   // Best-effort write. A failed insert is logged but doesn't block
   // the wizard's UX (analytics is a side-channel, never on the
   // critical path).
   const { error } = await supabase.from('widget_events').insert({
-    shop_id: shop.id,
+    shop_id: shopId,
     event_type: eventType,
     step_kind: stepKind ?? null,
     session_id: sessionId,

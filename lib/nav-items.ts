@@ -57,7 +57,10 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
     matchPrefix: true,
   },
   { href: '/marketing', icon: Megaphone, labelKey: 'marketing', matchPrefix: true },
-  { href: '/finances', icon: DollarSign, labelKey: 'finances', matchPrefix: true, notif: true },
+  // Plan 039 (X-01) — `notif: true` was a STATIC fake dot (nothing computed
+  // or cleared it); it cried wolf on Finances forever. A future loop can
+  // re-introduce it driven by a real signal (e.g. disputes needing response).
+  { href: '/finances', icon: DollarSign, labelKey: 'finances', matchPrefix: true },
 ];
 
 /**

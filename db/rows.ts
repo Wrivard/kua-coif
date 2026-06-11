@@ -6,10 +6,6 @@
  * preserves the exact narrow column set each screen actually fetches AND turns a
  * renamed/removed column into a compile error here instead of a runtime
  * surprise. The ~39 importers keep compiling unchanged.
- *
- * typed-exception: pending types regen (migrations 20260610140000 / 150000 are
- * undeployed and there is no local Docker to regenerate from). The only gap that
- * forces a manual field is `ProductRow.status` (migration 150000) — see below.
  */
 import type { Database } from './types';
 
@@ -73,8 +69,6 @@ export type ProductBrandRow = Pick<Row<'product_brands'>, 'id' | 'shop_id' | 'na
 
 export type ProductCategoryRow = Pick<Row<'product_categories'>, 'id' | 'shop_id' | 'name'>;
 
-// typed-exception: pending types regen — `status` (migration 20260610150000) is
-// not in the generated products Row yet; extend manually until db:types regens.
 export type ProductRow = Pick<
   Row<'products'>,
   | 'id'
@@ -87,8 +81,9 @@ export type ProductRow = Pick<
   | 'current_inventory'
   | 'low_inventory_threshold'
   | 'sku'
+  | 'status'
   | 'updated_at'
-> & { status: 'enabled' | 'disabled' };
+>;
 
 export type AppointmentRow = Pick<
   Row<'appointments'>,

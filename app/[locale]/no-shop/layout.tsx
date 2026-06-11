@@ -1,28 +1,41 @@
 import type { ReactNode } from 'react';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { ToastProvider } from '@/components/ui/toast';
+import { pickMessages } from '@/lib/i18n-pick';
 
 /**
  * Layout for `/no-shop` — the post-signup landing page when the user has no
  * `shop_members` row yet. Visually mirrors the auth shell (centered card on
  * `bg-base`) without dragging in the auth-only branding text.
  */
-export default function NoShopLayout({ children }: { children: ReactNode }) {
+export default async function NoShopLayout(props: {
+  children: ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await props.params;
+  const { children } = props;
+  setRequestLocale(locale);
+  // Plan 041 (PERF-09) — scoped catalog (see lib/i18n-pick.ts).
+  const messages = pickMessages(await getMessages(), ['pages.noShop', 'a11y']);
   return (
-    <ToastProvider>
-      <main
-        id="main"
-        className="flex min-h-screen items-center justify-center bg-bg-base px-4 py-12"
-      >
-        <div className="w-full max-w-md">
-          <div className="mb-6 flex items-center justify-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded bg-accent text-accent-fg">
-              <span className="text-sm font-semibold">K</span>
-            </span>
-            <span className="text-lg font-semibold text-text-primary">Küa</span>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <ToastProvider>
+        <main
+          id="main"
+          className="flex min-h-screen items-center justify-center bg-bg-base px-4 py-12"
+        >
+          <div className="w-full max-w-md">
+            <div className="mb-6 flex items-center justify-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded bg-accent text-accent-fg">
+                <span className="text-sm font-semibold">K</span>
+              </span>
+              <span className="text-lg font-semibold text-text-primary">Küa</span>
+            </div>
+            {children}
           </div>
-          {children}
-        </div>
-      </main>
-    </ToastProvider>
+        </main>
+      </ToastProvider>
+    </NextIntlClientProvider>
   );
 }

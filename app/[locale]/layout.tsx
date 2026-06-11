@@ -9,6 +9,7 @@ import { GeistMono } from 'geist/font/mono';
 import { CookieBanner } from '@/components/ui/cookie-banner';
 import { locales, type Locale } from '@/i18n';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { pickMessages } from '@/lib/i18n-pick';
 
 export const metadata: Metadata = {
   title: 'Küa — Salon Management',
@@ -32,7 +33,14 @@ export default async function LocaleLayout(props: {
   if (!locales.includes(locale as Locale)) notFound();
 
   setRequestLocale(locale);
-  const messages = await getMessages();
+  // Plan 041 (PERF-09) — the ROOT provider carries only what root-level
+  // client components need (the cookie banner). Each route group nests its
+  // own provider: the admin (app) shell re-provides the FULL catalog; the
+  // public layouts (book, embed, token segments, auth, no-shop) provide a
+  // per-surface pick — so ~80KB/locale of admin strings no longer embed in
+  // every booking/token page load. Server components are unaffected
+  // (getTranslations/useTranslations resolve server-side).
+  const messages = pickMessages(await getMessages(), ['legal.cookieBanner']);
 
   return (
     // Loop 37 (P114) — Geist Sans + Mono loaded via next/font so the

@@ -206,9 +206,21 @@
           "createdRecurring": "{count} blocks created"
         }
       },
+      "deleteBlock": {
+        "ariaOpen": "Delete this blocked time",
+        "confirmTitle": "Delete this blocked time?",
+        "confirmDescription": "The \"{reason}\" block from {start} to {end} will be deleted and the slot becomes bookable again. For a recurring block, only this occurrence is deleted.",
+        "confirmButton": "Delete",
+        "cancelButton": "Cancel",
+        "toasts": {
+          "deleted": "Blocked time deleted",
+          "failed": "Could not delete the blocked time. Try again."
+        }
+      },
       "today": "Today",
       "prevDay": "Previous day",
       "nextDay": "Next day",
+      "jumpToDate": "Jump to a date",
       "filterBarbers": "Barbers:",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
@@ -243,6 +255,7 @@
       "shopClosedDay": "The shop is closed on this day (day off or outside hours).",
       "blocked": "Blocked",
       "online": "Online",
+      "paid": "Paid",
       "admin": "Admin",
       "detailTitle": "Appointment details",
       "client": "Client",
@@ -377,6 +390,14 @@
       "confirmDelete": {
         "title": "Delete this client?",
         "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
+      },
+      "confirmAnonymize": {
+        "title": "Anonymize this client?",
+        "description": "\"{name}\"'s personal data (name, email, phone, notes) will be permanently erased (Quebec Bill 25). This cannot be undone."
+      },
+      "confirmRevokeMe": {
+        "title": "Revoke access links?",
+        "description": "\"{name}\"'s existing self-service links (appointment management) will stop working immediately."
       },
       "form": {
         "addTitle": "New client",
@@ -811,6 +832,7 @@
       "today": {
         "title": "Daily close-out",
         "subtitleToday": "Today — {date}",
+        "print": "Print",
         "kpis": {
           "gross": "Gross revenue",
           "tips": "Tips collected",
@@ -1447,7 +1469,10 @@
           "testRecipient": "Test recipient",
           "testRecipientHint": "Your own cellphone — to validate the send end-to-end before saving.",
           "disconnect": "Disconnect Twilio",
-          "confirmDisconnect": "Disconnect Twilio? SMS will stop being sent from this shop."
+          "confirmDisconnect": {
+            "title": "Disconnect Twilio?",
+            "description": "SMS will stop being sent from this shop."
+          }
         },
         "testTwilio": {
           "button": "Send test SMS",
@@ -1497,7 +1522,10 @@
           "twilioInvalidSid": "Invalid Account SID. Expected format: 'AC' + 32 characters.",
           "twilioInvalidPhone": "Invalid phone number. Expected format: E.164 (e.g. +15145551212)."
         },
-        "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
+        "confirmDisconnect": {
+          "title": "Disconnect SMTP?",
+          "description": "Emails will fall back to Küa's default sender."
+        },
         "slack": {
           "title": "Slack notifications",
           "connected": "Connected",
@@ -1651,17 +1679,151 @@
         "feedback": "Feedback"
       }
     },
+    "me": {
+      "hello": "Hi {name}",
+      "intro": "Here's what {shopName} has on your account. Everything is private — only the shop (and you) sees this.",
+      "upcomingTitle": "Your upcoming appointments",
+      "upcomingEmpty": "No upcoming appointments.",
+      "paidLine": "Deposit paid",
+      "freeCancelUntil": "Free cancellation until {deadline}.",
+      "rescheduleButton": "Reschedule",
+      "receiptButton": "Receipt",
+      "cancelButton": "Cancel",
+      "cancelTitle": "Cancel appointment?",
+      "keepButton": "Keep",
+      "loyaltyTitle": "Your loyalty credit",
+      "loyaltyHint": "Auto-applied to your next booking.",
+      "visits": "visits completed",
+      "loi25Title": "Your data (Quebec Loi 25)",
+      "loi25Body": "You can download a copy of everything we have on you: profile, appointment history, payments. To delete your account, contact the shop — it's a step we walk through together so nothing important is lost by accident.",
+      "download": "Download my data (JSON)",
+      "contactTitle": "Contact the shop",
+      "cancelDesc": {
+        "plain": "Cancel this appointment?",
+        "refunded": "Your deposit will be refunded automatically.",
+        "refundedWithAmount": "Your deposit of {amount} will be refunded automatically.",
+        "notRefunded": "Your deposit will NOT be refunded (the shop's cancellation policy). Cancel anyway?",
+        "notRefundedWithAmount": "Your deposit of {amount} will NOT be refunded (the shop's cancellation policy). Cancel anyway?"
+      },
+      "toasts": {
+        "exportExpired": "The link seems expired. Ask the shop for a new link.",
+        "downloadStarted": "Download started",
+        "cancelBlocked": "This shop doesn't allow self-service cancellations. Please contact them directly.",
+        "cancelFailed": "Cancel failed. Contact the shop.",
+        "cancelledRefunded": "Appointment cancelled and deposit refunded.",
+        "cancelledNoRefund": "Appointment cancelled. Per the shop's policy, your deposit isn't refunded.",
+        "cancelled": "Appointment cancelled."
+      }
+    },
+    "reschedule": {
+      "title": "Reschedule your appointment",
+      "currentLabel": "Current appointment",
+      "withLine": "With {name} · {min} min",
+      "newDate": "New date",
+      "newTime": "New time",
+      "slotsError": "Couldn't load availability.",
+      "retry": "Try again",
+      "noSlots": "No slots available for this date.",
+      "confirm": "Confirm",
+      "terminalTitle": "Appointment can no longer be changed",
+      "terminalBody": "Contact {shopName} for any change.",
+      "doneTitle": "Done!",
+      "doneBody": "You'll receive an email confirmation for the new slot ({slot}).",
+      "toasts": {
+        "done": "Appointment rescheduled!",
+        "conflict": "This slot is no longer available.",
+        "failed": "Could not reschedule."
+      }
+    },
+    "review": {
+      "titleWithBarber": "How was your visit with {name}?",
+      "titleShop": "How was your visit at {shopName}?",
+      "rating": "Your rating",
+      "comment": "A few words? (optional)",
+      "name": "Your first name (shown publicly, optional)",
+      "submit": "Submit my review",
+      "doneTitle": "Review received",
+      "doneBody": "Thanks for taking the time. {shopName} will see your review shortly.",
+      "googleCta": "It would also help us on Google →",
+      "toasts": {
+        "thanks": "Thanks for your review!",
+        "alreadySaved": "Your review was already saved.",
+        "failed": "Could not save the review. The link may have expired."
+      }
+    },
+    "receipt": {
+      "receipt": "Receipt",
+      "date": "Date",
+      "with": "With",
+      "services": "Services",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "tip": "Tip",
+      "total": "Total",
+      "deposit": "Deposit paid",
+      "balance": "Balance due in-shop",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "failed": "Failed",
+      "method": "Method",
+      "online": "Online",
+      "inShop": "In-shop",
+      "thanks": "Thank you for your visit!",
+      "print": "Print"
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe from marketing",
+      "body": "{firstName}, confirm you no longer want marketing emails (offers, birthday, review requests) from {shopName}.",
+      "confirm": "Confirm unsubscribe",
+      "confirmPending": "One moment…",
+      "note": "Appointment-related messages are not affected.",
+      "doneTitle": "You’re unsubscribed",
+      "doneBody": "You’ll no longer receive marketing emails from {shopName}. Messages about your appointments (confirmations, reminders) are not affected.",
+      "toasts": {
+        "done": "You’re unsubscribed.",
+        "failed": "Could not unsubscribe. The link may have expired."
+      }
+    },
+    "embed": {
+      "unavailable": {
+        "title": "Booking unavailable",
+        "body": "This booking page is not available right now. Contact the salon directly to make an appointment."
+      },
+      "error": {
+        "title": "Booking temporarily unavailable",
+        "body": "Something went wrong while loading the booking module. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "empty": {
+        "title": "Online booking coming soon",
+        "body": "This salon hasn't published its online calendar yet. Call them to make an appointment.",
+        "call": "Call us: {phone}"
+      }
+    },
+    "tokenLink": {
+      "title": "This link is no longer valid",
+      "description": "It may have expired. Contact the salon to receive a new one."
+    },
     "booking": {
       "back": "Back",
       "continue": "Continue",
       "confirm": "Confirm appointment",
+      "meta": {
+        "title": "{name} · Book online",
+        "description": "Book your appointment at {name}."
+      },
       "payment": {
         "depositLabel": "Deposit due",
         "depositHelp": "A deposit is required to confirm your booking. You'll be charged now; the balance is settled at the shop.",
         "fullLabel": "Total due",
         "fullHelp": "The full service price is charged now. Nothing to pay at the shop.",
         "shopNotConnected": "The shop hasn't set up online payment yet. You'll pay at the shop.",
-        "intentFailed": "Couldn't prepare the payment. Try again or contact the shop."
+        "intentFailed": "Couldn't prepare the payment. Try again or contact the shop.",
+        "notReady": "The payment is getting ready — try again in a moment.",
+        "updatingTotal": "Updating total…",
+        "retry": "Try again"
       },
       "waitlist": {
         "cta": "Join the waitlist",
@@ -1686,12 +1848,15 @@
           "title": "Which barber?",
           "any": "Any (first available)",
           "anyHint": "We pick the first available barber for the slot.",
-          "availableToday": "Available today"
+          "pickTimeNext": "Pick a time next"
         },
         "slot": {
           "title": "Date & time",
           "times": "Available slots",
           "empty": "No slot available on this day. Try another date.",
+          "loadError": "Couldn't load availability.",
+          "retry": "Try again",
+          "justTaken": "That time was just taken. Pick another one.",
           "morning": "Morning",
           "afternoon": "Afternoon",
           "evening": "Evening"
@@ -1707,6 +1872,14 @@
           "notesHint": "Mention a special request, allergy, etc.",
           "promoCode": "Promo code (optional)",
           "promoCodeHint": "Enter a discount code if you have one.",
+          "phoneInvalid": "Invalid phone number.",
+          "emailInvalid": "Invalid email address.",
+          "promoErrors": {
+            "invalid": "Invalid promo code.",
+            "expired": "This code has expired.",
+            "used": "This code has already been used.",
+            "first_only": "This code is reserved for a first appointment."
+          },
           "subtotalLabel": "Subtotal:",
           "loyaltyApplied": "Loyalty credit:",
           "totalLabel": "Total:",

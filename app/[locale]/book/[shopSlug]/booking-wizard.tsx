@@ -153,6 +153,14 @@ type Props = {
 // Five progress chips, regardless of which of {service, barber} comes first.
 const PROGRESS_CHIP_COUNT = 5;
 
+// Plan 036 (step 2) — client-side mirrors of the server zod gates so a
+// typo'd phone/email blocks Confirm BEFORE the card is charged (the server
+// rejects post-charge, which forces a refund round-trip). The phone regex is
+// the EXACT server rule (`actions.ts` phoneRegex); the email check is a
+// pragmatic stand-in for zod's `.email()` — the server stays authoritative.
+const CLIENT_PHONE_RE = /^[+\d\s().-]{7,20}$/;
+const CLIENT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
 /**
  * Group a flat array of "HH:MM" time strings into morning / afternoon /
  * evening buckets so the slot picker can show ☀ / ☼ / 🌙 sections (spec §3.4).
@@ -174,6 +182,39 @@ function groupSlotsByTimeOfDay(slots: string[]): {
     else evening.push(time);
   }
   return { morning, afternoon, evening };
+}
+
+/**
+ * BUG-05 — a day is "closed" when its weekday isn't enabled in the shop's
+ * hours OR it's an explicit day off. Mirrors the exact logic DateStrip uses
+ * per-day (`!h?.enabled || daysOff.includes(iso)`), kept as a shared helper
+ * so the initial-date pick and the strip can't drift apart.
+ */
+function isClosedDay(iso: string, hours: BookingHours[], daysOff: string[]): boolean {
+  const weekday = new Date(`${iso}T00:00:00`).getDay();
+  const h = hours.find((hh) => hh.weekday === weekday);
+  return !h?.enabled || daysOff.includes(iso);
+}
+
+/**
+ * BUG-05 — first bookable ISO date within the 14-day strip window, so the slot
+ * step never opens on a closed day. Québec salons commonly close Sun–Mon, so a
+ * large share of visitors would otherwise land on "no slots" + a waitlist CTA
+ * for a day the shop isn't even open. Falls back to `today` when all 14 days
+ * are closed — the honest empty-state then shows.
+ */
+function firstBookableIso(
+  hours: BookingHours[],
+  daysOff: string[],
+  today: string,
+  timezone: string,
+): string {
+  const ref = new Date(`${today}T12:00:00Z`);
+  for (let i = 0; i < 14; i++) {
+    const iso = shopIsoDate(addDays(ref, i), timezone);
+    if (!isClosedDay(iso, hours, daysOff)) return iso;
+  }
+  return today;
 }
 
 /**
@@ -287,13 +328,21 @@ export function BookingWizard({
       }
     }
 
-    const dateValid = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam);
+    const dateParamClean = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : null;
+    // BUG-05 — open the slot step on a day the shop is actually open. Honor a
+    // valid `?date=` only when it lands on a non-closed day; otherwise jump to
+    // the first bookable day in the window so the customer doesn't hit a false
+    // "nothing available" on a day the shop isn't even open.
+    const initialDate =
+      dateParamClean && !isClosedDay(dateParamClean, hours, daysOff)
+        ? dateParamClean
+        : firstBookableIso(hours, daysOff, today, shop.timezone);
 
     return {
       step: 1,
       serviceIds: validServiceIds,
       barberId,
-      date: dateValid ? dateParam : today,
+      date: initialDate,
       startTime: null,
       firstName: '',
       lastName: '',
@@ -549,22 +598,47 @@ export function BookingWizard({
   // Slot state — fetched from /api/book/[shopSlug]/slots when entering step 3.
   const [slots, setSlots] = useState<string[] | null>(null);
   const [slotLoading, setSlotLoading] = useState(false);
+  // BUG-04 — a genuine fetch failure (429, network blip) is NOT "fully booked".
+  // Track it separately so the UI can offer a retry instead of a waitlist CTA.
+  const [slotError, setSlotError] = useState(false);
+  // Bumped by the retry control to force a re-fetch (it's an effect dep).
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (state.step !== 3) return;
     setSlots(null);
+    setSlotError(false);
     setSlotLoading(true);
     const ctl = new AbortController();
     fetch(
       `/api/book/${shopSlug}/slots?date=${state.date}&barber=${state.barberId ?? 'any'}&duration=${totalDuration}`,
       { signal: ctl.signal },
     )
-      .then((r) => r.json())
-      .then((data: { slots?: string[] }) => setSlots(data.slots ?? []))
-      .catch(() => setSlots([]))
-      .finally(() => setSlotLoading(false));
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((data: { slots?: string[] }) => {
+        const next = data.slots ?? [];
+        setSlots(next);
+        // BUG-08 — a previously-picked time may have been taken while the
+        // customer was away (back-nav, date re-pick). Drop it so `canAdvance`
+        // can't funnel them into a guaranteed conflict at submit.
+        setState((s) =>
+          s.startTime && !next.includes(s.startTime) ? { ...s, startTime: null } : s,
+        );
+      })
+      .catch(() => {
+        // Aborts (fast date-switching, unmount) are silent — not a real
+        // failure; surfacing them would flash a false error / empty state.
+        if (ctl.signal.aborted) return;
+        setSlotError(true);
+      })
+      .finally(() => {
+        if (!ctl.signal.aborted) setSlotLoading(false);
+      });
     return () => ctl.abort();
-  }, [state.step, state.date, state.barberId, shopSlug, totalDuration]);
+  }, [state.step, state.date, state.barberId, shopSlug, totalDuration, retryNonce]);
 
   function next() {
     setState((s) => ({ ...s, step: Math.min(5, s.step + 1) as WizardState['step'] }));
@@ -573,13 +647,21 @@ export function BookingWizard({
     setState((s) => ({ ...s, step: Math.max(1, s.step - 1) as WizardState['step'] }));
   }
 
+  // Plan 036 (step 2) — pre-charge validity of the contact fields, mirroring
+  // the server zod gates. Computed before `canAdvance` (an IIFE) consumes it.
+  const phoneFormatValid = CLIENT_PHONE_RE.test(state.phone.trim());
+  const emailFormatValid = state.email.trim() === '' || CLIENT_EMAIL_RE.test(state.email.trim());
+
   const canAdvance = (() => {
     const kind = kindForStep(state.step);
     if (kind === 'service') return state.serviceIds.length > 0;
     if (kind === 'barber') return state.barberId !== null;
     if (kind === 'slot') return state.startTime !== null;
     if (kind === 'contact') {
-      const hasIdentity = state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
+      // Plan 036 (step 2) — phone/email must pass the client-side mirror of
+      // the server zod rules so a typo can't reach the charge (the server
+      // would reject AFTER the card was charged, forcing a refund).
+      const hasIdentity = state.firstName.trim().length > 0 && phoneFormatValid;
       // When Turnstile is enforced (env var set), the user must complete the
       // challenge before Confirm enables. When the feature is off, the token
       // is just an empty string and we skip this gate.
@@ -587,7 +669,7 @@ export function BookingWizard({
       // Loop 24 — Quebec Loi 25 affirmative consent gate. The customer
       // MUST tick the "I agree to the privacy policy" box before we
       // accept their phone/email/name. Server action also enforces this.
-      return hasIdentity && tokenOk && state.consentLoi25;
+      return hasIdentity && emailFormatValid && tokenOk && state.consentLoi25;
     }
     return false;
   })();
@@ -598,9 +680,45 @@ export function BookingWizard({
   // the submit logic stays a single branch.
   const paymentRef = useRef<BookingPaymentSectionRef>(null);
 
+  // ── Plan 036 — money-path recovery state ─────────────────────────────
+  // Server field errors rendered inline (promo/phone/email) instead of one
+  // generic toast. Cleared per-field on edit and wholesale on each submit.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // CONFLICT recovery banner on the slot step ("that time was just taken").
+  const [slotTakenNotice, setSlotTakenNotice] = useState(false);
+  // Reactive mirror of the payment section's readiness (BUG-03) — disables
+  // Confirm while a PI (re-)mint is in flight. Default true: with no payment
+  // section mounted (no online payment) booking must stay possible.
+  const [paymentReady, setPaymentReady] = useState(true);
+  // Bumped to remount TurnstileWidget after a failed submit: the token is
+  // single-use, so a retry needs a fresh challenge (key-remount ≙ reset()).
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  // Per-field "touched" gates so prevalidation doesn't flag mid-typing.
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  function clearFieldError(key: string) {
+    setFieldErrors((fe) => {
+      if (!(key in fe)) return fe;
+      const next = { ...fe };
+      delete next[key];
+      return next;
+    });
+  }
+
   function submit() {
     if (!state.startTime) return;
+    // Plan 036 (BUG-03) — submit-time readiness gate. The reactive
+    // `paymentReady` disable covers the visible button, but a ref consult at
+    // click time is the authoritative check: while a PI (re-)mint is in
+    // flight the on-screen Elements may hold a stale intent at a stale
+    // amount, and confirming it would charge the wrong total.
+    if (paymentRef.current && !paymentRef.current.isReady()) {
+      show({ variant: 'danger', title: t('payment.notReady') });
+      return;
+    }
     startTransition(async () => {
+      setFieldErrors({});
       // Phase 56 — confirm payment client-side FIRST. If no deposit
       // applies the call short-circuits with `{ kind: 'no_deposit' }`.
       // On payment failure we surface a toast and abort the booking
@@ -610,6 +728,12 @@ export function BookingWizard({
       if (paymentRef.current) {
         const paid = await paymentRef.current.confirmPayment();
         if (paid.kind === 'error') {
+          // Plan 036 — NOT_READY is an internal sentinel, never customer
+          // copy. Localize it (the readiness gates above make it rare).
+          if (paid.message === 'NOT_READY') {
+            show({ variant: 'danger', title: t('payment.notReady') });
+            return;
+          }
           // Loop 34 (P93) — surface Stripe's structured error code in
           // the toast description when present, so an "Insufficient
           // funds" decline reads as "Card declined · insufficient_funds"
@@ -664,6 +788,30 @@ export function BookingWizard({
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
       } else {
+        // ── Plan 036 (BUG-02) — recoverable failure, not a dead-end ──
+        // 1. Surface server field errors inline (promo/phone/email).
+        setFieldErrors(result.fieldErrors ?? {});
+        // 2. A consumed Turnstile token can't be replayed — remount the
+        //    widget (fresh challenge) and gate Confirm until re-verified.
+        if (turnstileEnforced) {
+          setTurnstileNonce((n) => n + 1);
+          setState((s) => ({ ...s, turnstileToken: '' }));
+        }
+        // 3. If a charge happened, the server refunded it (failBooking) and
+        //    the PI is consumed — re-arm the payment section with a FRESH
+        //    intent so a retry is possible (the consumed PI is never
+        //    reused, so this cannot double-charge).
+        if (paymentIntentId) {
+          paymentRef.current?.refresh();
+        }
+        // 4. CONFLICT = the slot was taken while the customer typed. Route
+        //    back to the slot step with a fresh fetch + inline banner
+        //    instead of the old "reload the page" toast.
+        if (result.errorCode === 'CONFLICT') {
+          setSlotTakenNotice(true);
+          setState((s) => ({ ...s, step: 3, startTime: null }));
+          return;
+        }
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
@@ -797,9 +945,23 @@ export function BookingWizard({
             <h2 className="text-xl font-semibold tracking-tight text-text-primary">
               {t('steps.slot.title')}
             </h2>
+            {/* Plan 036 (BUG-02) — CONFLICT recovery banner: the customer's
+                slot was taken while they typed. They were routed back here
+                with fresh slots; cleared on the next date/time pick. */}
+            {slotTakenNotice ? (
+              <p
+                role="status"
+                className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning shadow-warm-sm"
+              >
+                {t('steps.slot.justTaken')}
+              </p>
+            ) : null}
             <DateStrip
               value={state.date}
-              onChange={(d) => setState((s) => ({ ...s, date: d, startTime: null }))}
+              onChange={(d) => {
+                setSlotTakenNotice(false);
+                setState((s) => ({ ...s, date: d, startTime: null }));
+              }}
               timezone={shop.timezone}
               locale={locale === 'fr' ? 'fr' : 'en'}
               hours={hours}
@@ -808,9 +970,14 @@ export function BookingWizard({
             <SlotPicker
               t={t}
               loading={slotLoading}
+              error={slotError}
+              onRetry={() => setRetryNonce((n) => n + 1)}
               slots={slots}
               selected={state.startTime}
-              onSelect={(time) => setState((s) => ({ ...s, startTime: time }))}
+              onSelect={(time) => {
+                setSlotTakenNotice(false);
+                setState((s) => ({ ...s, startTime: time }));
+              }}
               waitlistInfo={{
                 shopSlug,
                 serviceIds: state.serviceIds,
@@ -856,11 +1023,26 @@ export function BookingWizard({
                 <Label htmlFor="phone" required>
                   {t('steps.contact.phone')}
                 </Label>
+                {/* Plan 036 (step 2) — the `invalid` prop is finally wired:
+                    a malformed phone reads as an inline error BEFORE any
+                    charge, instead of a post-charge server rejection. */}
                 <PhoneInput
                   id="phone"
                   value={state.phone}
-                  onChange={(e) => setState((s) => ({ ...s, phone: e.target.value }))}
+                  invalid={
+                    Boolean(fieldErrors.phone) ||
+                    (phoneTouched && state.phone.trim().length > 0 && !phoneFormatValid)
+                  }
+                  onBlur={() => setPhoneTouched(true)}
+                  onChange={(e) => {
+                    clearFieldError('phone');
+                    setState((s) => ({ ...s, phone: e.target.value }));
+                  }}
                 />
+                {Boolean(fieldErrors.phone) ||
+                (phoneTouched && state.phone.trim().length > 0 && !phoneFormatValid) ? (
+                  <FieldHint error>{t('steps.contact.phoneInvalid')}</FieldHint>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="email">{t('steps.contact.email')}</Label>
@@ -869,8 +1051,16 @@ export function BookingWizard({
                   type="email"
                   autoComplete="email"
                   value={state.email}
-                  onChange={(e) => setState((s) => ({ ...s, email: e.target.value }))}
+                  invalid={Boolean(fieldErrors.email) || (emailTouched && !emailFormatValid)}
+                  onBlur={() => setEmailTouched(true)}
+                  onChange={(e) => {
+                    clearFieldError('email');
+                    setState((s) => ({ ...s, email: e.target.value }));
+                  }}
                 />
+                {Boolean(fieldErrors.email) || (emailTouched && !emailFormatValid) ? (
+                  <FieldHint error>{t('steps.contact.emailInvalid')}</FieldHint>
+                ) : null}
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="notes">{t('steps.contact.notes')}</Label>
@@ -894,14 +1084,33 @@ export function BookingWizard({
                     autoComplete="off"
                     placeholder="WELCOME20"
                     value={state.promoCode}
-                    onChange={(e) =>
+                    invalid={Boolean(fieldErrors.promo_code)}
+                    onChange={(e) => {
+                      clearFieldError('promo_code');
                       setState((s) => ({
                         ...s,
                         promoCode: e.target.value.toUpperCase().trim(),
-                      }))
-                    }
+                      }));
+                    }}
                   />
-                  <FieldHint>{t('steps.contact.promoCodeHint')}</FieldHint>
+                  {/* Plan 036 (BUG-02) — surface the server's specific promo
+                      rejection (invalid/expired/used/first_only) inline,
+                      where the customer can actually fix it. */}
+                  {fieldErrors.promo_code ? (
+                    <FieldHint error>
+                      {t(
+                        `steps.contact.promoErrors.${
+                          ['invalid', 'expired', 'used', 'first_only'].includes(
+                            fieldErrors.promo_code,
+                          )
+                            ? fieldErrors.promo_code
+                            : 'invalid'
+                        }`,
+                      )}
+                    </FieldHint>
+                  ) : (
+                    <FieldHint>{t('steps.contact.promoCodeHint')}</FieldHint>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -923,7 +1132,12 @@ export function BookingWizard({
                 Confirm button is gated on its presence via `canAdvance`. */}
             {turnstileEnforced ? (
               <div className="flex justify-center">
+                {/* Plan 036 — `key` remounts the widget after a failed submit
+                    (the verified token is single-use; a retry needs a fresh
+                    challenge). Equivalent to turnstile.reset() without
+                    extending the widget's API. */}
                 <TurnstileWidget
+                  key={turnstileNonce}
                   onToken={(token) => setState((s) => ({ ...s, turnstileToken: token }))}
                   action="booking"
                 />
@@ -1057,6 +1271,10 @@ export function BookingWizard({
               // for (base + tip). 0 when the customer hasn't
               // picked a tip or the shop hides the step.
               tipAmountCents={state.tipAmountCents}
+              // Plan 036 (BUG-03) — reactive readiness: Confirm is
+              // disabled while a PI (re-)mint is in flight so a stale
+              // intent can never be charged at the wrong amount.
+              onReadyChange={setPaymentReady}
             />
           </section>
         )}
@@ -1068,7 +1286,7 @@ export function BookingWizard({
                 proper "done" celebration, not just an icon. */}
             <span
               aria-hidden
-              className="bg-success/15 ring-success/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full ring-4"
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 ring-4 ring-success/10"
             >
               <CheckCircle2 className="h-8 w-8 text-success" />
             </span>
@@ -1121,9 +1339,12 @@ export function BookingWizard({
           </section>
         )}
 
-        {/* ─── Step nav ─────────────────────────────────────────────── */}
+        {/* ─── Step nav (desktop) ───────────────────────────────────── */}
+        {/* DIR-03 — on phones the nav moves into the sticky bar below so the
+            primary action is always reachable without scrolling; the in-card
+            nav stays for sm+ (desktop layout unchanged). */}
         {state.step < 5 && (
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 hidden items-center justify-between sm:flex">
             <Button
               type="button"
               variant="ghost"
@@ -1137,7 +1358,14 @@ export function BookingWizard({
                 {t('continue')} <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="button" onClick={submit} disabled={!canAdvance} loading={isPending}>
+              <Button
+                type="button"
+                onClick={submit}
+                // Plan 036 (BUG-03) — also gated on payment readiness so a
+                // stale PaymentIntent can't be confirmed mid re-mint.
+                disabled={!canAdvance || !paymentReady}
+                loading={isPending}
+              >
                 <CalendarCheck className="h-4 w-4" /> {t('confirm')}
               </Button>
             )}
@@ -1145,11 +1373,11 @@ export function BookingWizard({
         )}
       </div>
 
-      {/* Running subtotal — sticky on small screens so the customer always
-          sees what they're committing to as they scroll the service list.
-          Frosted glass treatment matches the page-header pattern. */}
+      {/* Running subtotal — sticky bar showing what the customer is committing
+          to as they scroll. DESKTOP ONLY (sm+): on phones the mobile action bar
+          below carries the same summary plus the nav buttons. */}
       {state.step < 4 && selectedServices.length > 0 ? (
-        <div className="bg-bg-surface/90 sticky bottom-3 z-10 rounded-xl border border-border px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl">
+        <div className="sticky bottom-3 z-10 hidden rounded-xl border border-border bg-bg-surface/90 px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl sm:block">
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">
               {selectedServices.length} {t('summary.servicesLabel')}
@@ -1161,6 +1389,59 @@ export function BookingWizard({
           <p className="mt-0.5 text-[11px] text-text-muted">
             {totalDuration} {t('summary.minutes')}
           </p>
+        </div>
+      ) : null}
+
+      {/* DIR-03 — mobile sticky action bar. Phones (< sm) hide the in-card nav
+          and the desktop subtotal bar; this pinned bar carries the running
+          summary plus Back + the primary CTA (Continue/Confirm) so the customer
+          never has to scroll to advance. Covers steps 1–4 (step 4 had no sticky
+          before). Desktop layout is untouched. */}
+      {state.step < 5 ? (
+        <div className="sticky bottom-3 z-10 rounded-xl border border-border bg-bg-surface/90 px-4 py-3 shadow-warm-lg backdrop-blur-xl sm:hidden">
+          {selectedServices.length > 0 ? (
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-text-secondary">
+                {selectedServices.length} {t('summary.servicesLabel')} · {totalDuration}{' '}
+                {t('summary.minutes')}
+              </span>
+              <span className="text-base font-semibold tracking-tight text-text-primary">
+                {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
+              </span>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={back}
+              disabled={state.step === 1 || isPending}
+            >
+              <ChevronLeft className="h-4 w-4" /> {t('back')}
+            </Button>
+            {state.step < 4 ? (
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={next}
+                disabled={!canAdvance || isPending}
+              >
+                {t('continue')} <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={submit}
+                // Plan 036 (BUG-03) — same payment-readiness gate as the
+                // desktop Confirm above.
+                disabled={!canAdvance || !paymentReady}
+                loading={isPending}
+              >
+                <CalendarCheck className="h-4 w-4" /> {t('confirm')}
+              </Button>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
@@ -1229,8 +1510,8 @@ function ServiceStep({
           and the inner rows lose their flat-rectangle look for proper
           rounded-lg surfaces with a subtle border to separate from the bg. */}
       {hasSelection ? (
-        <div className="border-accent/25 ring-accent/10 rounded-lg border bg-accent-subtle p-3 shadow-warm-sm ring-1 ring-inset">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+        <div className="rounded-lg border border-accent/25 bg-accent-subtle p-3 shadow-warm-sm ring-1 ring-inset ring-accent/10">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-text">
             {allowMultiService ? t('steps.service.selectedPlural') : t('steps.service.selected')}
           </p>
           <ul className="mt-2 space-y-1.5">
@@ -1285,12 +1566,12 @@ function ServiceStep({
                       key={s.id}
                       type="button"
                       onClick={() => onToggle(s.id)}
-                      className="hover:border-accent/40 group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:bg-accent-subtle hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg-base px-3.5 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-subtle hover:shadow-warm-md focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span
                           aria-hidden
-                          className="group-hover:border-accent/30 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted transition-colors duration-150 group-hover:bg-accent group-hover:text-accent-fg"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted transition-colors duration-150 group-hover:border-accent/30 group-hover:bg-accent group-hover:text-accent-fg"
                         >
                           <Plus className="h-4 w-4" />
                         </span>
@@ -1356,7 +1637,7 @@ function BarberStep({
             selected={selectedBarberId === b.id}
             onSelect={() => onSelect(b.id)}
             title={b.display_name}
-            subtitle={t('steps.barber.availableToday')}
+            subtitle={t('steps.barber.pickTimeNext')}
             avatarUrl={b.avatar_url}
             initials={initialsOf(b.display_name)}
           />
@@ -1392,7 +1673,7 @@ function BarberCard({
         'group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
         selected
           ? 'border-accent bg-accent-subtle shadow-accent-glow'
-          : 'hover:border-accent/40 border-border bg-bg-base hover:-translate-y-0.5 hover:shadow-warm-md',
+          : 'border-border bg-bg-base hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-warm-md',
       )}
       aria-pressed={selected}
     >
@@ -1517,6 +1798,8 @@ function OrderRecap({
 function SlotPicker({
   t,
   loading,
+  error,
+  onRetry,
   slots,
   selected,
   onSelect,
@@ -1524,6 +1807,10 @@ function SlotPicker({
 }: {
   t: TranslatorFn;
   loading: boolean;
+  // BUG-04 — true when the slot fetch failed (not "no availability"); drives a
+  // retry affordance instead of the waitlist empty-state.
+  error: boolean;
+  onRetry: () => void;
   slots: string[] | null;
   selected: string | null;
   onSelect: (time: string) => void;
@@ -1548,8 +1835,25 @@ function SlotPicker({
         </p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 rounded-lg" />
+            <Skeleton key={i} className="h-11 rounded-lg" />
           ))}
+        </div>
+      </div>
+    );
+  }
+  // BUG-04 — a failed fetch is not "fully booked": offer a retry, never the
+  // waitlist CTA (which would mislead the customer into thinking the day is
+  // full). The waitlist empty-state below is reserved for a confirmed empty 200.
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-warm-sm">
+          {t('steps.slot.loadError')}
+        </p>
+        <div className="flex justify-center">
+          <Button type="button" variant="secondary" onClick={onRetry}>
+            {t('steps.slot.retry')}
+          </Button>
         </div>
       </div>
     );
@@ -1621,10 +1925,10 @@ function SlotGroup({
               type="button"
               onClick={() => onSelect(time)}
               className={cn(
-                'h-10 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                'h-11 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                 active
                   ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                  : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
+                  : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-warm-md',
               )}
               aria-pressed={active}
             >
@@ -1679,7 +1983,7 @@ function DateStrip({
               'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
               active
                 ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-warm-md',
+                : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-warm-md',
               d.closed &&
                 'cursor-not-allowed opacity-40 hover:translate-y-0 hover:border-border hover:bg-bg-base hover:shadow-warm-sm',
             )}
@@ -1741,7 +2045,7 @@ function WaitlistInlineForm({
 
   if (done) {
     return (
-      <p className="border-success/30 bg-success/10 rounded-lg border p-4 text-center text-sm text-success shadow-warm-sm">
+      <p className="rounded-lg border border-success/30 bg-success/10 p-4 text-center text-sm text-success shadow-warm-sm">
         {t('waitlist.thanks')}
       </p>
     );

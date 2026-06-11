@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -34,13 +34,50 @@ export function Modal({
   className,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [closing, setClosing] = useState(false);
   const tA11y = useTranslations('a11y');
 
+  // Sync the controlled `open` prop to the native dialog. Opening is immediate;
+  // closing first plays the exit keyframe (data-closing → globals.css), then
+  // calls dialog.close() on the panel's animationend. Reduced motion or a missing
+  // panel close instantly, and a fallback timeout guarantees the dialog never
+  // sticks open if animationend doesn't fire.
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
-    if (!open && el.open) el.close();
+
+    if (open) {
+      setClosing(false);
+      if (!el.open) el.showModal();
+      return;
+    }
+
+    if (!el.open) return;
+
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const panel = panelRef.current;
+    if (prefersReduced || !panel) {
+      el.close();
+      return;
+    }
+
+    setClosing(true);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.close();
+      setClosing(false);
+    };
+    panel.addEventListener('animationend', finish, { once: true });
+    const fallback = window.setTimeout(finish, 320);
+    return () => {
+      panel.removeEventListener('animationend', finish);
+      window.clearTimeout(fallback);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -57,6 +94,7 @@ export function Modal({
   return (
     <dialog
       ref={dialogRef}
+      data-closing={closing ? '' : undefined}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
@@ -74,6 +112,7 @@ export function Modal({
       )}
     >
       <div
+        ref={panelRef}
         // Loop 61:
         //   - mobile (default): `rounded-t-2xl rounded-b-none` + full-
         //     width sheet anchored to the bottom edge.

@@ -71,11 +71,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const tA11y = useTranslations('a11y');
+  const [closing, setClosing] = useState(false);
+
+  // Start the exit: under reduced motion remove immediately; otherwise mark the
+  // item closing (→ .animate-toast-out) and let onAnimationEnd / a fallback
+  // timeout pull it from state.
+  const beginDismiss = useCallback(() => {
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      onDismiss();
+      return;
+    }
+    setClosing(true);
+  }, [onDismiss]);
+
   useEffect(() => {
     if (toast.duration <= 0) return;
-    const id = window.setTimeout(onDismiss, toast.duration);
+    const id = window.setTimeout(beginDismiss, toast.duration);
     return () => window.clearTimeout(id);
-  }, [toast.duration, onDismiss]);
+  }, [toast.duration, beginDismiss]);
+
+  // Fallback so a missed animationend can't strand the toast on screen.
+  useEffect(() => {
+    if (!closing) return;
+    const id = window.setTimeout(onDismiss, 220);
+    return () => window.clearTimeout(id);
+  }, [closing, onDismiss]);
 
   const { border, icon, halo } = variantStyles[toast.variant];
   // B23 (Barbers audit) — error toasts must interrupt the screen reader
@@ -86,12 +109,13 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   return (
     <div
       role={isAlert ? 'alert' : 'status'}
+      onAnimationEnd={closing ? onDismiss : undefined}
       className={cn(
         // Phase 36 — refined: rounded-lg + shadow-lg (drop + inset
         // highlight). Slide-in animation tuned to 200ms ease-out-quint
-        // in globals.css.
+        // in globals.css; exit swaps to the slide/fade-out keyframe.
         'pointer-events-auto flex items-start gap-3 rounded-lg border border-l-4 border-border bg-bg-elevated px-4 py-3 shadow-warm-lg',
-        'animate-toast-in',
+        closing ? 'animate-toast-out' : 'animate-toast-in',
         border,
       )}
     >
@@ -111,9 +135,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       </div>
       <button
         type="button"
-        onClick={onDismiss}
+        onClick={beginDismiss}
         aria-label={tA11y('close')}
-        className="rounded-md p-0.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary"
+        className="rounded-md p-0.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <X className="h-3.5 w-3.5" />
       </button>

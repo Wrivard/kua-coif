@@ -7,9 +7,9 @@ const config: Config = {
     extend: {
       colors: {
         // ─── Surfaces (Phase 36 — depth scale) ─────────────────────────
-        'bg-base': 'var(--bg-base)',
-        'bg-surface': 'var(--bg-surface)',
-        'bg-surface-2': 'var(--bg-surface-2)',
+        'bg-base': 'rgb(var(--bg-base-rgb) / <alpha-value>)',
+        'bg-surface': 'rgb(var(--bg-surface-rgb) / <alpha-value>)',
+        'bg-surface-2': 'rgb(var(--bg-surface-2-rgb) / <alpha-value>)',
         'bg-elevated': 'var(--bg-elevated)',
         'bg-overlay': 'var(--bg-overlay)',
         border: 'var(--border)',
@@ -25,7 +25,7 @@ const config: Config = {
 
         // ─── Accent (Küa sage — single source of truth) ──────────────
         accent: {
-          DEFAULT: 'var(--accent)',
+          DEFAULT: 'rgb(var(--accent-rgb) / <alpha-value>)',
           hover: 'var(--accent-hover)',
           active: 'var(--accent-active)',
           fg: 'var(--accent-fg)',
@@ -37,13 +37,18 @@ const config: Config = {
         },
 
         // ─── Status (default + subtle bg pair) ───────────────────────
-        success: 'var(--success)',
+        success: 'rgb(var(--success-rgb) / <alpha-value>)',
         'success-subtle': 'var(--success-subtle)',
-        warning: 'var(--warning)',
+        warning: 'rgb(var(--warning-rgb) / <alpha-value>)',
         'warning-subtle': 'var(--warning-subtle)',
-        danger: 'var(--danger)',
+        danger: {
+          DEFAULT: 'rgb(var(--danger-rgb) / <alpha-value>)',
+          hover: 'var(--danger-hover)',
+          active: 'var(--danger-active)',
+          fg: 'var(--danger-fg)',
+        },
         'danger-subtle': 'var(--danger-subtle)',
-        info: 'var(--info)',
+        info: 'rgb(var(--info-rgb) / <alpha-value>)',
         'info-subtle': 'var(--info-subtle)',
 
         // ─── Calendar appointment blocks ─────────────────────────────
@@ -56,9 +61,11 @@ const config: Config = {
         '2xs': 'var(--radius-2xs)',
         xs: 'var(--radius-xs)',
         sm: 'var(--radius-sm)',
+        md: 'var(--radius-sm)', // 6px — alias Tailwind's stock rounded-md onto the token scale (was 6px by coincidence)
         DEFAULT: 'var(--radius)',
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-xl)', // 16px — match the documented top of the scale
       },
       boxShadow: {
         // ─── Elevation scale (Phase 75 — Vercel multi-layer stacks) ─────

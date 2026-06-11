@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
@@ -63,6 +64,17 @@ export function NotificationsClient({ state }: Props) {
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [saving, startSave] = useTransition();
+  // Phase 32 — optimistic mirror of the automation enabled-flags so a toggle
+  // flips instantly instead of after the ~300-800ms round-trip. Synced from
+  // props (like services-client's `ordered`); the post-save revalidation
+  // reconciles via the effect below. `pendingIds` tracks the in-flight rows so
+  // flipping one automation doesn't grey the whole matrix (and survives
+  // concurrent toggles — a single id would clobber).
+  const [automations, setAutomations] = useState<AutomationRow[]>(state.automations);
+  const [pendingIds, setPendingIds] = useState(() => new Set<string>());
+  useEffect(() => {
+    setAutomations(state.automations);
+  }, [state.automations]);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<
     { kind: 'idle' } | { kind: 'ok' } | { kind: 'error'; message?: string }
@@ -149,8 +161,14 @@ export function NotificationsClient({ state }: Props) {
     });
   }
 
+  // Plan 039 (SET-04) — both disconnects wipe live transport config behind a
+  // native browser prompt; themed ConfirmDialogs now gate them (modeled on
+  // the barbers-client Google-disconnect dialog).
+  const [confirmSmtpDisconnect, setConfirmSmtpDisconnect] = useState(false);
+  const [confirmTwilioDisconnect, setConfirmTwilioDisconnect] = useState(false);
+
   function onDisconnect() {
-    if (!confirm(t('confirmDisconnect'))) return;
+    setConfirmSmtpDisconnect(false);
     startSave(async () => {
       const result = await clearSenderConfig({});
       if (result.ok) {
@@ -200,9 +218,20 @@ export function NotificationsClient({ state }: Props) {
   }
 
   function onToggle(row: AutomationRow, next: boolean) {
+    // Optimistic flip + per-row pending. On failure revert ONLY this row (back
+    // to !next) so a concurrent toggle on another row isn't clobbered by a
+    // whole-array snapshot restore.
+    setAutomations((prev) => prev.map((a) => (a.id === row.id ? { ...a, enabled: next } : a)));
+    setPendingIds((prev) => new Set(prev).add(row.id));
     startSave(async () => {
       const result = await toggleAutomation({ id: row.id, enabled: next });
+      setPendingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(row.id);
+        return n;
+      });
       if (!result.ok) {
+        setAutomations((prev) => prev.map((a) => (a.id === row.id ? { ...a, enabled: !next } : a)));
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
@@ -236,7 +265,7 @@ export function NotificationsClient({ state }: Props) {
   }
 
   function onDisconnectTwilio() {
-    if (!confirm(t('twilio.confirmDisconnect'))) return;
+    setConfirmTwilioDisconnect(false);
     startSave(async () => {
       const result = await clearTwilioConfig({});
       if (result.ok) {
@@ -278,13 +307,13 @@ export function NotificationsClient({ state }: Props) {
   // Index the email automations by kind for O(1) lookup in the matrix
   // render.
   const emailAutomations = AUTOMATION_ORDER.map(
-    (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'email')!,
+    (kind) => automations.find((a) => a.kind === kind && a.channel === 'email')!,
   ).filter(Boolean);
   // Loop 56 — SMS automations now toggleable (Twilio pipeline shipped
   // in Loops 53-55). Rows that aren't seeded for a given (shop,kind)
   // render as a dash, same as the email column.
   const smsAutomations = AUTOMATION_ORDER.map(
-    (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'sms')!,
+    (kind) => automations.find((a) => a.kind === kind && a.channel === 'sms')!,
   ).filter(Boolean);
 
   return (
@@ -298,7 +327,7 @@ export function NotificationsClient({ state }: Props) {
           <p className="text-sm text-text-secondary">{t('sender.description')}</p>
 
           {!state.encryptionReady ? (
-            <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <span>{t('errors.encryptionMissing')}</span>
             </div>
@@ -382,12 +411,12 @@ export function NotificationsClient({ state }: Props) {
           </div>
 
           {testResult.kind === 'ok' ? (
-            <div className="border-success/40 bg-success/10 flex items-center gap-2 rounded-md border px-3 py-2 text-xs text-success">
+            <div className="flex items-center gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
               <CheckCircle2 className="h-4 w-4" aria-hidden /> {t('test.success')}
             </div>
           ) : null}
           {testResult.kind === 'error' ? (
-            <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
+            <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
               <p className="font-medium">{t('test.failure')}</p>
               {testResult.message ? <p className="mt-1 font-mono">{testResult.message}</p> : null}
             </div>
@@ -408,7 +437,7 @@ export function NotificationsClient({ state }: Props) {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={onDisconnect}
+                  onClick={() => setConfirmSmtpDisconnect(true)}
                   disabled={saving || testing}
                 >
                   {t('sender.disconnect')}
@@ -437,7 +466,7 @@ export function NotificationsClient({ state }: Props) {
             <p className="text-sm text-text-secondary">{t('twilio.description')}</p>
 
             {!state.encryptionReady ? (
-              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
+              <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('errors.encryptionMissing')}</span>
               </div>
@@ -500,13 +529,13 @@ export function NotificationsClient({ state }: Props) {
             </div>
 
             {twilioTestResult.kind === 'ok' ? (
-              <div className="border-success/40 bg-success/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-success">
+              <div className="flex items-start gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('testTwilio.success', { sid: twilioTestResult.sid })}</span>
               </div>
             ) : null}
             {twilioTestResult.kind === 'error' ? (
-              <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
+              <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
                 <p className="font-medium">{t('testTwilio.failure')}</p>
                 {twilioTestResult.message ? (
                   <p className="mt-1 font-mono">{twilioTestResult.message}</p>
@@ -529,7 +558,7 @@ export function NotificationsClient({ state }: Props) {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={onDisconnectTwilio}
+                    onClick={() => setConfirmTwilioDisconnect(true)}
                     disabled={saving || testingTwilio}
                   >
                     {t('twilio.disconnect')}
@@ -627,7 +656,7 @@ export function NotificationsClient({ state }: Props) {
                           <Toggle
                             checked={emailRow.enabled}
                             onChange={(v) => onToggle(emailRow, v)}
-                            disabled={saving}
+                            disabled={pendingIds.has(emailRow.id)}
                           />
                         ) : (
                           <EmptyCell />
@@ -639,7 +668,7 @@ export function NotificationsClient({ state }: Props) {
                             <Toggle
                               checked={smsRow.enabled}
                               onChange={(v) => onToggle(smsRow, v)}
-                              disabled={saving}
+                              disabled={pendingIds.has(smsRow.id)}
                             />
                           ) : (
                             <span className="inline-flex" title={t('automations.smsTooltip')}>
@@ -658,6 +687,31 @@ export function NotificationsClient({ state }: Props) {
           </div>
         </section>
       </div>
+
+      {/* Plan 039 (SET-04) — themed confirms for the transport disconnects
+          (SMTP wipe + Twilio wipe), replacing the native browser prompts. */}
+      <ConfirmDialog
+        open={confirmSmtpDisconnect}
+        title={t('confirmDisconnect.title')}
+        description={t('confirmDisconnect.description')}
+        destructive
+        loading={saving}
+        confirmLabel={t('sender.disconnect')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={onDisconnect}
+        onCancel={() => setConfirmSmtpDisconnect(false)}
+      />
+      <ConfirmDialog
+        open={confirmTwilioDisconnect}
+        title={t('twilio.confirmDisconnect.title')}
+        description={t('twilio.confirmDisconnect.description')}
+        destructive
+        loading={saving}
+        confirmLabel={t('twilio.disconnect')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={onDisconnectTwilio}
+        onCancel={() => setConfirmTwilioDisconnect(false)}
+      />
     </>
   );
 }

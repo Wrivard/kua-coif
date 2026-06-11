@@ -11,7 +11,7 @@ export default function ProductsLoading() {
     <div className="flex min-h-screen flex-col">
       {/* Page header band — height matches the real PageHeader (--header-h),
           with placeholders for the search box + add action. */}
-      <div className="bg-bg-base/95 flex h-header-h items-center gap-4 border-b border-border px-6 backdrop-blur">
+      <div className="flex h-header-h items-center gap-4 border-b border-border bg-bg-base/95 px-6 backdrop-blur">
         <Skeleton className="h-6 w-32" />
         <div className="flex-1" />
         <Skeleton className="h-10 w-64" />

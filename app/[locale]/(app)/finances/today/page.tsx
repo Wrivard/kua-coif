@@ -230,7 +230,7 @@ export default async function CloseOutPage(props: {
   const subtitle = isToday ? t('subtitleToday', { date: headerDate }) : headerDate;
 
   return (
-    <CloseOutClient locale={locale} autoPrint={searchParams.print === '1'}>
+    <CloseOutClient autoPrint={searchParams.print === '1'}>
       <PageHeader title={t('title')} subtitle={subtitle} />
       <div className="space-y-6 p-6">
         {/* KPI strip — four cards at a glance. The "outstanding" KPI

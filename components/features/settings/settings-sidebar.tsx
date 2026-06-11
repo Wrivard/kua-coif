@@ -41,7 +41,7 @@ export function SettingsSidebar({ locale }: { locale: string }) {
           id="settings-section"
           value={current}
           onChange={(e) => router.push(`/${locale}${e.target.value}`)}
-          className="focus:ring-accent/30 h-10 w-full rounded-md border border-border bg-bg-surface px-3 text-sm text-text-primary focus:outline-none focus:ring-2"
+          className="h-10 w-full rounded-md border border-border bg-bg-surface px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30"
         >
           {SETTINGS_NAV.map((group) => (
             <optgroup key={group.labelKey} label={t(`groups.${group.labelKey}`)}>
@@ -98,7 +98,7 @@ export function SettingsSidebar({ locale }: { locale: string }) {
                           />
                           <span className="truncate pl-1">{t(`items.${item.labelKey}`)}</span>
                           {item.badge === 'new' ? (
-                            <span className="bg-info/20 ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-info">
+                            <span className="ml-2 inline-flex items-center rounded-full bg-info/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-info">
                               {t('badges.new')}
                             </span>
                           ) : null}

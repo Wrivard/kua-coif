@@ -206,9 +206,21 @@
           "createdRecurring": "{count} blocages créés"
         }
       },
+      "deleteBlock": {
+        "ariaOpen": "Supprimer ce blocage",
+        "confirmTitle": "Supprimer ce blocage ?",
+        "confirmDescription": "Le blocage « {reason} » de {start} à {end} sera supprimé et le créneau redeviendra réservable. Pour un blocage récurrent, seule cette occurrence est supprimée.",
+        "confirmButton": "Supprimer",
+        "cancelButton": "Annuler",
+        "toasts": {
+          "deleted": "Blocage supprimé",
+          "failed": "Impossible de supprimer le blocage. Réessaie."
+        }
+      },
       "today": "Aujourd'hui",
       "prevDay": "Jour précédent",
       "nextDay": "Jour suivant",
+      "jumpToDate": "Aller à une date",
       "filterBarbers": "Barbiers :",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",
@@ -243,6 +255,7 @@
       "shopClosedDay": "Le salon est fermé ce jour-là (jour off ou hors horaires).",
       "blocked": "Bloqué",
       "online": "En ligne",
+      "paid": "Payé",
       "admin": "Admin",
       "detailTitle": "Détails du rendez-vous",
       "client": "Client",
@@ -377,6 +390,14 @@
       "confirmDelete": {
         "title": "Supprimer ce client ?",
         "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
+      },
+      "confirmAnonymize": {
+        "title": "Anonymiser ce client ?",
+        "description": "Les données personnelles de « {name} » (nom, courriel, téléphone, notes) seront effacées définitivement (Loi 25). Cette action est irréversible."
+      },
+      "confirmRevokeMe": {
+        "title": "Révoquer les liens d’accès ?",
+        "description": "Les liens self-service existants de « {name} » (gestion de rendez-vous) cesseront de fonctionner immédiatement."
       },
       "form": {
         "addTitle": "Nouveau client",
@@ -811,6 +832,7 @@
       "today": {
         "title": "Bilan quotidien",
         "subtitleToday": "Aujourd'hui — {date}",
+        "print": "Imprimer",
         "kpis": {
           "gross": "Revenu brut",
           "tips": "Pourboires perçus",
@@ -1447,7 +1469,10 @@
           "testRecipient": "Numéro pour le test",
           "testRecipientHint": "Ton propre cellulaire — pour valider l'envoi bout-en-bout avant de sauvegarder.",
           "disconnect": "Déconnecter Twilio",
-          "confirmDisconnect": "Déconnecter Twilio ? Les SMS de ce salon vont arrêter de partir."
+          "confirmDisconnect": {
+            "title": "Déconnecter Twilio ?",
+            "description": "Les SMS de ce salon vont arrêter de partir."
+          }
         },
         "testTwilio": {
           "button": "Envoyer un SMS de test",
@@ -1497,7 +1522,10 @@
           "twilioInvalidSid": "Account SID invalide. Format attendu : « AC » + 32 caractères.",
           "twilioInvalidPhone": "Numéro invalide. Format attendu : E.164 (ex. +15145551212)."
         },
-        "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
+        "confirmDisconnect": {
+          "title": "Déconnecter le SMTP ?",
+          "description": "Les courriels reviendront à l'expéditeur Küa par défaut."
+        },
         "slack": {
           "title": "Notifications Slack",
           "connected": "Connecté",
@@ -1651,17 +1679,151 @@
         "feedback": "Feedback"
       }
     },
+    "me": {
+      "hello": "Bonjour {name}",
+      "intro": "Voici ce que {shopName} a sur ton compte. Tout est privé — seul le salon (et toi) y a accès.",
+      "upcomingTitle": "Tes prochains rendez-vous",
+      "upcomingEmpty": "Aucun rendez-vous à venir.",
+      "paidLine": "Acompte payé",
+      "freeCancelUntil": "Annulation gratuite jusqu’au {deadline}.",
+      "rescheduleButton": "Déplacer",
+      "receiptButton": "Reçu",
+      "cancelButton": "Annuler",
+      "cancelTitle": "Annuler le rendez-vous ?",
+      "keepButton": "Garder",
+      "loyaltyTitle": "Ton crédit fidélité",
+      "loyaltyHint": "Appliqué automatiquement à ta prochaine réservation.",
+      "visits": "visites complétées",
+      "loi25Title": "Tes données (Loi 25)",
+      "loi25Body": "Tu peux télécharger une copie de toutes tes données : profil, historique de RDV, paiements. Pour supprimer ton compte, contacte le salon — c’est une opération qu’on fait avec toi pour s’assurer que rien d’important ne disparaît par erreur.",
+      "download": "Télécharger mes données (JSON)",
+      "contactTitle": "Contacte le salon",
+      "cancelDesc": {
+        "plain": "Annuler ce rendez-vous ?",
+        "refunded": "Ton acompte te sera remboursé automatiquement.",
+        "refundedWithAmount": "Ton acompte de {amount} te sera remboursé automatiquement.",
+        "notRefunded": "Ton acompte ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?",
+        "notRefundedWithAmount": "Ton acompte de {amount} ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?"
+      },
+      "toasts": {
+        "exportExpired": "Le lien semble expiré. Demande un nouveau lien au salon.",
+        "downloadStarted": "Téléchargement démarré",
+        "cancelBlocked": "Ce salon n’autorise pas les annulations en libre-service. Contacte-le directement.",
+        "cancelFailed": "Annulation impossible. Contacte le salon.",
+        "cancelledRefunded": "Rendez-vous annulé et acompte remboursé.",
+        "cancelledNoRefund": "Rendez-vous annulé. Selon la politique du salon, ton acompte n’est pas remboursé.",
+        "cancelled": "Rendez-vous annulé."
+      }
+    },
+    "reschedule": {
+      "title": "Déplacer ton rendez-vous",
+      "currentLabel": "Rendez-vous actuel",
+      "withLine": "Avec {name} · {min} min",
+      "newDate": "Nouvelle date",
+      "newTime": "Nouvelle heure",
+      "slotsError": "Impossible de charger les disponibilités.",
+      "retry": "Réessayer",
+      "noSlots": "Aucun créneau disponible pour cette date.",
+      "confirm": "Confirmer",
+      "terminalTitle": "Rendez-vous non modifiable",
+      "terminalBody": "Contacte {shopName} pour toute modification.",
+      "doneTitle": "C’est fait !",
+      "doneBody": "Tu recevras une confirmation par courriel pour le nouveau créneau ({slot}).",
+      "toasts": {
+        "done": "Rendez-vous déplacé !",
+        "conflict": "Ce créneau n’est plus disponible.",
+        "failed": "Impossible de déplacer le rendez-vous."
+      }
+    },
+    "review": {
+      "titleWithBarber": "Comment était ta visite avec {name} ?",
+      "titleShop": "Comment était ta visite chez {shopName} ?",
+      "rating": "Ta note",
+      "comment": "Un mot ? (optionnel)",
+      "name": "Ton prénom (affiché publiquement, optionnel)",
+      "submit": "Envoyer mon avis",
+      "doneTitle": "Avis reçu",
+      "doneBody": "Merci d’avoir pris le temps. {shopName} verra ton avis dans quelques instants.",
+      "googleCta": "Ça nous aiderait aussi sur Google →",
+      "toasts": {
+        "thanks": "Merci pour ton avis !",
+        "alreadySaved": "Ton avis était déjà enregistré.",
+        "failed": "Impossible d’enregistrer l’avis. Le lien est peut-être expiré."
+      }
+    },
+    "receipt": {
+      "receipt": "Reçu",
+      "date": "Date",
+      "with": "Avec",
+      "services": "Services",
+      "subtotal": "Sous-total",
+      "discount": "Rabais",
+      "tip": "Pourboire",
+      "total": "Total",
+      "deposit": "Acompte payé",
+      "balance": "Solde à payer en salon",
+      "paid": "Payé",
+      "unpaid": "Non payé",
+      "pending": "En traitement",
+      "refunded": "Remboursé",
+      "failed": "Échec",
+      "method": "Méthode",
+      "online": "En ligne",
+      "inShop": "Au salon",
+      "thanks": "Merci pour votre visite !",
+      "print": "Imprimer"
+    },
+    "unsubscribe": {
+      "title": "Se désabonner du marketing",
+      "body": "{firstName}, confirme que tu ne veux plus recevoir d’emails marketing (offres, anniversaire, demandes d’avis) de {shopName}.",
+      "confirm": "Confirmer le désabonnement",
+      "confirmPending": "Un instant…",
+      "note": "Les messages liés à tes rendez-vous ne sont pas affectés.",
+      "doneTitle": "Tu es désabonné·e",
+      "doneBody": "Tu ne recevras plus d’emails marketing de {shopName}. Les messages liés à tes rendez-vous (confirmations, rappels) continueront d’être envoyés.",
+      "toasts": {
+        "done": "Tu es désabonné·e.",
+        "failed": "Impossible de te désabonner. Le lien est peut-être expiré."
+      }
+    },
+    "embed": {
+      "unavailable": {
+        "title": "Réservation indisponible",
+        "body": "Cette page de réservation n'est pas disponible pour le moment. Contactez le salon directement pour prendre rendez-vous."
+      },
+      "error": {
+        "title": "Réservation temporairement indisponible",
+        "body": "Une erreur est survenue lors du chargement du module de réservation. Réessayez dans un instant.",
+        "retry": "Réessayer"
+      },
+      "empty": {
+        "title": "Réservation en ligne bientôt disponible",
+        "body": "Ce salon n'a pas encore publié son calendrier en ligne. Appelez-le pour prendre rendez-vous.",
+        "call": "Appelez-nous : {phone}"
+      }
+    },
+    "tokenLink": {
+      "title": "Ce lien n’est plus valide",
+      "description": "Il a peut-être expiré. Contacte le salon pour en recevoir un nouveau."
+    },
     "booking": {
       "back": "Retour",
       "continue": "Continuer",
       "confirm": "Confirmer le rendez-vous",
+      "meta": {
+        "title": "{name} · Réserver en ligne",
+        "description": "Réserve ton rendez-vous chez {name}."
+      },
       "payment": {
         "depositLabel": "Acompte à régler",
         "depositHelp": "Pour confirmer ta réservation, un acompte est requis. Tu seras facturé maintenant ; le solde sera réglé en salon.",
         "fullLabel": "Total à régler",
         "fullHelp": "Le montant total de la prestation est facturé maintenant. Rien à payer au salon.",
         "shopNotConnected": "Le salon n’a pas encore configuré le paiement en ligne. Tu pourras régler sur place.",
-        "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon."
+        "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon.",
+        "notReady": "Le paiement se prépare, réessaie dans un instant.",
+        "updatingTotal": "Mise à jour du total…",
+        "retry": "Réessayer"
       },
       "waitlist": {
         "cta": "M’inscrire à la liste d’attente",
@@ -1686,12 +1848,15 @@
           "title": "Avec quel barbier ?",
           "any": "Peu importe (premier disponible)",
           "anyHint": "On choisit le premier barbier disponible pour le créneau.",
-          "availableToday": "Disponible aujourd’hui"
+          "pickTimeNext": "Choisis un créneau ensuite"
         },
         "slot": {
           "title": "Date et heure",
           "times": "Créneaux disponibles",
           "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour.",
+          "loadError": "Impossible de charger les disponibilités.",
+          "retry": "Réessayer",
+          "justTaken": "Ce créneau vient d’être pris. Choisis-en un autre.",
           "morning": "Matin",
           "afternoon": "Après-midi",
           "evening": "Soir"
@@ -1707,6 +1872,14 @@
           "notesHint": "Précise une demande spéciale, allergie, etc.",
           "promoCode": "Code promo (optionnel)",
           "promoCodeHint": "Si tu as un code de réduction, entre-le ici.",
+          "phoneInvalid": "Numéro de téléphone invalide.",
+          "emailInvalid": "Adresse courriel invalide.",
+          "promoErrors": {
+            "invalid": "Code promo invalide.",
+            "expired": "Ce code est expiré.",
+            "used": "Ce code a déjà été utilisé.",
+            "first_only": "Ce code est réservé à un premier rendez-vous."
+          },
           "subtotalLabel": "Sous-total :",
           "loyaltyApplied": "Crédit fidélité :",
           "totalLabel": "Total :",

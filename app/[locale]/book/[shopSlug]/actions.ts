@@ -182,6 +182,21 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     return err('INVALID_INPUT', { cf_turnstile_response: turnstileResult.reason });
   }
 
+  // ── 036b — refund net for the final catch ─────────────────────────
+  // Plan 036 routed every post-charge `return err(...)` through
+  // `failBooking` (best-effort refund), but an uncaught EXCEPTION bypassed
+  // them all and hit the final catch, which returned UNEXPECTED with the
+  // customer still charged. This context is hoisted OUTSIDE the try (the
+  // catch can't see `shop`/`failBooking`, both block-scoped inside it):
+  // armed once the shop is resolved, DISARMED the moment the booking is
+  // durable (appointment + service links written) so a throw in the
+  // notification tail can never refund a real booking.
+  let refundOnThrow: {
+    paymentIntentId: string;
+    connectedAccountId: string;
+    shopId: string;
+  } | null = null;
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceRoleClient() as any;
@@ -262,6 +277,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return err(...args);
     };
 
+    // Arm the final-catch refund net over the same span failBooking covers:
+    // from here on, a charged customer with no durable booking gets their
+    // money back even when the failure is a THROW, not a `return`.
+    if (input.payment_intent_id && shop.stripe_account_id) {
+      refundOnThrow = {
+        paymentIntentId: input.payment_intent_id,
+        connectedAccountId: shop.stripe_account_id,
+        shopId: shop.id,
+      };
+    }
+
     // ── Resolve services + promo + barber in ONE batch (plan 018) ─────
     // All three reads depend ONLY on shop.id, so they run in parallel instead
     // of three sequential round-trips. The VALIDATIONS below run in the SAME
@@ -333,7 +359,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       services.length !== input.service_ids.length ||
       services.some((s) => s.status !== 'enabled')
     ) {
-      return err('NOT_FOUND');
+      // Plan 036 — these validation rejections run AFTER the client-side
+      // charge, so they must refund like every other post-charge failure
+      // (failBooking no-ops when no payment_intent_id was sent).
+      return await failBooking('NOT_FOUND');
     }
     const totalMinutes = services.reduce((sum, s) => sum + s.duration_min, 0);
 
@@ -345,16 +374,19 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     if (input.promo_code) {
       promoCodeRow = ((promoRes?.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
       if (!promoCodeRow) {
-        return err('INVALID_INPUT', { promo_code: 'invalid' });
+        // Plan 036 — a typo'd promo used to charge-then-reject WITHOUT a
+        // refund (the wizard only validates promo at submit). Route through
+        // the refund net like every other post-charge rejection.
+        return await failBooking('INVALID_INPUT', { promo_code: 'invalid' });
       }
       if (
         promoCodeRow.expiration_date &&
         new Date(promoCodeRow.expiration_date).getTime() < Date.now()
       ) {
-        return err('INVALID_INPUT', { promo_code: 'expired' });
+        return await failBooking('INVALID_INPUT', { promo_code: 'expired' });
       }
       if (promoCodeRow.one_time && promoCodeRow.redemptions > 0) {
-        return err('INVALID_INPUT', { promo_code: 'used' });
+        return await failBooking('INVALID_INPUT', { promo_code: 'used' });
       }
     }
 
@@ -363,16 +395,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     let barberId = input.barber_id;
     let barberDisplayName: string | null = null;
     if (!barberId) {
-      if (!shop.allow_booking_any_barber) return err('INVALID_INPUT');
+      // Plan 036 — post-charge barber rejections refund too (no-op without a PI).
+      if (!shop.allow_booking_any_barber) return await failBooking('INVALID_INPUT');
       const row =
         ((barberRes.data as Array<{ id: string; display_name: string | null }> | null) ?? [])[0] ??
         null;
       barberId = row?.id ?? null;
       barberDisplayName = row?.display_name ?? null;
-      if (!barberId) return err('NOT_FOUND');
+      if (!barberId) return await failBooking('NOT_FOUND');
     } else {
       const row = barberRes.data as { id: string; display_name: string | null } | null;
-      if (!row) return err('INVALID_INPUT');
+      if (!row) return await failBooking('INVALID_INPUT');
       barberDisplayName = row.display_name ?? null;
     }
 
@@ -782,6 +815,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       return await failBooking('UNEXPECTED');
     }
 
+    // 036b — the booking is durable from here (appointment + links). A
+    // failure in the tail (loyalty/audit/email/Slack) must NOT refund a
+    // customer who holds a real appointment.
+    refundOnThrow = null;
+
     // ── Decrement loyalty balance (Phase 50) ─────────────────────────
     // Best-effort: a balance-update failure shouldn't kill the booking
     // (the user got their appointment, that's what matters). We computed
@@ -976,6 +1014,36 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     return ok({ id: apptId });
   } catch (e) {
     captureException(e, { tags: { layer: 'public-booking' } });
+    // 036b — same best-effort refund semantics as failBooking, for the
+    // exception path failBooking can't reach. `refundOwnedIntentBestEffort`
+    // only refunds a PI that provably belongs to THIS shop and actually
+    // captured money, and a refund failure must not mask the UNEXPECTED
+    // response (captured, then we still return).
+    if (refundOnThrow) {
+      try {
+        const r = await refundOwnedIntentBestEffort({
+          paymentIntentId: refundOnThrow.paymentIntentId,
+          expectedConnectedAccountId: refundOnThrow.connectedAccountId,
+        });
+        if (!r.refunded && r.reason !== 'wrong_shop' && r.reason !== 'not_charged') {
+          captureException(new Error(`[booking] refund-on-throw skipped: ${r.reason}`), {
+            tags: { layer: 'public-booking', step: 'refund-on-throw' },
+            extra: {
+              shopId: refundOnThrow.shopId,
+              paymentIntentId: refundOnThrow.paymentIntentId,
+            },
+          });
+        }
+      } catch (refundError) {
+        captureException(refundError, {
+          tags: { layer: 'public-booking', step: 'refund-on-throw' },
+          extra: {
+            shopId: refundOnThrow.shopId,
+            paymentIntentId: refundOnThrow.paymentIntentId,
+          },
+        });
+      }
+    }
     return err('UNEXPECTED');
   }
 }

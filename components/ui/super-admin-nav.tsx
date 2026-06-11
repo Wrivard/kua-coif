@@ -51,7 +51,7 @@ export function SuperAdminNav() {
   const base = `/${locale}/super-admin`;
 
   return (
-    <div className="bg-bg-base/80 sticky top-header-h z-20 border-b border-border backdrop-blur-xl">
+    <div className="sticky top-header-h z-20 border-b border-border bg-bg-base/80 backdrop-blur-xl">
       <nav
         aria-label="Super-admin secondary navigation"
         className="flex gap-1 overflow-x-auto px-6"

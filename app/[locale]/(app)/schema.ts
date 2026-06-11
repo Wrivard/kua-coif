@@ -189,3 +189,14 @@ export const blockTimeSchema = z
     }
   });
 export type BlockTimeInput = z.infer<typeof blockTimeSchema>;
+
+/**
+ * Plan 040 (CAL-03) — delete ONE blocked-time occurrence by id. Recurring
+ * sets fan out into independent rows at insert (see `blockTime`), so
+ * "this occurrence" is just its row; a "this and following" bulk delete
+ * is a noted follow-up.
+ */
+export const deleteBlockedTimeSchema = z.object({
+  id: z.string().uuid(),
+});
+export type DeleteBlockedTimeInput = z.infer<typeof deleteBlockedTimeSchema>;

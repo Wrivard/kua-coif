@@ -34,6 +34,12 @@ type Props = {
   /** owner/manager may issue refunds; strict barbers cannot (buttons hidden). */
   canManageMoney: boolean;
   onClose: () => void;
+  /**
+   * Plan 033 — fired on a SUCCESSFUL cancel (never on failure), right before
+   * the drawer closes. The calendar uses it to optimistically hide the block
+   * instead of leaving it on the grid until the realtime refresh.
+   */
+  onCancelled?: (id: string) => void;
   formatAmount: (n: number) => string;
 };
 
@@ -42,6 +48,7 @@ export function AppointmentDetailDrawer({
   timezone,
   canManageMoney,
   onClose,
+  onCancelled,
   formatAmount,
 }: Props) {
   const t = useTranslations('pages.appointments');
@@ -161,6 +168,7 @@ export function AppointmentDetailDrawer({
           variant: 'success',
           title: alsoRefund ? t('toasts.cancelledAndRefunded') : t('toasts.cancelled'),
         });
+        onCancelled?.(appointment.id);
         onClose();
         return;
       }

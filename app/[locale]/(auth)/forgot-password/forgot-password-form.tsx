@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { Input, Label } from '@/components/ui/input';
 import { forgotPasswordAction, type ForgotPasswordState } from './actions';
 
@@ -23,14 +24,11 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
   // /forgot-password fresh if needed.
   if (state.kind === 'ok') {
     return (
-      <div
-        role="status"
-        className="border-success/40 bg-success/10 mt-6 rounded border p-4 text-center text-sm text-success"
-      >
+      <Callout variant="success" className="mt-6 p-4 text-center">
         <CheckCircle2 className="mx-auto h-8 w-8" aria-hidden />
         <p className="mt-2 font-medium">{t('successTitle')}</p>
         <p className="mt-1 text-xs">{t('successHint')}</p>
-      </div>
+      </Callout>
     );
   }
 
@@ -45,30 +43,11 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </div>
 
-      {state.kind === 'invalid' ? (
-        <p
-          role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
-        >
-          {t('errorInvalid')}
-        </p>
-      ) : null}
+      {state.kind === 'invalid' ? <Callout variant="danger">{t('errorInvalid')}</Callout> : null}
       {state.kind === 'rate-limited' ? (
-        <p
-          role="alert"
-          className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
-        >
-          {t('errorRateLimited')}
-        </p>
+        <Callout variant="warning">{t('errorRateLimited')}</Callout>
       ) : null}
-      {state.kind === 'error' ? (
-        <p
-          role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
-        >
-          {t('errorGeneric')}
-        </p>
-      ) : null}
+      {state.kind === 'error' ? <Callout variant="danger">{t('errorGeneric')}</Callout> : null}
 
       <SubmitButton labels={labels} />
     </form>

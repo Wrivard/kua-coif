@@ -30,7 +30,13 @@ import {
 } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
-import { bulkCancelAppointments, rescheduleAppointment, resizeAppointment } from './actions';
+import {
+  bulkCancelAppointments,
+  deleteBlockedTime,
+  rescheduleAppointment,
+  resizeAppointment,
+} from './actions';
+import type { BlockedTimeOverlay } from './appointments-grid';
 import { OnboardingCard } from '@/components/features/shell/onboarding-card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -173,6 +179,12 @@ type Props = {
    */
   googleBusy?: GoogleBusyPerBarber[];
   /**
+   * Plan 040 (CAL-07) — `?appt=<id>` deep link, resolved + shop-scoped by
+   * the server. When set, the detail drawer opens for that appointment on
+   * mount (the server already rendered its day).
+   */
+  deepLinkApptId?: string | null;
+  /**
    * Phase 45 — onboarding completion signals. When omitted or all
    * fields are "done", the OnboardingCard auto-hides.
    */
@@ -249,6 +261,7 @@ export function AppointmentsCalendar({
   weekDays = [],
   blocked,
   googleBusy = [],
+  deepLinkApptId = null,
   onboarding,
 }: Props) {
   const t = useTranslations('pages.appointments');
@@ -292,12 +305,28 @@ export function AppointmentsCalendar({
   // Stable handler so memoized appointment blocks don't re-render when an
   // unrelated parent state change (drawer open, 60s now-tick, filter) fires.
   const handleApptClick = useCallback((a: CalendarAppointment) => setDrawer(a), []);
+
+  // Plan 040 (CAL-07) — `?appt=` deep link: open the drawer for the resolved
+  // appointment ONCE on mount (the server already rendered its day; checking
+  // both datasets covers `?view=week` arrivals). Mount-only on purpose:
+  // closing the drawer must not re-open it on the next render.
+  useEffect(() => {
+    if (!deepLinkApptId) return;
+    const target =
+      appointments.find((a) => a.id === deepLinkApptId) ??
+      weekAppointments.find((a) => a.id === deepLinkApptId);
+    if (target) setDrawer(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only by design
+  }, []);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
   // Loop 27 — separate state for the Block Time modal. It doesn't
   // share the create-appointment modal state because the trigger
   // (header button) doesn't carry a starting barber/minute pair —
   // the form picks sensible defaults itself.
   const [blockTimeOpen, setBlockTimeOpen] = useState(false);
+  // Plan 040 (CAL-03) — block clicked on the grid → delete confirm.
+  const [blockToDelete, setBlockToDelete] = useState<BlockedTimeOverlay | null>(null);
+  const [blockDeletePending, startBlockDeleteTransition] = useTransition();
   // Loop 28 — confirmation modal state for the "Cancel day" button.
   // `alsoRefund` is the optional toggle: when on, the bulk action
   // also refunds every paid appointment in the same call. We keep it
@@ -339,6 +368,24 @@ export function AppointmentsCalendar({
   type ApptOverride = { barber_id: string; start_at: string; end_at: string };
   const [overrides, setOverrides] = useState<Map<string, ApptOverride>>(new Map());
   const [, startTransition] = useTransition();
+  // Phase 32 — DEDICATED navigation transition, kept SEPARATE from the mutation
+  // transition above (reschedule/resize/bulk-cancel reuse that one). Day-paging
+  // and the week switch route via ?date/?view; without a transition the most-
+  // clicked control in the product freezes with zero feedback for the whole
+  // server render. `navTargetIso` is the date we're moving TO, so the header
+  // label can flip on click instead of waiting on the round-trip.
+  const [isNavPending, startNavTransition] = useTransition();
+  const [navTargetIso, setNavTargetIso] = useState<string | null>(null);
+  // Plan 033 — generalize the optimistic substrate from MOVE to CANCEL and
+  // CREATE. `hiddenIds` hides a block the instant the drawer confirms a cancel
+  // (the drawer only fires the callback on success, so there is no revert
+  // path to manage). `optimisticInserts` appends a provisional block the
+  // instant createAppointment returns ok — composed by the form modal from
+  // the same inputs the server mirrors, and carrying the REAL id the action
+  // returns, so pruning is an exact id match (no shape-match ambiguity).
+  // Both are reconciled by the prune-on-truth effect below, same as overrides.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
+  const [optimisticInserts, setOptimisticInserts] = useState<CalendarAppointment[]>([]);
   const toast = useToast();
   const tReschedule = useTranslations('pages.appointments.reschedule');
 
@@ -364,7 +411,37 @@ export function AppointmentsCalendar({
       }
       return changed ? next : prev;
     });
-  }, [appointments]);
+    // Plan 033 — drop a hidden id once truth shows the row cancelled (the grid
+    // then renders it dimmed+struck, same as a fresh page load) or no longer
+    // present (day navigation swapped the dataset; the re-fetched day will
+    // carry the cancelled status anyway).
+    setHiddenIds((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set(prev);
+      for (const id of next) {
+        const truth = appointments.find((a) => a.id === id);
+        if (!truth || truth.status === 'cancelled') {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // Plan 033 — drop a phantom once its real row arrived via realtime (exact
+    // id match), or once it no longer belongs to the displayed day (the
+    // operator navigated away; a phantom must not bleed onto another day's
+    // grid, and the re-fetched day renders the real row).
+    setOptimisticInserts((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.filter(
+        (p) =>
+          !appointments.some((a) => a.id === p.id) &&
+          shopIsoDate(new Date(p.start_at), timezone) === isoDate,
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [appointments, isoDate, timezone]);
 
   // ── Memoized derivations ──────────────────────────────────────────────
   // The calendar re-renders on every parent state change (modal/drawer
@@ -396,16 +473,35 @@ export function AppointmentsCalendar({
     return { ids, paidCount };
   }, [appointments, visibleBarbers]);
 
-  // Apply optimistic overrides on top of the server-provided list, then
+  // Apply the optimistic layers on top of the server-provided list, then
   // bucket by barber. `effectiveAppointments` is the source of truth the
-  // grid renders against.
+  // grid renders against. Order: overrides (move), then hide (cancel), then
+  // append phantoms (create) — re-sorted by start so the List view stays
+  // chronological and the overlap layout sees the same ordering the server
+  // would have sent.
   const effectiveAppointments = useMemo(() => {
-    if (overrides.size === 0) return appointments;
-    return appointments.map((a) => {
-      const o = overrides.get(a.id);
-      return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
-    });
-  }, [appointments, overrides]);
+    let list = appointments;
+    if (overrides.size > 0) {
+      list = list.map((a) => {
+        const o = overrides.get(a.id);
+        return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
+      });
+    }
+    if (hiddenIds.size > 0) {
+      list = list.filter((a) => !hiddenIds.has(a.id));
+    }
+    if (optimisticInserts.length > 0) {
+      // Guard the one-render gap where the realtime truth already contains
+      // the row but the prune effect hasn't committed yet — without this the
+      // grid would draw the same id twice for a frame.
+      const present = new Set(list.map((a) => a.id));
+      const phantoms = optimisticInserts.filter((p) => !present.has(p.id));
+      if (phantoms.length > 0) {
+        list = [...list, ...phantoms].sort((a, b) => a.start_at.localeCompare(b.start_at));
+      }
+    }
+    return list;
+  }, [appointments, overrides, hiddenIds, optimisticInserts]);
 
   // Phase 5 — List view dataset. Honors the Barbers filter the same way
   // the Side-by-Side grid does (via `selectedBarbers`), so toggling chips
@@ -768,34 +864,94 @@ export function AppointmentsCalendar({
   const shiftDate = useCallback(
     (deltaDays: number) => {
       const next = shopIsoDate(addDays(dayRef, deltaDays), timezone);
+      setNavTargetIso(next);
       const url = new URL(window.location.href);
       url.searchParams.set('date', next);
-      router.push(url.pathname + '?' + url.searchParams.toString());
+      // Plan 040 (CAL-07) — a consumed `?appt=` deep link must not pin every
+      // later navigation back to that appointment's day.
+      url.searchParams.delete('appt');
+      startNavTransition(() => {
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      });
     },
     [dayRef, timezone, router],
   );
   const jumpToday = useCallback(() => {
+    setNavTargetIso(today);
     const url = new URL(window.location.href);
     url.searchParams.set('date', today);
-    router.push(url.pathname + '?' + url.searchParams.toString());
+    url.searchParams.delete('appt');
+    startNavTransition(() => {
+      router.push(url.pathname + '?' + url.searchParams.toString());
+    });
   }, [router, today]);
+  // Plan 040 (CAL-04) — direct date jump. "Three Thursdays from now" was ~21
+  // chevron clicks, each a full server re-render; the native date input rides
+  // the same ?date= contract + 032 nav transition, and is keyboard-accessible
+  // for free. Guarded against the empty string a cleared input emits.
+  const jumpToDate = useCallback(
+    (nextIso: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nextIso)) return;
+      setNavTargetIso(nextIso);
+      const url = new URL(window.location.href);
+      url.searchParams.set('date', nextIso);
+      url.searchParams.delete('appt');
+      startNavTransition(() => {
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      });
+    },
+    [router],
+  );
 
   // View toggle. Side-by-Side ⇄ List is instant local state (both share the
-  // day-scoped dataset). Switching to/from Week also syncs `?view=` so the
-  // Server Component (re)fetches the week-range dataset — the week grid has
-  // no data otherwise. We keep local `view` in sync immediately so the tab
-  // reflects the choice before the navigation resolves.
+  // day-scoped dataset). Switching to/from Week also (re)fetches the
+  // week-range dataset through the server — the week grid has no data
+  // otherwise. We keep local `view` in sync immediately so the tab reflects
+  // the choice before the navigation resolves.
+  //
+  // Plan 040 (CAL-09) — EVERY switch now syncs `?view=` (List used to be
+  // lost on reload/share because only the week legs wrote the URL).
+  // `router.replace` keeps flipping views from spamming history;
+  // side-by-side stays the no-param default.
   const changeView = useCallback(
     (next: CalendarView) => {
       setView(next);
+      const url = new URL(window.location.href);
+      if (next === 'side-by-side') url.searchParams.delete('view');
+      else url.searchParams.set('view', next);
+      url.searchParams.delete('appt');
+      const target = url.pathname + '?' + url.searchParams.toString();
       if (next === 'week' || view === 'week') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('view', next);
-        router.push(url.pathname + '?' + url.searchParams.toString());
+        // Week legs change the DATASET → ride the nav transition so the
+        // pending treatment (grid skeleton) kicks in.
+        startNavTransition(() => {
+          router.replace(target);
+        });
+      } else {
+        // Side-by-Side ⇄ List is visually instant (local state already
+        // switched); the replace just keeps the URL truthful.
+        router.replace(target);
       }
     },
     [router, view],
   );
+
+  // Plan 040 (CAL-03) — confirmed delete of one blocked-time occurrence.
+  // The action revalidates the route, so the freed slot reappears with the
+  // server re-render; no optimistic bookkeeping needed for a rare admin op.
+  const onConfirmDeleteBlock = useCallback(() => {
+    const target = blockToDelete;
+    if (!target) return;
+    startBlockDeleteTransition(async () => {
+      const result = await deleteBlockedTime({ id: target.id });
+      if (result.ok) {
+        toast.show({ variant: 'success', title: t('deleteBlock.toasts.deleted') });
+      } else {
+        toast.show({ variant: 'danger', title: t('deleteBlock.toasts.failed') });
+      }
+      setBlockToDelete(null);
+    });
+  }, [blockToDelete, t, toast]);
 
   const onSlotClick = useCallback(
     (barberId: string, e: React.MouseEvent<HTMLDivElement>) => {
@@ -837,13 +993,20 @@ export function AppointmentsCalendar({
     });
   }, [bulkCancelTargets.ids, bulkAlsoRefund, t, toast]);
 
+  // Phase 32 — while a day/today nav is pending, render the TARGET date in the
+  // header so the label flips on click; falls back to dayRef once the new
+  // isoDate prop lands (isNavPending clears in the same commit). Same Date shape
+  // as dayRef (`:258`) so formatHeaderDate is consistent.
+  const headerDateRef =
+    isNavPending && navTargetIso ? new Date(`${navTargetIso}T12:00:00Z`) : dayRef;
+
   return (
     <>
       <PageHeader
         title={t('title')}
         subtitle={
           <span className="text-xl font-semibold tabular-nums tracking-tight text-text-primary">
-            {formatHeaderDate(dayRef, locale === 'fr' ? 'fr' : 'en', timezone)}
+            {formatHeaderDate(headerDateRef, locale === 'fr' ? 'fr' : 'en', timezone)}
           </span>
         }
         center={
@@ -867,13 +1030,23 @@ export function AppointmentsCalendar({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            {/* Plan 040 (CAL-04) — direct date jump. Controlled by the
+                optimistic nav target so the picker matches the header date
+                mid-transition. */}
+            <input
+              type="date"
+              value={isNavPending && navTargetIso ? navTargetIso : isoDate}
+              onChange={(e) => jumpToDate(e.target.value)}
+              aria-label={t('jumpToDate')}
+              className="h-8 rounded-md bg-bg-surface-2 px-2 text-xs text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
+            />
             {/* Phase 26 — Realtime refresh indicator. CSS-only fade keeps it
                 from stealing focus; aria-live='polite' announces to screen
                 readers without interrupting. */}
             <span
               aria-live="polite"
               className={cn(
-                'border-success/30 bg-success/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
+                'inline-flex h-6 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
                 justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >
@@ -885,7 +1058,7 @@ export function AppointmentsCalendar({
             <span
               aria-live="polite"
               className={cn(
-                'border-warning/30 bg-warning/10 inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
+                'inline-flex h-6 items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
                 realtimeStale ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >
@@ -1007,55 +1180,69 @@ export function AppointmentsCalendar({
           </div>
         )}
 
-        {/* Calendar grid — Phase 33 round 2 dialed the visual noise way
-            down to match the Squire-style reference: NO alternating
-            hour bands (uniform background), borders at 20-25% opacity,
-            container on bg-bg-base (pure dark) instead of bg-bg-surface
-            (the gray-tinted surface). Appointments pop now because the
-            grid recedes. */}
-        {view === 'side-by-side' && (
-          <AppointmentsGrid
-            visibleBarbers={visibleBarbers}
-            apptsByBarber={apptsByBarber}
-            apptLayout={apptLayout}
-            blocksByBarber={blocksByBarber}
-            googleBusyByBarber={googleBusyByBarber}
-            timezone={timezone}
-            startMin={startMin}
-            endMin={endMin}
-            gridHeightPx={gridHeightPx}
-            hourLabels={hourLabels}
-            nowMin={nowMin}
-            locale={locale}
-            onSlotClick={onSlotClick}
-            onApptClick={handleApptClick}
-            onDragEnd={handleDragEnd}
-            onResize={handleResize}
-            t={t}
-          />
-        )}
+        {/* Phase 32 — dim + lock the calendar while a nav is pending so the
+            most-clicked control reads as "working", not frozen. The prior pane
+            stays visible (dimmed) until the server render lands — no blank
+            flash. The week branch is the exception: switching INTO week has no
+            data yet, so it shows a skeleton rather than an empty grid. */}
+        <div className={cn('transition-opacity', isNavPending && 'pointer-events-none opacity-60')}>
+          {/* Calendar grid — Phase 33 round 2 dialed the visual noise way
+              down to match the Squire-style reference: NO alternating
+              hour bands (uniform background), borders at 20-25% opacity,
+              container on bg-bg-base (pure dark) instead of bg-bg-surface
+              (the gray-tinted surface). Appointments pop now because the
+              grid recedes. */}
+          {view === 'side-by-side' && (
+            <AppointmentsGrid
+              visibleBarbers={visibleBarbers}
+              apptsByBarber={apptsByBarber}
+              apptLayout={apptLayout}
+              blocksByBarber={blocksByBarber}
+              googleBusyByBarber={googleBusyByBarber}
+              timezone={timezone}
+              startMin={startMin}
+              endMin={endMin}
+              gridHeightPx={gridHeightPx}
+              hourLabels={hourLabels}
+              nowMin={nowMin}
+              locale={locale}
+              onSlotClick={onSlotClick}
+              onApptClick={handleApptClick}
+              onBlockClick={setBlockToDelete}
+              onDragEnd={handleDragEnd}
+              onResize={handleResize}
+              t={t}
+            />
+          )}
 
-        {view === 'week' && (
-          <AppointmentsWeekView
-            appointments={weekListAppointments}
-            weekDays={weekDays}
-            selectedIsoDate={isoDate}
-            barbers={barbers}
-            timezone={timezone}
-            daysOff={daysOff}
-            onApptClick={handleApptClick}
-          />
-        )}
+          {view === 'week' &&
+            (isNavPending && weekListAppointments.length === 0 ? (
+              // Switching INTO week: weekListAppointments is still [] until the
+              // ?view=week server fetch lands — show a grid skeleton instead of
+              // an empty week grid (which momentarily reads as "no bookings").
+              <GridSkeleton />
+            ) : (
+              <AppointmentsWeekView
+                appointments={weekListAppointments}
+                weekDays={weekDays}
+                selectedIsoDate={isoDate}
+                barbers={barbers}
+                timezone={timezone}
+                daysOff={daysOff}
+                onApptClick={handleApptClick}
+              />
+            ))}
 
-        {view === 'list' && (
-          <AppointmentsListView
-            appointments={listAppointments}
-            barbers={barbers}
-            timezone={timezone}
-            locale={locale}
-            onApptClick={handleApptClick}
-          />
-        )}
+          {view === 'list' && (
+            <AppointmentsListView
+              appointments={listAppointments}
+              barbers={barbers}
+              timezone={timezone}
+              locale={locale}
+              onApptClick={handleApptClick}
+            />
+          )}
+        </div>
       </div>
 
       <AppointmentDetailDrawer
@@ -1063,6 +1250,7 @@ export function AppointmentsCalendar({
         timezone={timezone}
         canManageMoney={canManageMoney}
         onClose={() => setDrawer(null)}
+        onCancelled={(id) => setHiddenIds((prev) => new Set(prev).add(id))}
         formatAmount={(n) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en')}
       />
 
@@ -1070,10 +1258,18 @@ export function AppointmentsCalendar({
         <AppointmentFormModal
           mode={modal}
           isoDate={isoDate}
+          timezone={timezone}
           barbers={visibleBarbers.length > 0 ? visibleBarbers : barbers}
           services={services}
           categories={categories}
           clients={clients}
+          onCreated={(appt) => {
+            // The form's date field is editable — only show the phantom if the
+            // new appointment actually falls on the displayed day; a block for
+            // another day would render at a meaningless position here.
+            if (shopIsoDate(new Date(appt.start_at), timezone) !== isoDate) return;
+            setOptimisticInserts((prev) => [...prev, appt]);
+          }}
           onClose={() => setModal({ kind: 'closed' })}
         />
       )}
@@ -1127,6 +1323,32 @@ export function AppointmentsCalendar({
           if (bulkPending) return;
           setBulkCancelOpen(false);
           setBulkAlsoRefund(false);
+        }}
+      />
+
+      {/* Plan 040 (CAL-03) — delete one blocked-time occurrence. The
+          description echoes the block's window + reason so the operator
+          confirms the RIGHT block (several can share a day). */}
+      <ConfirmDialog
+        open={blockToDelete !== null}
+        title={t('deleteBlock.confirmTitle')}
+        description={
+          blockToDelete
+            ? t('deleteBlock.confirmDescription', {
+                start: formatShopTime(new Date(blockToDelete.start_at), timezone, 'HH:mm'),
+                end: formatShopTime(new Date(blockToDelete.end_at), timezone, 'HH:mm'),
+                reason: blockToDelete.reason ?? t('blocked'),
+              })
+            : ''
+        }
+        confirmLabel={t('deleteBlock.confirmButton')}
+        cancelLabel={t('deleteBlock.cancelButton')}
+        destructive
+        loading={blockDeletePending}
+        onConfirm={onConfirmDeleteBlock}
+        onCancel={() => {
+          if (blockDeletePending) return;
+          setBlockToDelete(null);
         }}
       />
     </>

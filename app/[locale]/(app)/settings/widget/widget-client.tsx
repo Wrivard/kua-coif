@@ -94,7 +94,9 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
   const previewUrl = useMemo(() => {
     if (!shopAlias) return null;
     const previewLocale = watchedLocale || (locale === 'en' ? 'en' : 'fr');
-    return `/${previewLocale}/embed/${encodeURIComponent(shopAlias)}?preview=1&v=${previewVersion}`;
+    // Plan 038 (PERF-01) — the live preview rides its own always-dynamic
+    // route so the public embed page can be ISR-cached per (locale, slug).
+    return `/${previewLocale}/embed/${encodeURIComponent(shopAlias)}/preview?v=${previewVersion}`;
   }, [shopAlias, locale, previewVersion, watchedLocale]);
 
   // ── Live preview broadcast ─────────────────────────────────────────────
@@ -194,6 +196,14 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
   //     to inject a fixed bottom-right "Book" button instead.
   //   - modal: salon's own button calls Kua.open() — no div needed.
   const watchedSnippetMode = watch('snippet_mode');
+  // Plan 038 (UX-05) — the snippet bakes the SAVED brand color into
+  // data-kua-button-color so the floating button matches the salon's
+  // accent on their own site, and the modal snippet ships the
+  // command-queue stub so a "Book now" click that lands before the async
+  // widget.js evaluates queues instead of throwing. Unlike the color-picker
+  // `watchedAccent` below, NO default here — an unset accent emits no
+  // attribute (widget.js keeps its stock pill).
+  const snippetAccent = watch('accent_color');
   const snippet = useMemo(() => {
     if (!shopAlias) return '';
     const origin =
@@ -201,9 +211,10 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
     const snippetLocale = watchedLocale || initial.default_locale;
     const scriptTag = `<script src="${origin}/widget.js" async></script>`;
     if (watchedSnippetMode === 'floating-button') {
+      const colorAttr = snippetAccent ? ` data-kua-button-color="${snippetAccent}"` : '';
       return [
         `<!-- Küa booking widget (floating button) -->`,
-        `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}" data-kua-mode="floating-button"></div>`,
+        `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}" data-kua-mode="floating-button"${colorAttr}></div>`,
         scriptTag,
       ].join('\n');
     }
@@ -211,6 +222,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
       const label = snippetLocale === 'en' ? 'Book now' : 'Réserver maintenant';
       return [
         `<!-- Küa booking widget (modal API) -->`,
+        `<script>window.Kua=window.Kua||{q:[],open:function(){this.q.push(arguments)}};</script>`,
         `<button onclick="Kua.open('${shopAlias}', { locale: '${snippetLocale}' })">${label}</button>`,
         scriptTag,
       ].join('\n');
@@ -220,7 +232,7 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
       `<div data-kua-widget="${shopAlias}" data-kua-locale="${snippetLocale}"></div>`,
       scriptTag,
     ].join('\n');
-  }, [shopAlias, watchedLocale, initial.default_locale, watchedSnippetMode]);
+  }, [shopAlias, watchedLocale, initial.default_locale, watchedSnippetMode, snippetAccent]);
 
   function copySnippet() {
     if (!snippet) return;
@@ -403,10 +415,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                 </div>
                 <div>
                   <Label htmlFor="font_family">{t('fields.font')}</Label>
+                  {/* Plan 038 (CORRECTNESS-06) — 'inter' removed: only Geist is
+                      loaded and the CSP blocks an external font fetch, so the
+                      option silently did nothing. */}
                   <Select id="font_family" {...register('font_family')}>
                     <option value="system">System</option>
                     <option value="geist">Geist</option>
-                    <option value="inter">Inter</option>
                   </Select>
                 </div>
                 <div>
@@ -585,12 +599,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                     error supersedes the warning — they can't co-occur (a
                     bad line means the list isn't empty). */}
                 {originsHasError ? (
-                  <div className="border-danger/30 bg-danger/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-danger">
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
                     <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>{t('fields.allowedOriginsError')}</p>
                   </div>
                 ) : allowedOriginsEmpty ? (
-                  <div className="border-warning/30 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-warning">
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>{t('fields.allowedOriginsWarning')}</p>
                   </div>

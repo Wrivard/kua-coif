@@ -169,10 +169,17 @@ export function AppointmentsWeekView({
                           {t('online')}
                         </Badge>
                       ) : null}
-                      <CreditCard
-                        aria-hidden
-                        className="absolute bottom-1 right-1 h-3 w-3 text-success"
-                      />
+                      {/* Plan 039 (CAL-01) — gate on payment_status (was
+                          unconditional, same false signal as the day grid). */}
+                      {a.payment_status === 'paid' ? (
+                        <>
+                          <CreditCard
+                            aria-hidden
+                            className="absolute bottom-1 right-1 h-3 w-3 text-success"
+                          />
+                          <span className="sr-only">{t('paid')}</span>
+                        </>
+                      ) : null}
                     </button>
                   ))
                 )}

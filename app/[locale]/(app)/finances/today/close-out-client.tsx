@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -16,16 +17,16 @@ import { Button } from '@/components/ui/button';
  * the action bar), and force a sensible `@page` margin.
  */
 export function CloseOutClient({
-  locale,
   autoPrint,
   children,
 }: {
-  locale: string;
   autoPrint: boolean;
   children: ReactNode;
 }) {
-  const isFr = locale === 'fr';
-  const printLabel = isFr ? 'Imprimer' : 'Print';
+  // Plan 041 (FIN-04) — the hardcoded 'Imprimer'/'Print' pair was the last
+  // component-code string on this page; route it through next-intl like
+  // everything else (and drop the now-unused locale prop).
+  const t = useTranslations('pages.finances.today');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -80,9 +81,9 @@ export function CloseOutClient({
         }
       `}</style>
 
-      <div className="no-print bg-bg-base/95 sticky top-[--header-h] z-10 flex justify-end gap-2 border-b border-border px-6 py-3 backdrop-blur">
+      <div className="no-print sticky top-[--header-h] z-10 flex justify-end gap-2 border-b border-border bg-bg-base/95 px-6 py-3 backdrop-blur">
         <Button type="button" size="sm" variant="secondary" onClick={() => window.print()}>
-          <Printer className="h-3.5 w-3.5" /> {printLabel}
+          <Printer className="h-3.5 w-3.5" /> {t('print')}
         </Button>
       </div>
 

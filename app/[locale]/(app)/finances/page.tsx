@@ -4,7 +4,6 @@ import { getCurrentShop, requireShopMember, requireRoleInCurrentShop } from '@/l
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { shopIsoDate } from '@/lib/business/timezone';
 import { RevenueTrendChart } from '@/components/ui/revenue-trend-chart-lazy';
@@ -14,6 +13,7 @@ import {
   type CommissionTierDbRow,
 } from '@/lib/business/commissions';
 import { captureException } from '@/lib/observability';
+import { DateRangeFilter } from './date-range-filter';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,8 +23,9 @@ export const dynamic = 'force-dynamic';
  *
  * URL contract: `?start=YYYY-MM-DD&end=YYYY-MM-DD` defines the inclusive
  * range in the shop's local timezone. Either parameter missing → fall back
- * to the current month. The HTML form below submits as a plain GET so we
- * stay server-rendered (no client-side state, no React-Hook-Form).
+ * to the current month. The range filter is a thin client leaf
+ * (`date-range-filter.tsx`) that pushes the same query string as a soft
+ * navigation; this page stays a server component reading `searchParams`.
  *
  * Manager+ only — barbers shouldn't see shop-wide revenue. They can still
  * see their own appointments on the calendar.
@@ -353,66 +354,20 @@ export default async function FinancesPage(props: {
         {rangeTruncated ? (
           <div
             role="alert"
-            className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
+            className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
           >
             {t('truncated')}
           </div>
         ) : null}
-        {/* Date-range filter — Phase 51. Plain GET form so the URL is
-            shareable / bookmarkable, and the server-side render
-            re-runs with the new range without any client JS. */}
-        <form
-          method="get"
-          className="flex flex-wrap items-end gap-3 rounded-lg bg-bg-surface p-4 shadow-sm"
-        >
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="start"
-              className="text-[11px] font-semibold uppercase tracking-wide text-text-muted"
-            >
-              {t('rangeForm.start')}
-            </label>
-            <input
-              id="start"
-              name="start"
-              type="date"
-              defaultValue={rangeStartIso}
-              className="h-10 rounded-lg bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="end"
-              className="text-[11px] font-semibold uppercase tracking-wide text-text-muted"
-            >
-              {t('rangeForm.end')}
-            </label>
-            <input
-              id="end"
-              name="end"
-              type="date"
-              defaultValue={rangeEndIso}
-              className="h-10 rounded-lg bg-bg-surface-2 px-3 text-sm text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
-            />
-          </div>
-          {/* Wrap button + reset link in their own flex row so they
-              baseline with the date inputs' bottom edge instead of
-              floating midway. `pb-px` nudges them down 1px to align
-              perfectly with the 40px-tall inputs. */}
-          <div className="flex items-center gap-2 pb-px">
-            <Button type="submit" size="sm">
-              {t('rangeForm.apply')}
-            </Button>
-            {!isDefaultRange ? (
-              <a
-                href="?"
-                className="rounded-md px-3 py-2 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-              >
-                {t('rangeForm.thisMonth')}
-              </a>
-            ) : null}
-          </div>
-        </form>
+        {/* Date-range filter — Phase 51 fields, plan 034 soft-nav. The URL
+            still carries ?start&end (shareable / bookmarkable), but applying
+            a range is a client-side router.push so the shell doesn't full-
+            reload (the old `<form method="get">` re-downloaded the document). */}
+        <DateRangeFilter
+          rangeStartIso={rangeStartIso}
+          rangeEndIso={rangeEndIso}
+          isDefaultRange={isDefaultRange}
+        />
 
         {/* KPI hero band — gross revenue is the dominant lead (display-xl
             + the screen's single accent beat: accent eyebrow, hairline and
@@ -420,7 +375,7 @@ export default async function FinancesPage(props: {
             display-sm so the eye lands on revenue first. Atmosphere stays
             neutral (var(--hero-glow)) per contract C5. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="border-accent/15 relative overflow-hidden rounded-xl border bg-bg-surface p-6 shadow-accent-md">
+          <div className="relative overflow-hidden rounded-xl border border-accent/15 bg-bg-surface p-6 shadow-accent-md">
             <div aria-hidden className="bg-hero-glow pointer-events-none absolute inset-0" />
             <div className="relative flex h-full flex-col justify-center">
               <p className="type-eyebrow text-accent">{t('kpis.grossRevenue')}</p>

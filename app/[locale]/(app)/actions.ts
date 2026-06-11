@@ -21,6 +21,7 @@ import {
   bulkCancelAppointmentsSchema,
   cancelAppointmentSchema,
   chargeAppointmentSchema,
+  deleteBlockedTimeSchema,
   refundAppointmentSchema,
   rescheduleAppointmentSchema,
   resizeAppointmentSchema,
@@ -1281,6 +1282,54 @@ export const blockTime = withAction<typeof blockTimeSchema, { ids: string[]; cou
     });
     revalidatePath(APPOINTMENTS_PATH);
     return ok({ ids: inserted.map((r) => r.id), count: inserted.length });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// deleteBlockedTime — plan 040 (CAL-03)
+//
+// Blocked time used to be permanent (the grid overlay had no handler), so a
+// barber back early or a mis-entered recurring block ate bookable inventory
+// until someone ran SQL. Mirrors `blockTime`: same manager gate, same
+// tenant scope. Deletes ONE occurrence — recurring sets fan out into
+// independent rows at insert, so each occurrence is just its row.
+// ---------------------------------------------------------------------------
+export const deleteBlockedTime = withAction<typeof deleteBlockedTimeSchema, { id: string }>({
+  schema: deleteBlockedTimeSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const sb = rawDb();
+    // The shop_id filter is the load-bearing line: a destructive action must
+    // only ever match rows inside the active shop, whatever id was passed.
+    const del = await sb
+      .from('blocked_time')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id, barber_id, start_at, end_at, reason');
+    if (del.error) return err('UNEXPECTED');
+    const removed = ((del.data as Array<{
+      id: string;
+      barber_id: string | null;
+      start_at: string;
+      end_at: string;
+      reason: string | null;
+    }> | null) ?? [])[0];
+    if (!removed) return err('NOT_FOUND');
+
+    // Durable trail: blocked_time has no audit trigger and `logAuditAction`
+    // is a runtime no-op, so without this line the deletion of bookable
+    // inventory would leave zero trace.
+    await logDurableAudit({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'delete',
+      entity: 'blocked_time',
+      entityId: removed.id,
+      diff: { before: removed },
+    });
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ id: removed.id });
   },
 });
 

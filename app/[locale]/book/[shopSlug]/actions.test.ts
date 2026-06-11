@@ -234,6 +234,33 @@ describe('bookPublicAppointment', () => {
     expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
   });
 
+  it('an unexpected post-charge THROW refunds the PI before returning UNEXPECTED (036b)', async () => {
+    // Plan 036 routed every post-charge `return err(...)` through failBooking,
+    // but an uncaught EXCEPTION (e.g. a Stripe network failure inside the PI
+    // verify) bypassed them and hit the final catch — UNEXPECTED with the
+    // customer still charged. The hoisted refund net must give the money back.
+    h.verifyDepositPaymentIntent.mockRejectedValue(new Error('stripe network exploded'));
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }));
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'UNEXPECTED' });
+    // The refund ran with the charged PI, scoped to THIS shop's account.
+    expect(h.refundOwnedIntentBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentIntentId: 'pi_abcdefgh1234',
+        expectedConnectedAccountId: 'acct_THIS',
+      }),
+    );
+    // The throw fired before the insert — no appointment exists, so the
+    // refund really is "charged but unbooked", never a booked customer.
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+  });
+
   it('promo first_appointment_only with a prior appointment → INVALID_INPUT { promo_code: first_only }', async () => {
     const mock = createSupabaseMock(
       baseFixtures({
@@ -305,6 +332,59 @@ describe('bookPublicAppointment', () => {
     const del = mock.calls.find((c) => c.table === 'appointments' && c.op === 'delete');
     expect(del).toBeDefined();
     expect(del?.filters.some(([k]) => k === 'id')).toBe(true);
+  });
+
+  it('post-charge promo rejection refunds the charged PI (plan 036 refund routing)', async () => {
+    // No promo_codes fixture → the typed code resolves to `invalid`. This
+    // rejection happens AFTER the client-side charge, so the refund net must
+    // fire — before plan 036 this path returned a plain err() and kept the
+    // customer's money.
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }));
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({
+        promo_code: 'NOPE',
+        payment_intent_id: 'pi_abcdefgh1234',
+        deposit_amount_cents: 3000,
+      }),
+    );
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'INVALID_INPUT',
+      fieldErrors: { promo_code: 'invalid' },
+    });
+    expect(h.refundOwnedIntentBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentIntentId: 'pi_abcdefgh1234',
+        expectedConnectedAccountId: 'acct_THIS',
+      }),
+    );
+    // The rejection is strictly pre-insert — no appointment row was created.
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+  });
+
+  it('turnstile failure is PRE-charge: returns without any refund call', async () => {
+    // The turnstile gate runs before the shop is even resolved — no PI can be
+    // scoped to a shop there, so the refund net must NOT fire (plan 036
+    // keeps the pre-failBooking returns as plain err()).
+    h.verifyTurnstile.mockResolvedValue({ ok: false, reason: 'invalid' });
+    const mock = createSupabaseMock(baseFixtures());
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'INVALID_INPUT',
+      fieldErrors: { cf_turnstile_response: 'invalid' },
+    });
+    expect(h.refundOwnedIntentBestEffort).not.toHaveBeenCalled();
+    expect(mock.calls).toHaveLength(0);
   });
 
   it('honeypot filled → rejected with ZERO database calls', async () => {

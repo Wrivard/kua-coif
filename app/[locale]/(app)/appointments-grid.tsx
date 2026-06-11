@@ -69,10 +69,20 @@ type AppointmentsGridProps = {
   locale: string;
   onSlotClick: (barberId: string, e: MouseEvent<HTMLDivElement>) => void;
   onApptClick: (a: CalendarAppointment) => void;
+  /** Plan 040 (CAL-03) — a blocked-time overlay opens the parent's delete confirm. */
+  onBlockClick: (b: BlockedTimeOverlay) => void;
   onDragEnd: (event: DragEndEvent) => void;
   /** Drag-to-resize the bottom edge of a block → new end_at (ISO UTC). */
   onResize: (apptId: string, newEndIso: string) => void;
   t: TFn;
+};
+
+export type BlockedTimeOverlay = {
+  id: string;
+  barber_id: string | null;
+  start_at: string;
+  end_at: string;
+  reason: string | null;
 };
 
 export function AppointmentsGrid({
@@ -90,6 +100,7 @@ export function AppointmentsGrid({
   locale,
   onSlotClick,
   onApptClick,
+  onBlockClick,
   onDragEnd,
   onResize,
   t,
@@ -138,6 +149,7 @@ export function AppointmentsGrid({
               nowMin={nowMin}
               onSlotClick={onSlotClick}
               onApptClick={onApptClick}
+              onBlockClick={onBlockClick}
               onResize={onResize}
               t={t}
             />
@@ -177,6 +189,7 @@ type BarberColumnProps = {
   nowMin: number | null;
   onSlotClick: (barberId: string, e: MouseEvent<HTMLDivElement>) => void;
   onApptClick: (a: CalendarAppointment) => void;
+  onBlockClick: (b: BlockedTimeOverlay) => void;
   onResize: (apptId: string, newEndIso: string) => void;
   t: TFn;
 };
@@ -195,6 +208,7 @@ function BarberColumn({
   nowMin,
   onSlotClick,
   onApptClick,
+  onBlockClick,
   onResize,
   t,
 }: BarberColumnProps) {
@@ -282,7 +296,10 @@ function BarberColumn({
         {/* Blocked time overlays — Phase 48: rounded-md (was rounded-sm)
             and slightly thicker left margins for clearer separation from
             the column edges. Still uses danger color tone since these
-            are owner-enforced "do not book". */}
+            are owner-enforced "do not book".
+            Plan 040 (CAL-03) — the overlay is now a button: clicking it
+            opens the parent's delete confirm (stopPropagation keeps the
+            slot-create flow from firing underneath). */}
         {barberBlocks.map((b) => {
           const top = (minutesFromShopMidnight(b.start_at, timezone) - startMin) * PX_PER_MIN;
           const height =
@@ -290,14 +307,19 @@ function BarberColumn({
               minutesFromShopMidnight(b.start_at, timezone)) *
             PX_PER_MIN;
           return (
-            <div
+            <button
               key={b.id}
-              className="border-danger/20 bg-danger/10 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border text-[11px] font-medium text-danger"
+              type="button"
+              aria-label={t('deleteBlock.ariaOpen')}
+              className="absolute left-1.5 right-1.5 flex cursor-pointer items-center justify-center rounded-md border border-danger/20 bg-danger/10 text-[11px] font-medium text-danger transition-colors duration-150 ease-out-quint hover:bg-danger/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               style={{ top: `${top}px`, height: `${height}px` }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onBlockClick(b);
+              }}
             >
               <XOctagon className="mr-1 h-3 w-3" /> {b.reason ?? t('blocked')}
-            </div>
+            </button>
           );
         })}
 
@@ -315,7 +337,7 @@ function BarberColumn({
           return (
             <div
               key={`gbusy-${idx}-${g.start}`}
-              className="bg-bg-surface-2/60 absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-border-soft text-[10px] font-medium uppercase tracking-wide text-text-muted"
+              className="absolute left-1.5 right-1.5 flex items-center justify-center rounded-md border border-border-soft bg-bg-surface-2/60 text-[10px] font-medium uppercase tracking-wide text-text-muted"
               style={{
                 top: `${top}px`,
                 height: `${height}px`,
@@ -489,7 +511,15 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
           {t('online')}
         </Badge>
       ) : null}
-      <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+      {/* Plan 039 (CAL-01) — the paid glyph rendered on EVERY block, a false
+          "collected" signal on the busiest screen. Gate it on payment_status
+          and give screen readers the label the aria-hidden glyph drops. */}
+      {appointment.payment_status === 'paid' ? (
+        <>
+          <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+          <span className="sr-only">{t('paid')}</span>
+        </>
+      ) : null}
       {/* Drag-to-resize handle — a thin strip on the bottom edge. Pointer-only
           (aria-hidden); keyboard users adjust time via the detail drawer. The
           grip reveals on block hover. stopPropagation keeps it from starting a

@@ -100,12 +100,24 @@ function Row({
   const actorName = row.actor.fullName ?? row.actor.email;
   return (
     <>
+      {/* Plan 039 (SET-03) — the expandable row was mouse-only; expose it as
+          a keyboard-operable button (Enter/Space toggle, focus ring). */}
       <tr
         className={cn(
           'cursor-pointer border-b border-border transition-colors hover:bg-bg-surface-2',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
           isOpen && 'bg-bg-surface-2',
         )}
         onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
       >
         <td className="px-2">
           {isOpen ? (

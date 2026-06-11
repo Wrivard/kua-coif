@@ -1,4 +1,4 @@
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
@@ -28,11 +28,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     .limit(1);
   const shop = ((data as Array<{ name: string; description: string | null }> | null) ?? [])[0];
   if (!shop) return { title: 'Booking' };
+  // BUG-07 — localize the title/description on the route locale instead of
+  // hardcoding French, so EN share links / browser tabs / search snippets read
+  // English. The shop's own `description` still overrides when present.
+  const t = await getTranslations({ locale: params.locale, namespace: 'pages.booking.meta' });
+  const title = t('title', { name: shop.name });
   return {
-    title: `${shop.name} · Réserver en ligne`,
-    description: shop.description ?? `Réserve ton rendez-vous chez ${shop.name}.`,
+    title,
+    description: shop.description ?? t('description', { name: shop.name }),
     openGraph: {
-      title: `${shop.name} · Réserver en ligne`,
+      title,
       description: shop.description ?? undefined,
       type: 'website',
     },
@@ -182,7 +187,7 @@ export default async function BookingPage(props: Props) {
       {shop.marketing_banner_enabled && shop.marketing_banner_text ? (
         <div
           role="status"
-          className="border-accent/30 mb-6 rounded-xl border bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-warm-sm"
+          className="mb-6 rounded-xl border border-accent/30 bg-accent-subtle p-4 text-center text-sm text-text-primary shadow-warm-sm"
         >
           {shop.marketing_banner_text}
         </div>

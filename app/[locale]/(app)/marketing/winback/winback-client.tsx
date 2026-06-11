@@ -1,10 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Send, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
 import { sendWinbackCampaign } from './actions';
@@ -71,8 +74,12 @@ function formatRelative(iso: string, locale: 'fr' | 'en'): string {
 export function WinbackClient({ locale, candidates, labels }: Props) {
   const L = labels;
   const { show } = useToast();
+  const tCommon = useTranslations('common');
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
+  // Plan 039 (MKT-01) — the native confirm() is now a themed ConfirmDialog.
+  const [confirmSend, setConfirmSend] = useState(false);
 
   // Loop 64 SR — bulk-select cap matches the schema cap (50), which
   // matches Vercel Hobby's 10s server-action timeout. Above 50 the
@@ -101,8 +108,14 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
   const fmtLocale: 'fr' | 'en' = locale === 'en' ? 'en' : 'fr';
 
   function onSend() {
+    // Plan 039 (MKT-01) — same treatment as the review campaign: themed
+    // confirm + router.refresh() so the result toast survives the re-fetch.
     if (selectedIds.length === 0) return;
-    if (!confirm((L?.confirm ?? '').replace('{count}', String(selectedIds.length)))) return;
+    setConfirmSend(true);
+  }
+
+  function doSend() {
+    setConfirmSend(false);
     startSend(async () => {
       const result = await sendWinbackCampaign({ client_ids: selectedIds });
       if (result.ok) {
@@ -122,7 +135,7 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
           });
         }
         setSelected(new Set());
-        window.location.reload();
+        router.refresh();
       } else {
         show({ variant: 'danger', title: L?.failedToast ?? 'Failed' });
       }
@@ -226,6 +239,18 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
             .replace('{total}', String(candidates.length))}
         </p>
       </div>
+
+      {/* Plan 039 (MKT-01) — themed confirm for the irreversible bulk send. */}
+      <ConfirmDialog
+        open={confirmSend}
+        title={tCommon('actions.confirm')}
+        description={(L?.confirm ?? '').replace('{count}', String(selectedIds.length))}
+        loading={sending}
+        confirmLabel={L?.send ?? tCommon('actions.confirm')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={doSend}
+        onCancel={() => setConfirmSend(false)}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireRoleInCurrentShop, requireShopMember } from '@/lib/auth/server';
 import type { Json } from '@/db/types';
 import { AuditLogClient, type AuditLogRow } from './audit-log-client';
 
@@ -28,6 +28,15 @@ export default async function AuditLogPage(props: { params: Promise<{ locale: st
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');
 
+  // Plan 039 (SET-03) — scope to the ACTIVE shop. Without it a multi-shop
+  // owner saw every shop's entries interleaved, and the 100-row cap could
+  // hide the active shop's recent activity entirely. `requireShopMember`
+  // above guarantees a membership; the null guard is defensive.
+  const shopId = await getCurrentShopId();
+  if (!shopId) {
+    return <AuditLogClient locale={locale} rows={[]} />;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = createSupabaseServerClient() as any;
   // Pull the latest 100 entries. We don't fetch the `diff` JSON here because
@@ -37,6 +46,7 @@ export default async function AuditLogPage(props: { params: Promise<{ locale: st
   const res = await sb
     .from('audit_log')
     .select('id, occurred_at, actor_id, action, entity, entity_id, diff')
+    .eq('shop_id', shopId)
     .order('occurred_at', { ascending: false })
     .limit(100);
   const rows =

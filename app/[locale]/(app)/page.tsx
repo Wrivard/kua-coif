@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ date?: string; view?: string }>;
+  searchParams: Promise<{ date?: string; view?: string; appt?: string }>;
 };
 
 export default async function AppointmentsPage(props: Props) {
@@ -76,7 +76,37 @@ export default async function AppointmentsPage(props: Props) {
 
   // 2. Pick the day to render. `?date=YYYY-MM-DD` or today (in shop tz).
   const today = shopIsoDate(new Date(), timezone);
-  const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date ?? '') ? searchParams.date! : today;
+  let isoDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date ?? '') ? searchParams.date! : today;
+
+  // Plan 040 (CAL-07) — `?appt=<id>` deep link. Resolve the appointment
+  // SERVER-SIDE with the exact same scoping as every other read on this
+  // page: explicit shop_id (RLS spans all the user's shops) + the strict-
+  // barber narrowing. A foreign/unknown id resolves to nothing and the
+  // param is silently ignored — no crash, no cross-tenant leak. When the
+  // appointment lives on another day than `?date=`, render ITS day (the
+  // client-side nav callbacks drop `appt` so later navigation is free).
+  const apptParam = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    searchParams.appt ?? '',
+  )
+    ? searchParams.appt!
+    : null;
+  let deepLinkApptId: string | null = null;
+  if (apptParam) {
+    let apptQ = sb
+      .from('appointments')
+      .select('id, start_at')
+      .eq('id', apptParam)
+      .eq('shop_id', shopId)
+      .limit(1);
+    if (isStrictBarber) apptQ = apptQ.eq('barber_id', viewerBarberId!);
+    const apptRes = await apptQ;
+    const apptRow = ((apptRes.data as Array<{ id: string; start_at: string }> | null) ?? [])[0];
+    if (apptRow) {
+      deepLinkApptId = apptRow.id;
+      isoDate = shopIsoDate(new Date(apptRow.start_at), timezone);
+    }
+  }
+
   const dayStart = parseShopIsoDate(isoDate, timezone);
   const dayEnd = shopDayEnd(dayStart, timezone);
   // Seed the calendar view from `?view=`. `list` and `week` override the
@@ -445,6 +475,7 @@ export default async function AppointmentsPage(props: Props) {
       blocked={blocked}
       googleBusy={googleBusy}
       onboarding={onboarding}
+      deepLinkApptId={deepLinkApptId}
     />
   );
 }
