@@ -65,14 +65,41 @@ export default async function ClientDetailPage(props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createSupabaseServiceRoleClient() as any;
 
-  const clientRes = await admin
-    .from('clients')
-    .select(
-      'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at, loyalty_balance_cents, loyalty_balance_expires_at',
-    )
-    .eq('id', id)
-    .eq('shop_id', shopId)
-    .maybeSingle();
+  // Plan 034 (PERF-07) — the client row, the barber-ownership probe and the
+  // appointment history key only on `id`/`shopId`/`viewerBarberId`, so they
+  // can run in ONE round-trip. The notFound() gates below keep their original
+  // order and semantics (client absent → 404 BEFORE the ownership verdict;
+  // the history result is simply discarded when a gate fires).
+  const [clientRes, ownRes, apptRes] = await Promise.all([
+    admin
+      .from('clients')
+      .select(
+        'id, shop_id, first_name, last_name, email, phone, date_of_birth, notes, created_at, anonymized_at, loyalty_balance_cents, loyalty_balance_expires_at',
+      )
+      .eq('id', id)
+      .eq('shop_id', shopId)
+      .maybeSingle(),
+    // Strict-barber ownership probe — only meaningful (and only run) when the
+    // viewer is a barber with a linked barber row.
+    viewerRole === 'barber' && viewerBarberId
+      ? admin
+          .from('appointments')
+          .select('id')
+          .eq('client_id', id)
+          .eq('barber_id', viewerBarberId)
+          .limit(1)
+      : null,
+    // Appointment history — same join shape as exportClient, capped at 100.
+    admin
+      .from('appointments')
+      .select(
+        'id, start_at, status, total_amount, barber:barbers(display_name), services:appointment_services(service:services(name))',
+      )
+      .eq('client_id', id)
+      .eq('shop_id', shopId)
+      .order('start_at', { ascending: false })
+      .limit(100),
+  ]);
   const client = clientRes.data as {
     id: string;
     first_name: string;
@@ -91,25 +118,8 @@ export default async function ClientDetailPage(props: {
   // Strict barber: only a client they've actually served.
   if (viewerRole === 'barber') {
     if (!viewerBarberId) notFound();
-    const own = await admin
-      .from('appointments')
-      .select('id')
-      .eq('client_id', id)
-      .eq('barber_id', viewerBarberId)
-      .limit(1);
-    if (((own.data as Array<{ id: string }> | null) ?? []).length === 0) notFound();
+    if (((ownRes?.data as Array<{ id: string }> | null) ?? []).length === 0) notFound();
   }
-
-  // Appointment history — same join shape as exportClient, capped at 100.
-  const apptRes = await admin
-    .from('appointments')
-    .select(
-      'id, start_at, status, total_amount, barber:barbers(display_name), services:appointment_services(service:services(name))',
-    )
-    .eq('client_id', id)
-    .eq('shop_id', shopId)
-    .order('start_at', { ascending: false })
-    .limit(100);
   type ApptJoin = {
     id: string;
     start_at: string;
