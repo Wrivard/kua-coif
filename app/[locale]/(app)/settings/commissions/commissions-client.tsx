@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { MoneyInput } from '@/components/ui/money-input';
@@ -74,14 +74,32 @@ export function CommissionsClient({
     });
   }
 
-  // Single "cumulative" flag for the whole scope shown on the page: applied to
-  // every barber row at save time. Initial value = majority of confirmed barbers.
-  const initialCumulative = useMemo(() => {
-    const rows = barbers.map((b) => initialDrafts.get(`${b.id}:${scope}`));
-    const on = rows.filter((r) => r?.cumulative).length;
-    return on > rows.length / 2;
-  }, [barbers, initialDrafts, scope]);
-  const [cumulative, setCumulative] = useState(initialCumulative);
+  // Plan 039 (SET-01) — `cumulative` is now PER ROW (matching the DB's
+  // per-barber column and the /finances per-barber mode badge). The old
+  // page-level flag was initialized from a majority vote, never re-inited on
+  // scope change, and stamped onto EVERY barber at save — one save silently
+  // flattened a mixed-mode shop's payroll. The per-row toggle lives in the
+  // matrix below; `draft.cumulative` is the single source of truth.
+
+  // Plan 039 (SET-02) — dirty-state guard ported from
+  // `barber-settings-client.tsx` (B18): warn on unload while edited, offer a
+  // Reset. Drafts are Maps, so compare entry arrays (JSON.stringify on a Map
+  // yields '{}'); insertion order is identical by construction. After a save
+  // the revalidated props rebuild `initialDrafts` with the saved values, so
+  // the dirty state clears on its own.
+  const isDirty = useMemo(
+    () => JSON.stringify([...drafts.entries()]) !== JSON.stringify([...initialDrafts.entries()]),
+    [drafts, initialDrafts],
+  );
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   function onSave() {
     startTransition(async () => {
@@ -106,7 +124,9 @@ export function CommissionsClient({
         rows.push({
           barber_id: b.id,
           scope,
-          cumulative,
+          // Plan 039 (SET-01) — each row keeps ITS OWN mode; a save can no
+          // longer flatten a mixed-mode shop.
+          cumulative: draft.cumulative,
           tier1_threshold: draft.tiers[0]?.threshold ?? 0,
           tier1_pct: draft.tiers[0]?.pct ?? 0,
           tier2_threshold: draft.tiers[1]?.threshold ?? 0,
@@ -131,9 +151,18 @@ export function CommissionsClient({
         eyebrow={tNav('title')}
         title={t('title')}
         actions={
-          <Button onClick={onSave} loading={isPending} size="sm">
-            {tCommon('actions.save')}
-          </Button>
+          <>
+            {/* Plan 039 (SET-02) — Reset appears only while dirty, mirroring
+                the barber-settings matrix guard. */}
+            {isDirty ? (
+              <Button variant="ghost" size="sm" onClick={() => setDrafts(initialDrafts)}>
+                {tCommon('actions.cancel')}
+              </Button>
+            ) : null}
+            <Button onClick={onSave} loading={isPending} size="sm">
+              {tCommon('actions.save')}
+            </Button>
+          </>
         }
       />
 
@@ -147,7 +176,6 @@ export function CommissionsClient({
               { value: 'products', label: t('tabs.products') },
             ]}
           />
-          <Toggle checked={cumulative} onChange={setCumulative} label={t('cumulative')} />
         </div>
 
         <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-warm-md">
@@ -166,6 +194,10 @@ export function CommissionsClient({
                     {t('tier', { n: tier })}
                   </th>
                 ))}
+                {/* Plan 039 (SET-01) — per-row cumulative mode column. */}
+                <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide">
+                  {t('cumulative')}
+                </th>
               </tr>
               <tr className="border-b border-border bg-bg-surface text-text-muted">
                 <th className="sticky left-0 z-10 bg-bg-surface" />
@@ -178,6 +210,7 @@ export function CommissionsClient({
                     {t('thresholdPct')}
                   </th>
                 ))}
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -219,12 +252,21 @@ export function CommissionsClient({
                         </div>
                       </td>
                     ))}
+                    {/* Plan 039 (SET-01) — this barber's own payroll mode. */}
+                    <td className="px-3 py-2.5 text-center">
+                      <Toggle
+                        checked={draft.cumulative}
+                        onChange={(v) => patch(b.id, (d) => ({ ...d, cumulative: v }))}
+                        aria-label={`${t('cumulative')} — ${b.display_name}`}
+                        className="justify-center"
+                      />
+                    </td>
                   </tr>
                 );
               })}
               {barbers.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-text-muted">
+                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-text-muted">
                     {t('emptyHint')}
                   </td>
                 </tr>
