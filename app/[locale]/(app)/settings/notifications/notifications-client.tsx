@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
@@ -160,8 +161,14 @@ export function NotificationsClient({ state }: Props) {
     });
   }
 
+  // Plan 039 (SET-04) — both disconnects wipe live transport config behind a
+  // native confirm(); themed ConfirmDialogs now gate them (modeled on the
+  // barbers-client Google-disconnect dialog).
+  const [confirmSmtpDisconnect, setConfirmSmtpDisconnect] = useState(false);
+  const [confirmTwilioDisconnect, setConfirmTwilioDisconnect] = useState(false);
+
   function onDisconnect() {
-    if (!confirm(t('confirmDisconnect'))) return;
+    setConfirmSmtpDisconnect(false);
     startSave(async () => {
       const result = await clearSenderConfig({});
       if (result.ok) {
@@ -258,7 +265,7 @@ export function NotificationsClient({ state }: Props) {
   }
 
   function onDisconnectTwilio() {
-    if (!confirm(t('twilio.confirmDisconnect'))) return;
+    setConfirmTwilioDisconnect(false);
     startSave(async () => {
       const result = await clearTwilioConfig({});
       if (result.ok) {
@@ -430,7 +437,7 @@ export function NotificationsClient({ state }: Props) {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={onDisconnect}
+                  onClick={() => setConfirmSmtpDisconnect(true)}
                   disabled={saving || testing}
                 >
                   {t('sender.disconnect')}
@@ -551,7 +558,7 @@ export function NotificationsClient({ state }: Props) {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={onDisconnectTwilio}
+                    onClick={() => setConfirmTwilioDisconnect(true)}
                     disabled={saving || testingTwilio}
                   >
                     {t('twilio.disconnect')}
@@ -680,6 +687,31 @@ export function NotificationsClient({ state }: Props) {
           </div>
         </section>
       </div>
+
+      {/* Plan 039 (SET-04) — themed confirms for the transport disconnects
+          (SMTP wipe + Twilio wipe), replacing the native confirm() pair. */}
+      <ConfirmDialog
+        open={confirmSmtpDisconnect}
+        title={t('confirmDisconnect.title')}
+        description={t('confirmDisconnect.description')}
+        destructive
+        loading={saving}
+        confirmLabel={t('sender.disconnect')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={onDisconnect}
+        onCancel={() => setConfirmSmtpDisconnect(false)}
+      />
+      <ConfirmDialog
+        open={confirmTwilioDisconnect}
+        title={t('twilio.confirmDisconnect.title')}
+        description={t('twilio.confirmDisconnect.description')}
+        destructive
+        loading={saving}
+        confirmLabel={t('twilio.disconnect')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={onDisconnectTwilio}
+        onCancel={() => setConfirmTwilioDisconnect(false)}
+      />
     </>
   );
 }

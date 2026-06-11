@@ -1456,7 +1456,10 @@
           "testRecipient": "Test recipient",
           "testRecipientHint": "Your own cellphone — to validate the send end-to-end before saving.",
           "disconnect": "Disconnect Twilio",
-          "confirmDisconnect": "Disconnect Twilio? SMS will stop being sent from this shop."
+          "confirmDisconnect": {
+            "title": "Disconnect Twilio?",
+            "description": "SMS will stop being sent from this shop."
+          }
         },
         "testTwilio": {
           "button": "Send test SMS",
@@ -1506,7 +1509,10 @@
           "twilioInvalidSid": "Invalid Account SID. Expected format: 'AC' + 32 characters.",
           "twilioInvalidPhone": "Invalid phone number. Expected format: E.164 (e.g. +15145551212)."
         },
-        "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
+        "confirmDisconnect": {
+          "title": "Disconnect SMTP?",
+          "description": "Emails will fall back to Küa's default sender."
+        },
         "slack": {
           "title": "Slack notifications",
           "connected": "Connected",

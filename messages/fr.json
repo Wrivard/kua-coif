@@ -1456,7 +1456,10 @@
           "testRecipient": "Numéro pour le test",
           "testRecipientHint": "Ton propre cellulaire — pour valider l'envoi bout-en-bout avant de sauvegarder.",
           "disconnect": "Déconnecter Twilio",
-          "confirmDisconnect": "Déconnecter Twilio ? Les SMS de ce salon vont arrêter de partir."
+          "confirmDisconnect": {
+            "title": "Déconnecter Twilio ?",
+            "description": "Les SMS de ce salon vont arrêter de partir."
+          }
         },
         "testTwilio": {
           "button": "Envoyer un SMS de test",
@@ -1506,7 +1509,10 @@
           "twilioInvalidSid": "Account SID invalide. Format attendu : « AC » + 32 caractères.",
           "twilioInvalidPhone": "Numéro invalide. Format attendu : E.164 (ex. +15145551212)."
         },
-        "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
+        "confirmDisconnect": {
+          "title": "Déconnecter le SMTP ?",
+          "description": "Les courriels reviendront à l'expéditeur Küa par défaut."
+        },
         "slack": {
           "title": "Notifications Slack",
           "connected": "Connecté",
