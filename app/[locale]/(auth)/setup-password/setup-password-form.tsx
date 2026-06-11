@@ -5,6 +5,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { Input, Label } from '@/components/ui/input';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { setupPasswordAction, type SetupPasswordState } from './actions';
@@ -54,12 +55,9 @@ export function SetupPasswordForm({ locale, labels }: Props) {
   }
   if (exchange === 'no-code' || exchange === 'failed') {
     return (
-      <p
-        role="alert"
-        className="mt-6 rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
-      >
+      <Callout variant="danger" className="mt-6">
         {t(exchange === 'no-code' ? 'errorNoCode' : 'errorFailed')}
-      </p>
+      </Callout>
     );
   }
 
@@ -103,29 +101,14 @@ function PasswordForm({ locale, labels }: Props) {
       </div>
 
       {state.kind === 'invalid' ? (
-        <p
-          role="alert"
-          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
-        >
+        <Callout variant="danger">
           {t(state.reason === 'mismatch' ? 'errorMismatch' : 'errorWeak')}
-        </p>
+        </Callout>
       ) : null}
       {state.kind === 'rate-limited' ? (
-        <p
-          role="alert"
-          className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
-        >
-          {t('errorRateLimited')}
-        </p>
+        <Callout variant="warning">{t('errorRateLimited')}</Callout>
       ) : null}
-      {state.kind === 'error' ? (
-        <p
-          role="alert"
-          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
-        >
-          {t('errorGeneric')}
-        </p>
-      ) : null}
+      {state.kind === 'error' ? <Callout variant="danger">{t('errorGeneric')}</Callout> : null}
 
       <SubmitButton labels={labels} />
     </form>
