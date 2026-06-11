@@ -861,6 +861,22 @@ export function AppointmentsCalendar({
       router.push(url.pathname + '?' + url.searchParams.toString());
     });
   }, [router, today]);
+  // Plan 040 (CAL-04) — direct date jump. "Three Thursdays from now" was ~21
+  // chevron clicks, each a full server re-render; the native date input rides
+  // the same ?date= contract + 032 nav transition, and is keyboard-accessible
+  // for free. Guarded against the empty string a cleared input emits.
+  const jumpToDate = useCallback(
+    (nextIso: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nextIso)) return;
+      setNavTargetIso(nextIso);
+      const url = new URL(window.location.href);
+      url.searchParams.set('date', nextIso);
+      startNavTransition(() => {
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      });
+    },
+    [router],
+  );
 
   // View toggle. Side-by-Side ⇄ List is instant local state (both share the
   // day-scoped dataset). Switching to/from Week also syncs `?view=` so the
@@ -975,6 +991,16 @@ export function AppointmentsCalendar({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            {/* Plan 040 (CAL-04) — direct date jump. Controlled by the
+                optimistic nav target so the picker matches the header date
+                mid-transition. */}
+            <input
+              type="date"
+              value={isNavPending && navTargetIso ? navTargetIso : isoDate}
+              onChange={(e) => jumpToDate(e.target.value)}
+              aria-label={t('jumpToDate')}
+              className="h-8 rounded-md bg-bg-surface-2 px-2 text-xs text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
+            />
             {/* Phase 26 — Realtime refresh indicator. CSS-only fade keeps it
                 from stealing focus; aria-live='polite' announces to screen
                 readers without interrupting. */}
