@@ -340,9 +340,22 @@ export const createServiceCategory = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
+
+    // Deterministic ordering (W2): append at the end (max+1) instead of the
+    // column default 0, which made every new category tie at 0 and the list
+    // order non-deterministic. The W2 migration backfilled existing ranks.
+    const { data: maxRow } = await supabase
+      .from('service_categories')
+      .select('sort_order')
+      .eq('shop_id', ctx.shopId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
     const { data, error } = await supabase
       .from('service_categories')
-      .insert({ shop_id: ctx.shopId, name: input.name })
+      .insert({ shop_id: ctx.shopId, name: input.name, sort_order: nextSortOrder })
       .select('id')
       .single();
     // 23505 = duplicate category name in this shop

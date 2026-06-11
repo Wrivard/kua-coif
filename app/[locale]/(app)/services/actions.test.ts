@@ -265,6 +265,43 @@ describe('updateService — optimistic concurrency + honest 0-row (W2)', () => {
   });
 });
 
+describe('createServiceCategory — deterministic sort_order (W2)', () => {
+  it('appends at max+1 within the shop instead of the column default 0', async () => {
+    const { mock } = setup({
+      service_categories: [
+        { id: CATEGORY_ID, shop_id: SHOP_A, name: 'Coupe', sort_order: 2 },
+        { id: TAX_ID2, shop_id: 'shop-OTHER', name: 'Autre', sort_order: 9 },
+      ],
+    });
+
+    const res = await createServiceCategory({ name: 'Coloration' });
+
+    expect(res.ok).toBe(true);
+    const ins = mock.calls.find((c) => c.table === 'service_categories' && c.op === 'insert');
+    // max within SHOP_A is 2 → next is 3; the other shop's 9 is ignored.
+    expect(ins?.payload).toMatchObject({ shop_id: SHOP_A, name: 'Coloration', sort_order: 3 });
+  });
+
+  it('first category of a shop lands at 0', async () => {
+    const { mock } = setup({ service_categories: [] });
+
+    await createServiceCategory({ name: 'Coupe' });
+
+    const ins = mock.calls.find((c) => c.table === 'service_categories' && c.op === 'insert');
+    expect(ins?.payload).toMatchObject({ sort_order: 0 });
+  });
+});
+
+describe('serviceSchema money precision (W2)', () => {
+  it('rejects a three-decimal price the DB would silently round', async () => {
+    setup({ services: [] });
+
+    const res = await createService(serviceInput({ price: 19.999 }));
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'INVALID_INPUT' });
+  });
+});
+
 describe('toggleServiceStatus — explicit target status (W2)', () => {
   it('writes the GIVEN status (no read-then-flip) with a shop-scoped filter', async () => {
     const { mock } = setup({

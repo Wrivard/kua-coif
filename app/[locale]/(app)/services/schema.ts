@@ -14,7 +14,10 @@ export const serviceSchema = z.object({
     .int()
     .min(5, 'DURATION_MIN')
     .max(8 * 60, 'DURATION_MAX'),
-  price: z.number().min(0).max(99999.99),
+  // multipleOf(0.01): the column is numeric(10,2) — without this, a
+  // three-decimal price (19.999) passes validation and Postgres silently
+  // ROUNDS it (stored 20.00 ≠ what the manager typed).
+  price: z.number().min(0).max(99999.99).multipleOf(0.01),
   status: z.enum(SERVICE_STATUSES),
   // Dedup so a doubled tax_id can't reach the M:N writer (the RPC also
   // `select distinct`s, but de-duping at the edge keeps the payload honest).
@@ -30,7 +33,7 @@ export const serviceSchema = z.object({
    * the modal's defaults); kept non-optional to keep react-hook-form's
    * input/output types aligned.
    */
-  deposit_amount_cents: z.number().int().min(0).max(100_000_00),
+  deposit_amount_cents: z.number().int().min(0).max(100_000_00).multipleOf(0.01),
 });
 
 export type ServiceInput = z.infer<typeof serviceSchema>;
