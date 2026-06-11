@@ -5,6 +5,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import type { StripeElementsOptions } from '@stripe/stripe-js';
 import { useTranslations } from 'next-intl';
 import { getStripeClient, stripeClientConfigured } from '@/lib/stripe/client';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { createBookingPaymentIntent, type BookingPaymentIntentResult } from './actions';
@@ -62,8 +63,24 @@ export type BookingPaymentSectionRef = {
       }
     | { kind: 'error'; message: string; code?: string; declineCode?: string }
   >;
-  /** Returns true when the PaymentElement is mounted and ready. */
+  /**
+   * Plan 036 (BUG-03) — true when confirming is currently safe: the section
+   * settled into a confirmable state (ready / no-payment-applies) AND no
+   * re-mint is in flight. While a debounced re-mint runs (tip tapped, promo
+   * typed), the visible Elements still hold the OLD PaymentIntent at the OLD
+   * amount — confirming then would charge a stale total. The wizard consults
+   * this at submit time and gates the Confirm button on `onReadyChange`.
+   */
   isReady: () => boolean;
+  /**
+   * Plan 036 — re-arm after a post-charge booking failure. The server has
+   * refunded the consumed PI (failBooking); it can never be reused for a
+   * retry (`getReusableDepositPaymentIntent` refuses any post-confirmation
+   * status), so we drop it and mint a FRESH intent. Clearing `lastPiRef`
+   * skips even the reuse attempt — structurally no path re-confirms the old
+   * PI, so a retry cannot double-charge.
+   */
+  refresh: () => void;
 };
 
 type Props = {
@@ -93,11 +110,18 @@ type Props = {
    * 0 when the shop hides the tip step or the customer skipped it.
    */
   tipAmountCents: number;
+  /**
+   * Plan 036 (BUG-03) — reactive readiness signal for the parent wizard.
+   * Fired whenever the confirmable state flips (mint settled / re-mint in
+   * flight) so the wizard can disable Confirm instead of charging a stale
+   * PI. The imperative `isReady()` stays as the submit-time belt check.
+   */
+  onReadyChange?: (ready: boolean) => void;
 };
 
 export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>(
   function BookingPaymentSection(
-    { shopSlug, serviceIds, email, locale, promoCode, phone, tipAmountCents },
+    { shopSlug, serviceIds, email, locale, promoCode, phone, tipAmountCents, onReadyChange },
     ref,
   ) {
     const t = useTranslations('pages.booking.payment');
@@ -119,6 +143,14 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     // Inner ref handed down to the PaymentConfirmer so the wizard's ref
     // ends up wired all the way through Elements.
     const confirmerRef = useRef<ConfirmerHandle | null>(null);
+
+    // Plan 036 (BUG-03) — true from the moment a (re-)mint is scheduled
+    // (debounce included) until its response lands. While true, the visible
+    // Elements may hold a STALE PaymentIntent — confirming must be blocked.
+    const [minting, setMinting] = useState(false);
+    // Plan 036 (BUG-09) — bumped by the error-state Retry button and by
+    // `refresh()` to force the mint effect to re-fire.
+    const [retryNonce, setRetryNonce] = useState(0);
 
     // Loop 60 SR — read the current theme on mount so Stripe Elements
     // can render with the matching palette. The init script in
@@ -164,6 +196,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     useEffect(() => {
       if (!stripeClientConfigured()) {
         setState({ kind: 'no_deposit' });
+        setMinting(false);
         return;
       }
       let cancelled = false;
@@ -176,6 +209,9 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
       // rely on the server's reuse path to keep the same PI when the
       // amount didn't actually change.
       setState((prev) => (prev.kind === 'ready' ? prev : { kind: 'loading' }));
+      // Plan 036 (BUG-03) — flag the whole debounce+request window so the
+      // wizard can't confirm against the stale PI still on screen.
+      setMinting(true);
       const timer = setTimeout(() => {
         if (cancelled) return;
         createBookingPaymentIntent({
@@ -188,6 +224,7 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           tip_amount_cents: tipAmountCents,
         }).then((res) => {
           if (cancelled) return;
+          setMinting(false);
           if (!res.ok) {
             setState({ kind: 'error', message: 'INTENT_FAILED' });
             return;
@@ -210,10 +247,25 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
         });
       }, 350);
       return () => {
+        // A cancelled run hands `minting` off to the effect run replacing it
+        // (deps changed → the next run sets it true again synchronously).
         cancelled = true;
         clearTimeout(timer);
       };
-    }, [shopSlug, serviceKey, email, promoCode, phone, tipAmountCents]);
+    }, [shopSlug, serviceKey, email, promoCode, phone, tipAmountCents, retryNonce]);
+
+    // Plan 036 — one readiness truth shared by isReady() and onReadyChange.
+    // `shop_not_connected` and `no_deposit` ARE confirmable: confirmPayment
+    // short-circuits to `{ kind: 'no_deposit' }` (book, pay at the shop), so
+    // gating them off would dead-end shops without online payment.
+    const confirmable =
+      (state.kind === 'ready' ||
+        state.kind === 'no_deposit' ||
+        state.kind === 'shop_not_connected') &&
+      !minting;
+    useEffect(() => {
+      onReadyChange?.(confirmable);
+    }, [confirmable, onReadyChange]);
 
     useImperativeHandle(
       ref,
@@ -222,7 +274,11 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           if (state.kind === 'no_deposit' || state.kind === 'shop_not_connected') {
             return { kind: 'no_deposit' as const };
           }
-          if (state.kind !== 'ready') {
+          // Plan 036 (BUG-03) — a re-mint in flight means the on-screen
+          // Elements may hold a stale PI at a stale amount. Refuse to
+          // confirm; the wizard surfaces a localized "payment is getting
+          // ready" message instead of charging the wrong total.
+          if (state.kind !== 'ready' || minting) {
             return { kind: 'error' as const, message: 'NOT_READY' };
           }
           const handle = confirmerRef.current;
@@ -238,9 +294,18 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
           }
           return result;
         },
-        isReady: () => state.kind === 'ready' || state.kind === 'no_deposit',
+        isReady: () => confirmable,
+        refresh: () => {
+          // Drop the consumed PI entirely (see the handle's doc comment —
+          // never reused, so a retry can't double-charge) and blank back to
+          // the skeleton: keeping the old Elements visible would invite a
+          // confirm against the refunded intent.
+          lastPiRef.current = null;
+          setState({ kind: 'loading' });
+          setRetryNonce((n) => n + 1);
+        },
       }),
-      [state],
+      [state, minting, confirmable],
     );
 
     if (state.kind === 'no_deposit') {
@@ -259,12 +324,26 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
     }
 
     if (state.kind === 'error') {
+      // Plan 036 (BUG-09) — "try again" now HAS a retry: a transient
+      // Stripe/network failure re-mints in place instead of dead-ending
+      // the customer (the mint effect only re-fired on input changes).
       return (
         <div
           role="alert"
-          className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger shadow-warm-sm"
+          className="space-y-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger shadow-warm-sm"
         >
-          {t('intentFailed')}
+          <p>{t('intentFailed')}</p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setState({ kind: 'loading' });
+              setRetryNonce((n) => n + 1);
+            }}
+          >
+            {t('retry')}
+          </Button>
         </div>
       );
     }
@@ -335,8 +414,19 @@ export const BookingPaymentSection = forwardRef<BookingPaymentSectionRef, Props>
             {formatCurrencyCAD(state.depositCents / 100, locale)}
           </p>
         </div>
+        {/* Plan 036 (BUG-03) — while a re-mint is in flight the amount above
+            may be stale; say so instead of letting the customer trust it. */}
+        {minting ? (
+          <p role="status" className="text-xs text-text-muted">
+            {t('updatingTotal')}
+          </p>
+        ) : null}
         <p className="text-xs text-text-secondary">{t(helpKey)}</p>
-        <Elements stripe={getStripeClient()} options={options}>
+        {/* Plan 036 — `key` forces a full Elements remount when the
+            clientSecret changes: react-stripe-js ignores clientSecret
+            updates on a mounted provider, so a refresh()'d fresh PI would
+            otherwise leave the iframe bound to the consumed one. */}
+        <Elements key={state.clientSecret} stripe={getStripeClient()} options={options}>
           <PaymentElement
             options={{
               layout: 'tabs',

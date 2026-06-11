@@ -153,6 +153,14 @@ type Props = {
 // Five progress chips, regardless of which of {service, barber} comes first.
 const PROGRESS_CHIP_COUNT = 5;
 
+// Plan 036 (step 2) — client-side mirrors of the server zod gates so a
+// typo'd phone/email blocks Confirm BEFORE the card is charged (the server
+// rejects post-charge, which forces a refund round-trip). The phone regex is
+// the EXACT server rule (`actions.ts` phoneRegex); the email check is a
+// pragmatic stand-in for zod's `.email()` — the server stays authoritative.
+const CLIENT_PHONE_RE = /^[+\d\s().-]{7,20}$/;
+const CLIENT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
 /**
  * Group a flat array of "HH:MM" time strings into morning / afternoon /
  * evening buckets so the slot picker can show ☀ / ☼ / 🌙 sections (spec §3.4).
@@ -639,13 +647,21 @@ export function BookingWizard({
     setState((s) => ({ ...s, step: Math.max(1, s.step - 1) as WizardState['step'] }));
   }
 
+  // Plan 036 (step 2) — pre-charge validity of the contact fields, mirroring
+  // the server zod gates. Computed before `canAdvance` (an IIFE) consumes it.
+  const phoneFormatValid = CLIENT_PHONE_RE.test(state.phone.trim());
+  const emailFormatValid = state.email.trim() === '' || CLIENT_EMAIL_RE.test(state.email.trim());
+
   const canAdvance = (() => {
     const kind = kindForStep(state.step);
     if (kind === 'service') return state.serviceIds.length > 0;
     if (kind === 'barber') return state.barberId !== null;
     if (kind === 'slot') return state.startTime !== null;
     if (kind === 'contact') {
-      const hasIdentity = state.firstName.trim().length > 0 && state.phone.trim().length >= 7;
+      // Plan 036 (step 2) — phone/email must pass the client-side mirror of
+      // the server zod rules so a typo can't reach the charge (the server
+      // would reject AFTER the card was charged, forcing a refund).
+      const hasIdentity = state.firstName.trim().length > 0 && phoneFormatValid;
       // When Turnstile is enforced (env var set), the user must complete the
       // challenge before Confirm enables. When the feature is off, the token
       // is just an empty string and we skip this gate.
@@ -653,7 +669,7 @@ export function BookingWizard({
       // Loop 24 — Quebec Loi 25 affirmative consent gate. The customer
       // MUST tick the "I agree to the privacy policy" box before we
       // accept their phone/email/name. Server action also enforces this.
-      return hasIdentity && tokenOk && state.consentLoi25;
+      return hasIdentity && emailFormatValid && tokenOk && state.consentLoi25;
     }
     return false;
   })();
@@ -664,9 +680,45 @@ export function BookingWizard({
   // the submit logic stays a single branch.
   const paymentRef = useRef<BookingPaymentSectionRef>(null);
 
+  // ── Plan 036 — money-path recovery state ─────────────────────────────
+  // Server field errors rendered inline (promo/phone/email) instead of one
+  // generic toast. Cleared per-field on edit and wholesale on each submit.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // CONFLICT recovery banner on the slot step ("that time was just taken").
+  const [slotTakenNotice, setSlotTakenNotice] = useState(false);
+  // Reactive mirror of the payment section's readiness (BUG-03) — disables
+  // Confirm while a PI (re-)mint is in flight. Default true: with no payment
+  // section mounted (no online payment) booking must stay possible.
+  const [paymentReady, setPaymentReady] = useState(true);
+  // Bumped to remount TurnstileWidget after a failed submit: the token is
+  // single-use, so a retry needs a fresh challenge (key-remount ≙ reset()).
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  // Per-field "touched" gates so prevalidation doesn't flag mid-typing.
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  function clearFieldError(key: string) {
+    setFieldErrors((fe) => {
+      if (!(key in fe)) return fe;
+      const next = { ...fe };
+      delete next[key];
+      return next;
+    });
+  }
+
   function submit() {
     if (!state.startTime) return;
+    // Plan 036 (BUG-03) — submit-time readiness gate. The reactive
+    // `paymentReady` disable covers the visible button, but a ref consult at
+    // click time is the authoritative check: while a PI (re-)mint is in
+    // flight the on-screen Elements may hold a stale intent at a stale
+    // amount, and confirming it would charge the wrong total.
+    if (paymentRef.current && !paymentRef.current.isReady()) {
+      show({ variant: 'danger', title: t('payment.notReady') });
+      return;
+    }
     startTransition(async () => {
+      setFieldErrors({});
       // Phase 56 — confirm payment client-side FIRST. If no deposit
       // applies the call short-circuits with `{ kind: 'no_deposit' }`.
       // On payment failure we surface a toast and abort the booking
@@ -676,6 +728,12 @@ export function BookingWizard({
       if (paymentRef.current) {
         const paid = await paymentRef.current.confirmPayment();
         if (paid.kind === 'error') {
+          // Plan 036 — NOT_READY is an internal sentinel, never customer
+          // copy. Localize it (the readiness gates above make it rare).
+          if (paid.message === 'NOT_READY') {
+            show({ variant: 'danger', title: t('payment.notReady') });
+            return;
+          }
           // Loop 34 (P93) — surface Stripe's structured error code in
           // the toast description when present, so an "Insufficient
           // funds" decline reads as "Card declined · insufficient_funds"
@@ -730,6 +788,30 @@ export function BookingWizard({
       if (result.ok) {
         setState((s) => ({ ...s, step: 5 }));
       } else {
+        // ── Plan 036 (BUG-02) — recoverable failure, not a dead-end ──
+        // 1. Surface server field errors inline (promo/phone/email).
+        setFieldErrors(result.fieldErrors ?? {});
+        // 2. A consumed Turnstile token can't be replayed — remount the
+        //    widget (fresh challenge) and gate Confirm until re-verified.
+        if (turnstileEnforced) {
+          setTurnstileNonce((n) => n + 1);
+          setState((s) => ({ ...s, turnstileToken: '' }));
+        }
+        // 3. If a charge happened, the server refunded it (failBooking) and
+        //    the PI is consumed — re-arm the payment section with a FRESH
+        //    intent so a retry is possible (the consumed PI is never
+        //    reused, so this cannot double-charge).
+        if (paymentIntentId) {
+          paymentRef.current?.refresh();
+        }
+        // 4. CONFLICT = the slot was taken while the customer typed. Route
+        //    back to the slot step with a fresh fetch + inline banner
+        //    instead of the old "reload the page" toast.
+        if (result.errorCode === 'CONFLICT') {
+          setSlotTakenNotice(true);
+          setState((s) => ({ ...s, step: 3, startTime: null }));
+          return;
+        }
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
@@ -863,9 +945,23 @@ export function BookingWizard({
             <h2 className="text-xl font-semibold tracking-tight text-text-primary">
               {t('steps.slot.title')}
             </h2>
+            {/* Plan 036 (BUG-02) — CONFLICT recovery banner: the customer's
+                slot was taken while they typed. They were routed back here
+                with fresh slots; cleared on the next date/time pick. */}
+            {slotTakenNotice ? (
+              <p
+                role="status"
+                className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning shadow-warm-sm"
+              >
+                {t('steps.slot.justTaken')}
+              </p>
+            ) : null}
             <DateStrip
               value={state.date}
-              onChange={(d) => setState((s) => ({ ...s, date: d, startTime: null }))}
+              onChange={(d) => {
+                setSlotTakenNotice(false);
+                setState((s) => ({ ...s, date: d, startTime: null }));
+              }}
               timezone={shop.timezone}
               locale={locale === 'fr' ? 'fr' : 'en'}
               hours={hours}
@@ -878,7 +974,10 @@ export function BookingWizard({
               onRetry={() => setRetryNonce((n) => n + 1)}
               slots={slots}
               selected={state.startTime}
-              onSelect={(time) => setState((s) => ({ ...s, startTime: time }))}
+              onSelect={(time) => {
+                setSlotTakenNotice(false);
+                setState((s) => ({ ...s, startTime: time }));
+              }}
               waitlistInfo={{
                 shopSlug,
                 serviceIds: state.serviceIds,
@@ -924,11 +1023,26 @@ export function BookingWizard({
                 <Label htmlFor="phone" required>
                   {t('steps.contact.phone')}
                 </Label>
+                {/* Plan 036 (step 2) — the `invalid` prop is finally wired:
+                    a malformed phone reads as an inline error BEFORE any
+                    charge, instead of a post-charge server rejection. */}
                 <PhoneInput
                   id="phone"
                   value={state.phone}
-                  onChange={(e) => setState((s) => ({ ...s, phone: e.target.value }))}
+                  invalid={
+                    Boolean(fieldErrors.phone) ||
+                    (phoneTouched && state.phone.trim().length > 0 && !phoneFormatValid)
+                  }
+                  onBlur={() => setPhoneTouched(true)}
+                  onChange={(e) => {
+                    clearFieldError('phone');
+                    setState((s) => ({ ...s, phone: e.target.value }));
+                  }}
                 />
+                {Boolean(fieldErrors.phone) ||
+                (phoneTouched && state.phone.trim().length > 0 && !phoneFormatValid) ? (
+                  <FieldHint error>{t('steps.contact.phoneInvalid')}</FieldHint>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="email">{t('steps.contact.email')}</Label>
@@ -937,8 +1051,16 @@ export function BookingWizard({
                   type="email"
                   autoComplete="email"
                   value={state.email}
-                  onChange={(e) => setState((s) => ({ ...s, email: e.target.value }))}
+                  invalid={Boolean(fieldErrors.email) || (emailTouched && !emailFormatValid)}
+                  onBlur={() => setEmailTouched(true)}
+                  onChange={(e) => {
+                    clearFieldError('email');
+                    setState((s) => ({ ...s, email: e.target.value }));
+                  }}
                 />
+                {Boolean(fieldErrors.email) || (emailTouched && !emailFormatValid) ? (
+                  <FieldHint error>{t('steps.contact.emailInvalid')}</FieldHint>
+                ) : null}
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="notes">{t('steps.contact.notes')}</Label>
@@ -962,14 +1084,33 @@ export function BookingWizard({
                     autoComplete="off"
                     placeholder="WELCOME20"
                     value={state.promoCode}
-                    onChange={(e) =>
+                    invalid={Boolean(fieldErrors.promo_code)}
+                    onChange={(e) => {
+                      clearFieldError('promo_code');
                       setState((s) => ({
                         ...s,
                         promoCode: e.target.value.toUpperCase().trim(),
-                      }))
-                    }
+                      }));
+                    }}
                   />
-                  <FieldHint>{t('steps.contact.promoCodeHint')}</FieldHint>
+                  {/* Plan 036 (BUG-02) — surface the server's specific promo
+                      rejection (invalid/expired/used/first_only) inline,
+                      where the customer can actually fix it. */}
+                  {fieldErrors.promo_code ? (
+                    <FieldHint error>
+                      {t(
+                        `steps.contact.promoErrors.${
+                          ['invalid', 'expired', 'used', 'first_only'].includes(
+                            fieldErrors.promo_code,
+                          )
+                            ? fieldErrors.promo_code
+                            : 'invalid'
+                        }`,
+                      )}
+                    </FieldHint>
+                  ) : (
+                    <FieldHint>{t('steps.contact.promoCodeHint')}</FieldHint>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -991,7 +1132,12 @@ export function BookingWizard({
                 Confirm button is gated on its presence via `canAdvance`. */}
             {turnstileEnforced ? (
               <div className="flex justify-center">
+                {/* Plan 036 — `key` remounts the widget after a failed submit
+                    (the verified token is single-use; a retry needs a fresh
+                    challenge). Equivalent to turnstile.reset() without
+                    extending the widget's API. */}
                 <TurnstileWidget
+                  key={turnstileNonce}
                   onToken={(token) => setState((s) => ({ ...s, turnstileToken: token }))}
                   action="booking"
                 />
@@ -1125,6 +1271,10 @@ export function BookingWizard({
               // for (base + tip). 0 when the customer hasn't
               // picked a tip or the shop hides the step.
               tipAmountCents={state.tipAmountCents}
+              // Plan 036 (BUG-03) — reactive readiness: Confirm is
+              // disabled while a PI (re-)mint is in flight so a stale
+              // intent can never be charged at the wrong amount.
+              onReadyChange={setPaymentReady}
             />
           </section>
         )}
@@ -1208,7 +1358,14 @@ export function BookingWizard({
                 {t('continue')} <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="button" onClick={submit} disabled={!canAdvance} loading={isPending}>
+              <Button
+                type="button"
+                onClick={submit}
+                // Plan 036 (BUG-03) — also gated on payment readiness so a
+                // stale PaymentIntent can't be confirmed mid re-mint.
+                disabled={!canAdvance || !paymentReady}
+                loading={isPending}
+              >
                 <CalendarCheck className="h-4 w-4" /> {t('confirm')}
               </Button>
             )}
@@ -1276,7 +1433,9 @@ export function BookingWizard({
                 type="button"
                 className="flex-1"
                 onClick={submit}
-                disabled={!canAdvance}
+                // Plan 036 (BUG-03) — same payment-readiness gate as the
+                // desktop Confirm above.
+                disabled={!canAdvance || !paymentReady}
                 loading={isPending}
               >
                 <CalendarCheck className="h-4 w-4" /> {t('confirm')}

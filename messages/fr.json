@@ -1665,7 +1665,10 @@
         "fullLabel": "Total à régler",
         "fullHelp": "Le montant total de la prestation est facturé maintenant. Rien à payer au salon.",
         "shopNotConnected": "Le salon n’a pas encore configuré le paiement en ligne. Tu pourras régler sur place.",
-        "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon."
+        "intentFailed": "Impossible de préparer le paiement. Réessaie ou contacte le salon.",
+        "notReady": "Le paiement se prépare, réessaie dans un instant.",
+        "updatingTotal": "Mise à jour du total…",
+        "retry": "Réessayer"
       },
       "waitlist": {
         "cta": "M’inscrire à la liste d’attente",
@@ -1698,6 +1701,7 @@
           "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour.",
           "loadError": "Impossible de charger les disponibilités.",
           "retry": "Réessayer",
+          "justTaken": "Ce créneau vient d’être pris. Choisis-en un autre.",
           "morning": "Matin",
           "afternoon": "Après-midi",
           "evening": "Soir"
@@ -1713,6 +1717,14 @@
           "notesHint": "Précise une demande spéciale, allergie, etc.",
           "promoCode": "Code promo (optionnel)",
           "promoCodeHint": "Si tu as un code de réduction, entre-le ici.",
+          "phoneInvalid": "Numéro de téléphone invalide.",
+          "emailInvalid": "Adresse courriel invalide.",
+          "promoErrors": {
+            "invalid": "Code promo invalide.",
+            "expired": "Ce code est expiré.",
+            "used": "Ce code a déjà été utilisé.",
+            "first_only": "Ce code est réservé à un premier rendez-vous."
+          },
           "subtotalLabel": "Sous-total :",
           "loyaltyApplied": "Crédit fidélité :",
           "totalLabel": "Total :",
