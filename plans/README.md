@@ -59,7 +59,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 042 | SPIKE — per-day availability density in booking/reschedule date strips | P3 | M | — | DONE (design: plans/042-OUTPUT-day-availability-design.md — measured: worst-case 14d 575 ms route-shape / 26 ms bucketed, 365d 63 ms bucketed ⇒ no precomputation; single-pass summary mode + bucketing mandatory, short-circuit insufficient alone) |
 | 043 | Review conversion pack (star deep-links from email + Google handoff) | P2 | M | 037 | DONE (5 liens-étoiles email → ?rating=N clampé, Submit explicite obligatoire; thank-you écho de la note réelle; dup = already_submitted traité en succès; handoff Google pour TOUS (zéro gating); étoiles aria-pressed + 48px; copie inline isFr, messages/*.json intacts) |
 | 044 | /me as hub — per-appointment reschedule/receipt links (structurally fixes expired-link) | P2 | S-M | 037 | DONE (tokens reschedule 7j + receipt 365j signés FRAIS par render force-dynamic avec la public_link_version du RDV; cartes Déplacer(primaire)/Reçu/Annuler; cutoff remboursement par RDV via le même resolver que l'action — carte « gratuite jusqu'au » + dialog définitif PAS remboursé/remboursé avec montant du dépôt) |
-| 045 | SPIKE — receipt TPS/TVQ tax breakdown | P3 | M | — | TODO (file written) |
+| 045 | SPIKE — receipt TPS/TVQ tax breakdown | P3 | M | — | DONE (design: plans/045-OUTPUT-receipt-tax-design.md — taxes inclusive by default, charge never uses the tax engine, no reg columns (migration designed); reconciliation guaranteed structurally: informative « dont » lines + derived net, tax lines gated on reg numbers) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 
