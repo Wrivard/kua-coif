@@ -111,11 +111,19 @@ export function ServicesClient({
   }
 
   function onToggleStatus(row: ServiceRow) {
+    // Optimistic flip — the row's displayed status comes from `ordered`, so
+    // move it now and reconcile on the round-trip. Mirrors the drag-reorder
+    // pattern below: snapshot `previous`, flip, revert on failure. The prop
+    // re-sync (:75-77) settles any drift after revalidation.
+    const previous = ordered;
+    const flipped = row.status === 'enabled' ? 'disabled' : 'enabled';
+    setOrdered((prev) => prev.map((s) => (s.id === row.id ? { ...s, status: flipped } : s)));
     startTransition(async () => {
       const result = await toggleServiceStatus({ id: row.id });
       if (result.ok) {
         show({ variant: 'info', title: t('toasts.statusFlipped', { name: row.name }) });
       } else {
+        setOrdered(previous); // revert
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
