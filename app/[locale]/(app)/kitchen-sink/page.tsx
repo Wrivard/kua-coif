@@ -2,10 +2,11 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Award, Mail, Plus, Sparkles } from 'lucide-react';
+import { AlertTriangle, Award, Info, Mail, Plus, Sparkles } from 'lucide-react';
 import {
   Badge,
   Button,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -370,6 +371,25 @@ export default function KitchenSinkPage() {
 
         {/* Feedback */}
         <Section title={sections('feedback')}>
+          {/* Plan 030 — Callout variants. Every variant is rendered here so
+              tint/radius drift is visible at a glance (post-029 tokens). */}
+          <div className="mb-6 space-y-3">
+            <Callout>Default callout — neutral inline information.</Callout>
+            <Callout variant="accent">Accent callout — brand-tinted highlight.</Callout>
+            <Callout variant="success">Success callout — the operation completed.</Callout>
+            <Callout variant="warning">Warning callout — something needs attention.</Callout>
+            <Callout variant="danger">Danger callout — the operation failed.</Callout>
+            <Callout variant="info">Info callout — contextual FYI.</Callout>
+            <Callout variant="info" icon={<Info className="h-4 w-4" />} title="With icon and title">
+              Body text sits under the emphasized title, aligned beside the icon.
+            </Callout>
+            <Callout variant="warning" icon={<AlertTriangle className="h-4 w-4" />}>
+              Icon without a title — single-line message.
+            </Callout>
+            <Callout variant="danger" title="Title without icon">
+              Useful when the message has a headline and a longer explanation.
+            </Callout>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="secondary"
