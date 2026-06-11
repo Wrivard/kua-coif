@@ -429,7 +429,6 @@
     },
     "services": {
       "title": "Services",
-      "soon": "Grille des services et tarifs — Phase 4.",
       "addService": "Ajouter un service",
       "manageCategories": "Catégories",
       "emptyTitle": "Aucun service",
@@ -437,6 +436,14 @@
       "searchPlaceholder": "Rechercher un service…",
       "searchNoResults": "Aucun résultat",
       "searchNoResultsHint": "Aucun service ne correspond à « {query} ».",
+      "dnd": {
+        "instructions": "Pour réordonner, appuie sur Espace pour saisir le service, utilise les flèches pour le déplacer, puis Espace pour le déposer. Échap pour annuler.",
+        "start": "{name} saisi.",
+        "over": "{name} déplacé sur {over}.",
+        "end": "{name} déposé sur {over}.",
+        "noTarget": "{name} n'est sur aucune position.",
+        "cancel": "Déplacement de {name} annulé."
+      },
       "columns": {
         "sort": "Ordre",
         "name": "Service",

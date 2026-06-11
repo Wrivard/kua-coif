@@ -429,7 +429,6 @@
     },
     "services": {
       "title": "Services",
-      "soon": "Services and pricing grid — Phase 4.",
       "addService": "Add a service",
       "manageCategories": "Categories",
       "emptyTitle": "No services yet",
@@ -437,6 +436,14 @@
       "searchPlaceholder": "Search services…",
       "searchNoResults": "No results",
       "searchNoResultsHint": "No service matches \"{query}\".",
+      "dnd": {
+        "instructions": "To reorder, press Space to pick up the service, use the arrow keys to move it, then Space to drop. Escape cancels.",
+        "start": "{name} picked up.",
+        "over": "{name} moved over {over}.",
+        "end": "{name} dropped over {over}.",
+        "noTarget": "{name} is over no position.",
+        "cancel": "Moving {name} was cancelled."
+      },
       "columns": {
         "sort": "Sort",
         "name": "Service",

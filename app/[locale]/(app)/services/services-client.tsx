@@ -98,6 +98,38 @@ export function ServicesClient({
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
+  // Services W3 #7 — dnd-kit's DEFAULT screen-reader strings are English
+  // ("Draggable item was moved over…") whatever the UI locale. Localized
+  // announcements name the actual service so a keyboard-drag user hears
+  // "Coupe homme déplacé sur Barbe", not ids.
+  const serviceNameById = useMemo(() => new Map(ordered.map((s) => [s.id, s.name])), [ordered]);
+  const dndAccessibility = useMemo(() => {
+    const name = (id: unknown) => serviceNameById.get(String(id)) ?? '';
+    return {
+      screenReaderInstructions: { draggable: t('dnd.instructions') },
+      announcements: {
+        onDragStart: ({ active }: { active: { id: unknown } }) =>
+          t('dnd.start', { name: name(active.id) }),
+        onDragOver: ({
+          active,
+          over,
+        }: {
+          active: { id: unknown };
+          over: { id: unknown } | null;
+        }) =>
+          over
+            ? t('dnd.over', { name: name(active.id), over: name(over.id) })
+            : t('dnd.noTarget', { name: name(active.id) }),
+        onDragEnd: ({ active, over }: { active: { id: unknown }; over: { id: unknown } | null }) =>
+          over
+            ? t('dnd.end', { name: name(active.id), over: name(over.id) })
+            : t('dnd.noTarget', { name: name(active.id) }),
+        onDragCancel: ({ active }: { active: { id: unknown } }) =>
+          t('dnd.cancel', { name: name(active.id) }),
+      },
+    };
+  }, [serviceNameById, t]);
+
   const visible = useMemo(() => {
     if (!filtering) return ordered;
     return ordered.filter((s) => {
@@ -264,7 +296,12 @@ export function ServicesClient({
             />
           </div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onDragEnd}
+            accessibility={dndAccessibility}
+          >
             <SortableContext
               items={visible.map((s) => s.id)}
               strategy={verticalListSortingStrategy}
@@ -275,35 +312,47 @@ export function ServicesClient({
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-bg-surface">
                     <tr className="border-b border-border-strong">
-                      <th className="w-8" aria-label={t('columns.sort')} />
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th scope="col" className="w-8" aria-label={t('columns.sort')} />
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                      >
                         {t('columns.name')}
                       </th>
                       <th
+                        scope="col"
                         className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted"
                         style={{ width: '100px' }}
                       >
                         {t('columns.duration')}
                       </th>
                       <th
+                        scope="col"
                         className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-text-muted"
                         style={{ width: '120px' }}
                       >
                         {t('columns.price')}
                       </th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                      >
                         {t('columns.tax')}
                       </th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                      >
                         {t('columns.category')}
                       </th>
                       <th
+                        scope="col"
                         className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted"
                         style={{ width: '110px' }}
                       >
                         {t('columns.status')}
                       </th>
-                      <th className="px-4 py-3" style={{ width: '120px' }} />
+                      <th scope="col" className="px-4 py-3" style={{ width: '120px' }} />
                     </tr>
                   </thead>
                   <tbody>
