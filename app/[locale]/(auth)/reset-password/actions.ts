@@ -54,8 +54,7 @@ export async function resetPasswordAction(
     return { kind: 'invalid', reason: 'mismatch' };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) {
     return { kind: 'error', code: mapSupabaseAuthError(error) };

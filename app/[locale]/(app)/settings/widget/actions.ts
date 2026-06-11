@@ -19,8 +19,7 @@ export const upsertWidgetConfig = withAction({
   schema: widgetConfigSchema,
   minRole: 'manager',
   run: async (input: WidgetConfig, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb.from('shops').update({ widget_config: input }).eq('id', ctx.shopId);
     if (error) return err('UNEXPECTED');
 

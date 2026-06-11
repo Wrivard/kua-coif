@@ -32,21 +32,14 @@ export const generatePublicLinks = withAction({
   // member can mint links for an appointment in their shop.
   minRole: 'barber',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const apptRes = await sb
       .from('appointments')
       .select('id, client_id, shop_id, barber_id, public_link_version')
       .eq('id', input.appointment_id)
       .eq('shop_id', ctx.shopId)
       .limit(1);
-    const appt = ((apptRes.data as Array<{
-      id: string;
-      client_id: string;
-      shop_id: string;
-      barber_id: string;
-      public_link_version: number | null;
-    }> | null) ?? [])[0];
+    const appt = (apptRes.data ?? [])[0];
     if (!appt) return err('NOT_FOUND');
 
     // Strict-barber ownership: a barber can only mint long-lived signed
@@ -76,9 +69,7 @@ export const generatePublicLinks = withAction({
         .select('me_token_version')
         .eq('id', appt.client_id)
         .limit(1);
-      const meVer =
-        ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
-          ?.me_token_version ?? 0;
+      const meVer = (verRes.data ?? [])[0]?.me_token_version ?? 0;
       meToken = signToken({
         kind: 'me',
         resourceId: appt.client_id,
@@ -149,8 +140,7 @@ export const revokePublicLinks = withAction({
   schema: revokeSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     // Ownership: read the row scoped to the caller's shop (same shape as
     // generatePublicLinks) so a manager can't revoke another shop's links.
     const apptRes = await sb
@@ -159,10 +149,7 @@ export const revokePublicLinks = withAction({
       .eq('id', input.appointment_id)
       .eq('shop_id', ctx.shopId)
       .limit(1);
-    const appt = ((apptRes.data as Array<{
-      id: string;
-      public_link_version: number | null;
-    }> | null) ?? [])[0];
+    const appt = (apptRes.data ?? [])[0];
     if (!appt) return err('NOT_FOUND');
 
     const nextVersion = (appt.public_link_version ?? 0) + 1;

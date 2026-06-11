@@ -43,8 +43,7 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
     const payload = verifyToken(input.token, 'review');
     if (!payload) return err('INVALID_INPUT');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Resolve the appointment to extract shop_id + barber_id + client_id.
     // The token only carries the appointment_id — the rest comes from DB.
@@ -53,13 +52,7 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
       .select('id, shop_id, barber_id, client_id, public_link_version')
       .eq('id', payload.resourceId)
       .limit(1);
-    const appt = ((apptRes.data as Array<{
-      id: string;
-      shop_id: string;
-      barber_id: string;
-      client_id: string;
-      public_link_version: number | null;
-    }> | null) ?? [])[0];
+    const appt = (apptRes.data ?? [])[0];
     if (!appt) return err('NOT_FOUND');
     // Revocation (plan 013): stale token version → same NOT_FOUND path as a
     // bad token (never a distinct error that would confirm the appt exists).
@@ -76,7 +69,7 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
       .select('id')
       .eq('appointment_id', appt.id)
       .limit(1);
-    const existing = ((existingRes.data as Array<{ id: string }> | null) ?? [])[0];
+    const existing = (existingRes.data ?? [])[0];
     if (existing) return err('INVALID_INPUT', { review: 'already_submitted' });
 
     const insertRes = await supabase
@@ -95,7 +88,7 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
       .single();
     if (insertRes.error || !insertRes.data) return err('UNEXPECTED');
 
-    const reviewId = (insertRes.data as { id: string }).id;
+    const reviewId = insertRes.data.id;
     await logDurableAudit({
       shopId: appt.shop_id,
       actorId: '00000000-0000-0000-0000-000000000000',

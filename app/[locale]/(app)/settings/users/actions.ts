@@ -42,8 +42,7 @@ export const inviteUser = withAction({
   schema: inviteUserSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServiceRoleClient() as any;
+    const sb = createSupabaseServiceRoleClient();
 
     // 1. Look up profile by email.
     const profileRes = await sb
@@ -51,7 +50,7 @@ export const inviteUser = withAction({
       .select('id, email')
       .eq('email', input.email)
       .limit(1);
-    const profile = ((profileRes.data as Array<{ id: string; email: string }> | null) ?? [])[0];
+    const profile = (profileRes.data ?? [])[0];
 
     // Common pre-check: refuse if they're already a member of this shop
     // (covers both paths — re-linking an existing profile or re-inviting an
@@ -63,8 +62,7 @@ export const inviteUser = withAction({
         .eq('shop_id', ctx.shopId)
         .eq('user_id', profile.id)
         .limit(1);
-      const existingRow = ((existing.data as Array<{ id: string; status: string }> | null) ??
-        [])[0];
+      const existingRow = (existing.data ?? [])[0];
       if (existingRow) return err('CONFLICT');
     }
 
@@ -143,8 +141,7 @@ export const updateMember = withAction({
   schema: updateMemberSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
 
     // Look up the target row so we can compare prior role to requested
     // role + verify shop scope server-side (RLS would catch it too but
@@ -155,10 +152,7 @@ export const updateMember = withAction({
       .eq('id', input.member_id)
       .eq('shop_id', ctx.shopId)
       .single();
-    const target = targetRes.data as {
-      user_id: string;
-      role: 'owner' | 'manager' | 'barber';
-    } | null;
+    const target = targetRes.data;
     if (!target) return err('NOT_FOUND');
 
     // Block self-edit: a member can't touch their own role/status. The
@@ -204,8 +198,7 @@ export const removeMember = withAction({
   schema: removeMemberSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
 
     // Same defensive lookup as updateMember — explicit ownership check
     // beats relying on RLS for the friendly error path.
@@ -215,10 +208,7 @@ export const removeMember = withAction({
       .eq('id', input.member_id)
       .eq('shop_id', ctx.shopId)
       .single();
-    const target = targetRes.data as {
-      user_id: string;
-      role: 'owner' | 'manager' | 'barber';
-    } | null;
+    const target = targetRes.data;
     if (!target) return err('NOT_FOUND');
 
     // No self-removal — a member resigning must be removed by someone

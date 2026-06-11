@@ -20,8 +20,7 @@ export const saveReviewUrl = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const next = input.public_review_url.trim();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('shops')
       .update({ public_review_url: next === '' ? null : next })

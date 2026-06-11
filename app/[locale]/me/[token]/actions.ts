@@ -70,8 +70,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
     const payload = verifyToken(parsed.data.token, 'me');
     if (!payload) return err('INVALID_INPUT');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     const clientRes = await supabase
       .from('clients')
@@ -85,19 +84,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
       )
       .eq('id', payload.resourceId)
       .limit(1);
-    const client = ((clientRes.data as Array<{
-      id: string;
-      shop_id: string;
-      first_name: string;
-      last_name: string | null;
-      email: string | null;
-      phone: string | null;
-      created_at: string;
-      loyalty_balance_cents: number | null;
-      loyalty_balance_expires_at: string | null;
-      anonymized_at: string | null;
-      me_token_version: number | null;
-    }> | null) ?? [])[0];
+    const client = (clientRes.data ?? [])[0];
     if (!client || client.anonymized_at) return err('NOT_FOUND');
     // Revocation (W5c): the token's embedded version must match the client's
     // current one; a bump invalidates every outstanding /me link.
@@ -117,17 +104,7 @@ export async function exportMyData(raw: ExportMyDataInput): Promise<Result<SelfE
       .eq('client_id', client.id)
       .order('start_at', { ascending: false });
 
-    type ApptJoin = {
-      id: string;
-      start_at: string;
-      end_at: string;
-      status: string;
-      total_amount: number;
-      payment_status: string;
-      barber: { display_name: string } | null;
-      services: Array<{ price_snapshot: number; service: { name: string } | null }> | null;
-    };
-    const appointments = ((apptRes.data as ApptJoin[] | null) ?? []).map((a) => ({
+    const appointments = (apptRes.data ?? []).map((a) => ({
       id: a.id,
       start_at: a.start_at,
       end_at: a.end_at,
@@ -235,8 +212,7 @@ export async function cancelMyAppointment(
     const payload = verifyToken(parsed.data.token, 'me');
     if (!payload) return err('INVALID_INPUT');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Resolve appointment + verify it belongs to the token's client.
     // This is the IDOR gate: a leaked token must not let the holder
@@ -248,18 +224,7 @@ export async function cancelMyAppointment(
       )
       .eq('id', parsed.data.appointment_id)
       .limit(1);
-    const appt =
-      ((apptRes.data as Array<{
-        id: string;
-        shop_id: string;
-        barber_id: string;
-        client_id: string | null;
-        start_at: string;
-        status: 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
-        payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed' | null;
-        payment_intent_id: string | null;
-        google_event_id: string | null;
-      }> | null) ?? [])[0] ?? null;
+    const appt = (apptRes.data ?? [])[0] ?? null;
     if (!appt) return err('NOT_FOUND');
     if (appt.client_id !== payload.resourceId) return err('NOT_FOUND');
     // Revocation (W5c): the token's embedded version must still match the
@@ -269,9 +234,7 @@ export async function cancelMyAppointment(
       .select('me_token_version')
       .eq('id', payload.resourceId)
       .limit(1);
-    const meVer =
-      ((verRes.data as Array<{ me_token_version: number | null }> | null) ?? [])[0]
-        ?.me_token_version ?? 0;
+    const meVer = (verRes.data ?? [])[0]?.me_token_version ?? 0;
     if ((payload.ver ?? 0) !== meVer) return err('NOT_FOUND');
 
     // Already in a terminal state — nothing to do. We return NOT_FOUND
@@ -300,13 +263,7 @@ export async function cancelMyAppointment(
       .from('barber_settings')
       .select('scope, barber_id, mins_cancel_before_appt, customer_cancellations')
       .eq('shop_id', appt.shop_id);
-    const settingsRows =
-      (settingsRes.data as Array<{
-        scope: 'shop' | 'barber';
-        barber_id: string | null;
-        mins_cancel_before_appt: number;
-        customer_cancellations: boolean | null;
-      }> | null) ?? [];
+    const settingsRows = settingsRes.data ?? [];
     // B20 — shared resolver (override → shop → defaults). No-rows ⇒ mins 0
     // ("no policy") + customer_cancellations true, matching the prior
     // `?? 0` / `!== false` semantics exactly.
@@ -399,8 +356,7 @@ export async function cancelMyAppointment(
     // Resolve the shop timezone the waitlist helper needs to compute the
     // shop-local date for window matching (mirrors the admin path).
     const tzRes = await supabase.from('shops').select('timezone').eq('id', appt.shop_id).limit(1);
-    const timezone =
-      ((tzRes.data as Array<{ timezone: string }> | null) ?? [])[0]?.timezone ?? 'America/Toronto';
+    const timezone = (tzRes.data ?? [])[0]?.timezone ?? 'America/Toronto';
     void notifyMatchingWaitlistOnCancel({
       shopId: appt.shop_id,
       barberId: appt.barber_id,
@@ -430,15 +386,9 @@ export async function cancelMyAppointment(
           .eq('appointment_id', appt.id),
         supabase.from('shops').select('name, timezone, phone').eq('id', appt.shop_id).single(),
       ]);
-      const customer = clientRes.data as { first_name: string; email: string | null } | null;
-      const shop = shopRes.data as {
-        name: string;
-        timezone: string;
-        phone: string | null;
-      } | null;
-      const services = (
-        (servicesRes.data as Array<{ services: { name: string } | null }> | null) ?? []
-      )
+      const customer = clientRes.data;
+      const shop = shopRes.data;
+      const services = (servicesRes.data ?? [])
         .map((r) => r.services?.name)
         .filter((n): n is string => Boolean(n))
         .map((name) => ({ name }));

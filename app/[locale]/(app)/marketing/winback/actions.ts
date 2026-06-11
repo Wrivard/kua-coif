@@ -28,8 +28,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
   schema: sendWinbackSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
 
     // 1. Load selected clients + shop info.
     const clientsRes = await admin
@@ -37,15 +36,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       .select('id, first_name, email, phone, anonymized_at, marketing_opted_out')
       .in('id', input.client_ids)
       .eq('shop_id', ctx.shopId);
-    type ClientRow = {
-      id: string;
-      first_name: string;
-      email: string | null;
-      phone: string | null;
-      anonymized_at: string | null;
-      marketing_opted_out: boolean | null;
-    };
-    const clients = (clientsRes.data as ClientRow[] | null) ?? [];
+    const clients = clientsRes.data ?? [];
     if (clients.length === 0) return err('NOT_FOUND');
 
     const shopRes = await admin
@@ -53,12 +44,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       .select('id, name, alias, default_language')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as {
-      id: string;
-      name: string;
-      alias: string | null;
-      default_language: string;
-    } | null;
+    const shop = shopRes.data;
     if (!shop || !shop.alias) return err('UNEXPECTED');
     const locale = shopLocale(shop.default_language);
 
@@ -77,8 +63,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       .in('client_id', input.client_ids);
     const alreadyEmail = new Set<string>();
     const alreadySms = new Set<string>();
-    for (const row of (alreadyRes.data as Array<{ client_id: string; channel: string }> | null) ??
-      []) {
+    for (const row of alreadyRes.data ?? []) {
       if (row.channel === 'email') alreadyEmail.add(row.client_id);
       if (row.channel === 'sms') alreadySms.add(row.client_id);
     }

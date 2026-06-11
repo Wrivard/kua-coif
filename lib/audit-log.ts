@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
+import type { Json } from '@/db/types';
 
 type LogArgs = {
   shopId: string;
@@ -29,23 +30,15 @@ type LogArgs = {
 export async function logAuditAction(args: LogArgs) {
   try {
     const supabase = createSupabaseServerClient();
-    // Until db/types.ts is regenerated post-migration, cast through unknown.
-    await (
-      supabase as unknown as {
-        from: (t: string) => {
-          insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-        };
-      }
-    )
-      .from('audit_log')
-      .insert({
-        shop_id: args.shopId,
-        actor_id: args.actorId,
-        action: args.action,
-        entity: args.entity,
-        entity_id: args.entityId ?? null,
-        diff: args.diff ?? null,
-      });
+    await supabase.from('audit_log').insert({
+      shop_id: args.shopId,
+      actor_id: args.actorId,
+      action: args.action,
+      entity: args.entity,
+      entity_id: args.entityId ?? null,
+      // Free-form caller payload; the column is jsonb (Json).
+      diff: (args.diff ?? null) as Json,
+    });
   } catch (e) {
     captureException(e, { tags: { layer: 'audit-log' } });
   }
@@ -92,18 +85,15 @@ export function redactAuditPii(v: unknown): unknown {
  */
 export async function logDurableAudit(args: LogArgs) {
   try {
-    const admin = createSupabaseServiceRoleClient() as unknown as {
-      from: (t: string) => {
-        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-      };
-    };
+    const admin = createSupabaseServiceRoleClient();
     await admin.from('audit_log').insert({
       shop_id: args.shopId,
       actor_id: args.actorId,
       action: args.action,
       entity: args.entity,
       entity_id: args.entityId ?? null,
-      diff: args.diff ? redactAuditPii(args.diff) : null,
+      // Redacted free-form payload; the column is jsonb (Json).
+      diff: args.diff ? (redactAuditPii(args.diff) as Json) : null,
     });
   } catch (e) {
     captureException(e, { tags: { layer: 'audit-log-durable' } });

@@ -44,8 +44,7 @@ export const updatePaymentProfile = withAction({
   schema: paymentProfileSchema,
   minRole: 'owner',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('payment_profiles')
       .upsert({ shop_id: ctx.shopId, ...input }, { onConflict: 'shop_id' });
@@ -81,8 +80,7 @@ export const updatePaymentMode = withAction({
   schema: paymentModeSchema,
   minRole: 'owner',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     // Guard: 'full' / 'deposit' need Stripe Connect active.
     if (input.payment_mode !== 'none') {
       const statusRes = await admin
@@ -90,8 +88,7 @@ export const updatePaymentMode = withAction({
         .select('stripe_connect_status')
         .eq('id', ctx.shopId)
         .single();
-      const status = (statusRes.data as { stripe_connect_status: string } | null)
-        ?.stripe_connect_status;
+      const status = statusRes.data?.stripe_connect_status;
       if (status !== 'active') return err('INVALID_INPUT', { payment_mode: 'stripe_required' });
     }
     const { error } = await admin
@@ -132,19 +129,13 @@ export const startStripeConnect = withAction<never, { url: string }>({
 
     // Read the shop + owner email. Service-role for the shop read so we
     // can write the new stripe_account_id back without RLS friction.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const shopRes = await admin
       .from('shops')
       .select('id, name, email, stripe_account_id')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as {
-      id: string;
-      name: string;
-      email: string | null;
-      stripe_account_id: string | null;
-    } | null;
+    const shop = shopRes.data;
     if (!shop) return err('NOT_FOUND');
 
     try {
@@ -199,14 +190,13 @@ export const refreshStripeStatus = withAction<never, { status: string }>({
   run: async (_input, ctx) => {
     if (!stripeConfigured()) return err('UNEXPECTED');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const shopRes = await admin
       .from('shops')
       .select('stripe_account_id')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as { stripe_account_id: string | null } | null;
+    const shop = shopRes.data;
     if (!shop?.stripe_account_id) return err('NOT_FOUND');
 
     try {
@@ -243,14 +233,13 @@ export const openStripeDashboard = withAction<never, { url: string }>({
   run: async (_input, ctx) => {
     if (!stripeConfigured()) return err('UNEXPECTED');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const shopRes = await admin
       .from('shops')
       .select('stripe_account_id')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as { stripe_account_id: string | null } | null;
+    const shop = shopRes.data;
     if (!shop?.stripe_account_id) return err('NOT_FOUND');
 
     try {
@@ -294,14 +283,13 @@ export const disconnectQuickbooks = withAction<never, { ok: true }>({
   run: async (_input, ctx) => {
     if (!quickbooksConfigured()) return err('UNEXPECTED');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     const shopRes = await admin
       .from('shops')
       .select('quickbooks_refresh_token_enc')
       .eq('id', ctx.shopId)
       .single();
-    const shop = shopRes.data as { quickbooks_refresh_token_enc: string | null } | null;
+    const shop = shopRes.data;
 
     if (shop?.quickbooks_refresh_token_enc && encryptionConfigured()) {
       try {

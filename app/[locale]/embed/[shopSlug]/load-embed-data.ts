@@ -25,8 +25,7 @@ export type EmbedData = {
  * Returns null when the alias doesn't resolve — callers notFound().
  */
 export async function loadEmbedData(locale: string, shopSlug: string): Promise<EmbedData | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   // 1. Resolve shop by alias.
   // Phase H+10 — `phone` added to the select so the widget header

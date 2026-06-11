@@ -16,8 +16,7 @@ export const upsertLoyalty = withAction({
   schema: loyaltySchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('loyalty_program')
       .upsert({ shop_id: ctx.shopId, ...input }, { onConflict: 'shop_id' });

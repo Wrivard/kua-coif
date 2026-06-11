@@ -21,17 +21,6 @@ import {
 
 const PRODUCTS_PATH = '/products';
 
-type DbError = { message?: string; code?: string } | null;
-
-// Fluent update builder: `.eq()` is chainable (variable count — id + shop_id,
-// plus an optional updated_at precondition), the chain is awaitable (`{ error }`),
-// and a terminal `.select('id')` returns the affected rows so a 0-row write
-// (stale precondition / foreign shop) is detectable.
-type UpdateChain = Promise<{ error: DbError }> & {
-  eq: (k: string, v: string) => UpdateChain;
-  select: (cols: string) => Promise<{ data: Array<{ id: string }> | null; error: DbError }>;
-};
-
 // All catalog mutations run on the USER-SESSION client (RLS-bound). The
 // `.eq('shop_id', ctx.shopId)` filters below are defense-in-depth on top of the
 // per-command RLS (catalog_rls_per_command): behaviour is unchanged today, but
@@ -39,31 +28,7 @@ type UpdateChain = Promise<{ error: DbError }> & {
 // service-role. `set_product_taxes` is the SECURITY INVOKER RPC from
 // 20260610140000 — atomic + same-shop-validated tax linking.
 function db() {
-  return createSupabaseServerClient() as unknown as {
-    from: (table: string) => {
-      insert: (row: Record<string, unknown>) => {
-        select: (cols: string) => {
-          single: () => Promise<{ data: { id: string } | null; error: DbError }>;
-        };
-      };
-      update: (row: Record<string, unknown>) => { eq: (k: string, v: string) => UpdateChain };
-      delete: () => {
-        eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: DbError }> };
-      };
-      select: (cols: string) => {
-        eq: (
-          k: string,
-          v: string,
-        ) => {
-          eq: (
-            k: string,
-            v: string,
-          ) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: DbError }> };
-        };
-      };
-    };
-    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: DbError }>;
-  };
+  return createSupabaseServerClient();
 }
 
 /**

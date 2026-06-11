@@ -15,8 +15,7 @@ export const saveCommissions = withAction({
   run: async (input, ctx) => {
     // Upsert every row at once. UNIQUE (shop_id, barber_id, scope) makes this
     // a single SQL statement under the hood.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const rows = input.rows.map((r) => ({ shop_id: ctx.shopId, ...r }));
     const { error } = await sb
       .from('commission_tiers')

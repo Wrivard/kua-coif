@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import type { Database } from '@/db/types';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
@@ -45,7 +46,7 @@ export const upsertSenderConfig = withAction({
       return err('UNEXPECTED');
     }
 
-    const patch: Record<string, unknown> = {
+    const patch: Database['public']['Tables']['shops']['Update'] = {
       notification_from_email: input.from_email || null,
       notification_from_name: input.from_name || null,
       notification_smtp_host: input.smtp_host || null,
@@ -56,8 +57,7 @@ export const upsertSenderConfig = withAction({
       patch.notification_smtp_password_enc = encrypt(input.smtp_password);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb.from('shops').update(patch).eq('id', ctx.shopId);
     if (error) return err('UNEXPECTED');
 
@@ -92,8 +92,7 @@ export const upsertSenderConfig = withAction({
 export const clearSenderConfig = withAction({
   minRole: 'manager',
   run: async (_input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('shops')
       .update({
@@ -200,8 +199,7 @@ export const upsertSlackWebhook = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const next = input.slack_webhook_url.trim();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('shops')
       .update({ slack_webhook_url: next === '' ? null : next })
@@ -239,7 +237,7 @@ export const upsertTwilioConfig = withAction({
       return err('UNEXPECTED');
     }
 
-    const patch: Record<string, unknown> = {
+    const patch: Database['public']['Tables']['shops']['Update'] = {
       twilio_account_sid: input.twilio_account_sid || null,
       twilio_from_number: input.twilio_from_number || null,
     };
@@ -247,8 +245,7 @@ export const upsertTwilioConfig = withAction({
       patch.twilio_auth_token_enc = encrypt(input.twilio_auth_token);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb.from('shops').update(patch).eq('id', ctx.shopId);
     if (error) return err('UNEXPECTED');
 
@@ -274,8 +271,7 @@ export const upsertTwilioConfig = withAction({
 export const clearTwilioConfig = withAction({
   minRole: 'manager',
   run: async (_input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('shops')
       .update({
@@ -363,8 +359,7 @@ export const toggleAutomation = withAction({
   schema: toggleAutomationSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServerClient() as any;
+    const sb = createSupabaseServerClient();
     const { error } = await sb
       .from('notification_automations')
       .update({ enabled: input.enabled })
@@ -431,8 +426,7 @@ export async function loadNotificationsState(shopId: string): Promise<{
   automations: AutomationRow[];
   encryptionReady: boolean;
 }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const [shopRes, autoRes] = await Promise.all([
     admin
       .from('shops')
@@ -456,18 +450,7 @@ export async function loadNotificationsState(shopId: string): Promise<{
       .order('kind', { ascending: true }),
   ]);
 
-  const shop = (shopRes.data as {
-    notification_from_email: string | null;
-    notification_from_name: string | null;
-    notification_smtp_host: string | null;
-    notification_smtp_port: number | null;
-    notification_smtp_user: string | null;
-    notification_smtp_password_enc: string | null;
-    slack_webhook_url: string | null;
-    twilio_account_sid: string | null;
-    twilio_auth_token_enc: string | null;
-    twilio_from_number: string | null;
-  } | null) ?? {
+  const shop = shopRes.data ?? {
     notification_from_email: null,
     notification_from_name: null,
     notification_smtp_host: null,

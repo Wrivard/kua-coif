@@ -42,8 +42,7 @@ export async function unsubscribeFromMarketing(
     const payload = verifyToken(parsed.data.token, 'unsub');
     if (!payload) return err('INVALID_INPUT');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
 
     // Token carries only the client_id — resolve the rest from the DB.
     // Skip anonymized rows (Loi 25 erasure): nothing left to manage.
@@ -52,12 +51,7 @@ export async function unsubscribeFromMarketing(
       .select('id, shop_id, anonymized_at, marketing_opted_out')
       .eq('id', payload.resourceId)
       .limit(1);
-    const client = ((clientRes.data as Array<{
-      id: string;
-      shop_id: string;
-      anonymized_at: string | null;
-      marketing_opted_out: boolean | null;
-    }> | null) ?? [])[0];
+    const client = (clientRes.data ?? [])[0];
     if (!client || client.anonymized_at) return err('NOT_FOUND');
 
     // Already opted out → idempotent success, no write, no audit noise.

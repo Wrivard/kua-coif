@@ -58,8 +58,7 @@ export async function updatePlatformAppFee(
   const bps = Math.round(parsed.data.app_fee_pct * 100);
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = createSupabaseServiceRoleClient() as any;
+    const sb = createSupabaseServiceRoleClient();
 
     // Phase H+6 — read the OLD value first so we can log a history
     // row with both old and new. If the read fails we still proceed
@@ -69,7 +68,7 @@ export async function updatePlatformAppFee(
       .select('app_fee_bps')
       .eq('id', 1)
       .maybeSingle();
-    const oldBps = (priorRes.data as { app_fee_bps: number } | null)?.app_fee_bps ?? 0;
+    const oldBps = priorRes.data?.app_fee_bps ?? 0;
 
     const res = await sb
       .from('platform_config')
