@@ -179,6 +179,12 @@ type Props = {
    */
   googleBusy?: GoogleBusyPerBarber[];
   /**
+   * Plan 040 (CAL-07) — `?appt=<id>` deep link, resolved + shop-scoped by
+   * the server. When set, the detail drawer opens for that appointment on
+   * mount (the server already rendered its day).
+   */
+  deepLinkApptId?: string | null;
+  /**
    * Phase 45 — onboarding completion signals. When omitted or all
    * fields are "done", the OnboardingCard auto-hides.
    */
@@ -255,6 +261,7 @@ export function AppointmentsCalendar({
   weekDays = [],
   blocked,
   googleBusy = [],
+  deepLinkApptId = null,
   onboarding,
 }: Props) {
   const t = useTranslations('pages.appointments');
@@ -298,6 +305,19 @@ export function AppointmentsCalendar({
   // Stable handler so memoized appointment blocks don't re-render when an
   // unrelated parent state change (drawer open, 60s now-tick, filter) fires.
   const handleApptClick = useCallback((a: CalendarAppointment) => setDrawer(a), []);
+
+  // Plan 040 (CAL-07) — `?appt=` deep link: open the drawer for the resolved
+  // appointment ONCE on mount (the server already rendered its day; checking
+  // both datasets covers `?view=week` arrivals). Mount-only on purpose:
+  // closing the drawer must not re-open it on the next render.
+  useEffect(() => {
+    if (!deepLinkApptId) return;
+    const target =
+      appointments.find((a) => a.id === deepLinkApptId) ??
+      weekAppointments.find((a) => a.id === deepLinkApptId);
+    if (target) setDrawer(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only by design
+  }, []);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
   // Loop 27 — separate state for the Block Time modal. It doesn't
   // share the create-appointment modal state because the trigger
@@ -847,6 +867,9 @@ export function AppointmentsCalendar({
       setNavTargetIso(next);
       const url = new URL(window.location.href);
       url.searchParams.set('date', next);
+      // Plan 040 (CAL-07) — a consumed `?appt=` deep link must not pin every
+      // later navigation back to that appointment's day.
+      url.searchParams.delete('appt');
       startNavTransition(() => {
         router.push(url.pathname + '?' + url.searchParams.toString());
       });
@@ -857,6 +880,7 @@ export function AppointmentsCalendar({
     setNavTargetIso(today);
     const url = new URL(window.location.href);
     url.searchParams.set('date', today);
+    url.searchParams.delete('appt');
     startNavTransition(() => {
       router.push(url.pathname + '?' + url.searchParams.toString());
     });
@@ -871,6 +895,7 @@ export function AppointmentsCalendar({
       setNavTargetIso(nextIso);
       const url = new URL(window.location.href);
       url.searchParams.set('date', nextIso);
+      url.searchParams.delete('appt');
       startNavTransition(() => {
         router.push(url.pathname + '?' + url.searchParams.toString());
       });
