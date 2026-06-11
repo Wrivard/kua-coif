@@ -307,6 +307,59 @@ describe('bookPublicAppointment', () => {
     expect(del?.filters.some(([k]) => k === 'id')).toBe(true);
   });
 
+  it('post-charge promo rejection refunds the charged PI (plan 036 refund routing)', async () => {
+    // No promo_codes fixture → the typed code resolves to `invalid`. This
+    // rejection happens AFTER the client-side charge, so the refund net must
+    // fire — before plan 036 this path returned a plain err() and kept the
+    // customer's money.
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }));
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({
+        promo_code: 'NOPE',
+        payment_intent_id: 'pi_abcdefgh1234',
+        deposit_amount_cents: 3000,
+      }),
+    );
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'INVALID_INPUT',
+      fieldErrors: { promo_code: 'invalid' },
+    });
+    expect(h.refundOwnedIntentBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentIntentId: 'pi_abcdefgh1234',
+        expectedConnectedAccountId: 'acct_THIS',
+      }),
+    );
+    // The rejection is strictly pre-insert — no appointment row was created.
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+  });
+
+  it('turnstile failure is PRE-charge: returns without any refund call', async () => {
+    // The turnstile gate runs before the shop is even resolved — no PI can be
+    // scoped to a shop there, so the refund net must NOT fire (plan 036
+    // keeps the pre-failBooking returns as plain err()).
+    h.verifyTurnstile.mockResolvedValue({ ok: false, reason: 'invalid' });
+    const mock = createSupabaseMock(baseFixtures());
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'INVALID_INPUT',
+      fieldErrors: { cf_turnstile_response: 'invalid' },
+    });
+    expect(h.refundOwnedIntentBestEffort).not.toHaveBeenCalled();
+    expect(mock.calls).toHaveLength(0);
+  });
+
   it('honeypot filled → rejected with ZERO database calls', async () => {
     // NOTE (drift from plan 015 case 6): the live schema declares
     // `hp: z.string().max(0)`, so a filled honeypot is rejected at the Zod

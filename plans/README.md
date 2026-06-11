@@ -50,7 +50,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
 | 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | DONE (pane-only settings/loading.tsx — rail persists; shaped finances/clients/4 token-route skeletons; finances range filter → router.push soft-nav client leaf; clients/[id] 3 reads in one Promise.all, 404 order intact) |
 | 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | DONE (first-bookable-day open; slotError+retry distinct from empty, silent aborts; stale-slot clear; honest barber subtitle; localized metadata; mobile sticky CTA + 44px slots) |
-| 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | TODO (file written) |
+| 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | DONE (every post-charge return refunds via failBooking +2 tests; phone/email pre-charge gates; Confirm gated on PI readiness, NOT_READY localized; CONFLICT→slot step + Turnstile re-arm + fresh-PI refresh; mint retry button) |
 | 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | TODO (file written) |
 | 038 | Embeddable widget polish (ISR, analytics cache, brand/theme, modal focus, scroll sync, error states) | P2 | M | — | TODO (file written) |
 | 039 | Back-office safety — destructive-action guards, false signals, payroll correctness | P1 | S-M | 032 (notifications-client) | TODO (file written) |

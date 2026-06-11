@@ -1665,7 +1665,10 @@
         "fullLabel": "Total due",
         "fullHelp": "The full service price is charged now. Nothing to pay at the shop.",
         "shopNotConnected": "The shop hasn't set up online payment yet. You'll pay at the shop.",
-        "intentFailed": "Couldn't prepare the payment. Try again or contact the shop."
+        "intentFailed": "Couldn't prepare the payment. Try again or contact the shop.",
+        "notReady": "The payment is getting ready — try again in a moment.",
+        "updatingTotal": "Updating total…",
+        "retry": "Try again"
       },
       "waitlist": {
         "cta": "Join the waitlist",
@@ -1698,6 +1701,7 @@
           "empty": "No slot available on this day. Try another date.",
           "loadError": "Couldn't load availability.",
           "retry": "Try again",
+          "justTaken": "That time was just taken. Pick another one.",
           "morning": "Morning",
           "afternoon": "Afternoon",
           "evening": "Evening"
@@ -1713,6 +1717,14 @@
           "notesHint": "Mention a special request, allergy, etc.",
           "promoCode": "Promo code (optional)",
           "promoCodeHint": "Enter a discount code if you have one.",
+          "phoneInvalid": "Invalid phone number.",
+          "emailInvalid": "Invalid email address.",
+          "promoErrors": {
+            "invalid": "Invalid promo code.",
+            "expired": "This code has expired.",
+            "used": "This code has already been used.",
+            "first_only": "This code is reserved for a first appointment."
+          },
           "subtotalLabel": "Subtotal:",
           "loyaltyApplied": "Loyalty credit:",
           "totalLabel": "Total:",

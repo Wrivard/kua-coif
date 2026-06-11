@@ -333,7 +333,10 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       services.length !== input.service_ids.length ||
       services.some((s) => s.status !== 'enabled')
     ) {
-      return err('NOT_FOUND');
+      // Plan 036 — these validation rejections run AFTER the client-side
+      // charge, so they must refund like every other post-charge failure
+      // (failBooking no-ops when no payment_intent_id was sent).
+      return await failBooking('NOT_FOUND');
     }
     const totalMinutes = services.reduce((sum, s) => sum + s.duration_min, 0);
 
@@ -345,16 +348,19 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     if (input.promo_code) {
       promoCodeRow = ((promoRes?.data as PromoCodeRow[] | null) ?? [])[0] ?? null;
       if (!promoCodeRow) {
-        return err('INVALID_INPUT', { promo_code: 'invalid' });
+        // Plan 036 — a typo'd promo used to charge-then-reject WITHOUT a
+        // refund (the wizard only validates promo at submit). Route through
+        // the refund net like every other post-charge rejection.
+        return await failBooking('INVALID_INPUT', { promo_code: 'invalid' });
       }
       if (
         promoCodeRow.expiration_date &&
         new Date(promoCodeRow.expiration_date).getTime() < Date.now()
       ) {
-        return err('INVALID_INPUT', { promo_code: 'expired' });
+        return await failBooking('INVALID_INPUT', { promo_code: 'expired' });
       }
       if (promoCodeRow.one_time && promoCodeRow.redemptions > 0) {
-        return err('INVALID_INPUT', { promo_code: 'used' });
+        return await failBooking('INVALID_INPUT', { promo_code: 'used' });
       }
     }
 
@@ -363,16 +369,17 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     let barberId = input.barber_id;
     let barberDisplayName: string | null = null;
     if (!barberId) {
-      if (!shop.allow_booking_any_barber) return err('INVALID_INPUT');
+      // Plan 036 — post-charge barber rejections refund too (no-op without a PI).
+      if (!shop.allow_booking_any_barber) return await failBooking('INVALID_INPUT');
       const row =
         ((barberRes.data as Array<{ id: string; display_name: string | null }> | null) ?? [])[0] ??
         null;
       barberId = row?.id ?? null;
       barberDisplayName = row?.display_name ?? null;
-      if (!barberId) return err('NOT_FOUND');
+      if (!barberId) return await failBooking('NOT_FOUND');
     } else {
       const row = barberRes.data as { id: string; display_name: string | null } | null;
-      if (!row) return err('INVALID_INPUT');
+      if (!row) return await failBooking('INVALID_INPUT');
       barberDisplayName = row.display_name ?? null;
     }
 
