@@ -39,10 +39,15 @@ service-role round-trip, no extra query:
 .from('appointment_services')
 .select(`price_snapshot,
          service:services(id, name,
-           service_tax_links(tax:taxes(name, percentage, add_to_price,
-                                       external_orders_only, enabled)))`)
+           service_taxes(tax:taxes(name, percentage, add_to_price,
+                                   external_orders_only, enabled)))`)
 .eq('appointment_id', appt.id)
 ```
+
+> **Naming gotcha for the builder**: the DB table is **`service_taxes`** (see
+> `db/types.ts` / `20260523000001_init_schema.sql`). The hand-rolled TS alias
+> in `db/rows.ts` is called `ServiceTaxLinkRow`, but PostgREST embeds resolve
+> by TABLE name — `service_tax_links(...)` in the select string would 400.
 
 Add `tps_number, tvq_number` (§3) to the appointment query's `shop:shops(…)`
 projection. Filter each line's taxes to `enabled === true` AND
@@ -90,7 +95,7 @@ reconcile.
 
 | Case | Render | Divergence risk → rule |
 |---|---|---|
-| Exempt service (no rows in `service_tax_links`) | No tax attributed to that line; its full price is untaxed base | None — engine returns empty breakdown |
+| Exempt service (no rows in `service_taxes`) | No tax attributed to that line; its full price is untaxed base | None — engine returns empty breakdown |
 | All services share TPS+TVQ inclusive (the overwhelmingly common Québec shape) | Two « incluse » lines computed on the post-discount base | None with §1's construction |
 | **Exclusive tax** (`add_to_price=false`) | **V1: render NO tax line for it** | HIGH if rendered: booking-pricing never charged it, so an « ajoutée » line would claim money that was not collected. Showing nothing is honest; fixing the charge is a separate money-path plan (§5-Q1) |
 | Service with multiple taxes | One line per tax name, summed across services | None — engine is non-compounded (each tax applies to the same net base, `taxes.ts:4-5,58-63`) |
