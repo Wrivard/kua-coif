@@ -206,9 +206,21 @@
           "createdRecurring": "{count} blocages créés"
         }
       },
+      "deleteBlock": {
+        "ariaOpen": "Supprimer ce blocage",
+        "confirmTitle": "Supprimer ce blocage ?",
+        "confirmDescription": "Le blocage « {reason} » de {start} à {end} sera supprimé et le créneau redeviendra réservable. Pour un blocage récurrent, seule cette occurrence est supprimée.",
+        "confirmButton": "Supprimer",
+        "cancelButton": "Annuler",
+        "toasts": {
+          "deleted": "Blocage supprimé",
+          "failed": "Impossible de supprimer le blocage. Réessaie."
+        }
+      },
       "today": "Aujourd'hui",
       "prevDay": "Jour précédent",
       "nextDay": "Jour suivant",
+      "jumpToDate": "Aller à une date",
       "filterBarbers": "Barbiers :",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",

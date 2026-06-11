@@ -206,9 +206,21 @@
           "createdRecurring": "{count} blocks created"
         }
       },
+      "deleteBlock": {
+        "ariaOpen": "Delete this blocked time",
+        "confirmTitle": "Delete this blocked time?",
+        "confirmDescription": "The \"{reason}\" block from {start} to {end} will be deleted and the slot becomes bookable again. For a recurring block, only this occurrence is deleted.",
+        "confirmButton": "Delete",
+        "cancelButton": "Cancel",
+        "toasts": {
+          "deleted": "Blocked time deleted",
+          "failed": "Could not delete the blocked time. Try again."
+        }
+      },
       "today": "Today",
       "prevDay": "Previous day",
       "nextDay": "Next day",
+      "jumpToDate": "Jump to a date",
       "filterBarbers": "Barbers:",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",

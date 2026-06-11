@@ -30,7 +30,13 @@ import {
 } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { AppointmentStatus } from '@/db/enums';
-import { bulkCancelAppointments, rescheduleAppointment, resizeAppointment } from './actions';
+import {
+  bulkCancelAppointments,
+  deleteBlockedTime,
+  rescheduleAppointment,
+  resizeAppointment,
+} from './actions';
+import type { BlockedTimeOverlay } from './appointments-grid';
 import { OnboardingCard } from '@/components/features/shell/onboarding-card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -298,6 +304,9 @@ export function AppointmentsCalendar({
   // (header button) doesn't carry a starting barber/minute pair —
   // the form picks sensible defaults itself.
   const [blockTimeOpen, setBlockTimeOpen] = useState(false);
+  // Plan 040 (CAL-03) — block clicked on the grid → delete confirm.
+  const [blockToDelete, setBlockToDelete] = useState<BlockedTimeOverlay | null>(null);
+  const [blockDeletePending, startBlockDeleteTransition] = useTransition();
   // Loop 28 — confirmation modal state for the "Cancel day" button.
   // `alsoRefund` is the optional toggle: when on, the bulk action
   // also refunds every paid appointment in the same call. We keep it
@@ -872,6 +881,23 @@ export function AppointmentsCalendar({
     [router, view],
   );
 
+  // Plan 040 (CAL-03) — confirmed delete of one blocked-time occurrence.
+  // The action revalidates the route, so the freed slot reappears with the
+  // server re-render; no optimistic bookkeeping needed for a rare admin op.
+  const onConfirmDeleteBlock = useCallback(() => {
+    const target = blockToDelete;
+    if (!target) return;
+    startBlockDeleteTransition(async () => {
+      const result = await deleteBlockedTime({ id: target.id });
+      if (result.ok) {
+        toast.show({ variant: 'success', title: t('deleteBlock.toasts.deleted') });
+      } else {
+        toast.show({ variant: 'danger', title: t('deleteBlock.toasts.failed') });
+      }
+      setBlockToDelete(null);
+    });
+  }, [blockToDelete, t, toast]);
+
   const onSlotClick = useCallback(
     (barberId: string, e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -1117,6 +1143,7 @@ export function AppointmentsCalendar({
               locale={locale}
               onSlotClick={onSlotClick}
               onApptClick={handleApptClick}
+              onBlockClick={setBlockToDelete}
               onDragEnd={handleDragEnd}
               onResize={handleResize}
               t={t}
@@ -1231,6 +1258,32 @@ export function AppointmentsCalendar({
           if (bulkPending) return;
           setBulkCancelOpen(false);
           setBulkAlsoRefund(false);
+        }}
+      />
+
+      {/* Plan 040 (CAL-03) — delete one blocked-time occurrence. The
+          description echoes the block's window + reason so the operator
+          confirms the RIGHT block (several can share a day). */}
+      <ConfirmDialog
+        open={blockToDelete !== null}
+        title={t('deleteBlock.confirmTitle')}
+        description={
+          blockToDelete
+            ? t('deleteBlock.confirmDescription', {
+                start: formatShopTime(new Date(blockToDelete.start_at), timezone, 'HH:mm'),
+                end: formatShopTime(new Date(blockToDelete.end_at), timezone, 'HH:mm'),
+                reason: blockToDelete.reason ?? t('blocked'),
+              })
+            : ''
+        }
+        confirmLabel={t('deleteBlock.confirmButton')}
+        cancelLabel={t('deleteBlock.cancelButton')}
+        destructive
+        loading={blockDeletePending}
+        onConfirm={onConfirmDeleteBlock}
+        onCancel={() => {
+          if (blockDeletePending) return;
+          setBlockToDelete(null);
         }}
       />
     </>
