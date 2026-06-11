@@ -489,7 +489,15 @@ const DraggableAppointmentBlock = memo(function DraggableAppointmentBlock({
           {t('online')}
         </Badge>
       ) : null}
-      <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+      {/* Plan 039 (CAL-01) — the paid glyph rendered on EVERY block, a false
+          "collected" signal on the busiest screen. Gate it on payment_status
+          and give screen readers the label the aria-hidden glyph drops. */}
+      {appointment.payment_status === 'paid' ? (
+        <>
+          <CreditCard aria-hidden className="absolute bottom-1 right-1 h-3 w-3 text-success" />
+          <span className="sr-only">{t('paid')}</span>
+        </>
+      ) : null}
       {/* Drag-to-resize handle — a thin strip on the bottom edge. Pointer-only
           (aria-hidden); keyboard users adjust time via the detail drawer. The
           grip reveals on block hover. stopPropagation keeps it from starting a
