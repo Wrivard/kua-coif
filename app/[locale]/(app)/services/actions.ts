@@ -167,9 +167,7 @@ export const updateService = withAction({
       // With a precondition we can't tell "stale" from "gone" without a second
       // read — surface the reload toast (products W2b shape). Without one, the
       // id simply doesn't exist in this shop: err, don't lie with ok.
-      return expected_updated_at
-        ? err('CONFLICT', { concurrency: 'stale' })
-        : err('NOT_FOUND');
+      return expected_updated_at ? err('CONFLICT', { concurrency: 'stale' }) : err('NOT_FOUND');
     }
 
     // Atomic, same-shop-validated tax linking (set_service_taxes RPC,
