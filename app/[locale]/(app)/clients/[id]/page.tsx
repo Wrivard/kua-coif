@@ -23,20 +23,15 @@ import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { formatShopTime } from '@/lib/business/timezone';
 import { PageHeader } from '@/components/ui/page-header';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
+// Plan 040 (CAL-10) — this page's local STATUS_VARIANT copy became the
+// canonical shared map; import it so the fiche can never drift from the
+// list view again.
+import { APPOINTMENT_STATUS_VARIANT } from '@/components/ui/appointment-status';
 
 export const dynamic = 'force-dynamic';
 
 type ApptStatus = 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
-
-const STATUS_VARIANT: Record<ApptStatus, BadgeVariant> = {
-  booked: 'info',
-  confirmed: 'accent',
-  arrived: 'success',
-  completed: 'success',
-  cancelled: 'default',
-  no_show: 'warning',
-};
 
 export default async function ClientDetailPage(props: {
   params: Promise<{ locale: string; id: string }>;
@@ -247,7 +242,7 @@ export default async function ClientDetailPage(props: {
                       <td className="px-4 py-2.5 text-text-secondary">{a.barber ?? '—'}</td>
                       <td className="px-4 py-2.5 text-text-primary">{a.services || '—'}</td>
                       <td className="px-4 py-2.5">
-                        <Badge variant={STATUS_VARIANT[a.status] ?? 'default'}>
+                        <Badge variant={APPOINTMENT_STATUS_VARIANT[a.status] ?? 'default'}>
                           {tStatus(a.status)}
                         </Badge>
                       </td>
