@@ -68,8 +68,7 @@ export default async function FinancesPage(props: {
     timezone,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
 
   // Explicit bound on the range aggregation. PostgREST silently caps a SELECT
   // at db-max-rows (1000), so a wide range would sum a TRUNCATED set and
@@ -94,17 +93,8 @@ export default async function FinancesPage(props: {
       .limit(RANGE_LIMIT),
   ]);
 
-  type ApptRow = {
-    id: string;
-    barber_id: string;
-    total_amount: number;
-    status: string;
-    start_at: string;
-  };
-  type ClientRow = { id: string; loyalty_balance_cents: number };
-
-  const appts = (apptsRes.data as ApptRow[] | null) ?? [];
-  const loyaltyClients = (clientsRes.data as ClientRow[] | null) ?? [];
+  const appts = apptsRes.data ?? [];
+  const loyaltyClients = clientsRes.data ?? [];
   const rangeTruncated = appts.length === RANGE_LIMIT || loyaltyClients.length === RANGE_LIMIT;
   if (rangeTruncated) {
     captureException(new Error('[finances] range query hit the 5000-row bound'), {
@@ -169,12 +159,7 @@ export default async function FinancesPage(props: {
       : Promise.resolve({ data: [] }),
   ]);
 
-  const barberNames = new Map(
-    ((barberNamesRes.data as Array<{ id: string; display_name: string }> | null) ?? []).map((b) => [
-      b.id,
-      b.display_name,
-    ]),
-  );
+  const barberNames = new Map((barberNamesRes.data ?? []).map((b) => [b.id, b.display_name]));
   const barberRows = barberIds
     .map((id) => ({
       id,
@@ -191,12 +176,7 @@ export default async function FinancesPage(props: {
   // the per-service amount captured at booking time; summing it gives a
   // truthful revenue figure that doesn't double-count promos or loyalty
   // (those discount the appointment total but not the line items).
-  type LinkRow = {
-    appointment_id: string;
-    service_id: string;
-    price_snapshot: number;
-  };
-  const links = (apptSvcsRes.data as LinkRow[] | null) ?? [];
+  const links = apptSvcsRes.data ?? [];
   let categoryRows: Array<{
     id: string | null;
     name: string;
@@ -213,7 +193,7 @@ export default async function FinancesPage(props: {
         .from('services')
         .select('id, category_id')
         .in('id', serviceIds);
-      const svcs = (svcsRes.data as Array<{ id: string; category_id: string | null }> | null) ?? [];
+      const svcs = svcsRes.data ?? [];
       catByService = new Map(svcs.map((s) => [s.id, s.category_id]));
 
       const catIds = Array.from(
@@ -224,7 +204,7 @@ export default async function FinancesPage(props: {
           .from('service_categories')
           .select('id, name')
           .in('id', catIds);
-        const cats = (catRes.data as Array<{ id: string; name: string }> | null) ?? [];
+        const cats = catRes.data ?? [];
         categoryNames = new Map(cats.map((c) => [c.id, c.name]));
       }
     }
@@ -255,8 +235,7 @@ export default async function FinancesPage(props: {
   // scoped commission_tiers row and run it through `computeCommission`.
   // Barbers with no tiers row, or a row with every tier at (0, 0%),
   // surface as commission=0 — same semantic as the spec ("not configured").
-  const tiersRows =
-    (tiersRes.data as Array<CommissionTierDbRow & { barber_id: string }> | null) ?? [];
+  const tiersRows = tiersRes.data ?? [];
   const tiersByBarber = new Map(tiersRows.map((r) => [r.barber_id, tierConfigFromRow(r)]));
   const cumulativeByBarber = new Map(tiersRows.map((r) => [r.barber_id, r.cumulative]));
   const commissionRows = barberRows

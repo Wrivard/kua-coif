@@ -14,17 +14,14 @@ export default async function CommissionsPage(props: { params: Promise<{ locale:
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const [barbersRes, tiersRes] = await Promise.all([
     supabase.from('barbers').select('*').order('sort_order', { ascending: true }),
     supabase.from('commission_tiers').select('*'),
   ]);
 
-  const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
-    (b) => b.status === 'confirmed',
-  );
-  const tiers = (tiersRes.data as CommissionTierRow[] | null) ?? [];
+  const barbers = (barbersRes.data ?? []).filter((b) => b.status === 'confirmed');
+  const tiers = tiersRes.data ?? [];
 
   return <CommissionsClient barbers={barbers} tiers={tiers} />;
 }

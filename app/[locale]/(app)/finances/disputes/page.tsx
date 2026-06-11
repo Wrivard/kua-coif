@@ -25,10 +25,8 @@ export const dynamic = 'force-dynamic';
  * handling, which this app has not integrated. We deep-link each row
  * to the Stripe dashboard instead, where the owner acts.
  *
- * Pattern mirrors `/finances/today`: server-rendered, hand-typed row
- * (db/types.ts has no `disputes` type yet — regenerating it is a
- * separate chore), raw `<table>` inside `Card` in the finances
- * grammar, all strings via next-intl.
+ * Pattern mirrors `/finances/today`: server-rendered, raw `<table>`
+ * inside `Card` in the finances grammar, all strings via next-intl.
  */
 export default async function DisputesPage(props: { params: Promise<{ locale: string }> }) {
   const params = await props.params;
@@ -46,8 +44,9 @@ export default async function DisputesPage(props: { params: Promise<{ locale: st
   const timezone = shop?.timezone ?? 'America/Toronto';
   const intlLocale = locale === 'fr' ? 'fr-CA' : 'en-CA';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
+
+  if (!shop?.id) throw new Error('Disputes load failed: no active shop resolved');
 
   // RLS already scopes `disputes_select` to member shops; the explicit
   // `.eq('shop_id', shop.id)` adds current-shop scoping for multi-shop
@@ -57,24 +56,10 @@ export default async function DisputesPage(props: { params: Promise<{ locale: st
     .select(
       'id, appointment_id, stripe_dispute_id, stripe_charge_id, stripe_payment_intent_id, amount_cents, currency, reason, status, evidence_due_by, created_at',
     )
-    .eq('shop_id', shop?.id)
+    .eq('shop_id', shop.id)
     .order('created_at', { ascending: false });
 
-  type DisputeRow = {
-    id: string;
-    appointment_id: string | null;
-    stripe_dispute_id: string;
-    stripe_charge_id: string;
-    stripe_payment_intent_id: string | null;
-    amount_cents: number;
-    currency: string;
-    reason: string;
-    status: string;
-    evidence_due_by: string | null;
-    created_at: string;
-  };
-
-  const disputes = (res.data as DisputeRow[] | null) ?? [];
+  const disputes = res.data ?? [];
 
   // "Needs response" = needs_response | warning_needs_response — the
   // states where the shop's clock is running. Surfaced as a small

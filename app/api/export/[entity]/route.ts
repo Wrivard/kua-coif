@@ -113,6 +113,15 @@ export async function GET(req: NextRequest, props: { params: Promise<{ entity: s
   const supabase = createSupabaseServerClient();
   type QueryResult = { data: unknown; error: unknown };
 
+  // typed-exception: `cfg.table` is a RUNTIME value from the ENTITIES
+  // whitelist — the generated client types can't express a dynamic table
+  // name, so the codebase's one deliberate `as any` on a Supabase client
+  // lives in this helper (plan 023, step 3).
+  function dynamicTable(sb: ReturnType<typeof createSupabaseServerClient>, table: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (sb as any).from(table);
+  }
+
   // Page through the table with .range(): PostgREST silently caps a single
   // SELECT at db-max-rows (1000), so a "full roster" export would ship at most
   // 1000 rows with no signal. Re-create the builder per page (PostgREST
@@ -122,9 +131,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ entity: s
   const MAX_PAGES = 25;
   const statusFilter = req.nextUrl.searchParams.get('status');
   function fetchPage(offset: number): Promise<QueryResult> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q = (supabase as any)
-      .from(cfg.table)
+    let q = dynamicTable(supabase, cfg.table)
       .select(cfg.columns)
       .eq('shop_id', activeShopId)
       .order(cfg.orderBy, { ascending: cfg.ascending })

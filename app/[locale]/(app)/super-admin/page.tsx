@@ -55,12 +55,6 @@ type ShopRow = {
   stripe_connect_status: 'not_started' | 'pending' | 'restricted' | 'active';
   created_at: string;
 };
-type ApptRow = {
-  shop_id: string;
-  total_amount: number;
-  tip_amount_cents: number | null;
-};
-
 type PlatformOverview = {
   appFeeBps: number;
   shops: Array<ShopRow & { revenue30d: number; feeKua30d: number; bookings30d: number }>;
@@ -75,8 +69,7 @@ type PlatformOverview = {
 };
 
 async function fetchPlatformOverview(): Promise<PlatformOverview> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
   const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
 
   const [configRes, shopsRes, apptsRes] = await Promise.all([
@@ -89,9 +82,11 @@ async function fetchPlatformOverview(): Promise<PlatformOverview> {
       .gte('start_at', since),
   ]);
 
-  const appFeeBps = (configRes.data as { app_fee_bps: number } | null)?.app_fee_bps ?? 0;
+  const appFeeBps = configRes.data?.app_fee_bps ?? 0;
+  // Contract cast: ShopRow narrows `stripe_connect_status` (CHECK-constrained
+  // text column, generated as plain string) for PlatformOverview.
   const shops = (shopsRes.data as ShopRow[] | null) ?? [];
-  const appts = (apptsRes.data as ApptRow[] | null) ?? [];
+  const appts = apptsRes.data ?? [];
 
   // Aggregate revenue + bookings per shop. Revenue includes the tip
   // (the salon collects it), but the Küa fee is computed on the

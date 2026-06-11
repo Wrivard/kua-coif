@@ -13,14 +13,15 @@ export default async function ShopDetailsPage(props: { params: Promise<{ locale:
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const [shopRes, hoursRes] = await Promise.all([
     supabase.from('shops').select('*').limit(1),
     supabase.from('shop_hours').select('*').order('weekday', { ascending: true }),
   ]);
+  // Contract cast: ShopFullRow narrows `default_language` to 'en' | 'fr'
+  // (CHECK-constrained text column, generated as plain string).
   const shop = ((shopRes.data as ShopFullRow[] | null) ?? [])[0] ?? null;
-  const hours = (hoursRes.data as ShopHourRow[] | null) ?? [];
+  const hours = hoursRes.data ?? [];
 
   if (!shop) {
     return (

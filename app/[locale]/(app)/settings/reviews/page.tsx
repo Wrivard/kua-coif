@@ -21,8 +21,7 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServerClient() as any;
+  const sb = createSupabaseServerClient();
   const { data } = await sb
     .from('reviews')
     .select(

@@ -32,27 +32,20 @@ export default async function UnsubscribePage(props: {
   const payload = verifyToken(decodeURIComponent(token), 'unsub');
   if (!payload) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
   const clientRes = await supabase
     .from('clients')
     .select('id, shop_id, first_name, anonymized_at, marketing_opted_out')
     .eq('id', payload.resourceId)
     .limit(1);
-  const client = ((clientRes.data as Array<{
-    id: string;
-    shop_id: string;
-    first_name: string;
-    anonymized_at: string | null;
-    marketing_opted_out: boolean | null;
-  }> | null) ?? [])[0];
+  const client = (clientRes.data ?? [])[0];
   // Don't distinguish "no such client" from "bad token" — both 404, so a
   // forged token can't enumerate client IDs. An anonymized client (Loi 25
   // erasure) also 404s: there's nothing left to manage.
   if (!client || client.anonymized_at) notFound();
 
   const shopRes = await supabase.from('shops').select('name').eq('id', client.shop_id).limit(1);
-  const shopName = ((shopRes.data as Array<{ name: string }> | null) ?? [])[0]?.name ?? '?';
+  const shopName = (shopRes.data ?? [])[0]?.name ?? '?';
 
   return (
     <UnsubscribeClient

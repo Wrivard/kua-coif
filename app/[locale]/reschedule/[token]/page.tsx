@@ -28,8 +28,7 @@ export default async function ReschedulePage(props: {
   const payload = verifyToken(decodeURIComponent(token), 'reschedule');
   if (!payload) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   const apptRes = await supabase
     .from('appointments')
@@ -40,18 +39,10 @@ export default async function ReschedulePage(props: {
     )
     .eq('id', payload.resourceId)
     .limit(1);
-  const appt = ((apptRes.data as Array<{
-    id: string;
-    start_at: string;
-    end_at: string;
-    status: string;
-    barber_id: string;
-    client_name_snapshot: string | null;
-    public_link_version: number | null;
-    shop: { id: string; name: string; alias: string; timezone: string } | null;
-    barber: { display_name: string } | null;
-  }> | null) ?? [])[0];
-  if (!appt || !appt.shop) notFound();
+  const appt = (apptRes.data ?? [])[0];
+  // `alias` is nullable in the schema; a shop without one has no public
+  // booking surface, so its reschedule page 404s like a bad token.
+  if (!appt || !appt.shop?.alias) notFound();
   // Revocation (plan 013): stale token version → 404, same as a bad/expired
   // token. Absent ⇒ 0 keeps legacy links valid until the first revoke.
   if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) notFound();

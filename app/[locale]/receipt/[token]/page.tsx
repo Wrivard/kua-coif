@@ -30,8 +30,7 @@ export default async function ReceiptPage(props: {
   const payload = verifyToken(decodeURIComponent(token), 'receipt');
   if (!payload) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   // Fetch everything needed to render the receipt in two queries:
   // appointment (with shop + barber + client joined) and the service
@@ -48,38 +47,8 @@ export default async function ReceiptPage(props: {
     )
     .eq('id', payload.resourceId)
     .limit(1);
-  const appt = ((apptRes.data as Array<{
-    id: string;
-    start_at: string;
-    end_at: string;
-    total_amount: number;
-    deposit_amount_cents: number | null;
-    tip_amount_cents: number | null;
-    payment_status: string;
-    payment_intent_id: string | null;
-    source: string;
-    public_link_version: number | null;
-    shop: {
-      name: string;
-      street: string | null;
-      municipality: string | null;
-      province: string | null;
-      postal_code: string | null;
-      phone: string | null;
-      email: string | null;
-      email_logo_url: string | null;
-      email_accent_color: string | null;
-      timezone: string;
-    };
-    barber: { display_name: string } | null;
-    client: {
-      first_name: string;
-      last_name: string | null;
-      email: string | null;
-      phone: string | null;
-    } | null;
-  }> | null) ?? [])[0];
-  if (!appt) notFound();
+  const appt = (apptRes.data ?? [])[0];
+  if (!appt || !appt.shop) notFound();
   // Revocation (plan 013): the token's embedded version must match the
   // appointment's current one; a bump invalidates every outstanding
   // receipt/review/reschedule link. Absent ⇒ 0 keeps legacy tokens valid.
@@ -89,12 +58,7 @@ export default async function ReceiptPage(props: {
     .from('appointment_services')
     .select('price_snapshot, service:services(name)')
     .eq('appointment_id', appt.id);
-  const lines = (
-    (linksRes.data as Array<{
-      price_snapshot: number;
-      service: { name: string } | null;
-    }> | null) ?? []
-  ).map((l) => ({
+  const lines = (linksRes.data ?? []).map((l) => ({
     name: l.service?.name ?? '·',
     price: Number(l.price_snapshot ?? 0),
   }));

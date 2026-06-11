@@ -14,8 +14,7 @@ export default async function DiscountsPage(props: { params: Promise<{ locale: s
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase.from('discounts').select('*').order('name', { ascending: true });
   return <DiscountsClient locale={locale} discounts={(data as DiscountRow[] | null) ?? []} />;
 }

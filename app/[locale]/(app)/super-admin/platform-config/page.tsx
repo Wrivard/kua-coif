@@ -14,18 +14,13 @@ export default async function PlatformConfigPage(props: { params: Promise<{ loca
   // of /admin/platform-config isn't leaked to logged-in shop members.
   await requireKuaAdmin();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
   const res = await sb
     .from('platform_config')
     .select('app_fee_bps, updated_at, updated_by')
     .eq('id', 1)
     .single();
-  const row = res.data as {
-    app_fee_bps: number;
-    updated_at: string;
-    updated_by: string | null;
-  } | null;
+  const row = res.data;
 
   // Resolve the updater's email so the audit-trail line shows
   // something meaningful. Best-effort: null when the profile is
@@ -33,7 +28,7 @@ export default async function PlatformConfigPage(props: { params: Promise<{ loca
   let updatedByEmail: string | null = null;
   if (row?.updated_by) {
     const profileRes = await sb.from('profiles').select('email').eq('id', row.updated_by).single();
-    updatedByEmail = (profileRes.data as { email: string } | null)?.email ?? null;
+    updatedByEmail = profileRes.data?.email ?? null;
   }
 
   return (

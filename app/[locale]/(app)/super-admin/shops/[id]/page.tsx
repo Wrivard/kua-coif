@@ -64,30 +64,10 @@ type ShopRow = {
   default_cash_drawer_balance: number | null;
 };
 
-type MemberRow = {
-  id: string;
-  role: 'owner' | 'manager' | 'barber';
-  status: 'staff' | 'confirmed' | 'deleted';
-  user_id: string;
-  created_at: string;
-};
-
-type ApptRow = {
-  id: string;
-  start_at: string;
-  status: 'booked' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show';
-  total_amount: number;
-  tip_amount_cents: number | null;
-  payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed' | null;
-  source: 'admin' | 'online';
-  client_name_snapshot: string | null;
-};
-
 export default async function ShopDetailPage(props: Props) {
   const params = await props.params;
   await requireKuaAdmin();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   // Parallel fetches — none depend on each other. Shop existence
   // gates the rest via notFound() before render.
@@ -127,22 +107,16 @@ export default async function ShopDetailPage(props: Props) {
         .maybeSingle(),
     ]);
 
+  // Contract cast: ShopRow narrows `stripe_connect_status` + `payment_mode`
+  // (CHECK-constrained text columns, generated as plain string).
   const shop = shopRes.data as ShopRow | null;
   if (!shop) notFound();
 
-  const members = (membersRes.data as MemberRow[] | null) ?? [];
-  const appFeeBps = (configRes.data as { app_fee_bps: number } | null)?.app_fee_bps ?? 0;
-  const paidAppts =
-    (apptStatsRes.data as Array<{
-      total_amount: number;
-      tip_amount_cents: number | null;
-      payment_status: string | null;
-    }> | null) ?? [];
-  const recent = (recentApptsRes.data as ApptRow[] | null) ?? [];
-  const paymentProfile = paymentProfileRes.data as {
-    verified: boolean;
-    legal_name: string | null;
-  } | null;
+  const members = membersRes.data ?? [];
+  const appFeeBps = configRes.data?.app_fee_bps ?? 0;
+  const paidAppts = apptStatsRes.data ?? [];
+  const recent = recentApptsRes.data ?? [];
+  const paymentProfile = paymentProfileRes.data;
 
   // Resolve member emails in one batch.
   const memberUserIds = members.map((m) => m.user_id);
@@ -151,10 +125,7 @@ export default async function ShopDetailPage(props: Props) {
       ? await sb.from('profiles').select('id, email, full_name').in('id', memberUserIds)
       : { data: [] };
   const profilesById = new Map<string, { email: string; full_name: string | null }>(
-    (
-      (profilesRes.data as Array<{ id: string; email: string; full_name: string | null }> | null) ??
-      []
-    ).map((p) => [p.id, { email: p.email, full_name: p.full_name }]),
+    (profilesRes.data ?? []).map((p) => [p.id, { email: p.email, full_name: p.full_name }]),
   );
 
   // KPIs — lifetime.

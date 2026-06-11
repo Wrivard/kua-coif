@@ -34,8 +34,7 @@ export default async function ClientsPage(props: { params: Promise<{ locale: str
   const viewerRole = activeMembership?.role ?? 'barber';
   const viewerBarberId = viewerRole === 'barber' ? await getCurrentBarberId() : null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
 
   // V1 bound: cap the roster fetch at an explicit, deterministic number
   // instead of PostgREST's silent 1000-row default. Real server-side
@@ -66,9 +65,7 @@ export default async function ClientsPage(props: { params: Promise<{ locale: str
       .limit(2000);
     const clientIds = Array.from(
       new Set(
-        ((apptIdsRes.data as Array<{ client_id: string | null }> | null) ?? [])
-          .map((r) => r.client_id)
-          .filter((id): id is string => Boolean(id)),
+        (apptIdsRes.data ?? []).map((r) => r.client_id).filter((id): id is string => Boolean(id)),
       ),
     );
     // Grand total for a barber = the distinct clients they've served (the
@@ -91,7 +88,7 @@ export default async function ClientsPage(props: { params: Promise<{ locale: str
       .from('clients')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', shopId);
-    totalCount = (countRes.count as number | null) ?? 0;
+    totalCount = countRes.count ?? 0;
     const res = await supabase
       .from('clients')
       .select('id, first_name, last_name, email, phone, date_of_birth, notes')
@@ -99,9 +96,7 @@ export default async function ClientsPage(props: { params: Promise<{ locale: str
       .order('first_name', { ascending: true })
       .limit(CLIENT_FETCH_CAP);
     if (res.error) {
-      throw new Error(
-        `Clients load failed: ${(res.error as { message?: string }).message ?? res.error}`,
-      );
+      throw new Error(`Clients load failed: ${res.error.message ?? res.error}`);
     }
     clients = (res.data as ClientRow[] | null) ?? [];
   }

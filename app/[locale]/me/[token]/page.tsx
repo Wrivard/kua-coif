@@ -38,8 +38,7 @@ export default async function MePage(props: {
   const payload = verifyToken(decodeURIComponent(token), 'me');
   if (!payload) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
   const clientRes = await supabase
     .from('clients')
     .select(
@@ -49,19 +48,7 @@ export default async function MePage(props: {
     )
     .eq('id', payload.resourceId)
     .limit(1);
-  const client = ((clientRes.data as Array<{
-    id: string;
-    shop_id: string;
-    first_name: string;
-    last_name: string | null;
-    email: string | null;
-    phone: string | null;
-    loyalty_balance_cents: number | null;
-    loyalty_balance_expires_at: string | null;
-    loyalty_counter: number | null;
-    anonymized_at: string | null;
-    me_token_version: number | null;
-  }> | null) ?? [])[0];
+  const client = (clientRes.data ?? [])[0];
   if (!client) notFound();
   if (client.anonymized_at) notFound();
   // Revocation (W5c): the token's embedded version must match the client's
@@ -111,36 +98,10 @@ export default async function MePage(props: {
       .select('scope, barber_id, mins_cancel_before_appt, customer_cancellations')
       .eq('shop_id', client.shop_id),
   ]);
-  const shop =
-    ((shopRes.data as Array<{
-      name: string;
-      email: string | null;
-      phone: string | null;
-      timezone: string;
-    }> | null) ?? [])[0] ?? null;
-  const completedCount = (apptCountRes.count as number | null) ?? 0;
-  const settingsRows =
-    (settingsRes.data as Array<{
-      scope: 'shop' | 'barber';
-      barber_id: string | null;
-      mins_cancel_before_appt: number;
-      customer_cancellations: boolean | null;
-    }> | null) ?? [];
-  type UpcomingRow = {
-    id: string;
-    barber_id: string;
-    start_at: string;
-    end_at: string;
-    status: 'booked' | 'confirmed';
-    total_amount: number;
-    payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed' | null;
-    payment_intent_id: string | null;
-    public_link_version: number | null;
-    deposit_amount_cents: number | null;
-    barber: { display_name: string } | null;
-    services: Array<{ services: { name: string; duration_min: number } | null }> | null;
-  };
-  const upcoming = ((upcomingRes.data as UpcomingRow[] | null) ?? []).map((r) => {
+  const shop = (shopRes.data ?? [])[0] ?? null;
+  const completedCount = apptCountRes.count ?? 0;
+  const settingsRows = settingsRes.data ?? [];
+  const upcoming = (upcomingRes.data ?? []).map((r) => {
     // Plan 044 (UX-03) — per-appointment refund cutoff, computed with the
     // SAME resolver + formula as the cancel action (start - mins; mins 0 =
     // no window, always refundable → null cutoff).
@@ -154,7 +115,9 @@ export default async function MePage(props: {
       id: r.id,
       startAt: r.start_at,
       endAt: r.end_at,
-      status: r.status,
+      // The `.in('status', ['booked', 'confirmed'])` filter above guarantees
+      // the subset the client component expects; the column type is wider.
+      status: r.status as 'booked' | 'confirmed',
       totalAmount: Number(r.total_amount ?? 0),
       paymentStatus: r.payment_status ?? 'unpaid',
       hasPaymentIntent: Boolean(r.payment_intent_id),

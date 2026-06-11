@@ -14,8 +14,7 @@ export default async function LoyaltyPage(props: { params: Promise<{ locale: str
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
   const { data } = await supabase.from('loyalty_program').select('*').limit(1);
   const row = (data as LoyaltyProgramRow[] | null)?.[0] ?? null;
   return <LoyaltyClient row={row} />;

@@ -19,19 +19,12 @@ export default async function AdminShopsPage(props: { params: Promise<{ locale: 
   const params = await props.params;
   await requireKuaAdmin();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
   const shopsRes = await sb
     .from('shops')
     .select('id, name, alias, created_at')
     .order('created_at', { ascending: false });
-  const shops =
-    (shopsRes.data as Array<{
-      id: string;
-      name: string;
-      alias: string | null;
-      created_at: string;
-    }> | null) ?? [];
+  const shops = shopsRes.data ?? [];
 
   // Member counts in one go — second query to keep types simple.
   const counts: Record<string, number> = {};
@@ -43,7 +36,7 @@ export default async function AdminShopsPage(props: { params: Promise<{ locale: 
         'shop_id',
         shops.map((s) => s.id),
       );
-    const rows = (cRes.data as Array<{ shop_id: string; status: string }> | null) ?? [];
+    const rows = cRes.data ?? [];
     for (const r of rows) {
       if (r.status !== 'deleted') counts[r.shop_id] = (counts[r.shop_id] ?? 0) + 1;
     }

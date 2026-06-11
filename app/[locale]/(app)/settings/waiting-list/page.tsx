@@ -13,8 +13,7 @@ export default async function WaitingListPage(props: { params: Promise<{ locale:
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServerClient() as any;
+  const supabase = createSupabaseServerClient();
 
   // Phase 53 — load both the per-shop config AND the queue of entries
   // currently waiting. The list is bounded (most shops won't have more
@@ -32,10 +31,9 @@ export default async function WaitingListPage(props: { params: Promise<{ locale:
     supabase.from('barbers').select('id, display_name'),
   ]);
 
-  const configRow =
-    (configRes.data as Array<{ enabled: boolean; threshold_hours: number }> | null)?.[0] ?? null;
+  const configRow = configRes.data?.[0] ?? null;
   const entries = (entriesRes.data as WaitlistEntry[] | null) ?? [];
-  const barbers = (barbersRes.data as Array<{ id: string; display_name: string }> | null) ?? [];
+  const barbers = barbersRes.data ?? [];
 
   return (
     <WaitingListClient

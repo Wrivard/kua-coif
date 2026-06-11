@@ -30,13 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return staticEntries;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createSupabaseServiceRoleClient() as any;
+    const supabase = createSupabaseServiceRoleClient();
     const { data } = await supabase
       .from('shops')
       .select('alias, updated_at')
       .not('alias', 'is', null);
-    const shops = (data as Array<{ alias: string; updated_at: string }> | null) ?? [];
+    const shops = data ?? [];
     const bookEntries: MetadataRoute.Sitemap = shops.flatMap((s) => [
       {
         url: `${baseUrl}/fr/book/${s.alias}`,

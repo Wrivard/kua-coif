@@ -32,14 +32,13 @@ export default async function ReviewsQrPage(props: { params: Promise<{ locale: s
   const shopId = await getCurrentShopId();
   if (!shopId) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
   const shopRes = await admin
     .from('shops')
     .select('name, public_review_url')
     .eq('id', shopId)
     .single();
-  const shop = (shopRes.data as { name: string; public_review_url: string | null } | null) ?? {
+  const shop = shopRes.data ?? {
     name: '',
     public_review_url: null,
   };
