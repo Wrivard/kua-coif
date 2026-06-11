@@ -904,19 +904,33 @@ export function AppointmentsCalendar({
   );
 
   // View toggle. Side-by-Side ⇄ List is instant local state (both share the
-  // day-scoped dataset). Switching to/from Week also syncs `?view=` so the
-  // Server Component (re)fetches the week-range dataset — the week grid has
-  // no data otherwise. We keep local `view` in sync immediately so the tab
-  // reflects the choice before the navigation resolves.
+  // day-scoped dataset). Switching to/from Week also (re)fetches the
+  // week-range dataset through the server — the week grid has no data
+  // otherwise. We keep local `view` in sync immediately so the tab reflects
+  // the choice before the navigation resolves.
+  //
+  // Plan 040 (CAL-09) — EVERY switch now syncs `?view=` (List used to be
+  // lost on reload/share because only the week legs wrote the URL).
+  // `router.replace` keeps flipping views from spamming history;
+  // side-by-side stays the no-param default.
   const changeView = useCallback(
     (next: CalendarView) => {
       setView(next);
+      const url = new URL(window.location.href);
+      if (next === 'side-by-side') url.searchParams.delete('view');
+      else url.searchParams.set('view', next);
+      url.searchParams.delete('appt');
+      const target = url.pathname + '?' + url.searchParams.toString();
       if (next === 'week' || view === 'week') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('view', next);
+        // Week legs change the DATASET → ride the nav transition so the
+        // pending treatment (grid skeleton) kicks in.
         startNavTransition(() => {
-          router.push(url.pathname + '?' + url.searchParams.toString());
+          router.replace(target);
         });
+      } else {
+        // Side-by-Side ⇄ List is visually instant (local state already
+        // switched); the replace just keeps the URL truthful.
+        router.replace(target);
       }
     },
     [router, view],
