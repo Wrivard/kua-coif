@@ -86,6 +86,11 @@ export const createService = withAction({
       .select('id')
       .single();
 
+    // 23505 = unique violation on services_shop_name_unique (a duplicate name
+    // in this shop). A normal user case → CONFLICT, not UNEXPECTED, no Sentry.
+    // The `{ name: 'duplicate' }` payload lets the form surface it INLINE on
+    // the name field rather than as a generic toast (products W2b shape).
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) {
       captureException(error ?? new Error('createService: no row returned'), {
         tags: { layer: 'services' },
@@ -148,6 +153,8 @@ export const updateService = withAction({
       .update(rest)
       .eq('id', id)
       .eq('shop_id', ctx.shopId);
+    // 23505 = duplicate name in this shop (a rename collision) → CONFLICT, not Sentry.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) {
       captureException(error, { tags: { layer: 'services' } });
       return err('UNEXPECTED');
@@ -325,6 +332,9 @@ export const createServiceCategory = withAction({
       .insert({ shop_id: ctx.shopId, name: input.name })
       .select('id')
       .single();
+    // 23505 = duplicate category name in this shop
+    // (service_categories_shop_name_unique) → inline-field CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) return err('UNEXPECTED');
 
     await logAuditAction({
@@ -352,6 +362,8 @@ export const renameServiceCategory = withAction({
       .from('service_categories')
       .update({ name: input.name })
       .eq('id', input.id);
+    // 23505 = rename collision with another category in this shop → inline-field CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) return err('UNEXPECTED');
 
     await logAuditAction({

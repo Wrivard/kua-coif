@@ -39,7 +39,14 @@ vi.mock('@/lib/server-actions/revalidate', () => ({
   revalidateShopConfig: () => undefined,
 }));
 
-import { createService, updateService, deleteService } from './actions';
+import {
+  createService,
+  updateService,
+  deleteService,
+  toggleServiceStatus,
+  createServiceCategory,
+  renameServiceCategory,
+} from './actions';
 
 const SHOP_A = 'shop-a';
 const CATEGORY_ID = '22222222-2222-4222-8222-222222222222';
@@ -204,5 +211,69 @@ describe('deleteService', () => {
 
     expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
     expect(h.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('unique names — 23505 → CONFLICT { name: duplicate } (W2)', () => {
+  it('createService maps a duplicate name to an inline-field CONFLICT, no Sentry', async () => {
+    setup(
+      { services: [] },
+      { errors: { services: { insert: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await createService(serviceInput());
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { name: 'duplicate' },
+    });
+    expect(h.captureException).not.toHaveBeenCalled();
+  });
+
+  it('updateService maps a rename collision to an inline-field CONFLICT', async () => {
+    const { rpc } = setup(
+      { services: [{ id: SERVICE_ID, shop_id: SHOP_A, name: 'Old' }] },
+      { errors: { services: { update: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await updateService({ id: SERVICE_ID, ...serviceInput() });
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { name: 'duplicate' },
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('createServiceCategory maps a duplicate name to an inline-field CONFLICT', async () => {
+    setup(
+      { service_categories: [] },
+      { errors: { service_categories: { insert: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await createServiceCategory({ name: 'Coloration' });
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { name: 'duplicate' },
+    });
+  });
+
+  it('renameServiceCategory maps a rename collision to an inline-field CONFLICT', async () => {
+    setup(
+      { service_categories: [{ id: CATEGORY_ID, shop_id: SHOP_A, name: 'Old' }] },
+      { errors: { service_categories: { update: { code: '23505', message: 'duplicate key' } } } },
+    );
+
+    const res = await renameServiceCategory({ id: CATEGORY_ID, name: 'Coloration' });
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { name: 'duplicate' },
+    });
   });
 });
