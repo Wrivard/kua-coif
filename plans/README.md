@@ -49,7 +49,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | DONE (dedicated nav transition + optimistic header date + grid dim + week-switch skeleton; optimistic service + per-row notification toggles; 245 tests green) |
 | 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
 | 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | TODO (file written) |
-| 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | TODO (file written) |
+| 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | DONE (first-bookable-day open; slotError+retry distinct from empty, silent aborts; stale-slot clear; honest barber subtitle; localized metadata; mobile sticky CTA + 44px slots) |
 | 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | TODO (file written) |
 | 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | TODO (file written) |
 | 038 | Embeddable widget polish (ISR, analytics cache, brand/theme, modal focus, scroll sync, error states) | P2 | M | — | TODO (file written) |
