@@ -2135,6 +2135,10 @@ export type Database = {
         Args: { p_product_id: string; p_tax_ids: string[] }
         Returns: undefined
       }
+      set_service_taxes: {
+        Args: { p_service_id: string; p_tax_ids: string[] }
+        Returns: undefined
+      }
       widget_funnel_stats: {
         Args: { p_shop_id: string; p_since: string }
         Returns: {
