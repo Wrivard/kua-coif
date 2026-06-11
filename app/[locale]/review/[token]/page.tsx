@@ -21,12 +21,24 @@ export const dynamic = 'force-dynamic';
  */
 export default async function ReviewPage(props: {
   params: Promise<{ locale: string; token: string }>;
+  // Plan 043 (step 1) — `?rating=N` from the email's one-tap star links.
+  // The page is already force-dynamic, so reading it costs no caching.
+  searchParams: Promise<{ rating?: string }>;
 }) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
 
   const { locale, token } = params;
 
   setRequestLocale(locale);
+
+  // Clamp to a valid star count; anything else (absent, garbage, 0, 9)
+  // falls back to 0 = nothing pre-selected. The form still requires an
+  // explicit Submit — the deep-link only seeds the selection.
+  const parsedRating = Number.parseInt(searchParams.rating ?? '', 10);
+  const initialRating = Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5
+    ? parsedRating
+    : 0;
 
   const payload = verifyToken(decodeURIComponent(token), 'review');
   if (!payload) {
@@ -60,10 +72,16 @@ export default async function ReviewPage(props: {
   // by context ("How was your visit with Olivier?"). Both reads bypass
   // RLS via the service-role client — the token IS the auth here.
   const [shopRes, barberRes] = await Promise.all([
-    supabase.from('shops').select('name').eq('id', appt.shop_id).limit(1),
+    // Plan 043 (step 4) — `public_review_url` widened in so the thank-you can
+    // hand a happy reviewer to the shop's Google listing.
+    supabase.from('shops').select('name, public_review_url').eq('id', appt.shop_id).limit(1),
     supabase.from('barbers').select('display_name').eq('id', appt.barber_id).limit(1),
   ]);
-  const shopName = ((shopRes.data as Array<{ name: string }> | null) ?? [])[0]?.name ?? '?';
+  const shopRow =
+    ((shopRes.data as Array<{ name: string; public_review_url: string | null }> | null) ?? [])[0] ??
+    null;
+  const shopName = shopRow?.name ?? '?';
+  const publicReviewUrl = shopRow?.public_review_url ?? null;
   const barberName =
     ((barberRes.data as Array<{ display_name: string }> | null) ?? [])[0]?.display_name ?? null;
 
@@ -73,10 +91,16 @@ export default async function ReviewPage(props: {
   // letting them fill out the form and bounce.
   const existingRes = await supabase
     .from('reviews')
-    .select('id, status')
+    // Plan 043 (step 2) — `rating` widened in so a returning visitor's
+    // thank-you echoes the rating they ACTUALLY gave, not a generic 5★.
+    .select('id, status, rating')
     .eq('appointment_id', appt.id)
     .limit(1);
-  const existing = ((existingRes.data as Array<{ id: string; status: string }> | null) ?? [])[0];
+  const existing = ((existingRes.data as Array<{
+    id: string;
+    status: string;
+    rating: number | null;
+  }> | null) ?? [])[0];
 
   return (
     <ReviewFormClient
@@ -85,6 +109,9 @@ export default async function ReviewPage(props: {
       shopName={shopName}
       barberName={barberName}
       alreadySubmitted={Boolean(existing)}
+      submittedRating={existing?.rating ?? null}
+      initialRating={initialRating}
+      publicReviewUrl={publicReviewUrl}
     />
   );
 }
