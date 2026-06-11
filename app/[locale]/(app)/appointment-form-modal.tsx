@@ -10,8 +10,10 @@ import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
+import { combineShopDateTime } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import { createAppointment, searchClients } from './actions';
+import type { CalendarAppointment } from './appointments-calendar';
 import { appointmentSchema, type AppointmentInput } from './schema';
 
 type Mode = { kind: 'create'; barberId: string; minutes: number };
@@ -21,10 +23,21 @@ type ClientOption = Pick<ClientRow, 'id' | 'first_name' | 'last_name' | 'email' 
 type Props = {
   mode: Mode;
   isoDate: string;
+  /** Shop timezone — needed to compose the provisional block's UTC instants. */
+  timezone: string;
   barbers: BarberRow[];
   services: ServiceRow[];
   categories: ServiceCategoryRow[];
   clients: ClientRow[];
+  /**
+   * Plan 033 — fired on a SUCCESSFUL create, before the modal closes, with a
+   * provisional CalendarAppointment carrying the REAL id the action returned.
+   * The calendar appends it so the block appears instantly instead of waiting
+   * for the realtime refresh. Composed from the same inputs the server
+   * mirrors (end = start + Σ duration, total = Σ price), so the phantom is
+   * replaced in place by the identical truth row — no flicker, no duplicate.
+   */
+  onCreated?: (appt: CalendarAppointment) => void;
   onClose: () => void;
 };
 
@@ -37,10 +50,12 @@ function minutesToHHmm(min: number): string {
 export function AppointmentFormModal({
   mode,
   isoDate,
+  timezone,
   barbers,
   services,
   categories,
   clients,
+  onCreated,
   onClose,
 }: Props) {
   const t = useTranslations('pages.appointments');
@@ -136,6 +151,36 @@ export function AppointmentFormModal({
     startTransition(async () => {
       const result = await createAppointment(values);
       if (result.ok) {
+        // Plan 033 — hand the calendar a provisional block so it renders
+        // instantly. Mirrors the server's composition exactly (end_at =
+        // start + Σ duration_min, total_amount = Σ price, source 'admin');
+        // `picked` is the client OBJECT (not just the form id), so the name
+        // is right even when the client came from a server search. Guarded:
+        // a composition failure must never break the success toast/close —
+        // worst case we fall back to today's wait-for-realtime behavior.
+        try {
+          const chosen = services.filter((s) => values.service_ids.includes(s.id));
+          const startAt = combineShopDateTime(values.date, values.start_time, timezone);
+          const durationMin = chosen.reduce((sum, s) => sum + s.duration_min, 0);
+          onCreated?.({
+            id: result.data.id,
+            barber_id: values.barber_id,
+            client_id: values.client_id,
+            client_name: picked
+              ? `${picked.first_name}${picked.last_name ? ` ${picked.last_name}` : ''}`
+              : '',
+            start_at: startAt.toISOString(),
+            end_at: new Date(startAt.getTime() + durationMin * 60_000).toISOString(),
+            status: values.status,
+            notes: values.notes ?? null,
+            source: 'admin',
+            total_amount: chosen.reduce((sum, s) => sum + s.price, 0),
+            services: chosen,
+            payment_status: 'unpaid',
+          });
+        } catch {
+          // fall through — the appointment was created; realtime will render it
+        }
         show({ variant: 'success', title: t('toasts.created') });
         onClose();
       } else {
