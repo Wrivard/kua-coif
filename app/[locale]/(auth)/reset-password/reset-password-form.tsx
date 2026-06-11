@@ -64,7 +64,7 @@ export function ResetPasswordForm({ locale, labels }: Props) {
     return (
       <p
         role="alert"
-        className="border-danger/40 bg-danger/10 mt-6 rounded border px-3 py-2 text-xs text-danger"
+        className="mt-6 rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
       >
         {t(exchange === 'no-code' ? 'errorNoCode' : 'errorFailed')}
       </p>
@@ -113,7 +113,7 @@ function PasswordForm({ locale, labels }: Props) {
       {state.kind === 'invalid' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {t(state.reason === 'mismatch' ? 'errorMismatch' : 'errorWeak')}
         </p>
@@ -121,7 +121,7 @@ function PasswordForm({ locale, labels }: Props) {
       {state.kind === 'rate-limited' ? (
         <p
           role="alert"
-          className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
+          className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
         >
           {t('errorRateLimited')}
         </p>
@@ -129,7 +129,7 @@ function PasswordForm({ locale, labels }: Props) {
       {state.kind === 'error' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {t('errorGeneric')}
         </p>

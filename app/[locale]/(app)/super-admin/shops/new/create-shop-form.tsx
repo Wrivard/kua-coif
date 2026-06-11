@@ -114,7 +114,7 @@ export function CreateShopForm() {
       {state.kind === 'conflict' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {state.reason === 'alias-taken'
             ? 'That alias is already in use. Pick another.'
@@ -124,7 +124,7 @@ export function CreateShopForm() {
       {state.kind === 'error' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {state.message}
         </p>

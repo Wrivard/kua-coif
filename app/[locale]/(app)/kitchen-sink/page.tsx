@@ -356,7 +356,7 @@ export default function KitchenSinkPage() {
             <EmptyState
               icon={<Sparkles className="h-8 w-8" />}
               title="Nothing here yet"
-              description="Empty states use a dashed border and a centered icon/title/description stack."
+              description="Empty states use a centered icon/title/description stack."
               action={<Button size="sm">Add the first one</Button>}
             />
 

@@ -74,7 +74,7 @@ export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-8 p-6" noValidate>
         {/* Program — the hero beat: the master switch + program type on
             .surface-hero, ringed accent when the program is live. */}
-        <section className={cn('surface-hero space-y-6 p-6', enabled && 'ring-accent/40 ring-1')}>
+        <section className={cn('surface-hero space-y-6 p-6', enabled && 'ring-1 ring-accent/40')}>
           <SectionMasthead title={t('sections.program')} />
           <Toggle
             checked={enabled}

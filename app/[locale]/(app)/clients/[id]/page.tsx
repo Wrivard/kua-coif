@@ -159,7 +159,7 @@ export default async function ClientDetailPage(props: {
         </Link>
 
         {client.anonymized_at ? (
-          <div className="border-warning/30 rounded-md border bg-warning-subtle px-3 py-2 text-sm text-text-secondary">
+          <div className="rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-sm text-text-secondary">
             {t('anonymizedNotice')}
           </div>
         ) : null}

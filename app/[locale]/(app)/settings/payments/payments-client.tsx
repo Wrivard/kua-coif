@@ -182,7 +182,7 @@ function StripeConnectCard({
 
   return (
     <section
-      className={cn('surface-hero p-6', stripe.status === 'active' && 'ring-accent/40 ring-1')}
+      className={cn('surface-hero p-6', stripe.status === 'active' && 'ring-1 ring-accent/40')}
     >
       <SectionMasthead
         title={t('stripe.title')}

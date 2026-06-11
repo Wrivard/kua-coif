@@ -187,7 +187,7 @@ export function RescheduleClient({
                       'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                       active
                         ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                        : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:shadow-md',
+                        : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md',
                     )}
                   >
                     <span className="text-[10px] font-medium uppercase tracking-wide">
@@ -232,7 +232,7 @@ export function RescheduleClient({
                         'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                         active
                           ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
-                          : 'hover:border-accent/40 border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:bg-bg-surface-2 hover:shadow-md',
+                          : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-md',
                       )}
                     >
                       {time}

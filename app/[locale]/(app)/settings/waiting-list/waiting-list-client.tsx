@@ -106,7 +106,7 @@ export function WaitingListClient({
       <PageHeader eyebrow={tNav('title')} title={t('title')} />
       <div className="space-y-8 p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="max-w-xl" noValidate>
-          <section className={cn('surface-hero space-y-5 p-6', enabled && 'ring-accent/40 ring-1')}>
+          <section className={cn('surface-hero space-y-5 p-6', enabled && 'ring-1 ring-accent/40')}>
             <SectionMasthead title={t('configTitle')} />
             <Toggle
               checked={enabled}

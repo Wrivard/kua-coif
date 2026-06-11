@@ -25,7 +25,7 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
     return (
       <div
         role="status"
-        className="border-success/40 bg-success/10 mt-6 rounded border p-4 text-center text-sm text-success"
+        className="mt-6 rounded border border-success/40 bg-success/10 p-4 text-center text-sm text-success"
       >
         <CheckCircle2 className="mx-auto h-8 w-8" aria-hidden />
         <p className="mt-2 font-medium">{t('successTitle')}</p>
@@ -48,7 +48,7 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
       {state.kind === 'invalid' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {t('errorInvalid')}
         </p>
@@ -56,7 +56,7 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
       {state.kind === 'rate-limited' ? (
         <p
           role="alert"
-          className="border-warning/40 bg-warning/10 rounded border px-3 py-2 text-xs text-warning"
+          className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
         >
           {t('errorRateLimited')}
         </p>
@@ -64,7 +64,7 @@ export function ForgotPasswordForm({ locale, labels }: Props) {
       {state.kind === 'error' ? (
         <p
           role="alert"
-          className="border-danger/40 bg-danger/10 rounded border px-3 py-2 text-xs text-danger"
+          className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
           {t('errorGeneric')}
         </p>

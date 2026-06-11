@@ -93,7 +93,7 @@ export default async function MarketingPage(props: { params: Promise<{ locale: s
               <Link
                 key={card.href}
                 href={card.href}
-                className="hover:border-accent/40 group block rounded-lg border border-border bg-bg-surface p-5 transition-colors hover:bg-bg-surface-2"
+                className="group block rounded-lg border border-border bg-bg-surface p-5 transition-colors hover:border-accent/40 hover:bg-bg-surface-2"
               >
                 <div className="flex items-start gap-4">
                   <div

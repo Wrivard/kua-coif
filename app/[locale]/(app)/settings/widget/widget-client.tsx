@@ -585,12 +585,12 @@ export function WidgetClient({ locale, shopName, shopAlias, initial, funnelStats
                     error supersedes the warning — they can't co-occur (a
                     bad line means the list isn't empty). */}
                 {originsHasError ? (
-                  <div className="border-danger/30 bg-danger/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-danger">
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
                     <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>{t('fields.allowedOriginsError')}</p>
                   </div>
                 ) : allowedOriginsEmpty ? (
-                  <div className="border-warning/30 bg-warning/10 mt-3 flex items-start gap-2 rounded-md border p-3 text-xs text-warning">
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>{t('fields.allowedOriginsWarning')}</p>
                   </div>

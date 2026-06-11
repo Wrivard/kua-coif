@@ -34,7 +34,7 @@ export function PageHeader({
         //     underneath.
         //   - `pl-16 md:px-6` reserves space for the mobile hamburger.
         //   - Border bottom kept at `border-border` (alpha-based).
-        'bg-bg-base/80 sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border pl-16 pr-4 backdrop-blur-xl md:px-6',
+        'sticky top-0 z-30 flex h-header-h items-center gap-4 border-b border-border bg-bg-base/80 pl-16 pr-4 backdrop-blur-xl md:px-6',
         className,
       )}
     >

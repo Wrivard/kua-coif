@@ -298,7 +298,7 @@ export function NotificationsClient({ state }: Props) {
           <p className="text-sm text-text-secondary">{t('sender.description')}</p>
 
           {!state.encryptionReady ? (
-            <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <span>{t('errors.encryptionMissing')}</span>
             </div>
@@ -382,12 +382,12 @@ export function NotificationsClient({ state }: Props) {
           </div>
 
           {testResult.kind === 'ok' ? (
-            <div className="border-success/40 bg-success/10 flex items-center gap-2 rounded-md border px-3 py-2 text-xs text-success">
+            <div className="flex items-center gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
               <CheckCircle2 className="h-4 w-4" aria-hidden /> {t('test.success')}
             </div>
           ) : null}
           {testResult.kind === 'error' ? (
-            <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
+            <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
               <p className="font-medium">{t('test.failure')}</p>
               {testResult.message ? <p className="mt-1 font-mono">{testResult.message}</p> : null}
             </div>
@@ -437,7 +437,7 @@ export function NotificationsClient({ state }: Props) {
             <p className="text-sm text-text-secondary">{t('twilio.description')}</p>
 
             {!state.encryptionReady ? (
-              <div className="border-warning/40 bg-warning/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-warning">
+              <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('errors.encryptionMissing')}</span>
               </div>
@@ -500,13 +500,13 @@ export function NotificationsClient({ state }: Props) {
             </div>
 
             {twilioTestResult.kind === 'ok' ? (
-              <div className="border-success/40 bg-success/10 flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-success">
+              <div className="flex items-start gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>{t('testTwilio.success', { sid: twilioTestResult.sid })}</span>
               </div>
             ) : null}
             {twilioTestResult.kind === 'error' ? (
-              <div className="border-danger/40 bg-danger/10 rounded-md border px-3 py-2 text-xs text-danger">
+              <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
                 <p className="font-medium">{t('testTwilio.failure')}</p>
                 {twilioTestResult.message ? (
                   <p className="mt-1 font-mono">{twilioTestResult.message}</p>

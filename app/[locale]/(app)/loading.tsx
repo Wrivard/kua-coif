@@ -20,7 +20,7 @@ export default function AppShellLoading() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* Page header band — matches the real PageHeader's height (--header-h). */}
-      <div className="bg-bg-base/95 flex h-header-h items-center gap-4 border-b border-border px-6 backdrop-blur">
+      <div className="flex h-header-h items-center gap-4 border-b border-border bg-bg-base/95 px-6 backdrop-blur">
         <Skeleton className="h-6 w-40" />
         <div className="flex-1" />
         <Skeleton className="h-8 w-24" />
