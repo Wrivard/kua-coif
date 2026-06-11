@@ -6,7 +6,7 @@ import { captureException } from '@/lib/observability';
 import { verifyOauthState } from '@/lib/security/oauth-state';
 
 /**
- * QuickBooks OAuth callback — Phase 35.
+ * QuickBooks OAuth callback â€” Phase 35.
  *
  * Intuit redirects with `?code=...&state=...&realmId=...`. We:
  *   1. Verify state cookie + HMAC + expiry (same defense pattern as
@@ -26,7 +26,7 @@ export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'kua-qb-oauth-state';
 
-// Security audit #8 — state verification moved to lib/security/oauth-state.ts
+// Security audit #8 â€” state verification moved to lib/security/oauth-state.ts
 // which hard-fails in production on missing NOTIFICATION_ENCRYPTION_KEY.
 
 function safeRedirect(origin: string, params: Record<string, string>): NextResponse {
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     const token = await exchangeQbCode({ code, redirectUri });
     const refreshEnc = encrypt(token.refresh_token);
 
-    // Loop 46 (P98) — capture refresh-token expiry on initial
+    // Loop 46 (P98) â€” capture refresh-token expiry on initial
     // connect. Intuit returns `x_refresh_token_expires_in` (seconds)
     // alongside the token; we project that forward to an absolute
     // timestamp so the cron can scan an indexed timestamptz column
@@ -97,8 +97,7 @@ export async function GET(req: NextRequest) {
       Date.now() + token.x_refresh_token_expires_in * 1000,
     ).toISOString();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = createSupabaseServiceRoleClient() as any;
+    const admin = createSupabaseServiceRoleClient();
     await admin
       .from('shops')
       .update({

@@ -12,7 +12,7 @@ import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
- * Loop 62 — Birthday greetings cron.
+ * Loop 62 â€” Birthday greetings cron.
  *
  * Daily-scheduled (fires once per day from GitHub Actions, since Vercel
  * Hobby is at its 2-cron limit). Each tick:
@@ -21,7 +21,7 @@ import { isCronAuthorized } from '@/lib/security/cron-auth';
  *      timezone (a 23:50 UTC tick is "tomorrow" for an Asia/Tokyo shop
  *      and we'd want to use Tokyo's date, not UTC's).
  *   2. Looks up clients whose `date_of_birth` matches today (month,
- *      day only — year is ignored).
+ *      day only â€” year is ignored).
  *   3. For each match, checks the shop's `notification_automations`
  *      for kind='birthday' per channel (email + sms).
  *   4. Sends the enabled channels, writes a `client_marketing_sends`
@@ -30,10 +30,10 @@ import { isCronAuthorized } from '@/lib/security/cron-auth';
  *      even if the cron fires twice in a day.
  *
  * Per-channel idempotency on top of the per-day cron schedule means:
- *   - tick fires twice in 24h → second tick sees existing rows, skips.
- *   - shop disables birthday email AFTER an SMS sent → SMS row stays,
+ *   - tick fires twice in 24h â†’ second tick sees existing rows, skips.
+ *   - shop disables birthday email AFTER an SMS sent â†’ SMS row stays,
  *     no email row, that channel never fires this year. Correct.
- *   - operator manually deletes a client_marketing_sends row → next
+ *   - operator manually deletes a client_marketing_sends row â†’ next
  *     tick re-sends. Manual recovery available.
  *
  * Auth via Bearer ${CRON_SECRET} matches the notifications cron pattern.
@@ -76,8 +76,7 @@ export async function GET(req: NextRequest) {
 
 async function runBirthdayGreetingsCron(): Promise<NextResponse> {
   const startedAt = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createSupabaseServiceRoleClient() as any;
+  const sb = createSupabaseServiceRoleClient();
 
   let sent = 0;
   let skipped = 0;
@@ -93,7 +92,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
       try {
         // Shop's "today" in its timezone. Use formatShopTime to extract
         // month + day from now() projected into the shop's tz. The year
-        // is used for the recurrence_key — a client with the same
+        // is used for the recurrence_key â€” a client with the same
         // shop + same birthday MD as last year still gets a fresh send.
         const now = new Date();
         const monthStr = formatShopTime(now, shop.timezone, 'MM');
@@ -105,19 +104,26 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
         // 2. Find clients whose birthday is today (month/day), matched
         //    SQL-side by birthday_clients() so the `clients_birthday_md_idx`
         //    partial index actually serves the query. The old path fetched
-        //    every DOB-bearing client and filtered month/day in JS — silently
+        //    every DOB-bearing client and filtered month/day in JS â€” silently
         //    capped at the PostgREST 1000-row default, so a big shop's later
         //    clients never got a greeting. types: regenerate db/types.ts post-deploy.
-        const matchesRes = await sb.rpc('birthday_clients', {
+        // typed-exception: pending types regen — birthday_clients (migration
+        // 20260610110000) isn't in the generated db/types.ts yet; cast the rpc
+        // to its known shape until db:types regenerates.
+        const rpc = sb.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: ClientRow[] | null; error: unknown }>;
+        const matchesRes = await rpc('birthday_clients', {
           p_shop: shop.id,
           p_month: todayMonth,
           p_day: todayDay,
         });
-        const matches = (matchesRes.data as ClientRow[] | null) ?? [];
+        const matches = matchesRes.data ?? [];
         if (matches.length === 0) continue;
 
         // 3. Already-sent lookup for THIS year. Same pattern as the
-        //    reminder cron's alreadySet — one batched query rather
+        //    reminder cron's alreadySet â€” one batched query rather
         //    than N lookups.
         const candidateIds = matches.map((m) => m.id);
         const alreadyEmailRes = await sb
@@ -148,7 +154,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
         const locale = shopLocale(shop.default_language);
 
         for (const client of matches) {
-          // ── Email branch ────────────────────────────────────────
+          // â”€â”€ Email branch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if (alreadyEmail.has(client.id) || !client.email) {
             skipped += 1;
           } else {
@@ -158,8 +164,8 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
               to: client.email,
               subject:
                 locale === 'fr'
-                  ? `Joyeux anniversaire ${client.first_name} ! 🎂`
-                  : `Happy birthday ${client.first_name}! 🎂`,
+                  ? `Joyeux anniversaire ${client.first_name} ! ðŸŽ‚`
+                  : `Happy birthday ${client.first_name}! ðŸŽ‚`,
               template: BirthdayGreeting({
                 locale,
                 shop: { name: shop.name },
@@ -192,7 +198,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
             }
           }
 
-          // ── SMS branch ──────────────────────────────────────────
+          // â”€â”€ SMS branch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if (alreadySms.has(client.id) || !client.phone) {
             skipped += 1;
           } else {
@@ -203,7 +209,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
             });
             const statusCallbackUrl = twilioWebhookUrl(shop.id) ?? undefined;
             // `appointmentId: null` signals to dispatchSms that we
-            // manage our own ledger (client_marketing_sends) — it
+            // manage our own ledger (client_marketing_sends) â€” it
             // skips the notification_sends INSERT that would
             // otherwise FK-violate against appointments.
             const smsResult = await dispatchSms({
@@ -250,7 +256,7 @@ async function runBirthdayGreetingsCron(): Promise<NextResponse> {
     failed += 1;
   }
 
-  // Aggregate failure alert — see the reminders cron for the rationale: soft
+  // Aggregate failure alert â€” see the reminders cron for the rationale: soft
   // send-failures bump `failed` without throwing, so a fully-broken run would
   // otherwise return a green 200. Surface it to Sentry.
   if (failed > 0) {

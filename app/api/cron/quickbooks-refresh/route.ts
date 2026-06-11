@@ -6,11 +6,11 @@ import { captureException, withCronMonitor } from '@/lib/observability';
 import { isCronAuthorized } from '@/lib/security/cron-auth';
 
 /**
- * Loop 46 (Phase 98 from AUDIT_PHASE70) — proactive QuickBooks
+ * Loop 46 (Phase 98 from AUDIT_PHASE70) â€” proactive QuickBooks
  * refresh-token rotation.
  *
  * Intuit's refresh tokens expire after 100 days of inactivity. Once
- * expired, the shop must re-OAuth from scratch — a manager+ action
+ * expired, the shop must re-OAuth from scratch â€” a manager+ action
  * the owner is unlikely to do voluntarily until the next time they
  * notice their invoices aren't syncing. We avoid that fail-open by
  * scheduling this cron to fire daily; each run refreshes any token
@@ -53,18 +53,17 @@ export async function GET(req: NextRequest) {
 
 async function runQuickbooksRefreshCron(): Promise<NextResponse> {
   if (!quickbooksConfigured() || !encryptionConfigured()) {
-    // No QuickBooks app credentials OR no encryption key — nothing
+    // No QuickBooks app credentials OR no encryption key â€” nothing
     // we can do. Return 200 with a no-op summary so the cron run
     // shows green in Vercel logs.
     return NextResponse.json({ ok: true, processed: 0, reason: 'not-configured' });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createSupabaseServiceRoleClient() as any;
+  const admin = createSupabaseServiceRoleClient();
 
   // Find shops whose refresh token is within 14 days of expiry. We
   // also filter out null tokens defensively (a legacy shop connected
-  // before Loop 46 won't have a stored expiry — they'll get one on
+  // before Loop 46 won't have a stored expiry â€” they'll get one on
   // first refresh after THIS migration lands + an OAuth round-trip).
   const cutoff = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
   const candidatesRes = await admin
@@ -93,7 +92,7 @@ async function runQuickbooksRefreshCron(): Promise<NextResponse> {
       const tokenResponse = await refreshQbToken(currentRefreshToken);
 
       // Intuit usually returns a NEW refresh token on rotation. Save it
-      // immediately — using the old one again after rotation invalidates
+      // immediately â€” using the old one again after rotation invalidates
       // the new one server-side.
       const newRefreshEnc = encrypt(tokenResponse.refresh_token);
       const newExpiresAt = new Date(
@@ -113,10 +112,10 @@ async function runQuickbooksRefreshCron(): Promise<NextResponse> {
       refreshed += 1;
     } catch (e) {
       // A failure here is usually one of:
-      //   - Intuit returned 400 invalid_grant → refresh token is dead
+      //   - Intuit returned 400 invalid_grant â†’ refresh token is dead
       //     (e.g., user revoked from QB side). Flip status to
       //     'disconnected' so the settings UI prompts a re-OAuth.
-      //   - Network blip → leave as-is, next cron run retries.
+      //   - Network blip â†’ leave as-is, next cron run retries.
       // We distinguish via the error message; conservative default is
       // to leave the row alone and Sentry the error.
       const message = e instanceof Error ? e.message : String(e);
@@ -127,7 +126,7 @@ async function runQuickbooksRefreshCron(): Promise<NextResponse> {
             .update({ quickbooks_connect_status: 'disconnected' })
             .eq('id', shop.id);
         } catch {
-          // Suppress nested write failures — Sentry below catches the
+          // Suppress nested write failures â€” Sentry below catches the
           // upstream root cause.
         }
       }

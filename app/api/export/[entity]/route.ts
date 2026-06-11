@@ -6,6 +6,8 @@ import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { sanitizeCsvRows } from '@/lib/security/csv';
 import { logDurableAudit } from '@/lib/audit-log';
 import { captureException } from '@/lib/observability';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/db/types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

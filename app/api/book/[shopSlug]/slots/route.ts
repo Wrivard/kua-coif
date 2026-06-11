@@ -45,8 +45,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ shopSlug:
     return NextResponse.json({ error: 'INVALID_DURATION' }, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
+  const supabase = createSupabaseServiceRoleClient();
 
   // Resolve shop. Slow-changing config (shop projection, bookable barbers,
   // hours, days-off, barber_settings) comes from the per-shop Data Cache
