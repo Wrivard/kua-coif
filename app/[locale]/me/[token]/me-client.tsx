@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { CalendarClock, CalendarX, Download, Mail, Phone, Receipt, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,10 @@ export function MeClient({
   shop: { name: string; email: string | null; phone: string | null; timezone: string };
   upcoming: UpcomingAppointment[];
 }) {
-  const isFr = locale === 'fr';
+  // Plan 041 (residual sweep) — copy comes from pages.me; `lang` keeps the
+  // locale coercion the currency/date formatters need.
+  const t = useTranslations('pages.me');
+  const lang: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
   // Optimistically hide cancelled appointments so the UI stays in sync
@@ -59,12 +63,7 @@ export function MeClient({
     startTransition(async () => {
       const result = await exportMyData({ token });
       if (!result.ok) {
-        show({
-          variant: 'danger',
-          title: isFr
-            ? 'Le lien semble expiré. Demande un nouveau lien au salon.'
-            : 'The link seems expired. Ask the shop for a new link.',
-        });
+        show({ variant: 'danger', title: t('toasts.exportExpired') });
         return;
       }
       // Stream the JSON to a download. Filename includes a timestamp
@@ -81,10 +80,7 @@ export function MeClient({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      show({
-        variant: 'success',
-        title: isFr ? 'Téléchargement démarré' : 'Download started',
-      });
+      show({ variant: 'success', title: t('toasts.downloadStarted') });
     });
   }
 
@@ -103,11 +99,10 @@ export function MeClient({
       // Phase H — forward the URL locale so the cancellation email
       // lands in the right language. The action defaults to FR when
       // the field is missing (older clients).
-      const emailLocale: 'fr' | 'en' = isFr ? 'fr' : 'en';
       const result = await cancelMyAppointment({
         token,
         appointment_id: appointment.id,
-        locale: emailLocale,
+        locale: lang,
       });
       if (!result.ok) {
         // Phase H — shop disabled customer-initiated cancels via
@@ -119,13 +114,7 @@ export function MeClient({
           result.fieldErrors?.cancellation === 'not_allowed';
         show({
           variant: 'danger',
-          title: cancelBlocked
-            ? isFr
-              ? 'Ce salon n’autorise pas les annulations en libre-service. Contacte-le directement.'
-              : "This shop doesn't allow self-service cancellations. Please contact them directly."
-            : isFr
-              ? 'Annulation impossible. Contacte le salon.'
-              : 'Cancel failed. Contact the shop.',
+          title: cancelBlocked ? t('toasts.cancelBlocked') : t('toasts.cancelFailed'),
         });
         return;
       }
@@ -133,68 +122,16 @@ export function MeClient({
       // the page revalidates.
       setCancelledIds((prev) => new Set(prev).add(appointment.id));
       const { refunded, withinNoRefundWindow } = result.data;
-      const title = isFr
-        ? refunded
-          ? 'Rendez-vous annulé et acompte remboursé.'
-          : withinNoRefundWindow
-            ? 'Rendez-vous annulé. Selon la politique du salon, ton acompte n’est pas remboursé.'
-            : 'Rendez-vous annulé.'
-        : refunded
-          ? 'Appointment cancelled and deposit refunded.'
-          : withinNoRefundWindow
-            ? "Appointment cancelled. Per the shop's policy, your deposit isn't refunded."
-            : 'Appointment cancelled.';
+      const title = refunded
+        ? t('toasts.cancelledRefunded')
+        : withinNoRefundWindow
+          ? t('toasts.cancelledNoRefund')
+          : t('toasts.cancelled');
       show({ variant: refunded || !withinNoRefundWindow ? 'success' : 'info', title });
     });
   }
 
   const visibleUpcoming = upcoming.filter((a) => !cancelledIds.has(a.id));
-
-  const L = isFr
-    ? {
-        hello: `Bonjour ${client.firstName}`,
-        intro: `Voici ce que ${shop.name} a sur ton compte. Tout est privé — seul le salon (et toi) y a accès.`,
-        loyaltyTitle: 'Ton crédit fidélité',
-        loyaltyHint: 'Appliqué automatiquement à ta prochaine réservation.',
-        visits: 'visites complétées',
-        loi25Title: 'Tes données (Loi 25)',
-        loi25Body:
-          'Tu peux télécharger une copie de toutes tes données : profil, historique de RDV, paiements. Pour supprimer ton compte, contacte le salon — c’est une opération qu’on fait avec toi pour s’assurer que rien d’important ne disparaît par erreur.',
-        download: 'Télécharger mes données (JSON)',
-        contactTitle: 'Contacte le salon',
-        upcomingTitle: 'Tes prochains rendez-vous',
-        upcomingEmpty: 'Aucun rendez-vous à venir.',
-        rescheduleButton: 'Déplacer',
-        receiptButton: 'Reçu',
-        cancelButton: 'Annuler',
-        cancelTitle: 'Annuler le rendez-vous ?',
-        keepButton: 'Garder',
-        paidLine: 'Acompte payé',
-        depositRefundable: 'Remboursable',
-        freeCancelUntil: (deadline: string) => `Annulation gratuite jusqu’au ${deadline}.`,
-      }
-    : {
-        hello: `Hi ${client.firstName}`,
-        intro: `Here's what ${shop.name} has on your account. Everything is private — only the shop (and you) sees this.`,
-        loyaltyTitle: 'Your loyalty credit',
-        loyaltyHint: 'Auto-applied to your next booking.',
-        visits: 'visits completed',
-        loi25Title: 'Your data (Quebec Loi 25)',
-        loi25Body:
-          'You can download a copy of everything we have on you: profile, appointment history, payments. To delete your account, contact the shop — it’s a step we walk through together so nothing important is lost by accident.',
-        download: 'Download my data (JSON)',
-        contactTitle: 'Contact the shop',
-        upcomingTitle: 'Your upcoming appointments',
-        upcomingEmpty: 'No upcoming appointments.',
-        rescheduleButton: 'Reschedule',
-        receiptButton: 'Receipt',
-        cancelButton: 'Cancel',
-        cancelTitle: 'Cancel appointment?',
-        keepButton: 'Keep',
-        paidLine: 'Deposit paid',
-        depositRefundable: 'Refundable',
-        freeCancelUntil: (deadline: string) => `Free cancellation until ${deadline}.`,
-      };
 
   // Plan 044 (UX-03) — DEFINITIVE refund consequence, computed from the same
   // cutoff the server uses (start - mins_cancel_before_appt), instead of the
@@ -207,43 +144,39 @@ export function MeClient({
     : false;
   const pendingDeposit =
     pendingCancel && pendingCancel.depositCents > 0
-      ? formatCurrencyCAD(pendingCancel.depositCents / 100, isFr ? 'fr' : 'en')
+      ? formatCurrencyCAD(pendingCancel.depositCents / 100, lang)
       : null;
-  const cancelDescription = isFr
-    ? pendingPaid
-      ? pendingInsideWindow
-        ? `Ton acompte${pendingDeposit ? ` de ${pendingDeposit}` : ''} ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?`
-        : `Ton acompte${pendingDeposit ? ` de ${pendingDeposit}` : ''} te sera remboursé automatiquement.`
-      : 'Annuler ce rendez-vous ?'
-    : pendingPaid
-      ? pendingInsideWindow
-        ? `Your deposit${pendingDeposit ? ` of ${pendingDeposit}` : ''} will NOT be refunded (the shop's cancellation policy). Cancel anyway?`
-        : `Your deposit${pendingDeposit ? ` of ${pendingDeposit}` : ''} will be refunded automatically.`
-      : 'Cancel this appointment?';
+  const cancelDescription = pendingPaid
+    ? pendingInsideWindow
+      ? pendingDeposit
+        ? t('cancelDesc.notRefundedWithAmount', { amount: pendingDeposit })
+        : t('cancelDesc.notRefunded')
+      : pendingDeposit
+        ? t('cancelDesc.refundedWithAmount', { amount: pendingDeposit })
+        : t('cancelDesc.refunded')
+    : t('cancelDesc.plain');
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <header className="space-y-1">
         <p className="type-eyebrow">{shop.name}</p>
-        <h1 className="text-display-md text-text-primary">{L.hello}</h1>
-        <p className="text-sm text-text-secondary">{L.intro}</p>
+        <h1 className="text-display-md text-text-primary">
+          {t('hello', { name: client.firstName })}
+        </h1>
+        <p className="text-sm text-text-secondary">{t('intro', { shopName: shop.name })}</p>
       </header>
 
       {/* Phase G — upcoming appointments + self-cancel. */}
       <Card>
         <CardHeader>
-          <CardTitle>{L.upcomingTitle}</CardTitle>
+          <CardTitle>{t('upcomingTitle')}</CardTitle>
         </CardHeader>
         <CardBody className="space-y-3">
           {visibleUpcoming.length === 0 ? (
-            <p className="text-sm text-text-secondary">{L.upcomingEmpty}</p>
+            <p className="text-sm text-text-secondary">{t('upcomingEmpty')}</p>
           ) : (
             visibleUpcoming.map((appt) => {
-              const dateStr = formatHeaderDate(
-                new Date(appt.startAt),
-                isFr ? 'fr' : 'en',
-                shop.timezone,
-              );
+              const dateStr = formatHeaderDate(new Date(appt.startAt), lang, shop.timezone);
               const startStr = formatShopTime(appt.startAt, shop.timezone, 'HH:mm');
               const endStr = formatShopTime(appt.endAt, shop.timezone, 'HH:mm');
               const isPaid = appt.paymentStatus === 'paid' && appt.hasPaymentIntent;
@@ -267,18 +200,18 @@ export function MeClient({
                         {appt.barberName ? ` · ${appt.barberName}` : ''}
                       </p>
                       <p className="text-xs text-text-muted">
-                        {formatCurrencyCAD(appt.totalAmount, isFr ? 'fr' : 'en')}
-                        {isPaid ? ` · ${L.paidLine}` : ''}
+                        {formatCurrencyCAD(appt.totalAmount, lang)}
+                        {isPaid ? ` · ${t('paidLine')}` : ''}
                       </p>
                       {showFreeCancelLine ? (
                         <p className="text-xs text-text-muted">
-                          {L.freeCancelUntil(
-                            `${formatHeaderDate(
+                          {t('freeCancelUntil', {
+                            deadline: `${formatHeaderDate(
                               new Date(appt.refundCutoffAt!),
-                              isFr ? 'fr' : 'en',
+                              lang,
                               shop.timezone,
                             )} · ${formatShopTime(appt.refundCutoffAt!, shop.timezone, 'HH:mm')}`,
-                          )}
+                          })}
                         </p>
                       ) : null}
                     </div>
@@ -294,13 +227,13 @@ export function MeClient({
                         href={`/${locale}/reschedule/${appt.rescheduleToken}`}
                         className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-accent px-3 text-xs font-medium text-accent-fg shadow-sm transition-all duration-150 ease-out-quint hover:bg-accent-hover hover:shadow-accent-glow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                       >
-                        <CalendarClock className="h-4 w-4" aria-hidden /> {L.rescheduleButton}
+                        <CalendarClock className="h-4 w-4" aria-hidden /> {t('rescheduleButton')}
                       </Link>
                       <Link
                         href={`/${locale}/receipt/${appt.receiptToken}`}
                         className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-bg-surface px-3 text-xs font-medium text-text-primary shadow-sm transition-all duration-150 ease-out-quint hover:bg-bg-surface-2 hover:shadow-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                       >
-                        <Receipt className="h-4 w-4" aria-hidden /> {L.receiptButton}
+                        <Receipt className="h-4 w-4" aria-hidden /> {t('receiptButton')}
                       </Link>
                       <Button
                         variant="ghost"
@@ -308,7 +241,7 @@ export function MeClient({
                         onClick={() => cancelAppointment(appt)}
                         disabled={isPending}
                       >
-                        <CalendarX className="h-4 w-4" /> {L.cancelButton}
+                        <CalendarX className="h-4 w-4" /> {t('cancelButton')}
                       </Button>
                     </div>
                   </div>
@@ -323,26 +256,26 @@ export function MeClient({
       <div className="surface-hero space-y-2 p-6">
         <p className="type-eyebrow inline-flex items-center gap-2 text-accent">
           <Sparkles className="h-4 w-4" />
-          {L.loyaltyTitle}
+          {t('loyaltyTitle')}
         </p>
         <p className="text-display-lg tabular-nums text-text-primary">
-          {formatCurrencyCAD(client.loyaltyBalanceCents / 100, isFr ? 'fr' : 'en')}
+          {formatCurrencyCAD(client.loyaltyBalanceCents / 100, lang)}
         </p>
-        <p className="text-xs text-text-secondary">{L.loyaltyHint}</p>
+        <p className="text-xs text-text-secondary">{t('loyaltyHint')}</p>
         <p className="text-xs text-text-muted">
-          {client.completedCount} {L.visits}
+          {client.completedCount} {t('visits')}
         </p>
       </div>
 
       {/* Loi 25 self-export */}
       <Card>
         <CardHeader>
-          <CardTitle>{L.loi25Title}</CardTitle>
+          <CardTitle>{t('loi25Title')}</CardTitle>
         </CardHeader>
         <CardBody className="space-y-4">
-          <p className="text-sm leading-relaxed text-text-secondary">{L.loi25Body}</p>
+          <p className="text-sm leading-relaxed text-text-secondary">{t('loi25Body')}</p>
           <Button onClick={downloadExport} loading={isPending} variant="secondary" size="sm">
-            <Download className="h-4 w-4" /> {L.download}
+            <Download className="h-4 w-4" /> {t('download')}
           </Button>
         </CardBody>
       </Card>
@@ -352,7 +285,7 @@ export function MeClient({
         <Card>
           <CardHeader>
             <CardTitle>
-              {L.contactTitle} — {shop.name}
+              {t('contactTitle')} — {shop.name}
             </CardTitle>
           </CardHeader>
           <CardBody className="space-y-2 text-sm text-text-secondary">
@@ -380,10 +313,10 @@ export function MeClient({
         open={pendingCancel !== null}
         destructive
         loading={isPending}
-        title={L.cancelTitle}
+        title={t('cancelTitle')}
         description={cancelDescription}
-        confirmLabel={L.cancelButton}
-        cancelLabel={L.keepButton}
+        confirmLabel={t('cancelButton')}
+        cancelLabel={t('keepButton')}
         onConfirm={() => {
           const appt = pendingCancel;
           setPendingCancel(null);

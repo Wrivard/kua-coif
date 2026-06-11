@@ -832,6 +832,7 @@
       "today": {
         "title": "Daily close-out",
         "subtitleToday": "Today — {date}",
+        "print": "Print",
         "kpis": {
           "gross": "Gross revenue",
           "tips": "Tips collected",
@@ -1676,6 +1677,113 @@
         "navigation": "Navigation",
         "data": "Data",
         "feedback": "Feedback"
+      }
+    },
+    "me": {
+      "hello": "Hi {name}",
+      "intro": "Here's what {shopName} has on your account. Everything is private — only the shop (and you) sees this.",
+      "upcomingTitle": "Your upcoming appointments",
+      "upcomingEmpty": "No upcoming appointments.",
+      "paidLine": "Deposit paid",
+      "freeCancelUntil": "Free cancellation until {deadline}.",
+      "rescheduleButton": "Reschedule",
+      "receiptButton": "Receipt",
+      "cancelButton": "Cancel",
+      "cancelTitle": "Cancel appointment?",
+      "keepButton": "Keep",
+      "loyaltyTitle": "Your loyalty credit",
+      "loyaltyHint": "Auto-applied to your next booking.",
+      "visits": "visits completed",
+      "loi25Title": "Your data (Quebec Loi 25)",
+      "loi25Body": "You can download a copy of everything we have on you: profile, appointment history, payments. To delete your account, contact the shop — it's a step we walk through together so nothing important is lost by accident.",
+      "download": "Download my data (JSON)",
+      "contactTitle": "Contact the shop",
+      "cancelDesc": {
+        "plain": "Cancel this appointment?",
+        "refunded": "Your deposit will be refunded automatically.",
+        "refundedWithAmount": "Your deposit of {amount} will be refunded automatically.",
+        "notRefunded": "Your deposit will NOT be refunded (the shop's cancellation policy). Cancel anyway?",
+        "notRefundedWithAmount": "Your deposit of {amount} will NOT be refunded (the shop's cancellation policy). Cancel anyway?"
+      },
+      "toasts": {
+        "exportExpired": "The link seems expired. Ask the shop for a new link.",
+        "downloadStarted": "Download started",
+        "cancelBlocked": "This shop doesn't allow self-service cancellations. Please contact them directly.",
+        "cancelFailed": "Cancel failed. Contact the shop.",
+        "cancelledRefunded": "Appointment cancelled and deposit refunded.",
+        "cancelledNoRefund": "Appointment cancelled. Per the shop's policy, your deposit isn't refunded.",
+        "cancelled": "Appointment cancelled."
+      }
+    },
+    "reschedule": {
+      "title": "Reschedule your appointment",
+      "currentLabel": "Current appointment",
+      "withLine": "With {name} · {min} min",
+      "newDate": "New date",
+      "newTime": "New time",
+      "slotsError": "Couldn't load availability.",
+      "retry": "Try again",
+      "noSlots": "No slots available for this date.",
+      "confirm": "Confirm",
+      "terminalTitle": "Appointment can no longer be changed",
+      "terminalBody": "Contact {shopName} for any change.",
+      "doneTitle": "Done!",
+      "doneBody": "You'll receive an email confirmation for the new slot ({slot}).",
+      "toasts": {
+        "done": "Appointment rescheduled!",
+        "conflict": "This slot is no longer available.",
+        "failed": "Could not reschedule."
+      }
+    },
+    "review": {
+      "titleWithBarber": "How was your visit with {name}?",
+      "titleShop": "How was your visit at {shopName}?",
+      "rating": "Your rating",
+      "comment": "A few words? (optional)",
+      "name": "Your first name (shown publicly, optional)",
+      "submit": "Submit my review",
+      "doneTitle": "Review received",
+      "doneBody": "Thanks for taking the time. {shopName} will see your review shortly.",
+      "googleCta": "It would also help us on Google →",
+      "toasts": {
+        "thanks": "Thanks for your review!",
+        "alreadySaved": "Your review was already saved.",
+        "failed": "Could not save the review. The link may have expired."
+      }
+    },
+    "receipt": {
+      "receipt": "Receipt",
+      "date": "Date",
+      "with": "With",
+      "services": "Services",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "tip": "Tip",
+      "total": "Total",
+      "deposit": "Deposit paid",
+      "balance": "Balance due in-shop",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "failed": "Failed",
+      "method": "Method",
+      "online": "Online",
+      "inShop": "In-shop",
+      "thanks": "Thank you for your visit!",
+      "print": "Print"
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe from marketing",
+      "body": "{firstName}, confirm you no longer want marketing emails (offers, birthday, review requests) from {shopName}.",
+      "confirm": "Confirm unsubscribe",
+      "confirmPending": "One moment…",
+      "note": "Appointment-related messages are not affected.",
+      "doneTitle": "You’re unsubscribed",
+      "doneBody": "You’ll no longer receive marketing emails from {shopName}. Messages about your appointments (confirmations, reminders) are not affected.",
+      "toasts": {
+        "done": "You’re unsubscribed.",
+        "failed": "Could not unsubscribe. The link may have expired."
       }
     },
     "embed": {

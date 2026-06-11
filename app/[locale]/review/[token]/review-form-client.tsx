@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +38,8 @@ export function ReviewFormClient({
   /** Plan 043 — the shop's Google listing for the thank-you handoff. */
   publicReviewUrl: string | null;
 }) {
-  const isFr = locale === 'fr';
+  // Plan 041 (residual sweep) — copy comes from pages.review.
+  const t = useTranslations('pages.review');
   const { show } = useToast();
   // Plan 043 (step 1) — seeded from the email deep-link; submitting still
   // takes an explicit button press (a mis-tap must never post a review).
@@ -66,7 +68,7 @@ export function ReviewFormClient({
         setSubmitted(true);
         show({
           variant: 'success',
-          title: isFr ? 'Merci pour ton avis !' : 'Thanks for your review!',
+          title: t('toasts.thanks'),
         });
       } else if (result.fieldErrors?.review === 'already_submitted') {
         // Plan 043 (CORRECTNESS-07) — the review IS saved (first submit /
@@ -75,14 +77,12 @@ export function ReviewFormClient({
         setSubmitted(true);
         show({
           variant: 'success',
-          title: isFr ? 'Ton avis était déjà enregistré.' : 'Your review was already saved.',
+          title: t('toasts.alreadySaved'),
         });
       } else {
         show({
           variant: 'danger',
-          title: isFr
-            ? 'Impossible d’enregistrer l’avis. Le lien est peut-être expiré.'
-            : 'Could not save the review. The link may have expired.',
+          title: t('toasts.failed'),
         });
       }
     });
@@ -109,14 +109,8 @@ export function ReviewFormClient({
                 ))}
               </div>
             ) : null}
-            <h1 className="text-display-sm text-text-primary">
-              {isFr ? 'Avis reçu' : 'Review received'}
-            </h1>
-            <p className="text-sm text-text-secondary">
-              {isFr
-                ? `Merci d’avoir pris le temps. ${shopName} verra ton avis dans quelques instants.`
-                : `Thanks for taking the time. ${shopName} will see your review shortly.`}
-            </p>
+            <h1 className="text-display-sm text-text-primary">{t('doneTitle')}</h1>
+            <p className="text-sm text-text-secondary">{t('doneBody', { shopName })}</p>
             {/* Plan 043 (step 4) — Google handoff. Shown to EVERYONE (no
                 review-gating: only inviting 4-5★ reviewers onward violates
                 Google's policy); first-party reviews become local-SEO ones. */}
@@ -128,9 +122,7 @@ export function ReviewFormClient({
                   rel="noopener noreferrer"
                   className="font-medium text-accent underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
-                  {isFr
-                    ? 'Ça nous aiderait aussi sur Google →'
-                    : 'It would also help us on Google →'}
+                  {t('googleCta')}
                 </a>
               </p>
             ) : null}
@@ -140,41 +132,25 @@ export function ReviewFormClient({
     );
   }
 
-  const labels = isFr
-    ? {
-        title: barberName
-          ? `Comment était ta visite avec ${barberName} ?`
-          : `Comment était ta visite chez ${shopName} ?`,
-        rating: 'Ta note',
-        comment: 'Un mot ? (optionnel)',
-        name: 'Ton prénom (affiché publiquement, optionnel)',
-        submit: 'Envoyer mon avis',
-      }
-    : {
-        title: barberName
-          ? `How was your visit with ${barberName}?`
-          : `How was your visit at ${shopName}?`,
-        rating: 'Your rating',
-        comment: 'A few words? (optional)',
-        name: 'Your first name (shown publicly, optional)',
-        submit: 'Submit my review',
-      };
+  const formTitle = barberName
+    ? t('titleWithBarber', { name: barberName })
+    : t('titleShop', { shopName });
 
   return (
     <div className="mx-auto max-w-lg p-6">
       <Card>
         <CardHeader>
-          <CardTitle>{labels.title}</CardTitle>
+          <CardTitle>{formTitle}</CardTitle>
         </CardHeader>
         <CardBody className="space-y-5">
           <div>
-            <Label>{labels.rating}</Label>
+            <Label>{t('rating')}</Label>
             {/* Plan 043 (UX-04) — the radio roles violated the ARIA radio
                 pattern (no roving tabindex, no arrow keys). Plain toggle
                 buttons with aria-pressed are the simpler CONFORMANT shape:
                 five tab stops, native Enter/Space, no custom key handling.
                 Hit area bumped to 48px (h-9 star + p-1.5 ≥ the 44px floor). */}
-            <div className="flex items-center gap-1.5" role="group" aria-label={labels.rating}>
+            <div className="flex items-center gap-1.5" role="group" aria-label={t('rating')}>
               {[1, 2, 3, 4, 5].map((star) => {
                 const active = (hoverRating || rating) >= star;
                 return (
@@ -200,7 +176,7 @@ export function ReviewFormClient({
           </div>
 
           <div>
-            <Label htmlFor="review_name">{labels.name}</Label>
+            <Label htmlFor="review_name">{t('name')}</Label>
             <Input
               id="review_name"
               value={clientName}
@@ -211,7 +187,7 @@ export function ReviewFormClient({
           </div>
 
           <div>
-            <Label htmlFor="review_comment">{labels.comment}</Label>
+            <Label htmlFor="review_comment">{t('comment')}</Label>
             <Textarea
               id="review_comment"
               value={comment}
@@ -223,7 +199,7 @@ export function ReviewFormClient({
 
           <div className="flex justify-end">
             <Button onClick={submit} loading={isPending} disabled={rating < 1}>
-              {labels.submit}
+              {t('submit')}
             </Button>
           </div>
         </CardBody>
