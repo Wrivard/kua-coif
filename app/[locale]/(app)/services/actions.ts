@@ -382,13 +382,24 @@ export const renameServiceCategory = withAction({
   schema: updateServiceCategorySchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db()
+    // W2b — shop-scoped write + rows-check (the exact updateService /
+    // toggleServiceStatus pattern above): RLS spans every shop the user
+    // belongs to, so without the explicit scope a multi-shop manager could
+    // rename ANOTHER of their shops' categories by id — and a 0-row write
+    // returned a lying ok.
+    const { data: rows, error } = await db()
       .from('service_categories')
       .update({ name: input.name })
-      .eq('id', input.id);
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
     // 23505 = rename collision with another category in this shop → inline-field CONFLICT.
     if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
-    if (error) return err('UNEXPECTED');
+    if (error) {
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -426,8 +437,20 @@ export const deleteServiceCategory = withAction({
     if (countError) return err('UNEXPECTED');
     if ((count ?? 0) > 0) return err('CONFLICT');
 
-    const { error } = await db().from('service_categories').delete().eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+    // W2b — shop-scoped delete + rows-check (same rationale as the rename
+    // above). The reference guard stays as-is; its known TOCTOU window
+    // (BE-08) is deferred — the tenant scoping is this pass's job.
+    const { data: rows, error } = await db()
+      .from('service_categories')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    if (error) {
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,

@@ -46,6 +46,7 @@ import {
   toggleServiceStatus,
   createServiceCategory,
   renameServiceCategory,
+  deleteServiceCategory,
 } from './actions';
 
 const SHOP_A = 'shop-a';
@@ -394,5 +395,41 @@ describe('unique names — 23505 → CONFLICT { name: duplicate } (W2)', () => {
       errorCode: 'CONFLICT',
       fieldErrors: { name: 'duplicate' },
     });
+  });
+});
+
+describe('category rename/delete are shop-scoped (W2b)', () => {
+  it("rename: another shop's category survives and the 0-row update errs NOT_FOUND", async () => {
+    const { mock } = setup({
+      service_categories: [{ id: CATEGORY_ID, shop_id: 'shop-OTHER', name: 'Coupes' }],
+    });
+
+    const res = await renameServiceCategory({ id: CATEGORY_ID, name: 'Renommée' });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
+    const upd = mock.calls.find((c) => c.table === 'service_categories' && c.op === 'update');
+    expect(upd?.filters).toEqual([
+      ['id', CATEGORY_ID],
+      ['shop_id', SHOP_A],
+    ]);
+    // The foreign shop's category kept its name.
+    expect(mock.tables.service_categories?.[0]).toMatchObject({ name: 'Coupes' });
+  });
+
+  it("delete: another shop's category survives and the 0-row delete errs NOT_FOUND", async () => {
+    const { mock } = setup({
+      service_categories: [{ id: CATEGORY_ID, shop_id: 'shop-OTHER', name: 'Coupes' }],
+      services: [], // nothing references it, so the guard lets the delete proceed
+    });
+
+    const res = await deleteServiceCategory({ id: CATEGORY_ID });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
+    const del = mock.calls.find((c) => c.table === 'service_categories' && c.op === 'delete');
+    expect(del?.filters).toEqual([
+      ['id', CATEGORY_ID],
+      ['shop_id', SHOP_A],
+    ]);
+    expect(mock.tables.service_categories).toHaveLength(1);
   });
 });
