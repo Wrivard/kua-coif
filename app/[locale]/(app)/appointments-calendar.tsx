@@ -347,6 +347,16 @@ export function AppointmentsCalendar({
   // label can flip on click instead of waiting on the round-trip.
   const [isNavPending, startNavTransition] = useTransition();
   const [navTargetIso, setNavTargetIso] = useState<string | null>(null);
+  // Plan 033 — generalize the optimistic substrate from MOVE to CANCEL and
+  // CREATE. `hiddenIds` hides a block the instant the drawer confirms a cancel
+  // (the drawer only fires the callback on success, so there is no revert
+  // path to manage). `optimisticInserts` appends a provisional block the
+  // instant createAppointment returns ok — composed by the form modal from
+  // the same inputs the server mirrors, and carrying the REAL id the action
+  // returns, so pruning is an exact id match (no shape-match ambiguity).
+  // Both are reconciled by the prune-on-truth effect below, same as overrides.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
+  const [optimisticInserts, setOptimisticInserts] = useState<CalendarAppointment[]>([]);
   const toast = useToast();
   const tReschedule = useTranslations('pages.appointments.reschedule');
 
@@ -372,7 +382,37 @@ export function AppointmentsCalendar({
       }
       return changed ? next : prev;
     });
-  }, [appointments]);
+    // Plan 033 — drop a hidden id once truth shows the row cancelled (the grid
+    // then renders it dimmed+struck, same as a fresh page load) or no longer
+    // present (day navigation swapped the dataset; the re-fetched day will
+    // carry the cancelled status anyway).
+    setHiddenIds((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set(prev);
+      for (const id of next) {
+        const truth = appointments.find((a) => a.id === id);
+        if (!truth || truth.status === 'cancelled') {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // Plan 033 — drop a phantom once its real row arrived via realtime (exact
+    // id match), or once it no longer belongs to the displayed day (the
+    // operator navigated away; a phantom must not bleed onto another day's
+    // grid, and the re-fetched day renders the real row).
+    setOptimisticInserts((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.filter(
+        (p) =>
+          !appointments.some((a) => a.id === p.id) &&
+          shopIsoDate(new Date(p.start_at), timezone) === isoDate,
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [appointments, isoDate, timezone]);
 
   // ── Memoized derivations ──────────────────────────────────────────────
   // The calendar re-renders on every parent state change (modal/drawer
@@ -404,16 +444,35 @@ export function AppointmentsCalendar({
     return { ids, paidCount };
   }, [appointments, visibleBarbers]);
 
-  // Apply optimistic overrides on top of the server-provided list, then
+  // Apply the optimistic layers on top of the server-provided list, then
   // bucket by barber. `effectiveAppointments` is the source of truth the
-  // grid renders against.
+  // grid renders against. Order: overrides (move), then hide (cancel), then
+  // append phantoms (create) — re-sorted by start so the List view stays
+  // chronological and the overlap layout sees the same ordering the server
+  // would have sent.
   const effectiveAppointments = useMemo(() => {
-    if (overrides.size === 0) return appointments;
-    return appointments.map((a) => {
-      const o = overrides.get(a.id);
-      return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
-    });
-  }, [appointments, overrides]);
+    let list = appointments;
+    if (overrides.size > 0) {
+      list = list.map((a) => {
+        const o = overrides.get(a.id);
+        return o ? { ...a, barber_id: o.barber_id, start_at: o.start_at, end_at: o.end_at } : a;
+      });
+    }
+    if (hiddenIds.size > 0) {
+      list = list.filter((a) => !hiddenIds.has(a.id));
+    }
+    if (optimisticInserts.length > 0) {
+      // Guard the one-render gap where the realtime truth already contains
+      // the row but the prune effect hasn't committed yet — without this the
+      // grid would draw the same id twice for a frame.
+      const present = new Set(list.map((a) => a.id));
+      const phantoms = optimisticInserts.filter((p) => !present.has(p.id));
+      if (phantoms.length > 0) {
+        list = [...list, ...phantoms].sort((a, b) => a.start_at.localeCompare(b.start_at));
+      }
+    }
+    return list;
+  }, [appointments, overrides, hiddenIds, optimisticInserts]);
 
   // Phase 5 — List view dataset. Honors the Barbers filter the same way
   // the Side-by-Side grid does (via `selectedBarbers`), so toggling chips
@@ -1099,6 +1158,7 @@ export function AppointmentsCalendar({
         timezone={timezone}
         canManageMoney={canManageMoney}
         onClose={() => setDrawer(null)}
+        onCancelled={(id) => setHiddenIds((prev) => new Set(prev).add(id))}
         formatAmount={(n) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en')}
       />
 
