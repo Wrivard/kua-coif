@@ -36,9 +36,8 @@ export default async function ReviewPage(props: {
   // falls back to 0 = nothing pre-selected. The form still requires an
   // explicit Submit — the deep-link only seeds the selection.
   const parsedRating = Number.parseInt(searchParams.rating ?? '', 10);
-  const initialRating = Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5
-    ? parsedRating
-    : 0;
+  const initialRating =
+    Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5 ? parsedRating : 0;
 
   const payload = verifyToken(decodeURIComponent(token), 'review');
   if (!payload) {

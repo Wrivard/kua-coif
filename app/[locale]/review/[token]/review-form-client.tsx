@@ -128,7 +128,9 @@ export function ReviewFormClient({
                   rel="noopener noreferrer"
                   className="font-medium text-accent underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
-                  {isFr ? 'Ça nous aiderait aussi sur Google →' : 'It would also help us on Google →'}
+                  {isFr
+                    ? 'Ça nous aiderait aussi sur Google →'
+                    : 'It would also help us on Google →'}
                 </a>
               </p>
             ) : null}

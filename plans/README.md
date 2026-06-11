@@ -57,7 +57,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 040 | Calendar journey upgrades (deletable blocked time, date jump, appt deep-link, view URL, one status map) — console-journeys backlog (charge/inline-client/fiche/services-search/finances-nav) deferred inside | P2 | M-L | 032/033/039 (calendar files) | TODO (file written) |
 | 041 | Public-surface i18n consolidation (token pages, marketing, close-out, scoped catalog) | P2 | M | 037/039/043/044/045 | TODO (file written) |
 | 042 | SPIKE — per-day availability density in booking/reschedule date strips | P3 | M | — | DONE (design: plans/042-OUTPUT-day-availability-design.md — measured: worst-case 14d 575 ms route-shape / 26 ms bucketed, 365d 63 ms bucketed ⇒ no precomputation; single-pass summary mode + bucketing mandatory, short-circuit insufficient alone) |
-| 043 | Review conversion pack (star deep-links from email + Google handoff) | P2 | M | 037 | TODO (file written) |
+| 043 | Review conversion pack (star deep-links from email + Google handoff) | P2 | M | 037 | DONE (5 liens-étoiles email → ?rating=N clampé, Submit explicite obligatoire; thank-you écho de la note réelle; dup = already_submitted traité en succès; handoff Google pour TOUS (zéro gating); étoiles aria-pressed + 48px; copie inline isFr, messages/*.json intacts) |
 | 044 | /me as hub — per-appointment reschedule/receipt links (structurally fixes expired-link) | P2 | S-M | 037 | TODO (file written) |
 | 045 | SPIKE — receipt TPS/TVQ tax breakdown | P3 | M | — | TODO (file written) |
 
