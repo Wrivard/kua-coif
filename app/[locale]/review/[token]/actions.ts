@@ -66,13 +66,18 @@ export async function submitPublicReview(raw: SubmitReviewInput): Promise<Result
     if ((payload.ver ?? 0) !== (appt.public_link_version ?? 0)) return err('NOT_FOUND');
 
     // Block duplicate submissions — one review per appointment.
+    // Plan 043 (CORRECTNESS-07) — carry a distinct field error so the client
+    // can treat "already submitted" as the success it is (the review IS
+    // saved) instead of telling a double-tapper their link expired. The
+    // duplicate check only runs AFTER the token verified + version-matched,
+    // so this leaks nothing a valid token holder doesn't already know.
     const existingRes = await supabase
       .from('reviews')
       .select('id')
       .eq('appointment_id', appt.id)
       .limit(1);
     const existing = ((existingRes.data as Array<{ id: string }> | null) ?? [])[0];
-    if (existing) return err('INVALID_INPUT');
+    if (existing) return err('INVALID_INPUT', { review: 'already_submitted' });
 
     const insertRes = await supabase
       .from('reviews')
