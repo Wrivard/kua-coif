@@ -1679,6 +1679,100 @@
         "feedback": "Feedback"
       }
     },
+    "me": {
+      "hello": "Bonjour {name}",
+      "intro": "Voici ce que {shopName} a sur ton compte. Tout est privé — seul le salon (et toi) y a accès.",
+      "upcomingTitle": "Tes prochains rendez-vous",
+      "upcomingEmpty": "Aucun rendez-vous à venir.",
+      "paidLine": "Acompte payé",
+      "freeCancelUntil": "Annulation gratuite jusqu’au {deadline}.",
+      "rescheduleButton": "Déplacer",
+      "receiptButton": "Reçu",
+      "cancelButton": "Annuler",
+      "cancelTitle": "Annuler le rendez-vous ?",
+      "keepButton": "Garder",
+      "loyaltyTitle": "Ton crédit fidélité",
+      "loyaltyHint": "Appliqué automatiquement à ta prochaine réservation.",
+      "visits": "visites complétées",
+      "loi25Title": "Tes données (Loi 25)",
+      "loi25Body": "Tu peux télécharger une copie de toutes tes données : profil, historique de RDV, paiements. Pour supprimer ton compte, contacte le salon — c’est une opération qu’on fait avec toi pour s’assurer que rien d’important ne disparaît par erreur.",
+      "download": "Télécharger mes données (JSON)",
+      "contactTitle": "Contacte le salon",
+      "cancelDesc": {
+        "plain": "Annuler ce rendez-vous ?",
+        "refunded": "Ton acompte te sera remboursé automatiquement.",
+        "refundedWithAmount": "Ton acompte de {amount} te sera remboursé automatiquement.",
+        "notRefunded": "Ton acompte ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?",
+        "notRefundedWithAmount": "Ton acompte de {amount} ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?"
+      },
+      "toasts": {
+        "exportExpired": "Le lien semble expiré. Demande un nouveau lien au salon.",
+        "downloadStarted": "Téléchargement démarré",
+        "cancelBlocked": "Ce salon n’autorise pas les annulations en libre-service. Contacte-le directement.",
+        "cancelFailed": "Annulation impossible. Contacte le salon.",
+        "cancelledRefunded": "Rendez-vous annulé et acompte remboursé.",
+        "cancelledNoRefund": "Rendez-vous annulé. Selon la politique du salon, ton acompte n’est pas remboursé.",
+        "cancelled": "Rendez-vous annulé."
+      }
+    },
+    "reschedule": {
+      "title": "Déplacer ton rendez-vous",
+      "currentLabel": "Rendez-vous actuel",
+      "withLine": "Avec {name} · {min} min",
+      "newDate": "Nouvelle date",
+      "newTime": "Nouvelle heure",
+      "slotsError": "Impossible de charger les disponibilités.",
+      "retry": "Réessayer",
+      "noSlots": "Aucun créneau disponible pour cette date.",
+      "confirm": "Confirmer",
+      "terminalTitle": "Rendez-vous non modifiable",
+      "terminalBody": "Contacte {shopName} pour toute modification.",
+      "doneTitle": "C’est fait !",
+      "doneBody": "Tu recevras une confirmation par courriel pour le nouveau créneau ({slot}).",
+      "toasts": {
+        "done": "Rendez-vous déplacé !",
+        "conflict": "Ce créneau n’est plus disponible.",
+        "failed": "Impossible de déplacer le rendez-vous."
+      }
+    },
+    "review": {
+      "titleWithBarber": "Comment était ta visite avec {name} ?",
+      "titleShop": "Comment était ta visite chez {shopName} ?",
+      "rating": "Ta note",
+      "comment": "Un mot ? (optionnel)",
+      "name": "Ton prénom (affiché publiquement, optionnel)",
+      "submit": "Envoyer mon avis",
+      "doneTitle": "Avis reçu",
+      "doneBody": "Merci d’avoir pris le temps. {shopName} verra ton avis dans quelques instants.",
+      "googleCta": "Ça nous aiderait aussi sur Google →",
+      "toasts": {
+        "thanks": "Merci pour ton avis !",
+        "alreadySaved": "Ton avis était déjà enregistré.",
+        "failed": "Impossible d’enregistrer l’avis. Le lien est peut-être expiré."
+      }
+    },
+    "receipt": {
+      "receipt": "Reçu",
+      "date": "Date",
+      "with": "Avec",
+      "services": "Services",
+      "subtotal": "Sous-total",
+      "discount": "Rabais",
+      "tip": "Pourboire",
+      "total": "Total",
+      "deposit": "Acompte payé",
+      "balance": "Solde à payer en salon",
+      "paid": "Payé",
+      "unpaid": "Non payé",
+      "pending": "En traitement",
+      "refunded": "Remboursé",
+      "failed": "Échec",
+      "method": "Méthode",
+      "online": "En ligne",
+      "inShop": "Au salon",
+      "thanks": "Merci pour votre visite !",
+      "print": "Imprimer"
+    },
     "unsubscribe": {
       "title": "Se désabonner du marketing",
       "body": "{firstName}, confirme que tu ne veux plus recevoir d’emails marketing (offres, anniversaire, demandes d’avis) de {shopName}.",

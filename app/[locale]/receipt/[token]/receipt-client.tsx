@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyCell } from '@/components/ui/empty-cell';
@@ -55,8 +56,11 @@ export function ReceiptClient({
   appointment: Appointment;
   lines: Array<{ name: string; price: number }>;
 }) {
-  const isFr = locale === 'fr';
-  const fmt = (n: number) => formatCurrencyCAD(n, isFr ? 'fr' : 'en');
+  // Plan 041 (residual sweep) — `lang` keeps the locale coercion the
+  // currency/date formatters need; the receipt's labels stay server-fed.
+  const t = useTranslations('pages.receipt');
+  const lang: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
+  const fmt = (n: number) => formatCurrencyCAD(n, lang);
   const accent = appointment.shop.email_accent_color ?? '#4f7d5e';
 
   // Receipt math (re-verified post-Loop-13 self-review):
@@ -87,66 +91,15 @@ export function ReceiptClient({
     }
   }, []);
 
-  const L = isFr
-    ? {
-        receipt: 'Reçu',
-        forVisit: 'pour votre visite',
-        date: 'Date',
-        time: 'Heure',
-        with: 'Avec',
-        services: 'Services',
-        subtotal: 'Sous-total',
-        discount: 'Rabais',
-        tip: 'Pourboire',
-        total: 'Total',
-        deposit: 'Acompte payé',
-        balance: 'Solde à payer en salon',
-        paid: 'Payé',
-        unpaid: 'Non payé',
-        pending: 'En traitement',
-        refunded: 'Remboursé',
-        failed: 'Échec',
-        confirmation: 'Confirmation',
-        booked: 'Réservé',
-        method: 'Méthode',
-        online: 'En ligne',
-        inShop: 'Au salon',
-        thanks: 'Merci pour votre visite !',
-        print: 'Imprimer',
-      }
-    : {
-        receipt: 'Receipt',
-        forVisit: 'for your visit',
-        date: 'Date',
-        time: 'Time',
-        with: 'With',
-        services: 'Services',
-        subtotal: 'Subtotal',
-        discount: 'Discount',
-        tip: 'Tip',
-        total: 'Total',
-        deposit: 'Deposit paid',
-        balance: 'Balance due in-shop',
-        paid: 'Paid',
-        unpaid: 'Unpaid',
-        pending: 'Pending',
-        refunded: 'Refunded',
-        failed: 'Failed',
-        confirmation: 'Confirmation',
-        booked: 'Booked',
-        method: 'Method',
-        online: 'Online',
-        inShop: 'In-shop',
-        thanks: 'Thank you for your visit!',
-        print: 'Print',
-      };
+  // Plan 041 (residual sweep) — labels come from pages.receipt (vous-register,
+  // matching the printed-document tone).
 
   const statusLabel: Record<string, string> = {
-    paid: L.paid,
-    unpaid: L.unpaid,
-    pending: L.pending,
-    refunded: L.refunded,
-    failed: L.failed,
+    paid: t('paid'),
+    unpaid: t('unpaid'),
+    pending: t('pending'),
+    refunded: t('refunded'),
+    failed: t('failed'),
   };
 
   const clientName = appointment.client ? (
@@ -157,7 +110,7 @@ export function ReceiptClient({
 
   const formattedDate = formatHeaderDate(
     new Date(appointment.start_at),
-    isFr ? 'fr' : 'en',
+    lang,
     appointment.shop.timezone,
   );
   const formattedTime = `${formatShopTime(appointment.start_at, appointment.shop.timezone, 'HH:mm')} – ${formatShopTime(appointment.end_at, appointment.shop.timezone, 'HH:mm')}`;
@@ -194,7 +147,7 @@ export function ReceiptClient({
           {/* Action bar — hidden when printing. */}
           <div className="no-print mb-4 flex justify-end">
             <Button variant="secondary" size="sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> {L.print}
+              <Printer className="h-4 w-4" /> {t('print')}
             </Button>
           </div>
 
@@ -234,7 +187,7 @@ export function ReceiptClient({
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: accent }}
                 >
-                  {L.receipt}
+                  {t('receipt')}
                 </p>
                 <p className="font-mono text-[10px] text-text-muted print:text-gray-700">
                   #{appointment.id.slice(0, 8).toUpperCase()}
@@ -248,7 +201,7 @@ export function ReceiptClient({
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted print:text-gray-600">
-                  {L.with}
+                  {t('with')}
                 </p>
                 <p className="font-medium text-text-primary print:text-black">
                   {appointment.barber?.display_name ?? <EmptyCell />}
@@ -257,7 +210,7 @@ export function ReceiptClient({
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted print:text-gray-600">
-                  {L.date}
+                  {t('date')}
                 </p>
                 <p className="font-medium text-text-primary print:text-black">{formattedDate}</p>
                 <p className="text-xs text-text-secondary print:text-gray-700">{formattedTime}</p>
@@ -268,7 +221,7 @@ export function ReceiptClient({
 
             {/* Service lines */}
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted print:text-gray-600">
-              {L.services}
+              {t('services')}
             </p>
             <ul className="space-y-2 text-sm">
               {lines.map((l, i) => (
@@ -285,22 +238,22 @@ export function ReceiptClient({
 
             {/* Totals */}
             <div className="space-y-1 text-sm">
-              <Row label={L.subtotal} value={fmt(subtotal)} fmt={fmt} />
+              <Row label={t('subtotal')} value={fmt(subtotal)} fmt={fmt} />
               {discount > 0 ? (
-                <Row label={L.discount} value={`−${fmt(discount)}`} fmt={fmt} />
+                <Row label={t('discount')} value={`−${fmt(discount)}`} fmt={fmt} />
               ) : null}
-              {tip > 0 ? <Row label={L.tip} value={fmt(tip)} fmt={fmt} /> : null}
+              {tip > 0 ? <Row label={t('tip')} value={fmt(tip)} fmt={fmt} /> : null}
               <hr className="my-2 border-border print:border-gray-300" />
-              <Row label={L.total} value={fmt(grandTotal)} fmt={fmt} bold />
+              <Row label={t('total')} value={fmt(grandTotal)} fmt={fmt} bold />
               {(appointment.deposit_amount_cents ?? 0) > 0 ? (
                 <>
                   <Row
-                    label={L.deposit}
+                    label={t('deposit')}
                     value={`−${fmt((appointment.deposit_amount_cents ?? 0) / 100)}`}
                     fmt={fmt}
                   />
                   <Row
-                    label={L.balance}
+                    label={t('balance')}
                     value={fmt(
                       Math.max(0, grandTotal - (appointment.deposit_amount_cents ?? 0) / 100),
                     )}
@@ -315,16 +268,16 @@ export function ReceiptClient({
 
             <div className="flex items-center justify-between text-xs text-text-muted print:text-gray-700">
               <span>
-                {L.method} ·{' '}
+                {t('method')} ·{' '}
                 <span className="text-text-secondary print:text-gray-800">
-                  {appointment.source === 'online' ? L.online : L.inShop}
+                  {appointment.source === 'online' ? t('online') : t('inShop')}
                 </span>
               </span>
               <span>{statusLabel[appointment.payment_status] ?? appointment.payment_status}</span>
             </div>
 
             <p className="mt-6 text-center text-xs text-text-muted print:text-gray-700">
-              {L.thanks}
+              {t('thanks')}
             </p>
           </div>
         </div>
