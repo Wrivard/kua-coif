@@ -86,6 +86,11 @@ export const createService = withAction({
       .select('id')
       .single();
 
+    // 23505 = unique violation on services_shop_name_unique (a duplicate name
+    // in this shop). A normal user case → CONFLICT, not UNEXPECTED, no Sentry.
+    // The `{ name: 'duplicate' }` payload lets the form surface it INLINE on
+    // the name field rather than as a generic toast (products W2b shape).
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) {
       captureException(error ?? new Error('createService: no row returned'), {
         tags: { layer: 'services' },
@@ -134,7 +139,7 @@ export const updateService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { id, tax_ids, ...rest } = input;
+    const { id, tax_ids, expected_updated_at, ...rest } = input;
 
     if (
       rest.category_id &&
@@ -143,14 +148,26 @@ export const updateService = withAction({
       return err('INVALID_INPUT');
     }
 
-    const { error } = await supabase
-      .from('services')
-      .update(rest)
-      .eq('id', id)
-      .eq('shop_id', ctx.shopId);
+    // Optimistic concurrency (W2 — products pattern): when the client sends
+    // its last-seen updated_at, pin the write to it. `.select('id')` returns
+    // the affected rows so a 0-row write (stale precondition, or an id that
+    // doesn't exist in this shop) is detectable instead of a lying ok.
+    let upd = supabase.from('services').update(rest).eq('id', id).eq('shop_id', ctx.shopId);
+    if (expected_updated_at) {
+      upd = upd.eq('updated_at', expected_updated_at);
+    }
+    const { data: updatedRows, error } = await upd.select('id');
+    // 23505 = duplicate name in this shop (a rename collision) → CONFLICT, not Sentry.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) {
       captureException(error, { tags: { layer: 'services' } });
       return err('UNEXPECTED');
+    }
+    if ((updatedRows?.length ?? 0) === 0) {
+      // With a precondition we can't tell "stale" from "gone" without a second
+      // read — surface the reload toast (products W2b shape). Without one, the
+      // id simply doesn't exist in this shop: err, don't lie with ok.
+      return expected_updated_at ? err('CONFLICT', { concurrency: 'stale' }) : err('NOT_FOUND');
     }
 
     // Atomic, same-shop-validated tax linking (set_service_taxes RPC,
@@ -192,11 +209,14 @@ export const deleteService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { error } = await supabase
+    // `.select('id')` returns the deleted rows so a 0-row delete (id not in
+    // this shop / already gone) errs as NOT_FOUND instead of a lying ok.
+    const { data: deletedRows, error } = await supabase
       .from('services')
       .delete()
       .eq('id', input.id)
-      .eq('shop_id', ctx.shopId);
+      .eq('shop_id', ctx.shopId)
+      .select('id');
     if (error) {
       // 23503 = FK violation: appointment_services.service_id is ON DELETE
       // RESTRICT (init_schema.sql:312), so a service with booking history
@@ -207,6 +227,7 @@ export const deleteService = withAction({
       captureException(error, { tags: { layer: 'services' } });
       return err('UNEXPECTED');
     }
+    if ((deletedRows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -229,29 +250,26 @@ export const deleteService = withAction({
 // ---------------------------------------------------------------------------
 // Toggle status (enabled ↔ disabled)
 // ---------------------------------------------------------------------------
+// W2 — hardened on the toggleProductStatus model: the client sends an explicit
+// TARGET status (vs the old read-then-flip, which two concurrent clicks could
+// race back to the starting state), the write is shop-scoped, and
+// `.select('id')` distinguishes a same-shop hit from a 0-row no-match
+// (foreign shop / already deleted) without a second round-trip.
 export const toggleServiceStatus = withAction({
   schema: toggleServiceStatusSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const supabase = createSupabaseServerClient();
-    // Read current status, flip it. Two-step (no atomic toggle in Supabase
-    // client) is acceptable here — the worst case (race condition under
-    // simultaneous edits) is reverting a flip the user will notice.
-    const { data, error: readError } = await supabase
+    const { data: rows, error } = await db()
       .from('services')
-      .select('status')
+      .update({ status: input.status })
       .eq('id', input.id)
-      .single();
-
-    if (readError || !data) return err('NOT_FOUND');
-
-    const next = data.status === 'enabled' ? 'disabled' : 'enabled';
-
-    const { error: updateError } = await supabase
-      .from('services')
-      .update({ status: next })
-      .eq('id', input.id);
-    if (updateError) return err('UNEXPECTED');
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    if (error) {
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -259,7 +277,7 @@ export const toggleServiceStatus = withAction({
       action: 'update',
       entity: 'services',
       entityId: input.id,
-      diff: { status: { before: data.status, after: next } },
+      diff: { status: input.status },
     });
 
     revalidatePath(SERVICES_PATH);
@@ -268,7 +286,7 @@ export const toggleServiceStatus = withAction({
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
     revalidateShopConfig(ctx.shopId);
-    return ok({ id: input.id, status: next });
+    return ok({ id: input.id, status: input.status });
   },
 });
 
@@ -320,11 +338,27 @@ export const createServiceCategory = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
+
+    // Deterministic ordering (W2): append at the end (max+1) instead of the
+    // column default 0, which made every new category tie at 0 and the list
+    // order non-deterministic. The W2 migration backfilled existing ranks.
+    const { data: maxRow } = await supabase
+      .from('service_categories')
+      .select('sort_order')
+      .eq('shop_id', ctx.shopId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
     const { data, error } = await supabase
       .from('service_categories')
-      .insert({ shop_id: ctx.shopId, name: input.name })
+      .insert({ shop_id: ctx.shopId, name: input.name, sort_order: nextSortOrder })
       .select('id')
       .single();
+    // 23505 = duplicate category name in this shop
+    // (service_categories_shop_name_unique) → inline-field CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) return err('UNEXPECTED');
 
     await logAuditAction({
@@ -352,6 +386,8 @@ export const renameServiceCategory = withAction({
       .from('service_categories')
       .update({ name: input.name })
       .eq('id', input.id);
+    // 23505 = rename collision with another category in this shop → inline-field CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) return err('UNEXPECTED');
 
     await logAuditAction({

@@ -169,7 +169,7 @@ export function ServicesClient({
     const flipped = row.status === 'enabled' ? 'disabled' : 'enabled';
     setOrdered((prev) => prev.map((s) => (s.id === row.id ? { ...s, status: flipped } : s)));
     startTransition(async () => {
-      const result = await toggleServiceStatus({ id: row.id });
+      const result = await toggleServiceStatus({ id: row.id, status: flipped });
       if (result.ok) {
         show({ variant: 'info', title: t('toasts.statusFlipped', { name: row.name }) });
       } else {
