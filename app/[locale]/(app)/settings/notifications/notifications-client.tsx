@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +63,17 @@ export function NotificationsClient({ state }: Props) {
   const tErr = useTranslations('actionErrors');
   const { show } = useToast();
   const [saving, startSave] = useTransition();
+  // Phase 32 — optimistic mirror of the automation enabled-flags so a toggle
+  // flips instantly instead of after the ~300-800ms round-trip. Synced from
+  // props (like services-client's `ordered`); the post-save revalidation
+  // reconciles via the effect below. `pendingIds` tracks the in-flight rows so
+  // flipping one automation doesn't grey the whole matrix (and survives
+  // concurrent toggles — a single id would clobber).
+  const [automations, setAutomations] = useState<AutomationRow[]>(state.automations);
+  const [pendingIds, setPendingIds] = useState(() => new Set<string>());
+  useEffect(() => {
+    setAutomations(state.automations);
+  }, [state.automations]);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<
     { kind: 'idle' } | { kind: 'ok' } | { kind: 'error'; message?: string }
@@ -200,9 +211,20 @@ export function NotificationsClient({ state }: Props) {
   }
 
   function onToggle(row: AutomationRow, next: boolean) {
+    // Optimistic flip + per-row pending. On failure revert ONLY this row (back
+    // to !next) so a concurrent toggle on another row isn't clobbered by a
+    // whole-array snapshot restore.
+    setAutomations((prev) => prev.map((a) => (a.id === row.id ? { ...a, enabled: next } : a)));
+    setPendingIds((prev) => new Set(prev).add(row.id));
     startSave(async () => {
       const result = await toggleAutomation({ id: row.id, enabled: next });
+      setPendingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(row.id);
+        return n;
+      });
       if (!result.ok) {
+        setAutomations((prev) => prev.map((a) => (a.id === row.id ? { ...a, enabled: !next } : a)));
         show({ variant: 'danger', title: tErr(result.errorCode) });
       }
     });
@@ -278,13 +300,13 @@ export function NotificationsClient({ state }: Props) {
   // Index the email automations by kind for O(1) lookup in the matrix
   // render.
   const emailAutomations = AUTOMATION_ORDER.map(
-    (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'email')!,
+    (kind) => automations.find((a) => a.kind === kind && a.channel === 'email')!,
   ).filter(Boolean);
   // Loop 56 — SMS automations now toggleable (Twilio pipeline shipped
   // in Loops 53-55). Rows that aren't seeded for a given (shop,kind)
   // render as a dash, same as the email column.
   const smsAutomations = AUTOMATION_ORDER.map(
-    (kind) => state.automations.find((a) => a.kind === kind && a.channel === 'sms')!,
+    (kind) => automations.find((a) => a.kind === kind && a.channel === 'sms')!,
   ).filter(Boolean);
 
   return (
@@ -627,7 +649,7 @@ export function NotificationsClient({ state }: Props) {
                           <Toggle
                             checked={emailRow.enabled}
                             onChange={(v) => onToggle(emailRow, v)}
-                            disabled={saving}
+                            disabled={pendingIds.has(emailRow.id)}
                           />
                         ) : (
                           <EmptyCell />
@@ -639,7 +661,7 @@ export function NotificationsClient({ state }: Props) {
                             <Toggle
                               checked={smsRow.enabled}
                               onChange={(v) => onToggle(smsRow, v)}
-                              disabled={saving}
+                              disabled={pendingIds.has(smsRow.id)}
                             />
                           ) : (
                             <span className="inline-flex" title={t('automations.smsTooltip')}>
