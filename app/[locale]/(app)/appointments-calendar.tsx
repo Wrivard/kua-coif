@@ -339,6 +339,14 @@ export function AppointmentsCalendar({
   type ApptOverride = { barber_id: string; start_at: string; end_at: string };
   const [overrides, setOverrides] = useState<Map<string, ApptOverride>>(new Map());
   const [, startTransition] = useTransition();
+  // Phase 32 — DEDICATED navigation transition, kept SEPARATE from the mutation
+  // transition above (reschedule/resize/bulk-cancel reuse that one). Day-paging
+  // and the week switch route via ?date/?view; without a transition the most-
+  // clicked control in the product freezes with zero feedback for the whole
+  // server render. `navTargetIso` is the date we're moving TO, so the header
+  // label can flip on click instead of waiting on the round-trip.
+  const [isNavPending, startNavTransition] = useTransition();
+  const [navTargetIso, setNavTargetIso] = useState<string | null>(null);
   const toast = useToast();
   const tReschedule = useTranslations('pages.appointments.reschedule');
 
@@ -768,16 +776,22 @@ export function AppointmentsCalendar({
   const shiftDate = useCallback(
     (deltaDays: number) => {
       const next = shopIsoDate(addDays(dayRef, deltaDays), timezone);
+      setNavTargetIso(next);
       const url = new URL(window.location.href);
       url.searchParams.set('date', next);
-      router.push(url.pathname + '?' + url.searchParams.toString());
+      startNavTransition(() => {
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      });
     },
     [dayRef, timezone, router],
   );
   const jumpToday = useCallback(() => {
+    setNavTargetIso(today);
     const url = new URL(window.location.href);
     url.searchParams.set('date', today);
-    router.push(url.pathname + '?' + url.searchParams.toString());
+    startNavTransition(() => {
+      router.push(url.pathname + '?' + url.searchParams.toString());
+    });
   }, [router, today]);
 
   // View toggle. Side-by-Side ⇄ List is instant local state (both share the
@@ -791,7 +805,9 @@ export function AppointmentsCalendar({
       if (next === 'week' || view === 'week') {
         const url = new URL(window.location.href);
         url.searchParams.set('view', next);
-        router.push(url.pathname + '?' + url.searchParams.toString());
+        startNavTransition(() => {
+          router.push(url.pathname + '?' + url.searchParams.toString());
+        });
       }
     },
     [router, view],
@@ -837,13 +853,20 @@ export function AppointmentsCalendar({
     });
   }, [bulkCancelTargets.ids, bulkAlsoRefund, t, toast]);
 
+  // Phase 32 — while a day/today nav is pending, render the TARGET date in the
+  // header so the label flips on click; falls back to dayRef once the new
+  // isoDate prop lands (isNavPending clears in the same commit). Same Date shape
+  // as dayRef (`:258`) so formatHeaderDate is consistent.
+  const headerDateRef =
+    isNavPending && navTargetIso ? new Date(`${navTargetIso}T12:00:00Z`) : dayRef;
+
   return (
     <>
       <PageHeader
         title={t('title')}
         subtitle={
           <span className="text-xl font-semibold tabular-nums tracking-tight text-text-primary">
-            {formatHeaderDate(dayRef, locale === 'fr' ? 'fr' : 'en', timezone)}
+            {formatHeaderDate(headerDateRef, locale === 'fr' ? 'fr' : 'en', timezone)}
           </span>
         }
         center={
@@ -1007,55 +1030,68 @@ export function AppointmentsCalendar({
           </div>
         )}
 
-        {/* Calendar grid — Phase 33 round 2 dialed the visual noise way
-            down to match the Squire-style reference: NO alternating
-            hour bands (uniform background), borders at 20-25% opacity,
-            container on bg-bg-base (pure dark) instead of bg-bg-surface
-            (the gray-tinted surface). Appointments pop now because the
-            grid recedes. */}
-        {view === 'side-by-side' && (
-          <AppointmentsGrid
-            visibleBarbers={visibleBarbers}
-            apptsByBarber={apptsByBarber}
-            apptLayout={apptLayout}
-            blocksByBarber={blocksByBarber}
-            googleBusyByBarber={googleBusyByBarber}
-            timezone={timezone}
-            startMin={startMin}
-            endMin={endMin}
-            gridHeightPx={gridHeightPx}
-            hourLabels={hourLabels}
-            nowMin={nowMin}
-            locale={locale}
-            onSlotClick={onSlotClick}
-            onApptClick={handleApptClick}
-            onDragEnd={handleDragEnd}
-            onResize={handleResize}
-            t={t}
-          />
-        )}
+        {/* Phase 32 — dim + lock the calendar while a nav is pending so the
+            most-clicked control reads as "working", not frozen. The prior pane
+            stays visible (dimmed) until the server render lands — no blank
+            flash. The week branch is the exception: switching INTO week has no
+            data yet, so it shows a skeleton rather than an empty grid. */}
+        <div className={cn('transition-opacity', isNavPending && 'pointer-events-none opacity-60')}>
+          {/* Calendar grid — Phase 33 round 2 dialed the visual noise way
+              down to match the Squire-style reference: NO alternating
+              hour bands (uniform background), borders at 20-25% opacity,
+              container on bg-bg-base (pure dark) instead of bg-bg-surface
+              (the gray-tinted surface). Appointments pop now because the
+              grid recedes. */}
+          {view === 'side-by-side' && (
+            <AppointmentsGrid
+              visibleBarbers={visibleBarbers}
+              apptsByBarber={apptsByBarber}
+              apptLayout={apptLayout}
+              blocksByBarber={blocksByBarber}
+              googleBusyByBarber={googleBusyByBarber}
+              timezone={timezone}
+              startMin={startMin}
+              endMin={endMin}
+              gridHeightPx={gridHeightPx}
+              hourLabels={hourLabels}
+              nowMin={nowMin}
+              locale={locale}
+              onSlotClick={onSlotClick}
+              onApptClick={handleApptClick}
+              onDragEnd={handleDragEnd}
+              onResize={handleResize}
+              t={t}
+            />
+          )}
 
-        {view === 'week' && (
-          <AppointmentsWeekView
-            appointments={weekListAppointments}
-            weekDays={weekDays}
-            selectedIsoDate={isoDate}
-            barbers={barbers}
-            timezone={timezone}
-            daysOff={daysOff}
-            onApptClick={handleApptClick}
-          />
-        )}
+          {view === 'week' &&
+            (isNavPending && weekListAppointments.length === 0 ? (
+              // Switching INTO week: weekListAppointments is still [] until the
+              // ?view=week server fetch lands — show a grid skeleton instead of
+              // an empty week grid (which momentarily reads as "no bookings").
+              <GridSkeleton />
+            ) : (
+              <AppointmentsWeekView
+                appointments={weekListAppointments}
+                weekDays={weekDays}
+                selectedIsoDate={isoDate}
+                barbers={barbers}
+                timezone={timezone}
+                daysOff={daysOff}
+                onApptClick={handleApptClick}
+              />
+            ))}
 
-        {view === 'list' && (
-          <AppointmentsListView
-            appointments={listAppointments}
-            barbers={barbers}
-            timezone={timezone}
-            locale={locale}
-            onApptClick={handleApptClick}
-          />
-        )}
+          {view === 'list' && (
+            <AppointmentsListView
+              appointments={listAppointments}
+              barbers={barbers}
+              timezone={timezone}
+              locale={locale}
+              onApptClick={handleApptClick}
+            />
+          )}
+        </div>
       </div>
 
       <AppointmentDetailDrawer

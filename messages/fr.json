@@ -1655,6 +1655,10 @@
       "back": "Retour",
       "continue": "Continuer",
       "confirm": "Confirmer le rendez-vous",
+      "meta": {
+        "title": "{name} · Réserver en ligne",
+        "description": "Réserve ton rendez-vous chez {name}."
+      },
       "payment": {
         "depositLabel": "Acompte à régler",
         "depositHelp": "Pour confirmer ta réservation, un acompte est requis. Tu seras facturé maintenant ; le solde sera réglé en salon.",
@@ -1686,12 +1690,14 @@
           "title": "Avec quel barbier ?",
           "any": "Peu importe (premier disponible)",
           "anyHint": "On choisit le premier barbier disponible pour le créneau.",
-          "availableToday": "Disponible aujourd’hui"
+          "pickTimeNext": "Choisis un créneau ensuite"
         },
         "slot": {
           "title": "Date et heure",
           "times": "Créneaux disponibles",
           "empty": "Aucun créneau disponible ce jour-là. Essaye un autre jour.",
+          "loadError": "Impossible de charger les disponibilités.",
+          "retry": "Réessayer",
           "morning": "Matin",
           "afternoon": "Après-midi",
           "evening": "Soir"

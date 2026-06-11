@@ -1655,6 +1655,10 @@
       "back": "Back",
       "continue": "Continue",
       "confirm": "Confirm appointment",
+      "meta": {
+        "title": "{name} · Book online",
+        "description": "Book your appointment at {name}."
+      },
       "payment": {
         "depositLabel": "Deposit due",
         "depositHelp": "A deposit is required to confirm your booking. You'll be charged now; the balance is settled at the shop.",
@@ -1686,12 +1690,14 @@
           "title": "Which barber?",
           "any": "Any (first available)",
           "anyHint": "We pick the first available barber for the slot.",
-          "availableToday": "Available today"
+          "pickTimeNext": "Pick a time next"
         },
         "slot": {
           "title": "Date & time",
           "times": "Available slots",
           "empty": "No slot available on this day. Try another date.",
+          "loadError": "Couldn't load availability.",
+          "retry": "Try again",
           "morning": "Morning",
           "afternoon": "Afternoon",
           "evening": "Evening"

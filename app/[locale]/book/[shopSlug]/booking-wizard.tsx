@@ -177,6 +177,39 @@ function groupSlotsByTimeOfDay(slots: string[]): {
 }
 
 /**
+ * BUG-05 — a day is "closed" when its weekday isn't enabled in the shop's
+ * hours OR it's an explicit day off. Mirrors the exact logic DateStrip uses
+ * per-day (`!h?.enabled || daysOff.includes(iso)`), kept as a shared helper
+ * so the initial-date pick and the strip can't drift apart.
+ */
+function isClosedDay(iso: string, hours: BookingHours[], daysOff: string[]): boolean {
+  const weekday = new Date(`${iso}T00:00:00`).getDay();
+  const h = hours.find((hh) => hh.weekday === weekday);
+  return !h?.enabled || daysOff.includes(iso);
+}
+
+/**
+ * BUG-05 — first bookable ISO date within the 14-day strip window, so the slot
+ * step never opens on a closed day. Québec salons commonly close Sun–Mon, so a
+ * large share of visitors would otherwise land on "no slots" + a waitlist CTA
+ * for a day the shop isn't even open. Falls back to `today` when all 14 days
+ * are closed — the honest empty-state then shows.
+ */
+function firstBookableIso(
+  hours: BookingHours[],
+  daysOff: string[],
+  today: string,
+  timezone: string,
+): string {
+  const ref = new Date(`${today}T12:00:00Z`);
+  for (let i = 0; i < 14; i++) {
+    const iso = shopIsoDate(addDays(ref, i), timezone);
+    if (!isClosedDay(iso, hours, daysOff)) return iso;
+  }
+  return today;
+}
+
+/**
  * Loop 65 SR — header brand mark.
  *
  * Renders the shop's `logo_url` as a 40x40 thumbnail. When the URL
@@ -287,13 +320,21 @@ export function BookingWizard({
       }
     }
 
-    const dateValid = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam);
+    const dateParamClean = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : null;
+    // BUG-05 — open the slot step on a day the shop is actually open. Honor a
+    // valid `?date=` only when it lands on a non-closed day; otherwise jump to
+    // the first bookable day in the window so the customer doesn't hit a false
+    // "nothing available" on a day the shop isn't even open.
+    const initialDate =
+      dateParamClean && !isClosedDay(dateParamClean, hours, daysOff)
+        ? dateParamClean
+        : firstBookableIso(hours, daysOff, today, shop.timezone);
 
     return {
       step: 1,
       serviceIds: validServiceIds,
       barberId,
-      date: dateValid ? dateParam : today,
+      date: initialDate,
       startTime: null,
       firstName: '',
       lastName: '',
@@ -549,22 +590,47 @@ export function BookingWizard({
   // Slot state — fetched from /api/book/[shopSlug]/slots when entering step 3.
   const [slots, setSlots] = useState<string[] | null>(null);
   const [slotLoading, setSlotLoading] = useState(false);
+  // BUG-04 — a genuine fetch failure (429, network blip) is NOT "fully booked".
+  // Track it separately so the UI can offer a retry instead of a waitlist CTA.
+  const [slotError, setSlotError] = useState(false);
+  // Bumped by the retry control to force a re-fetch (it's an effect dep).
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (state.step !== 3) return;
     setSlots(null);
+    setSlotError(false);
     setSlotLoading(true);
     const ctl = new AbortController();
     fetch(
       `/api/book/${shopSlug}/slots?date=${state.date}&barber=${state.barberId ?? 'any'}&duration=${totalDuration}`,
       { signal: ctl.signal },
     )
-      .then((r) => r.json())
-      .then((data: { slots?: string[] }) => setSlots(data.slots ?? []))
-      .catch(() => setSlots([]))
-      .finally(() => setSlotLoading(false));
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((data: { slots?: string[] }) => {
+        const next = data.slots ?? [];
+        setSlots(next);
+        // BUG-08 — a previously-picked time may have been taken while the
+        // customer was away (back-nav, date re-pick). Drop it so `canAdvance`
+        // can't funnel them into a guaranteed conflict at submit.
+        setState((s) =>
+          s.startTime && !next.includes(s.startTime) ? { ...s, startTime: null } : s,
+        );
+      })
+      .catch(() => {
+        // Aborts (fast date-switching, unmount) are silent — not a real
+        // failure; surfacing them would flash a false error / empty state.
+        if (ctl.signal.aborted) return;
+        setSlotError(true);
+      })
+      .finally(() => {
+        if (!ctl.signal.aborted) setSlotLoading(false);
+      });
     return () => ctl.abort();
-  }, [state.step, state.date, state.barberId, shopSlug, totalDuration]);
+  }, [state.step, state.date, state.barberId, shopSlug, totalDuration, retryNonce]);
 
   function next() {
     setState((s) => ({ ...s, step: Math.min(5, s.step + 1) as WizardState['step'] }));
@@ -808,6 +874,8 @@ export function BookingWizard({
             <SlotPicker
               t={t}
               loading={slotLoading}
+              error={slotError}
+              onRetry={() => setRetryNonce((n) => n + 1)}
               slots={slots}
               selected={state.startTime}
               onSelect={(time) => setState((s) => ({ ...s, startTime: time }))}
@@ -1121,9 +1189,12 @@ export function BookingWizard({
           </section>
         )}
 
-        {/* ─── Step nav ─────────────────────────────────────────────── */}
+        {/* ─── Step nav (desktop) ───────────────────────────────────── */}
+        {/* DIR-03 — on phones the nav moves into the sticky bar below so the
+            primary action is always reachable without scrolling; the in-card
+            nav stays for sm+ (desktop layout unchanged). */}
         {state.step < 5 && (
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 hidden items-center justify-between sm:flex">
             <Button
               type="button"
               variant="ghost"
@@ -1145,11 +1216,11 @@ export function BookingWizard({
         )}
       </div>
 
-      {/* Running subtotal — sticky on small screens so the customer always
-          sees what they're committing to as they scroll the service list.
-          Frosted glass treatment matches the page-header pattern. */}
+      {/* Running subtotal — sticky bar showing what the customer is committing
+          to as they scroll. DESKTOP ONLY (sm+): on phones the mobile action bar
+          below carries the same summary plus the nav buttons. */}
       {state.step < 4 && selectedServices.length > 0 ? (
-        <div className="sticky bottom-3 z-10 rounded-xl border border-border bg-bg-surface/90 px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl">
+        <div className="sticky bottom-3 z-10 hidden rounded-xl border border-border bg-bg-surface/90 px-4 py-3 text-sm shadow-warm-lg backdrop-blur-xl sm:block">
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">
               {selectedServices.length} {t('summary.servicesLabel')}
@@ -1161,6 +1232,57 @@ export function BookingWizard({
           <p className="mt-0.5 text-[11px] text-text-muted">
             {totalDuration} {t('summary.minutes')}
           </p>
+        </div>
+      ) : null}
+
+      {/* DIR-03 — mobile sticky action bar. Phones (< sm) hide the in-card nav
+          and the desktop subtotal bar; this pinned bar carries the running
+          summary plus Back + the primary CTA (Continue/Confirm) so the customer
+          never has to scroll to advance. Covers steps 1–4 (step 4 had no sticky
+          before). Desktop layout is untouched. */}
+      {state.step < 5 ? (
+        <div className="sticky bottom-3 z-10 rounded-xl border border-border bg-bg-surface/90 px-4 py-3 shadow-warm-lg backdrop-blur-xl sm:hidden">
+          {selectedServices.length > 0 ? (
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-text-secondary">
+                {selectedServices.length} {t('summary.servicesLabel')} · {totalDuration}{' '}
+                {t('summary.minutes')}
+              </span>
+              <span className="text-base font-semibold tracking-tight text-text-primary">
+                {formatCurrencyCAD(totalPrice, locale === 'fr' ? 'fr' : 'en')}
+              </span>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={back}
+              disabled={state.step === 1 || isPending}
+            >
+              <ChevronLeft className="h-4 w-4" /> {t('back')}
+            </Button>
+            {state.step < 4 ? (
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={next}
+                disabled={!canAdvance || isPending}
+              >
+                {t('continue')} <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={submit}
+                disabled={!canAdvance}
+                loading={isPending}
+              >
+                <CalendarCheck className="h-4 w-4" /> {t('confirm')}
+              </Button>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
@@ -1356,7 +1478,7 @@ function BarberStep({
             selected={selectedBarberId === b.id}
             onSelect={() => onSelect(b.id)}
             title={b.display_name}
-            subtitle={t('steps.barber.availableToday')}
+            subtitle={t('steps.barber.pickTimeNext')}
             avatarUrl={b.avatar_url}
             initials={initialsOf(b.display_name)}
           />
@@ -1517,6 +1639,8 @@ function OrderRecap({
 function SlotPicker({
   t,
   loading,
+  error,
+  onRetry,
   slots,
   selected,
   onSelect,
@@ -1524,6 +1648,10 @@ function SlotPicker({
 }: {
   t: TranslatorFn;
   loading: boolean;
+  // BUG-04 — true when the slot fetch failed (not "no availability"); drives a
+  // retry affordance instead of the waitlist empty-state.
+  error: boolean;
+  onRetry: () => void;
   slots: string[] | null;
   selected: string | null;
   onSelect: (time: string) => void;
@@ -1548,8 +1676,25 @@ function SlotPicker({
         </p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 rounded-lg" />
+            <Skeleton key={i} className="h-11 rounded-lg" />
           ))}
+        </div>
+      </div>
+    );
+  }
+  // BUG-04 — a failed fetch is not "fully booked": offer a retry, never the
+  // waitlist CTA (which would mislead the customer into thinking the day is
+  // full). The waitlist empty-state below is reserved for a confirmed empty 200.
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <p className="rounded-lg border border-border bg-bg-base p-6 text-center text-sm text-text-muted shadow-warm-sm">
+          {t('steps.slot.loadError')}
+        </p>
+        <div className="flex justify-center">
+          <Button type="button" variant="secondary" onClick={onRetry}>
+            {t('steps.slot.retry')}
+          </Button>
         </div>
       </div>
     );
@@ -1621,7 +1766,7 @@ function SlotGroup({
               type="button"
               onClick={() => onSelect(time)}
               className={cn(
-                'h-10 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                'h-11 rounded-lg border text-sm font-medium shadow-warm-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
                 active
                   ? 'border-accent bg-accent text-accent-fg shadow-accent-glow'
                   : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-surface-2 hover:shadow-warm-md',
