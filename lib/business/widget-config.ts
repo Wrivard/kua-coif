@@ -67,7 +67,14 @@ export const widgetConfigSchema = z.object({
   // ── Theme ───────────────────────────────────────────────────────────────
   mode: z.enum(['dark', 'light', 'auto']).default('dark'),
   accent_color: hexColor, // overrides --accent CSS var
-  font_family: z.enum(['system', 'geist', 'inter']).default('system'),
+  // Plan 038 (CORRECTNESS-06) — 'inter' dropped: only Geist is loaded via
+  // next/font and the CSP (`font-src 'self' data:`) blocks an external
+  // fetch, so the option was a dead control that silently fell back to the
+  // system font. `.catch('system')` migrates legacy saved rows at parse
+  // time (a config carrying font_family:'inter' keeps its OTHER overrides
+  // instead of being nuked to full defaults); the companion migration
+  // rewrites the stored rows.
+  font_family: z.enum(['system', 'geist']).default('system').catch('system'),
   border_radius: z.enum(['sharp', 'rounded', 'pill']).default('rounded'),
 
   // ── Steps ──────────────────────────────────────────────────────────────
@@ -268,8 +275,6 @@ export function widgetThemeCss(cfg: WidgetConfig): string {
   }
   if (cfg.font_family === 'geist') {
     rules.push("font-family: 'Geist', system-ui, -apple-system, sans-serif;");
-  } else if (cfg.font_family === 'inter') {
-    rules.push("font-family: 'Inter', system-ui, -apple-system, sans-serif;");
   }
   // Corner style overrides the WHOLE radius scale, not just --radius and
   // --radius-sm. The wizard's surfaces use the full set of tokens

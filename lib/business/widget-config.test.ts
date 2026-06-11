@@ -118,9 +118,15 @@ describe('widgetThemeCss', () => {
     expect(widgetThemeCss({ ...defaultWidgetConfig, font_family: 'geist' })).toContain(
       "font-family: 'Geist'",
     );
-    expect(widgetThemeCss({ ...defaultWidgetConfig, font_family: 'inter' })).toContain(
-      "font-family: 'Inter'",
-    );
+  });
+
+  it("migrates a legacy 'inter' font to system at parse time without nuking the rest (plan 038)", () => {
+    // 'inter' was removed from the enum (dead option — the font was never
+    // loaded). `.catch('system')` keeps the OTHER saved overrides intact
+    // instead of failing the whole parse back to defaults.
+    const cfg = parseWidgetConfig({ font_family: 'inter', display_name: 'Axum' });
+    expect(cfg.font_family).toBe('system');
+    expect(cfg.display_name).toBe('Axum');
   });
 
   it('emits radius overrides for sharp/pill only (rounded = default)', () => {

@@ -1651,6 +1651,22 @@
         "feedback": "Feedback"
       }
     },
+    "embed": {
+      "unavailable": {
+        "title": "Booking unavailable",
+        "body": "This booking page is not available right now. Contact the salon directly to make an appointment."
+      },
+      "error": {
+        "title": "Booking temporarily unavailable",
+        "body": "Something went wrong while loading the booking module. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "empty": {
+        "title": "Online booking coming soon",
+        "body": "This salon hasn't published its online calendar yet. Call them to make an appointment.",
+        "call": "Call us: {phone}"
+      }
+    },
     "booking": {
       "back": "Back",
       "continue": "Continue",
