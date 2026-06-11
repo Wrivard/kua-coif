@@ -469,7 +469,11 @@
         "taxes": "Taxes applicables",
         "noTaxes": "Aucune taxe configurée. Crée-en d'abord dans Réglages → Taxes.",
         "deposit": "Acompte requis",
-        "depositHint": "Montant prélevé au booking (0 = pas d'acompte). V1.1 affichera le formulaire de paiement Stripe."
+        "depositHint": "Montant prélevé au booking (0 = pas d'acompte). V1.1 affichera le formulaire de paiement Stripe.",
+        "errors": {
+          "nameTooLong": "Le nom est trop long (120 caractères max).",
+          "amount": "Entre un montant valide (ex. 25,00)."
+        }
       },
       "toasts": {
         "created": "Service créé",

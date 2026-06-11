@@ -469,7 +469,11 @@
         "taxes": "Applicable taxes",
         "noTaxes": "No taxes configured. Add some in Settings → Taxes first.",
         "deposit": "Deposit required",
-        "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form."
+        "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form.",
+        "errors": {
+          "nameTooLong": "Name is too long (120 characters max).",
+          "amount": "Enter a valid amount (e.g. 25.00)."
+        }
       },
       "toasts": {
         "created": "Service created",

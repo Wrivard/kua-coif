@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,23 @@ import { createService, updateService } from './actions';
 import { serviceSchema, type ServiceInput } from './schema';
 
 type Mode = { kind: 'add' } | { kind: 'edit'; service: ServiceRow };
+
+// Services W3 #6 (products-W0 parity) — defensive number parse for the money
+// fields: paste / mixed-locale input ("12,50", "abc") becomes NaN so zod's
+// invalid_type error FIRES instead of silently saving a wrong amount.
+function toNumber(v: unknown): number {
+  const s = String(v ?? '')
+    .trim()
+    .replace(',', '.');
+  return s === '' ? NaN : Number(s);
+}
+
+// Dollars (string input) → integer cents, NaN-preserving: garbage used to
+// coerce to 0 silently ("abc" saved a 0$ deposit with zero feedback).
+function toCents(v: unknown): number {
+  const n = toNumber(v);
+  return Number.isFinite(n) ? Math.round(n * 100) : NaN;
+}
 
 type Props = {
   mode: Mode;
@@ -71,6 +88,19 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
 
   const selectedTaxIds = watch('tax_ids');
 
+  // Services W3 #6 — map RHF/zod errors to a localized, field-appropriate
+  // hint (products-W0 idiom). Covers the schema's custom codes and zod's
+  // default issue types (invalid_type / too_small / too_big).
+  function fieldError(err: FieldError | undefined, kind: 'name' | 'amount'): string | null {
+    if (!err) return null;
+    switch (kind) {
+      case 'name':
+        return err.type === 'too_big' ? t('form.errors.nameTooLong') : tErr('field.NAME_REQUIRED');
+      case 'amount':
+        return t('form.errors.amount');
+    }
+  }
+
   function onSubmit(values: ServiceInput) {
     startTransition(async () => {
       const result =
@@ -116,8 +146,13 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           <Label htmlFor="name" required>
             {t('form.name')}
           </Label>
-          <Input id="name" invalid={Boolean(errors.name)} {...register('name')} />
-          {errors.name ? <FieldHint error>{tErr('field.NAME_REQUIRED')}</FieldHint> : null}
+          <Input
+            id="name"
+            invalid={Boolean(errors.name)}
+            aria-invalid={errors.name ? true : undefined}
+            {...register('name')}
+          />
+          {errors.name ? <FieldHint error>{fieldError(errors.name, 'name')}</FieldHint> : null}
         </div>
 
         <div>
@@ -141,6 +176,7 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
             step={5}
             min={5}
             invalid={Boolean(errors.duration_min)}
+            aria-invalid={errors.duration_min ? true : undefined}
             {...register('duration_min', { valueAsNumber: true })}
           />
           {errors.duration_min ? (
@@ -157,8 +193,10 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           <MoneyInput
             id="price"
             invalid={Boolean(errors.price)}
-            {...register('price', { valueAsNumber: true })}
+            aria-invalid={errors.price ? true : undefined}
+            {...register('price', { setValueAs: toNumber })}
           />
+          {errors.price ? <FieldHint error>{fieldError(errors.price, 'amount')}</FieldHint> : null}
         </div>
 
         <div>
@@ -172,19 +210,22 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
         <div>
           <Label htmlFor="deposit_amount_cents">{t('form.deposit')}</Label>
           {/* Phase 42 — store as cents but show as dollars in the UI.
-              `setValueAs` converts string "12.50" → 1250 cents on submit. */}
+              `toCents` converts string "12.50" → 1250 cents on submit —
+              and keeps NaN on garbage so the error SHOWS instead of the old
+              silent 0$ coercion (W3 #6). */}
           <MoneyInput
             id="deposit_amount_cents"
             placeholder="0.00"
-            {...register('deposit_amount_cents', {
-              setValueAs: (v) => {
-                const n = typeof v === 'string' ? parseFloat(v) : Number(v);
-                return Number.isFinite(n) ? Math.round(n * 100) : 0;
-              },
-            })}
+            invalid={Boolean(errors.deposit_amount_cents)}
+            aria-invalid={errors.deposit_amount_cents ? true : undefined}
+            {...register('deposit_amount_cents', { setValueAs: toCents })}
             defaultValue={(defaults.deposit_amount_cents / 100).toFixed(2)}
           />
-          <FieldHint>{t('form.depositHint')}</FieldHint>
+          {errors.deposit_amount_cents ? (
+            <FieldHint error>{fieldError(errors.deposit_amount_cents, 'amount')}</FieldHint>
+          ) : (
+            <FieldHint>{t('form.depositHint')}</FieldHint>
+          )}
         </div>
 
         <div className="md:col-span-2">
