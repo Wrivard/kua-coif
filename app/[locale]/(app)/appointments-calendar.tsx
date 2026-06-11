@@ -1166,10 +1166,18 @@ export function AppointmentsCalendar({
         <AppointmentFormModal
           mode={modal}
           isoDate={isoDate}
+          timezone={timezone}
           barbers={visibleBarbers.length > 0 ? visibleBarbers : barbers}
           services={services}
           categories={categories}
           clients={clients}
+          onCreated={(appt) => {
+            // The form's date field is editable — only show the phantom if the
+            // new appointment actually falls on the displayed day; a block for
+            // another day would render at a meaningless position here.
+            if (shopIsoDate(new Date(appt.start_at), timezone) !== isoDate) return;
+            setOptimisticInserts((prev) => [...prev, appt]);
+          }}
           onClose={() => setModal({ kind: 'closed' })}
         />
       )}
