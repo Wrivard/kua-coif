@@ -80,6 +80,7 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<ServiceInput>({
     resolver: zodResolver(serviceSchema),
@@ -95,6 +96,7 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
     if (!err) return null;
     switch (kind) {
       case 'name':
+        if (err.message === 'NAME_DUPLICATE') return t('form.errors.nameDuplicate');
         return err.type === 'too_big' ? t('form.errors.nameTooLong') : tErr('field.NAME_REQUIRED');
       case 'amount':
         return t('form.errors.amount');
@@ -105,7 +107,14 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
     startTransition(async () => {
       const result =
         mode.kind === 'edit'
-          ? await updateService({ id: mode.service.id, ...values })
+          ? await updateService({
+              id: mode.service.id,
+              // Services W2b — optimistic-concurrency precondition: the server
+              // rejects the write (CONFLICT + {concurrency:'stale'}) if someone
+              // else edited this service since it was loaded.
+              expected_updated_at: mode.service.updated_at,
+              ...values,
+            })
           : await createService(values);
 
       if (result.ok) {
@@ -114,9 +123,20 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           title: mode.kind === 'edit' ? t('toasts.updated') : t('toasts.created'),
         });
         onClose();
-      } else {
-        show({ variant: 'danger', title: tErr(result.errorCode) });
+        return;
       }
+      // Services W2b — the two distinct CONFLICT shapes the server returns.
+      if (result.errorCode === 'CONFLICT' && result.fieldErrors?.name === 'duplicate') {
+        // Duplicate per-shop service name → surface INLINE on the name field.
+        setError('name', { type: 'manual', message: 'NAME_DUPLICATE' });
+        return;
+      }
+      if (result.errorCode === 'CONFLICT' && result.fieldErrors?.concurrency === 'stale') {
+        // Stale precondition — no automatic re-fetch (scope), just tell the user.
+        show({ variant: 'danger', title: t('toasts.staleConflict') });
+        return;
+      }
+      show({ variant: 'danger', title: tErr(result.errorCode) });
     });
   }
 
