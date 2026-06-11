@@ -114,9 +114,9 @@ export function ReviewCampaignClient({
 
   function onSend() {
     // Plan 039 (MKT-01) — irreversible bulk send: themed confirm dialog
-    // instead of the native confirm(), and router.refresh() instead of
-    // window.location.reload() so the success/partial-failure toast
-    // SURVIVES the candidate-list re-fetch (the reload wiped it).
+    // instead of the native confirm(), and router.refresh() instead of a
+    // full page reload so the success/partial-failure toast SURVIVES the
+    // candidate-list re-fetch (the reload wiped it).
     if (selectedIds.length === 0) return;
     setConfirmSend(true);
   }
