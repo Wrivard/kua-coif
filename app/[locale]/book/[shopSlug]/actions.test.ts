@@ -234,6 +234,33 @@ describe('bookPublicAppointment', () => {
     expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
   });
 
+  it('an unexpected post-charge THROW refunds the PI before returning UNEXPECTED (036b)', async () => {
+    // Plan 036 routed every post-charge `return err(...)` through failBooking,
+    // but an uncaught EXCEPTION (e.g. a Stripe network failure inside the PI
+    // verify) bypassed them and hit the final catch — UNEXPECTED with the
+    // customer still charged. The hoisted refund net must give the money back.
+    h.verifyDepositPaymentIntent.mockRejectedValue(new Error('stripe network exploded'));
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }));
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'UNEXPECTED' });
+    // The refund ran with the charged PI, scoped to THIS shop's account.
+    expect(h.refundOwnedIntentBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentIntentId: 'pi_abcdefgh1234',
+        expectedConnectedAccountId: 'acct_THIS',
+      }),
+    );
+    // The throw fired before the insert — no appointment exists, so the
+    // refund really is "charged but unbooked", never a booked customer.
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+  });
+
   it('promo first_appointment_only with a prior appointment → INVALID_INPUT { promo_code: first_only }', async () => {
     const mock = createSupabaseMock(
       baseFixtures({
