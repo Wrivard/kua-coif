@@ -12,6 +12,8 @@ import { combineShopDateTime, shopDayStart, shopDayEnd } from '@/lib/business/ti
 import { checkAvailability, type ExistingAppointment } from '@/lib/business/availability';
 import { resolveEffectiveBarberSettings } from '@/lib/business/barber-settings';
 import { pushAppointment } from '@/lib/google/sync';
+import { sendEmail } from '@/lib/email/send';
+import { AppointmentConfirmation } from '@/lib/email/templates/appointment-confirmation';
 
 /**
  * Phase 74 — Public reschedule via signed token.
@@ -26,6 +28,9 @@ const schema = z.object({
   token: z.string().trim().min(10).max(4096),
   new_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   new_start_time: z.string().regex(/^\d{2}:\d{2}$/),
+  /** Plan 037 — drives the confirmation email's language (mirrors the
+   *  self-cancel action). Defaults FR so older clients keep working. */
+  locale: z.enum(['fr', 'en']).default('fr'),
 });
 
 export type ReschedulePublicInput = z.infer<typeof schema>;
@@ -63,10 +68,12 @@ export async function reschedulePublicAppointment(
     const supabase = createSupabaseServiceRoleClient() as any;
 
     // Resolve appointment + shop + total duration in one go.
+    // Plan 037 — `client_id`/`total_amount` + shop `name`/`phone` widened in
+    // so the confirmation email block below needs no extra appointment read.
     const apptRes = await supabase
       .from('appointments')
       .select(
-        'id, shop_id, barber_id, start_at, end_at, status, google_event_id, public_link_version, shop:shops(id, timezone)',
+        'id, shop_id, barber_id, client_id, start_at, end_at, status, total_amount, google_event_id, public_link_version, shop:shops(id, timezone, name, phone)',
       )
       .eq('id', payload.resourceId)
       .limit(1);
@@ -74,12 +81,14 @@ export async function reschedulePublicAppointment(
       id: string;
       shop_id: string;
       barber_id: string;
+      client_id: string | null;
       start_at: string;
       end_at: string;
       status: string;
+      total_amount: number | null;
       google_event_id: string | null;
       public_link_version: number | null;
-      shop: { id: string; timezone: string } | null;
+      shop: { id: string; timezone: string; name: string; phone: string | null } | null;
     }> | null) ?? [])[0];
     if (!appt || !appt.shop) return err('NOT_FOUND');
     // Revocation (plan 013): stale token version → same NOT_FOUND path as a
@@ -252,6 +261,72 @@ export async function reschedulePublicAppointment(
         googleEventId: appt.google_event_id,
         summary: 'Appointment',
       });
+    }
+
+    // ── Plan 037 (CORRECTNESS-01) — confirmation email ────────────────
+    // The success screen has promised "you'll receive an email" since
+    // Phase 74, but nothing ever sent one. Mirror the self-cancel email
+    // block (me/[token]/actions.ts): best-effort, swallow + Sentry — a
+    // send failure must never fail the reschedule itself. The template is
+    // populated with the NEW time, never the stale row values.
+    try {
+      if (appt.client_id) {
+        const [clientRes, servicesRes, barberRes] = await Promise.all([
+          supabase.from('clients').select('first_name, email').eq('id', appt.client_id).single(),
+          supabase
+            .from('appointment_services')
+            .select('services(name, duration_min)')
+            .eq('appointment_id', appt.id),
+          supabase.from('barbers').select('display_name').eq('id', appt.barber_id).single(),
+        ]);
+        const customer = clientRes.data as { first_name: string; email: string | null } | null;
+        const services = (
+          (servicesRes.data as Array<{
+            services: { name: string; duration_min: number } | null;
+          }> | null) ?? []
+        )
+          .map((r) => r.services)
+          .filter((s): s is { name: string; duration_min: number } => Boolean(s))
+          .map((s) => ({ name: s.name, durationMin: s.duration_min }));
+        const barber = barberRes.data as { display_name: string | null } | null;
+        if (customer?.email) {
+          const emailLocale = input.locale;
+          await sendEmail({
+            shopId: appt.shop_id,
+            // Gate on the same automation toggle as the booking
+            // confirmation — a shop that muted confirmations doesn't
+            // want reschedule confirmations either.
+            kind: 'booking_confirmation',
+            to: customer.email,
+            subject:
+              emailLocale === 'fr'
+                ? `Ton rendez-vous chez ${appt.shop.name} a été déplacé`
+                : `Your appointment at ${appt.shop.name} has been moved`,
+            template: AppointmentConfirmation({
+              locale: emailLocale,
+              shop: {
+                name: appt.shop.name,
+                phone: appt.shop.phone,
+                timezone: appt.shop.timezone,
+              },
+              client: { firstName: customer.first_name },
+              appointment: {
+                startAt: newStartAt.toISOString(),
+                services,
+                totalAmount: Number(appt.total_amount ?? 0),
+                professionalName: barber?.display_name ?? null,
+              },
+            }),
+            tags: [
+              { name: 'kind', value: 'booking_confirmation' },
+              { name: 'source', value: 'self-reschedule' },
+            ],
+          });
+        }
+      }
+    } catch (e) {
+      // Swallow — the reschedule itself succeeded.
+      captureException(e, { tags: { layer: 'public-reschedule', step: 'email' } });
     }
 
     return ok({ id: appt.id });

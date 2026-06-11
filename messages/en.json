@@ -1682,6 +1682,10 @@
         "call": "Call us: {phone}"
       }
     },
+    "tokenLink": {
+      "title": "This link is no longer valid",
+      "description": "It may have expired. Contact the salon to receive a new one."
+    },
     "booking": {
       "back": "Back",
       "continue": "Continue",

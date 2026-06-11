@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { verifyToken } from '@/lib/security/signed-tokens';
+import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
 import { MeClient } from './me-client';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,9 @@ export default async function MePage(props: {
   const clientRes = await supabase
     .from('clients')
     .select(
-      'id, shop_id, first_name, last_name, email, phone, loyalty_balance_cents, loyalty_counter, anonymized_at, me_token_version',
+      // Plan 037 (CORRECTNESS-02) — `loyalty_balance_expires_at` widened in so
+      // the hero can show the EFFECTIVE balance (expired credit reads as 0).
+      'id, shop_id, first_name, last_name, email, phone, loyalty_balance_cents, loyalty_balance_expires_at, loyalty_counter, anonymized_at, me_token_version',
     )
     .eq('id', payload.resourceId)
     .limit(1);
@@ -53,6 +56,7 @@ export default async function MePage(props: {
     email: string | null;
     phone: string | null;
     loyalty_balance_cents: number | null;
+    loyalty_balance_expires_at: string | null;
     loyalty_counter: number | null;
     anonymized_at: string | null;
     me_token_version: number | null;
@@ -126,13 +130,24 @@ export default async function MePage(props: {
       .map((s) => ({ name: s.name, durationMin: s.duration_min })),
   }));
 
+  // Plan 037 (CORRECTNESS-02) — the hero displayed the RAW balance, expired
+  // credit included ("10,00 $ — appliqué automatiquement" for credit the
+  // booking flow would never apply). Route through the same effective-balance
+  // helper the booking path uses: returns 0 when expired and lazily zeroes
+  // the row so subsequent reads agree.
+  const effectiveLoyaltyCents = await effectiveLoyaltyBalanceCents({
+    clientId: client.id,
+    balanceCents: client.loyalty_balance_cents ?? 0,
+    expiresAt: client.loyalty_balance_expires_at ?? null,
+  });
+
   return (
     <MeClient
       locale={locale}
       token={token}
       client={{
         firstName: client.first_name,
-        loyaltyBalanceCents: client.loyalty_balance_cents ?? 0,
+        loyaltyBalanceCents: effectiveLoyaltyCents,
         completedCount,
       }}
       shop={{
