@@ -31,6 +31,8 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
       preview: `Comment s’est passée ta visite chez ${shopName} ?`,
       heading: `Bonjour ${firstName},`,
       body: `Merci d'avoir choisi ${shopName} récemment. Si tu as une minute, ça nous aiderait beaucoup que tu laisses un avis sur ta visite.`,
+      rateHint: 'Ta note, en un tap :',
+      starLabel: (n: number) => `${n} étoile${n > 1 ? 's' : ''} sur 5`,
       cta: 'Laisser un avis',
       footer: 'Ça prend moins de 60 secondes. Merci !',
       signature: '— L’équipe',
@@ -40,6 +42,8 @@ const copy = (locale: 'fr' | 'en', shopName: string, firstName: string) => {
     preview: `How was your visit at ${shopName}?`,
     heading: `Hi ${firstName},`,
     body: `Thanks for choosing ${shopName} recently. If you have a minute, it would help us a lot if you left a quick review of your visit.`,
+    rateHint: 'Rate us in one tap:',
+    starLabel: (n: number) => `${n} star${n > 1 ? 's' : ''} out of 5`,
     cta: 'Leave a review',
     footer: 'Takes less than 60 seconds. Thank you!',
     signature: '— The team',
@@ -80,7 +84,50 @@ export function ReviewRequest({
           {L.body}
         </Text>
       </Section>
-      <Section style={{ margin: '24px 0' }}>
+      {/* Plan 043 (step 1) — one-tap star deep-links. Each star lands on the
+          review form with `?rating=N` PRE-SELECTED (the page still requires an
+          explicit Submit — a mis-tap must never post a review). Plain <a>
+          tags with a unicode star: bulletproof across email clients, no
+          images to block. The single CTA below stays as the fallback. */}
+      <Section style={{ margin: '24px 0 8px' }}>
+        <Text
+          style={{
+            color: emailPalette.textMuted,
+            fontSize: 13,
+            fontWeight: 600,
+            margin: '0 0 6px',
+          }}
+        >
+          {L.rateHint}
+        </Text>
+        <table role="presentation" cellPadding={0} cellSpacing={0} style={{ margin: 0 }}>
+          <tbody>
+            <tr>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <td key={n} style={{ padding: '0 2px' }}>
+                  <a
+                    href={`${reviewUrl}?rating=${n}`}
+                    title={L.starLabel(n)}
+                    aria-label={L.starLabel(n)}
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 30,
+                      lineHeight: '44px',
+                      width: 44,
+                      textAlign: 'center',
+                      textDecoration: 'none',
+                      color: '#eab308',
+                    }}
+                  >
+                    ★
+                  </a>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </Section>
+      <Section style={{ margin: '8px 0 24px' }}>
         <Button
           href={reviewUrl}
           style={{
