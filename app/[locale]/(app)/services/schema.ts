@@ -46,7 +46,13 @@ export const updateServiceSchema = serviceSchema.extend({
 export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
 
 export const deleteServiceSchema = z.object({ id: z.string().uuid() });
-export const toggleServiceStatusSchema = z.object({ id: z.string().uuid() });
+// W2 — explicit TARGET status (mirror of toggleProductStatusSchema): the
+// client sends the state it wants, so a stale view can't race a blind
+// read-then-flip back to where it started.
+export const toggleServiceStatusSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(SERVICE_STATUSES),
+});
 
 /**
  * Drag-to-reorder (Wave 3). The client sends the full ordered list of

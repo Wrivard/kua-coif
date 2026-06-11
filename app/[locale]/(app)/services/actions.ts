@@ -252,29 +252,26 @@ export const deleteService = withAction({
 // ---------------------------------------------------------------------------
 // Toggle status (enabled ↔ disabled)
 // ---------------------------------------------------------------------------
+// W2 — hardened on the toggleProductStatus model: the client sends an explicit
+// TARGET status (vs the old read-then-flip, which two concurrent clicks could
+// race back to the starting state), the write is shop-scoped, and
+// `.select('id')` distinguishes a same-shop hit from a 0-row no-match
+// (foreign shop / already deleted) without a second round-trip.
 export const toggleServiceStatus = withAction({
   schema: toggleServiceStatusSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const supabase = createSupabaseServerClient();
-    // Read current status, flip it. Two-step (no atomic toggle in Supabase
-    // client) is acceptable here — the worst case (race condition under
-    // simultaneous edits) is reverting a flip the user will notice.
-    const { data, error: readError } = await supabase
+    const { data: rows, error } = await db()
       .from('services')
-      .select('status')
+      .update({ status: input.status })
       .eq('id', input.id)
-      .single();
-
-    if (readError || !data) return err('NOT_FOUND');
-
-    const next = data.status === 'enabled' ? 'disabled' : 'enabled';
-
-    const { error: updateError } = await supabase
-      .from('services')
-      .update({ status: next })
-      .eq('id', input.id);
-    if (updateError) return err('UNEXPECTED');
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    if (error) {
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,
@@ -282,7 +279,7 @@ export const toggleServiceStatus = withAction({
       action: 'update',
       entity: 'services',
       entityId: input.id,
-      diff: { status: { before: data.status, after: next } },
+      diff: { status: input.status },
     });
 
     revalidatePath(SERVICES_PATH);
@@ -291,7 +288,7 @@ export const toggleServiceStatus = withAction({
     revalidatePublicShopSurfaces();
     // Calendar + booking read services/categories from the Data Cache — bust it.
     revalidateShopConfig(ctx.shopId);
-    return ok({ id: input.id, status: next });
+    return ok({ id: input.id, status: input.status });
   },
 });
 

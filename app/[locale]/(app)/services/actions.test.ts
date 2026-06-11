@@ -265,6 +265,37 @@ describe('updateService — optimistic concurrency + honest 0-row (W2)', () => {
   });
 });
 
+describe('toggleServiceStatus — explicit target status (W2)', () => {
+  it('writes the GIVEN status (no read-then-flip) with a shop-scoped filter', async () => {
+    const { mock } = setup({
+      services: [{ id: SERVICE_ID, shop_id: SHOP_A, status: 'enabled' }],
+    });
+
+    const res = await toggleServiceStatus({ id: SERVICE_ID, status: 'disabled' });
+
+    expect(res).toMatchObject({ ok: true, data: { id: SERVICE_ID, status: 'disabled' } });
+    expect(mock.tables.services![0]!.status).toBe('disabled');
+    const upd = mock.calls.find((c) => c.table === 'services' && c.op === 'update');
+    expect(upd?.filters).toEqual([
+      ['id', SERVICE_ID],
+      ['shop_id', SHOP_A],
+    ]);
+    // No preliminary read: the only services call is the scoped update.
+    expect(mock.calls.filter((c) => c.table === 'services')).toHaveLength(1);
+  });
+
+  it('foreign-shop id → NOT_FOUND and the row keeps its status', async () => {
+    const { mock } = setup({
+      services: [{ id: SERVICE_ID, shop_id: 'shop-OTHER', status: 'enabled' }],
+    });
+
+    const res = await toggleServiceStatus({ id: SERVICE_ID, status: 'disabled' });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
+    expect(mock.tables.services![0]!.status).toBe('enabled');
+  });
+});
+
 describe('unique names — 23505 → CONFLICT { name: duplicate } (W2)', () => {
   it('createService maps a duplicate name to an inline-field CONFLICT, no Sentry', async () => {
     setup(
