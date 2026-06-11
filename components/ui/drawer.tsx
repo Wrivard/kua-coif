@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,8 @@ export function Drawer({
   className,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const [closing, setClosing] = useState(false);
   const titleId = useId();
   const tA11y = useTranslations('a11y');
 
@@ -41,12 +43,44 @@ export function Drawer({
   // TRAPPED inside the panel, the background is inert + scroll-locked, and the
   // panel renders in the top layer — so a ConfirmDialog (also a modal dialog)
   // opened from within the drawer stacks correctly above it, and there are no
-  // z-index battles.
+  // z-index battles. Closing plays the exit keyframe (data-closing → globals.css)
+  // before dialog.close(); reduced motion or a missing panel close instantly, and
+  // a fallback timeout guarantees the drawer never sticks open.
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
-    if (!open && el.open) el.close();
+
+    if (open) {
+      setClosing(false);
+      if (!el.open) el.showModal();
+      return;
+    }
+
+    if (!el.open) return;
+
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const panel = panelRef.current;
+    if (prefersReduced || !panel) {
+      el.close();
+      return;
+    }
+
+    setClosing(true);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.close();
+      setClosing(false);
+    };
+    panel.addEventListener('animationend', finish, { once: true });
+    const fallback = window.setTimeout(finish, 320);
+    return () => {
+      panel.removeEventListener('animationend', finish);
+      window.clearTimeout(fallback);
+    };
   }, [open]);
 
   // ESC fires the dialog's native `cancel` event; route it through onClose so
@@ -66,6 +100,7 @@ export function Drawer({
   return (
     <dialog
       ref={dialogRef}
+      data-closing={closing ? '' : undefined}
       aria-labelledby={titleId}
       onClick={(e) => {
         // A click that lands on the dialog box itself (the empty area beside
@@ -87,6 +122,7 @@ export function Drawer({
       )}
     >
       <aside
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         className={cn(
           // Mobile: bottom sheet — full-width, rounded top corners, capped
