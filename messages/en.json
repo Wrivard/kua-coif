@@ -429,11 +429,21 @@
     },
     "services": {
       "title": "Services",
-      "soon": "Services and pricing grid — Phase 4.",
       "addService": "Add a service",
       "manageCategories": "Categories",
       "emptyTitle": "No services yet",
       "emptyHint": "Create categories first, then add your services.",
+      "searchPlaceholder": "Search services…",
+      "searchNoResults": "No results",
+      "searchNoResultsHint": "No service matches \"{query}\".",
+      "dnd": {
+        "instructions": "To reorder, press Space to pick up the service, use the arrow keys to move it, then Space to drop. Escape cancels.",
+        "start": "{name} picked up.",
+        "over": "{name} moved over {over}.",
+        "end": "{name} dropped over {over}.",
+        "noTarget": "{name} is over no position.",
+        "cancel": "Moving {name} was cancelled."
+      },
       "columns": {
         "sort": "Sort",
         "name": "Service",
@@ -466,7 +476,11 @@
         "taxes": "Applicable taxes",
         "noTaxes": "No taxes configured. Add some in Settings → Taxes first.",
         "deposit": "Deposit required",
-        "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form."
+        "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form.",
+        "errors": {
+          "nameTooLong": "Name is too long (120 characters max).",
+          "amount": "Enter a valid amount (e.g. 25.00)."
+        }
       },
       "toasts": {
         "created": "Service created",
