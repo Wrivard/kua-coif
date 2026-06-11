@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CalendarX, Download, Mail, Phone, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarClock, CalendarX, Download, Mail, Phone, Receipt, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -20,6 +21,15 @@ export type UpcomingAppointment = {
   hasPaymentIntent: boolean;
   barberName: string | null;
   services: Array<{ name: string; durationMin: number }>;
+  // Plan 044 (DIRECTION-01) — fresh per-render tokens for this appointment's
+  // reschedule + receipt pages.
+  rescheduleToken: string;
+  receiptToken: string;
+  // Plan 044 (UX-03) — free-cancel deadline (ISO). Null = no cancellation
+  // window configured (a paid deposit refunds whenever the customer cancels).
+  refundCutoffAt: string | null;
+  /** Deposit actually charged (cents) — the amount at stake in the dialog. */
+  depositCents: number;
 };
 
 export function MeClient({
@@ -154,11 +164,14 @@ export function MeClient({
         contactTitle: 'Contacte le salon',
         upcomingTitle: 'Tes prochains rendez-vous',
         upcomingEmpty: 'Aucun rendez-vous à venir.',
+        rescheduleButton: 'Déplacer',
+        receiptButton: 'Reçu',
         cancelButton: 'Annuler',
         cancelTitle: 'Annuler le rendez-vous ?',
         keepButton: 'Garder',
         paidLine: 'Acompte payé',
         depositRefundable: 'Remboursable',
+        freeCancelUntil: (deadline: string) => `Annulation gratuite jusqu’au ${deadline}.`,
       }
     : {
         hello: `Hi ${client.firstName}`,
@@ -173,22 +186,39 @@ export function MeClient({
         contactTitle: 'Contact the shop',
         upcomingTitle: 'Your upcoming appointments',
         upcomingEmpty: 'No upcoming appointments.',
+        rescheduleButton: 'Reschedule',
+        receiptButton: 'Receipt',
         cancelButton: 'Cancel',
         cancelTitle: 'Cancel appointment?',
         keepButton: 'Keep',
         paidLine: 'Deposit paid',
         depositRefundable: 'Refundable',
+        freeCancelUntil: (deadline: string) => `Free cancellation until ${deadline}.`,
       };
 
+  // Plan 044 (UX-03) — DEFINITIVE refund consequence, computed from the same
+  // cutoff the server uses (start - mins_cancel_before_appt), instead of the
+  // old "if you're inside the refund window…" the customer couldn't evaluate.
   const pendingPaid = pendingCancel
     ? pendingCancel.paymentStatus === 'paid' && pendingCancel.hasPaymentIntent
     : false;
+  const pendingInsideWindow = pendingCancel?.refundCutoffAt
+    ? Date.now() >= new Date(pendingCancel.refundCutoffAt).getTime()
+    : false;
+  const pendingDeposit =
+    pendingCancel && pendingCancel.depositCents > 0
+      ? formatCurrencyCAD(pendingCancel.depositCents / 100, isFr ? 'fr' : 'en')
+      : null;
   const cancelDescription = isFr
     ? pendingPaid
-      ? 'Annuler ce rendez-vous ? Si tu es dans la fenêtre de remboursement, ton acompte te sera remboursé automatiquement.'
+      ? pendingInsideWindow
+        ? `Ton acompte${pendingDeposit ? ` de ${pendingDeposit}` : ''} ne sera PAS remboursé (politique d’annulation du salon). Annuler quand même ?`
+        : `Ton acompte${pendingDeposit ? ` de ${pendingDeposit}` : ''} te sera remboursé automatiquement.`
       : 'Annuler ce rendez-vous ?'
     : pendingPaid
-      ? "Cancel this appointment? If you're inside the refund window, your deposit will be refunded automatically."
+      ? pendingInsideWindow
+        ? `Your deposit${pendingDeposit ? ` of ${pendingDeposit}` : ''} will NOT be refunded (the shop's cancellation policy). Cancel anyway?`
+        : `Your deposit${pendingDeposit ? ` of ${pendingDeposit}` : ''} will be refunded automatically.`
       : 'Cancel this appointment?';
 
   return (
@@ -217,6 +247,11 @@ export function MeClient({
               const startStr = formatShopTime(appt.startAt, shop.timezone, 'HH:mm');
               const endStr = formatShopTime(appt.endAt, shop.timezone, 'HH:mm');
               const isPaid = appt.paymentStatus === 'paid' && appt.hasPaymentIntent;
+              // Plan 044 (UX-03) — surface the free-cancel deadline while it
+              // still lies ahead; once past, the dialog carries the definitive
+              // "not refunded" message instead.
+              const cutoffMs = appt.refundCutoffAt ? new Date(appt.refundCutoffAt).getTime() : null;
+              const showFreeCancelLine = isPaid && cutoffMs !== null && Date.now() < cutoffMs;
               return (
                 <div
                   key={appt.id}
@@ -235,15 +270,47 @@ export function MeClient({
                         {formatCurrencyCAD(appt.totalAmount, isFr ? 'fr' : 'en')}
                         {isPaid ? ` · ${L.paidLine}` : ''}
                       </p>
+                      {showFreeCancelLine ? (
+                        <p className="text-xs text-text-muted">
+                          {L.freeCancelUntil(
+                            `${formatHeaderDate(
+                              new Date(appt.refundCutoffAt!),
+                              isFr ? 'fr' : 'en',
+                              shop.timezone,
+                            )} · ${formatShopTime(appt.refundCutoffAt!, shop.timezone, 'HH:mm')}`,
+                          )}
+                        </p>
+                      ) : null}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => cancelAppointment(appt)}
-                      disabled={isPending}
-                    >
-                      <CalendarX className="h-4 w-4" /> {L.cancelButton}
-                    </Button>
+                    {/* Plan 044 (DIRECTION-01) — customers who can only cancel
+                        WILL cancel; salons prefer reschedules. Reschedule leads
+                        (primary), Receipt and Cancel follow. Fresh tokens are
+                        minted per /me render, so these links are always live
+                        even when the emailed 7-day one died. */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Links styled to the Button sm recipe — nesting a
+                          <button> inside an anchor is invalid HTML. */}
+                      <Link
+                        href={`/${locale}/reschedule/${appt.rescheduleToken}`}
+                        className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-accent px-3 text-xs font-medium text-accent-fg shadow-sm transition-all duration-150 ease-out-quint hover:bg-accent-hover hover:shadow-accent-glow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                      >
+                        <CalendarClock className="h-4 w-4" aria-hidden /> {L.rescheduleButton}
+                      </Link>
+                      <Link
+                        href={`/${locale}/receipt/${appt.receiptToken}`}
+                        className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-bg-surface px-3 text-xs font-medium text-text-primary shadow-sm transition-all duration-150 ease-out-quint hover:bg-bg-surface-2 hover:shadow-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                      >
+                        <Receipt className="h-4 w-4" aria-hidden /> {L.receiptButton}
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancelAppointment(appt)}
+                        disabled={isPending}
+                      >
+                        <CalendarX className="h-4 w-4" /> {L.cancelButton}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
