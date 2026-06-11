@@ -48,7 +48,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | DONE (exit keyframes modal/drawer/toast gated on animationend + reduced-motion/fallback instant path; sliding tab underline + Arrow/Home/End roving keyboard; toast close focus-ring; −static glow on toggle ON + empty-state) |
 | 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | DONE (dedicated nav transition + optimistic header date + grid dim + week-switch skeleton; optimistic service + per-row notification toggles; 245 tests green) |
 | 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
-| 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | TODO (file written) |
+| 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | DONE (pane-only settings/loading.tsx — rail persists; shaped finances/clients/4 token-route skeletons; finances range filter → router.push soft-nav client leaf; clients/[id] 3 reads in one Promise.all, 404 order intact) |
 | 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | DONE (first-bookable-day open; slotError+retry distinct from empty, silent aborts; stale-slot clear; honest barber subtitle; localized metadata; mobile sticky CTA + 44px slots) |
 | 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | TODO (file written) |
 | 037 | Token-surface trust (reschedule email, loyalty effective balance, expired-link not-found) | P1 | S-M | — | TODO (file written) |
