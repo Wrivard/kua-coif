@@ -184,14 +184,15 @@ describe('updateService', () => {
 });
 
 describe('deleteService', () => {
-  it('is shop-scoped: a foreign-shop row is filtered out and survives', async () => {
+  it('is shop-scoped: a foreign-shop row survives and the 0-row delete errs NOT_FOUND (W2)', async () => {
     const { mock } = setup({
       services: [{ id: SERVICE_ID, shop_id: 'shop-OTHER', name: 'X' }],
     });
 
     const res = await deleteService({ id: SERVICE_ID });
 
-    expect(res.ok).toBe(true); // delete of 0 rows is not an error
+    // W2 — the lying ok is gone: deleting an id that isn't in this shop errs.
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
     const del = mock.calls.find((c) => c.table === 'services' && c.op === 'delete');
     expect(del?.filters).toEqual([
       ['id', SERVICE_ID],
@@ -211,6 +212,56 @@ describe('deleteService', () => {
 
     expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
     expect(h.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateService — optimistic concurrency + honest 0-row (W2)', () => {
+  it('stale expected_updated_at → CONFLICT { concurrency: stale }, tax RPC never runs', async () => {
+    const { rpc } = setup({
+      services: [
+        { id: SERVICE_ID, shop_id: SHOP_A, name: 'Old', updated_at: '2026-06-11T10:00:00.000Z' },
+      ],
+    });
+
+    const res = await updateService({
+      id: SERVICE_ID,
+      ...serviceInput(),
+      expected_updated_at: '2026-06-10T09:00:00.000Z', // someone edited since
+    });
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'CONFLICT',
+      fieldErrors: { concurrency: 'stale' },
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('fresh expected_updated_at → ok (write proceeds + tax RPC runs)', async () => {
+    const { mock, rpc } = setup({
+      services: [
+        { id: SERVICE_ID, shop_id: SHOP_A, name: 'Old', updated_at: '2026-06-11T10:00:00.000Z' },
+      ],
+    });
+
+    const res = await updateService({
+      id: SERVICE_ID,
+      ...serviceInput({ name: 'New' }),
+      expected_updated_at: '2026-06-11T10:00:00.000Z',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(mock.tables.services![0]!.name).toBe('New');
+    expect(rpc).toHaveBeenCalled();
+  });
+
+  it('nonexistent id without precondition → NOT_FOUND, not a lying ok', async () => {
+    const { rpc } = setup({ services: [] });
+
+    const res = await updateService({ id: SERVICE_ID, ...serviceInput() });
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'NOT_FOUND' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 

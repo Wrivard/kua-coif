@@ -139,7 +139,7 @@ export const updateService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { id, tax_ids, ...rest } = input;
+    const { id, tax_ids, expected_updated_at, ...rest } = input;
 
     if (
       rest.category_id &&
@@ -148,16 +148,28 @@ export const updateService = withAction({
       return err('INVALID_INPUT');
     }
 
-    const { error } = await supabase
-      .from('services')
-      .update(rest)
-      .eq('id', id)
-      .eq('shop_id', ctx.shopId);
+    // Optimistic concurrency (W2 — products pattern): when the client sends
+    // its last-seen updated_at, pin the write to it. `.select('id')` returns
+    // the affected rows so a 0-row write (stale precondition, or an id that
+    // doesn't exist in this shop) is detectable instead of a lying ok.
+    let upd = supabase.from('services').update(rest).eq('id', id).eq('shop_id', ctx.shopId);
+    if (expected_updated_at) {
+      upd = upd.eq('updated_at', expected_updated_at);
+    }
+    const { data: updatedRows, error } = await upd.select('id');
     // 23505 = duplicate name in this shop (a rename collision) → CONFLICT, not Sentry.
     if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) {
       captureException(error, { tags: { layer: 'services' } });
       return err('UNEXPECTED');
+    }
+    if ((updatedRows?.length ?? 0) === 0) {
+      // With a precondition we can't tell "stale" from "gone" without a second
+      // read — surface the reload toast (products W2b shape). Without one, the
+      // id simply doesn't exist in this shop: err, don't lie with ok.
+      return expected_updated_at
+        ? err('CONFLICT', { concurrency: 'stale' })
+        : err('NOT_FOUND');
     }
 
     // Atomic, same-shop-validated tax linking (set_service_taxes RPC,
@@ -199,11 +211,14 @@ export const deleteService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { error } = await supabase
+    // `.select('id')` returns the deleted rows so a 0-row delete (id not in
+    // this shop / already gone) errs as NOT_FOUND instead of a lying ok.
+    const { data: deletedRows, error } = await supabase
       .from('services')
       .delete()
       .eq('id', input.id)
-      .eq('shop_id', ctx.shopId);
+      .eq('shop_id', ctx.shopId)
+      .select('id');
     if (error) {
       // 23503 = FK violation: appointment_services.service_id is ON DELETE
       // RESTRICT (init_schema.sql:312), so a service with booking history
@@ -214,6 +229,7 @@ export const deleteService = withAction({
       captureException(error, { tags: { layer: 'services' } });
       return err('UNEXPECTED');
     }
+    if ((deletedRows?.length ?? 0) === 0) return err('NOT_FOUND');
 
     await logAuditAction({
       shopId: ctx.shopId,

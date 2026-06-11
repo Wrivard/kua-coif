@@ -37,6 +37,11 @@ export type ServiceInput = z.infer<typeof serviceSchema>;
 
 export const updateServiceSchema = serviceSchema.extend({
   id: z.string().uuid(),
+  // Optimistic concurrency (W2 — mirror of updateProductSchema). When present,
+  // the server only writes if services.updated_at still matches (else
+  // CONFLICT { concurrency: 'stale' }). Optional → non-breaking until the
+  // form wires it (W2 ships the server half only).
+  expected_updated_at: z.string().datetime().optional(),
 });
 export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
 
