@@ -1,5 +1,6 @@
 export { Badge, type BadgeVariant } from './badge';
 export { Button, type ButtonSize, type ButtonVariant } from './button';
+export { Callout, type CalloutVariant } from './callout';
 export { Card, CardBody, CardFooter, CardHeader, CardTitle } from './card';
 export { Checkbox } from './checkbox';
 export { ConfirmDialog } from './confirm-dialog';
