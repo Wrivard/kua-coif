@@ -243,6 +243,7 @@
       "shopClosedDay": "Le salon est fermé ce jour-là (jour off ou hors horaires).",
       "blocked": "Bloqué",
       "online": "En ligne",
+      "paid": "Payé",
       "admin": "Admin",
       "detailTitle": "Détails du rendez-vous",
       "client": "Client",
@@ -377,6 +378,14 @@
       "confirmDelete": {
         "title": "Supprimer ce client ?",
         "description": "« {name} » sera supprimé définitivement. Les rendez-vous existants empêcheront la suppression."
+      },
+      "confirmAnonymize": {
+        "title": "Anonymiser ce client ?",
+        "description": "Les données personnelles de « {name} » (nom, courriel, téléphone, notes) seront effacées définitivement (Loi 25). Cette action est irréversible."
+      },
+      "confirmRevokeMe": {
+        "title": "Révoquer les liens d’accès ?",
+        "description": "Les liens self-service existants de « {name} » (gestion de rendez-vous) cesseront de fonctionner immédiatement."
       },
       "form": {
         "addTitle": "Nouveau client",
@@ -1447,7 +1456,10 @@
           "testRecipient": "Numéro pour le test",
           "testRecipientHint": "Ton propre cellulaire — pour valider l'envoi bout-en-bout avant de sauvegarder.",
           "disconnect": "Déconnecter Twilio",
-          "confirmDisconnect": "Déconnecter Twilio ? Les SMS de ce salon vont arrêter de partir."
+          "confirmDisconnect": {
+            "title": "Déconnecter Twilio ?",
+            "description": "Les SMS de ce salon vont arrêter de partir."
+          }
         },
         "testTwilio": {
           "button": "Envoyer un SMS de test",
@@ -1497,7 +1509,10 @@
           "twilioInvalidSid": "Account SID invalide. Format attendu : « AC » + 32 caractères.",
           "twilioInvalidPhone": "Numéro invalide. Format attendu : E.164 (ex. +15145551212)."
         },
-        "confirmDisconnect": "Déconnecter le SMTP ? Les courriels reviendront à l'expéditeur Küa par défaut.",
+        "confirmDisconnect": {
+          "title": "Déconnecter le SMTP ?",
+          "description": "Les courriels reviendront à l'expéditeur Küa par défaut."
+        },
         "slack": {
           "title": "Notifications Slack",
           "connected": "Connecté",

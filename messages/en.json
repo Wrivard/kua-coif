@@ -243,6 +243,7 @@
       "shopClosedDay": "The shop is closed on this day (day off or outside hours).",
       "blocked": "Blocked",
       "online": "Online",
+      "paid": "Paid",
       "admin": "Admin",
       "detailTitle": "Appointment details",
       "client": "Client",
@@ -377,6 +378,14 @@
       "confirmDelete": {
         "title": "Delete this client?",
         "description": "\"{name}\" will be permanently deleted. Existing appointments will block deletion."
+      },
+      "confirmAnonymize": {
+        "title": "Anonymize this client?",
+        "description": "\"{name}\"'s personal data (name, email, phone, notes) will be permanently erased (Quebec Bill 25). This cannot be undone."
+      },
+      "confirmRevokeMe": {
+        "title": "Revoke access links?",
+        "description": "\"{name}\"'s existing self-service links (appointment management) will stop working immediately."
       },
       "form": {
         "addTitle": "New client",
@@ -1447,7 +1456,10 @@
           "testRecipient": "Test recipient",
           "testRecipientHint": "Your own cellphone — to validate the send end-to-end before saving.",
           "disconnect": "Disconnect Twilio",
-          "confirmDisconnect": "Disconnect Twilio? SMS will stop being sent from this shop."
+          "confirmDisconnect": {
+            "title": "Disconnect Twilio?",
+            "description": "SMS will stop being sent from this shop."
+          }
         },
         "testTwilio": {
           "button": "Send test SMS",
@@ -1497,7 +1509,10 @@
           "twilioInvalidSid": "Invalid Account SID. Expected format: 'AC' + 32 characters.",
           "twilioInvalidPhone": "Invalid phone number. Expected format: E.164 (e.g. +15145551212)."
         },
-        "confirmDisconnect": "Disconnect SMTP? Emails will fall back to Küa's default sender.",
+        "confirmDisconnect": {
+          "title": "Disconnect SMTP?",
+          "description": "Emails will fall back to Küa's default sender."
+        },
         "slack": {
           "title": "Slack notifications",
           "connected": "Connected",

@@ -1,10 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Send, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyCell } from '@/components/ui/empty-cell';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
@@ -73,8 +76,12 @@ export function ReviewCampaignClient({
 }: Props) {
   const L = labels;
   const { show } = useToast();
+  const tCommon = useTranslations('common');
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
+  // Plan 039 (MKT-01) — the native confirm() is now a themed ConfirmDialog.
+  const [confirmSend, setConfirmSend] = useState(false);
 
   // Loop 64 SR — cap the bulk-select at 50 (matches schema cap, which
   // matches Vercel Hobby's 10s server-action timeout). Without this,
@@ -106,8 +113,16 @@ export function ReviewCampaignClient({
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
   function onSend() {
+    // Plan 039 (MKT-01) — irreversible bulk send: themed confirm dialog
+    // instead of the native confirm(), and router.refresh() instead of a
+    // full page reload so the success/partial-failure toast SURVIVES the
+    // candidate-list re-fetch (the reload wiped it).
     if (selectedIds.length === 0) return;
-    if (!confirm(L?.confirm.replace('{count}', String(selectedIds.length)) ?? '')) return;
+    setConfirmSend(true);
+  }
+
+  function doSend() {
+    setConfirmSend(false);
     startSend(async () => {
       const result = await sendReviewCampaign({ appointment_ids: selectedIds });
       if (result.ok) {
@@ -130,7 +145,7 @@ export function ReviewCampaignClient({
         setSelected(new Set());
         // Re-fetch the page so the just-sent rows disappear from the
         // candidate list (they now have a client_marketing_sends row).
-        window.location.reload();
+        router.refresh();
       } else {
         show({ variant: 'danger', title: L?.failedToast ?? 'Failed' });
       }
@@ -241,6 +256,19 @@ export function ReviewCampaignClient({
             .replace('{total}', String(candidates.length))}
         </p>
       </div>
+
+      {/* Plan 039 (MKT-01) — themed confirm for the irreversible bulk send.
+          Reuses the page's localized confirm copy (count interpolated). */}
+      <ConfirmDialog
+        open={confirmSend}
+        title={tCommon('actions.confirm')}
+        description={L?.confirm.replace('{count}', String(selectedIds.length)) ?? ''}
+        loading={sending}
+        confirmLabel={L?.send ?? tCommon('actions.confirm')}
+        cancelLabel={tCommon('actions.cancel')}
+        onConfirm={doSend}
+        onCancel={() => setConfirmSend(false)}
+      />
     </>
   );
 }
