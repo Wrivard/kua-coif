@@ -47,7 +47,7 @@ Commit style: conventional commits with scope (see `git log --oneline`).
 | 030 | Callout/Alert primitive + adopt across ~25 inline alerts | P2 | M | 029 | TODO (file written) |
 | 031 | Premium motion (modal/drawer/toast exit choreography, sliding tab indicator, tabs keyboard, primitive glow trim) | P2 | M | 029 | TODO (file written) |
 | 032 | Instant feedback — calendar-nav pending + optimistic status toggles | P1 | S-M | — | DONE (dedicated nav transition + optimistic header date + grid dim + week-switch skeleton; optimistic service + per-row notification toggles; 245 tests green) |
-| 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | TODO (file written) |
+| 033 | Optimistic appointment create/cancel on the grid | P2 | M | 032 | DONE (cancel hides on confirm + prunes to struck truth; create renders a phantom with the real id, pruned in place by realtime; 245 tests green) |
 | 034 | Shaped route skeletons + finances soft-nav + parallel reads | P2 | S-M | — | TODO (file written) |
 | 035 | Booking flow — kill the false dead-ends (closed-day, abort-race, hardcoded availability, sticky CTA) | P1 | S-M | — | TODO (file written) |
 | 036 | Booking money-path — prevalidate before charge + recoverable failures | P1 | M | 035 | TODO (file written) |
