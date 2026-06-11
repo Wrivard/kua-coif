@@ -17,8 +17,11 @@
  *
  *   3. MODAL (API) — expose `Kua.open(alias)` so the salon's own
  *      "Book" button (or any link) can trigger the modal. No
- *      placeholder div needed.
+ *      placeholder div needed. Because this script loads `async`,
+ *      pair the button with the command-queue stub so an early click
+ *      queues instead of throwing (drained when the script evaluates):
  *
+ *      <script>window.Kua=window.Kua||{q:[],open:function(){this.q.push(arguments)}};</script>
  *      <button onclick="Kua.open('axum')">Book now</button>
  *      <script src="https://kua-coif.vercel.app/widget.js" async></script>
  *
@@ -30,6 +33,8 @@
  *   data-kua-host="https://..."        → override origin (staging, etc.)
  *   data-kua-button-text="..."         → custom floating button label
  *   data-kua-button-position="br"|"bl"|"tr"|"tl" → corner (default: br)
+ *   data-kua-button-color="#rrggbb"    → floating button brand color
+ *                                        (text flips light/dark for contrast)
  *
  * This file is plain JS (no transpile) so we can host it as a static
  * asset via `public/`. Zero dependencies. Self-contained CSS.
@@ -86,7 +91,8 @@
     style.textContent =
       '@keyframes kuaShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}' +
       '.kua-skel{background:linear-gradient(90deg,rgba(120,120,120,0.08) 0%,rgba(120,120,120,0.18) 50%,rgba(120,120,120,0.08) 100%);' +
-      'background-size:800px 100%;animation:kuaShimmer 1.5s ease infinite;border-radius:8px}';
+      'background-size:800px 100%;animation:kuaShimmer 1.5s ease infinite;border-radius:8px}' +
+      '@media (prefers-reduced-motion: reduce){.kua-skel{animation:none}}';
     document.head.appendChild(style);
   }
 
@@ -126,7 +132,11 @@
       'background:transparent',
       'color-scheme:dark light',
     ].join(';');
-    iframe.setAttribute('allow', '');
+    // Plan 038 (DIRECTION-04) — delegate the Payment Request permission so
+    // Apple/Google Pay can surface in the embed payment step (Stripe's
+    // PaymentElement needs it inside a cross-origin iframe). An empty
+    // allowlist silently blocked wallets that work fine on direct /book.
+    iframe.setAttribute('allow', 'payment');
     iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
     return iframe;
   }
@@ -149,6 +159,24 @@
       if (data.kind === 'resize' && typeof data.height === 'number') {
         var h = Math.max(200, Math.min(4000, Math.ceil(data.height)));
         iframe.style.height = h + 'px';
+      }
+      // Plan 038 (UX-06) — the wizard advanced a step. If the visitor has
+      // scrolled past the top of the iframe (mid-page on mobile), bring it
+      // back into view so the new step isn't rendered "nowhere". Guarded so
+      // we never yank a page the user hasn't scrolled into yet.
+      if (data.kind === 'step-change') {
+        var rect = iframe.getBoundingClientRect();
+        if (rect.top < 0) {
+          var behavior =
+            window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? 'auto'
+              : 'smooth';
+          try {
+            iframe.scrollIntoView({ block: 'start', behavior: behavior });
+          } catch (e) {
+            iframe.scrollIntoView();
+          }
+        }
       }
     }
     window.addEventListener('message', onMessage);
@@ -176,6 +204,30 @@
   }
 
   // ─── Mode 2: floating button ──────────────────────────────────────
+  // Plan 038 (UX-05) — pick a readable label color for a branded FAB.
+  // Cheap perceived-luminance cut: light brand colors get near-black
+  // text, dark ones keep white. Returns null on a malformed hex so the
+  // caller falls back to the stock dark pill.
+  function readableTextOn(hex) {
+    var m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex || '');
+    if (!m) return null;
+    var raw = m[1];
+    if (raw.length === 3) {
+      raw =
+        raw.charAt(0) +
+        raw.charAt(0) +
+        raw.charAt(1) +
+        raw.charAt(1) +
+        raw.charAt(2) +
+        raw.charAt(2);
+    }
+    var r = parseInt(raw.slice(0, 2), 16);
+    var g = parseInt(raw.slice(2, 4), 16);
+    var b = parseInt(raw.slice(4, 6), 16);
+    var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.6 ? '#111111' : '#ffffff';
+  }
+
   function injectFloatingButtonStyles() {
     if (document.getElementById('kua-floating-style')) return;
     var style = document.createElement('style');
@@ -186,7 +238,8 @@
       'transition:transform .15s ease,box-shadow .15s ease}' +
       '.kua-fab:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(0,0,0,0.3),0 4px 8px rgba(0,0,0,0.2)}' +
       '.kua-fab-br{right:24px;bottom:24px}.kua-fab-bl{left:24px;bottom:24px}' +
-      '.kua-fab-tr{right:24px;top:24px}.kua-fab-tl{left:24px;top:24px}';
+      '.kua-fab-tr{right:24px;top:24px}.kua-fab-tl{left:24px;top:24px}' +
+      '@media (prefers-reduced-motion: reduce){.kua-fab{transition:none}.kua-fab:hover{transform:none}}';
     document.head.appendChild(style);
   }
 
@@ -201,6 +254,14 @@
     btn.setAttribute('data-kua-fab-alias', alias);
     btn.setAttribute('type', 'button');
     btn.textContent = (opts && opts.text) || (locale === 'en' ? 'Book' : 'Réserver');
+    // Plan 038 (UX-05) — brand the pill from data-kua-button-color (the
+    // generated snippet bakes in the shop's saved accent) instead of the
+    // hardcoded dark default that ignored the salon's identity.
+    var labelColor = readableTextOn(opts && opts.color);
+    if (labelColor) {
+      btn.style.background = opts.color;
+      btn.style.color = labelColor;
+    }
     btn.addEventListener('click', function () {
       openModal(host, alias, locale, theme, 'floating-button');
     });
@@ -222,8 +283,19 @@
       '.kua-modal-close:hover{background:rgba(255,255,255,0.2)}' +
       '.kua-modal-scroll{max-height:92vh;overflow-y:auto}' +
       '@keyframes kuaFade{from{opacity:0}to{opacity:1}}' +
-      '@keyframes kuaPop{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}';
+      '@keyframes kuaPop{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
+      '@media (prefers-reduced-motion: reduce){.kua-modal-overlay,.kua-modal-inner{animation:none}}';
     document.head.appendChild(style);
+  }
+
+  // Plan 038 (UX-05) — resolve whether the modal CHROME (surface + close
+  // button) should be dark. `theme` is the per-instance override the salon
+  // passed; without one we follow the visitor's OS so the frame matches
+  // what the embed page inside will pick for `mode:'auto'` shops.
+  function modalIsDark(theme) {
+    if (theme === 'light') return false;
+    if (theme === 'dark') return true;
+    return !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
   }
 
   function openModal(host, alias, locale, theme, source) {
@@ -239,12 +311,20 @@
 
     var inner = document.createElement('div');
     inner.className = 'kua-modal-inner';
+    // Plan 038 (UX-05) — the modal chrome follows the resolved theme
+    // instead of hardcoding the dark surface around a light widget.
+    var dark = modalIsDark(theme);
+    if (!dark) inner.style.background = '#ffffff';
 
     var closeBtn = document.createElement('button');
     closeBtn.className = 'kua-modal-close';
     closeBtn.setAttribute('aria-label', locale === 'en' ? 'Close' : 'Fermer');
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
+    if (!dark) {
+      closeBtn.style.background = 'rgba(0,0,0,0.08)';
+      closeBtn.style.color = '#111111';
+    }
     closeBtn.addEventListener('click', closeModal);
     inner.appendChild(closeBtn);
 
@@ -273,14 +353,35 @@
       if (e.target === modalContainer) closeModal();
     });
 
-    function onEsc(e) {
-      if (e.key === 'Escape') closeModal();
+    // Plan 038 (UX-05) — focus management: Esc closes, Tab is trapped
+    // between the close button and the iframe (the only two focusables in
+    // the host document — focus inside the iframe is the iframe's own),
+    // and the opener regains focus on close.
+    function onKeydown(e) {
+      if (e.key === 'Escape') {
+        closeModal();
+        return;
+      }
+      if (e.key !== 'Tab' || !modalContainer) return;
+      var focusables = [closeBtn, iframe];
+      var idx = focusables.indexOf(document.activeElement);
+      if (e.shiftKey) {
+        if (idx <= 0) {
+          e.preventDefault();
+          focusables[focusables.length - 1].focus();
+        }
+      } else if (idx === focusables.length - 1 || idx === -1) {
+        e.preventDefault();
+        focusables[0].focus();
+      }
     }
-    document.addEventListener('keydown', onEsc);
+    document.addEventListener('keydown', onKeydown);
     modalContainer.setAttribute('data-kua-esc-bound', '1');
-    modalContainer._kuaEsc = onEsc;
+    modalContainer._kuaEsc = onKeydown;
+    modalContainer._kuaOpener = document.activeElement;
 
     document.body.appendChild(modalContainer);
+    closeBtn.focus();
     // Stash the resize handler so closeModal can detach it — otherwise
     // every open/close cycle leaks a window `message` listener (the
     // modal iframe is destroyed on close, but its listener lived on).
@@ -295,21 +396,44 @@
     if (modalContainer._kuaResize) {
       window.removeEventListener('message', modalContainer._kuaResize);
     }
+    var opener = modalContainer._kuaOpener;
     modalContainer.remove();
     modalContainer = null;
+    // Restore focus to whatever opened the modal (a11y: the keyboard user
+    // continues where they left off instead of being dumped at <body>).
+    if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
+      opener.focus();
+    }
   }
 
   // ─── Public API ───────────────────────────────────────────────────
-  window.Kua = window.Kua || {};
-  window.Kua.open = function (alias, opts) {
-    opts = opts || {};
-    var host = (opts.host || defaultHost).replace(/\/+$/, '');
-    var locale = (opts.locale || 'fr').toLowerCase();
-    if (locale !== 'fr' && locale !== 'en') locale = 'fr';
-    var theme = opts.theme;
-    openModal(host, alias, locale, theme);
+  // Plan 038 (UX-05) — command-queue stub support. This script loads
+  // `async`, so a visitor can click the salon's own "Book now" button
+  // before we evaluate; the documented snippet predefines
+  //   window.Kua = window.Kua || {q:[],open:function(){this.q.push(arguments)}};
+  // We capture that stub, install the real API, then drain the queued
+  // open() calls in order.
+  var stub = window.Kua;
+  window.Kua = {
+    open: function (alias, opts) {
+      opts = opts || {};
+      var host = (opts.host || defaultHost).replace(/\/+$/, '');
+      var locale = (opts.locale || 'fr').toLowerCase();
+      if (locale !== 'fr' && locale !== 'en') locale = 'fr';
+      var theme = opts.theme;
+      openModal(host, alias, locale, theme);
+    },
+    close: closeModal,
   };
-  window.Kua.close = closeModal;
+  if (stub && stub.q && stub.q.length) {
+    for (var qi = 0; qi < stub.q.length; qi++) {
+      try {
+        window.Kua.open.apply(window.Kua, stub.q[qi]);
+      } catch (e) {
+        // A malformed queued call must not break the drain loop.
+      }
+    }
+  }
 
   // ─── Auto-mount from `[data-kua-widget]` placeholders ────────────
   function mountWidget(placeholder) {
@@ -328,7 +452,12 @@
     if (mode === 'floating-button') {
       var text = placeholder.getAttribute('data-kua-button-text');
       var position = placeholder.getAttribute('data-kua-button-position') || 'br';
-      mountFloatingButton(host, alias, locale, theme, { text: text, position: position });
+      var color = placeholder.getAttribute('data-kua-button-color');
+      mountFloatingButton(host, alias, locale, theme, {
+        text: text,
+        position: position,
+        color: color,
+      });
     } else if (mode === 'modal') {
       // Modal mode: the placeholder div doesn't mount anything visible.
       // The salon's own button is expected to call Kua.open(alias).
@@ -349,9 +478,34 @@
     mountAll();
   }
 
-  // Re-scan when a SPA adds new placeholders later.
-  var mo = new MutationObserver(function () {
-    mountAll();
+  // Re-scan when a SPA adds new placeholders later — cheaply (plan 038,
+  // PERF-04): the old observer ran a full-document querySelectorAll on
+  // EVERY DOM mutation, forever. Now we scan only when an added element IS
+  // or CONTAINS a placeholder, and coalesce bursts behind a 150ms trailing
+  // debounce, so a chatty SPA host costs nothing between real mounts.
+  var moTimer = 0;
+  var mo = new MutationObserver(function (mutations) {
+    var relevant = false;
+    outer: for (var i = 0; i < mutations.length; i++) {
+      var added = mutations[i].addedNodes;
+      for (var j = 0; j < added.length; j++) {
+        var n = added[j];
+        if (n.nodeType !== 1) continue;
+        if (
+          (n.hasAttribute && n.hasAttribute('data-kua-widget')) ||
+          (n.querySelector && n.querySelector('[data-kua-widget]'))
+        ) {
+          relevant = true;
+          break outer;
+        }
+      }
+    }
+    if (!relevant) return;
+    if (moTimer) clearTimeout(moTimer);
+    moTimer = setTimeout(function () {
+      moTimer = 0;
+      mountAll();
+    }, 150);
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();

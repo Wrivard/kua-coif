@@ -1651,6 +1651,22 @@
         "feedback": "Feedback"
       }
     },
+    "embed": {
+      "unavailable": {
+        "title": "Réservation indisponible",
+        "body": "Cette page de réservation n'est pas disponible pour le moment. Contactez le salon directement pour prendre rendez-vous."
+      },
+      "error": {
+        "title": "Réservation temporairement indisponible",
+        "body": "Une erreur est survenue lors du chargement du module de réservation. Réessayez dans un instant.",
+        "retry": "Réessayer"
+      },
+      "empty": {
+        "title": "Réservation en ligne bientôt disponible",
+        "body": "Ce salon n'a pas encore publié son calendrier en ligne. Appelez-le pour prendre rendez-vous.",
+        "call": "Appelez-nous : {phone}"
+      }
+    },
     "booking": {
       "back": "Retour",
       "continue": "Continuer",

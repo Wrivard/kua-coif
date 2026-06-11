@@ -1,36 +1,32 @@
-import { setRequestLocale } from 'next-intl/server';
+import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
-import type { BarberRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
-import { displayNameFor, parseWidgetConfig, widgetThemeCss } from '@/lib/business/widget-config';
-import type { TipsConfig } from '@/lib/business/tips';
-import {
-  BookingWizard,
-  type BookingShop,
-  type BookingHours,
-} from '../../book/[shopSlug]/booking-wizard';
+import { CalendarX2 } from 'lucide-react';
+import { widgetThemeCss } from '@/lib/business/widget-config';
 import { WidgetResizeEmitter } from './widget-resize-emitter';
-import { PreviewWrapper } from './preview-wrapper';
+import { EmbedWizard } from './embed-wizard';
+import { loadEmbedData } from './load-embed-data';
 
 // Embed widget — same caching strategy as `/book/[shopSlug]` (60s ISR). The
 // widget is loaded inside an iframe on third-party sites, so we want it to
 // respond fast and not hammer Supabase on every page load.
+//
+// Plan 038 (PERF-01) — the page no longer reads `searchParams` (that opted
+// the route into request-time rendering, so every iframe impression was a
+// full SSR + ~7 Supabase queries). The per-instance bits moved client-side:
+//   - `?theme=` → resolved by the inline pre-hydration script below.
+//   - `?source=` → resolved by the `EmbedWizard` client wrapper.
+//   - `?preview=1` → its own always-dynamic route at `embed/[shopSlug]/preview`.
+// `generateStaticParams` returning [] opts the route into the SSG/ISR
+// machinery with every (locale, slug) rendered on first demand, then cached.
 export const revalidate = 60;
+
+export function generateStaticParams(): Array<{ shopSlug: string }> {
+  return [];
+}
 
 type Props = {
   params: Promise<{ locale: string; shopSlug: string }>;
-  // Loop 66 — `?preview=1` opts into the live-preview listener mounted
-  // by the /settings/widget admin iframe. Public widget.js loads never
-  // pass this flag, so the listener is dead code for third-party
-  // visitors (zero JS sent down to them).
-  // Phase H+13 — `?theme=dark|light|auto` lets a salon override the
-  // saved `widget_config.mode` per-instance. Useful when the same
-  // widget lives on pages with different visual themes.
-  // Phase H+14 — `?source=` tags the load with which integration mode
-  // mounted it, so the analytics funnel can split conversion by
-  // surface. Defaults to 'direct' (no widget.js, plain /embed/ load).
-  searchParams?: Promise<{ preview?: string; theme?: string; source?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -44,188 +40,68 @@ export const metadata: Metadata = {
  * without the app chrome and with per-shop theming applied via CSS vars.
  *
  * Wraps the existing `BookingWizard` so UX improvements land in both surfaces
- * automatically. Loaded inside an iframe injected by `public/widget.js` (or
- * directly in the admin live-preview pane).
+ * automatically. Loaded inside an iframe injected by `public/widget.js` (or,
+ * for the admin live-preview pane, via the sibling `preview/` route).
  */
 export default async function EmbedBookingPage(props: Props) {
-  const searchParams = await props.searchParams;
   const params = await props.params;
 
   const { locale, shopSlug } = params;
 
   setRequestLocale(locale);
-  const isPreview = searchParams?.preview === '1';
-  // Phase H+13 — per-instance theme override via URL. Validated against
-  // the enum so a malicious `?theme=javascript:` is ignored.
-  const themeOverride =
-    searchParams?.theme === 'dark' ||
-    searchParams?.theme === 'light' ||
-    searchParams?.theme === 'auto'
-      ? searchParams.theme
-      : null;
-  // Phase H+14 — analytics source tag. Validated against the enum;
-  // unknown values fall back to 'direct'.
-  const analyticsSource: 'inline' | 'floating-button' | 'modal' | 'direct' =
-    searchParams?.source === 'inline' ||
-    searchParams?.source === 'floating-button' ||
-    searchParams?.source === 'modal'
-      ? searchParams.source
-      : 'direct';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceRoleClient() as any;
-
-  // 1. Resolve shop by alias.
-  // Phase H+10 — `phone` added to the select so the widget header
-  // can render a tap-to-call line when `widget_config.show_phone`
-  // is on. Always queried (not gated on the config) so the preview
-  // wrapper can flip the toggle live without a network round-trip.
-  const shopRes = await supabase
-    .from('shops')
-    .select(
-      'id, name, alias, description, timezone, date_format, allow_booking_any_barber, country, street, municipality, province, postal_code, phone, logo_url, widget_config',
-    )
-    .eq('alias', shopSlug)
-    .limit(1);
-  const shopRow = ((shopRes.data as Array<BookingShop & { widget_config: unknown }> | null) ??
-    [])[0];
-  if (!shopRow) notFound();
-
-  const widgetConfig = parseWidgetConfig(shopRow.widget_config);
-  // Phase H+13 — apply the URL theme override after parsing so the
-  // override walks the same downstream code path (themeOverrideScript,
-  // widgetThemeCss, preview wrapper). The saved config is left intact.
-  if (themeOverride) {
-    widgetConfig.mode = themeOverride;
-  }
-
-  // 2. Fetch everything the wizard needs, scoped to the shop.
-  //    Phase E — `tips_config` for the in-widget tip selector. The
-  //    wizard hides the tip section when this row is missing.
-  const [hoursRes, daysOffRes, barbersRes, servicesRes, categoriesRes, tipsRes] = await Promise.all(
-    [
-      supabase
-        .from('shop_hours')
-        .select('weekday, enabled, open_time, close_time')
-        .eq('shop_id', shopRow.id)
-        .order('weekday', { ascending: true }),
-      supabase.from('shop_days_off').select('date').eq('shop_id', shopRow.id),
-      supabase
-        .from('barbers')
-        .select('id, display_name, avatar_url, sort_order, status, bookable')
-        .eq('shop_id', shopRow.id)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('services')
-        .select('id, category_id, name, duration_min, price, status, sort_order')
-        .eq('shop_id', shopRow.id)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('service_categories')
-        .select('id, name, sort_order')
-        .eq('shop_id', shopRow.id)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('tips_config')
-        .select(
-          'round_up, pct_tier1, pct_tier2, pct_tier3, pct_tier4, pct_use_above_amount, flat_tier1, flat_tier2, flat_tier3, flat_tier4',
-        )
-        .eq('shop_id', shopRow.id)
-        .limit(1),
-    ],
-  );
-
-  const hours = (hoursRes.data as BookingHours[] | null) ?? [];
-  const daysOff = ((daysOffRes.data as Array<{ date: string }> | null) ?? []).map((d) => d.date);
-  const tipsConfig = ((tipsRes.data as TipsConfig[] | null) ?? [])[0];
-  const barbers = ((barbersRes.data as BarberRow[] | null) ?? []).filter(
-    // B17 — public booking shows only confirmed AND bookable barbers.
-    (b) => b.status === 'confirmed' && b.bookable,
-  );
-  const services = ((servicesRes.data as ServiceRow[] | null) ?? []).filter(
-    (s) => s.status === 'enabled',
-  );
-  const categories = (categoriesRes.data as ServiceCategoryRow[] | null) ?? [];
-
-  // The shop name shown in the wizard header can be overridden by the widget
-  // config (e.g. "Book at Axum" instead of "Axum barbershop").
-  // Phase H+10 — `phone` joins the privacy-redaction set so the new
-  // header phone line obeys `widget_config.show_phone`. Public (non-
-  // preview) embed renders this redacted version directly. Preview
-  // mode bypasses this and feeds the wrapper the unredacted `shopRow`
-  // so live toggles can flip address/phone on without a save.
-  // Phase H+11 — locale-aware display name (FR/EN overrides with the
-  // legacy single field as fallback, then the shop's row.name).
-  const localeBucket: 'fr' | 'en' = locale === 'en' ? 'en' : 'fr';
-  const displayNameOverride = displayNameFor(widgetConfig, localeBucket);
-  const shop: BookingShop = {
-    ...shopRow,
-    name: displayNameOverride || shopRow.name,
-    street: widgetConfig.show_address ? shopRow.street : null,
-    municipality: widgetConfig.show_address ? shopRow.municipality : null,
-    province: widgetConfig.show_address ? shopRow.province : null,
-    phone: widgetConfig.show_phone ? (shopRow.phone ?? null) : null,
-  };
+  const data = await loadEmbedData(locale, shopSlug);
+  if (!data) notFound();
+  const { widgetConfig, shop, hours, daysOff, barbers, services, categories, tipsConfig } = data;
 
   const themeCss = widgetThemeCss(widgetConfig);
 
-  // Loop 65 — widget theme override.
+  // Loop 65 — widget theme override, reworked for ISR (plan 038).
   //
-  // Until now the embed iframe's theme was determined by the Loop 60
-  // FOUC init script in the root layout, which reads localStorage +
-  // prefers-color-scheme. For a third-party-site visitor opening the
-  // widget for the first time, localStorage is empty → the customer's
-  // OS preference wins, regardless of what the shop owner picked in
-  // /settings/widget. The "Color mode: Dark" setting was cosmetic.
-  //
-  // The script below runs AFTER the root layout's init script (later
-  // in the document) and BEFORE React hydrates, so it overrides the
-  // `data-theme` attribute synchronously. For `mode === 'auto'` we
+  // The shop's saved `widget_config.mode` is baked into this cached HTML;
+  // the per-instance `?theme=dark|light|auto` override is read from
+  // `location.search` AT RUNTIME by this same inline script, so one cached
+  // document serves every instance without a flash of the wrong theme. The
+  // script runs AFTER the root layout's FOUC init script (later in the
+  // document) and BEFORE React hydrates. For a resolved mode of 'auto' we
   // intentionally do nothing — the root script's prefers-color-scheme
   // detection is the right behavior.
-  const themeOverrideScript =
-    widgetConfig.mode === 'auto'
-      ? null
-      : `(function(){var t='${widgetConfig.mode}';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');})();`;
+  const themeOverrideScript = `(function(){var t='${widgetConfig.mode}';var m=/[?&]theme=(dark|light|auto)(&|$)/.exec(location.search);if(m)t=m[1];if(t==='auto')return;document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');})();`;
+
+  // UX-07 (plan 038) — a shop with nothing bookable used to render the full
+  // wizard shell with an empty service list inside the salon's own website.
+  // Show a compact, branded "call us" card instead. Done HERE (the embed
+  // wrapper), not in the shared BookingWizard.
+  const isEmpty = services.length === 0 || barbers.length === 0;
+  const tEmbed = isEmpty ? await getTranslations({ locale, namespace: 'pages.embed' }) : null;
 
   return (
     <>
-      {themeOverrideScript ? (
-        // eslint-disable-next-line react/no-danger
-        <script dangerouslySetInnerHTML={{ __html: themeOverrideScript }} />
-      ) : null}
-      {/* Skip the static SSR theme block in preview mode: `PreviewWrapper`
-       *  injects its own reactive <style> from the live config. Emitting
-       *  BOTH means clearing an override (e.g. blanking accent_color) can't
-       *  visually reset — the live style goes empty but this static block
-       *  keeps applying the saved accent. Letting the wrapper own all theme
-       *  CSS in preview keeps "what you see" == "what you'd save". */}
-      {!isPreview && themeCss ? (
+      {/* eslint-disable-next-line react/no-danger */}
+      <script dangerouslySetInnerHTML={{ __html: themeOverrideScript }} />
+      {themeCss ? (
         // eslint-disable-next-line react/no-danger
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
       ) : null}
       <WidgetResizeEmitter />
-      {/* Phase H+10 — full live preview supersedes Loop 66's narrower
-       *  theme-only listener. In preview mode, `PreviewWrapper` holds
-       *  the WidgetConfig as React state, derives shop + applies
-       *  theme reactively, and re-renders the wizard on every parent
-       *  postMessage broadcast. Public embed loads bypass it entirely
-       *  and render the saved-config-derived `shop` directly. */}
-      {isPreview ? (
-        <PreviewWrapper
-          initialConfig={widgetConfig}
-          rawShop={shopRow as BookingShop}
-          locale={locale}
-          shopSlug={shopSlug}
-          hours={hours}
-          daysOff={daysOff}
-          barbers={barbers}
-          services={services}
-          categories={categories}
-          tipsConfig={tipsConfig}
-        />
+      {isEmpty && tEmbed ? (
+        <div className="flex min-h-[320px] items-center justify-center p-6">
+          <div className="flex max-w-sm flex-col items-center gap-3 rounded-lg bg-bg-surface px-6 py-10 text-center shadow-sm">
+            <CalendarX2 className="h-8 w-8 text-text-muted" aria-hidden />
+            <h1 className="text-base font-semibold text-text-primary">{tEmbed('empty.title')}</h1>
+            <p className="text-sm text-text-secondary">{tEmbed('empty.body')}</p>
+            {shop.phone ? (
+              <a
+                href={`tel:${shop.phone}`}
+                className="mt-1 text-sm font-medium text-accent-text underline-offset-2 hover:underline"
+              >
+                {tEmbed('empty.call', { phone: shop.phone })}
+              </a>
+            ) : null}
+          </div>
+        </div>
       ) : (
-        <BookingWizard
+        <EmbedWizard
           locale={locale}
           shopSlug={shopSlug}
           shop={shop}
@@ -236,7 +112,6 @@ export default async function EmbedBookingPage(props: Props) {
           categories={categories}
           widgetConfig={widgetConfig}
           tipsConfig={tipsConfig}
-          analyticsSource={analyticsSource}
         />
       )}
     </>
