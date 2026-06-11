@@ -16,7 +16,13 @@ export const serviceSchema = z.object({
     .max(8 * 60, 'DURATION_MAX'),
   price: z.number().min(0).max(99999.99),
   status: z.enum(SERVICE_STATUSES),
-  tax_ids: z.array(z.string().uuid()),
+  // Dedup so a doubled tax_id can't reach the M:N writer (the RPC also
+  // `select distinct`s, but de-duping at the edge keeps the payload honest).
+  // Max 20 is a generous bound — Québec services carry 2 (TPS+TVQ).
+  tax_ids: z
+    .array(z.string().uuid())
+    .max(20)
+    .transform((a) => [...new Set(a)]),
   /**
    * Phase 42 — optional deposit charged at booking (in cents).
    * 0 = no deposit required. Booking flow consumes this via the Phase 38

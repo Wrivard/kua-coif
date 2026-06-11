@@ -9,6 +9,7 @@ import {
   revalidateShopConfig,
 } from '@/lib/server-actions/revalidate';
 import { logAuditAction } from '@/lib/audit-log';
+import { captureException } from '@/lib/observability';
 import {
   deleteServiceCategorySchema,
   deleteServiceSchema,
@@ -22,8 +23,36 @@ import {
 
 const SERVICES_PATH = '/services';
 
+// Catalog mutations run on the USER-SESSION client (RLS-bound). The
+// `.eq('shop_id', ctx.shopId)` filters below are defense-in-depth on top of
+// the per-command RLS (catalog_rls_per_command): behaviour is unchanged
+// today, but they remove the silent cross-tenant footgun if this ever moves
+// to service-role. `set_service_taxes` is the SECURITY INVOKER RPC from
+// 20260611120000 — atomic + same-shop-validated tax linking (mirror of
+// products' set_product_taxes).
 function db() {
   return createSupabaseServerClient();
+}
+
+/**
+ * Confirm the referenced category belongs to the active shop. RLS already
+ * hides other shops' rows, so a foreign id simply resolves to no row — but we
+ * assert it explicitly so a crafted `category_id` from another shop is
+ * rejected with a precise error rather than silently stored (mirror of
+ * products' belongsToShop).
+ */
+async function categoryBelongsToShop(
+  sb: ReturnType<typeof db>,
+  id: string,
+  shopId: string,
+): Promise<boolean> {
+  const { data } = await sb
+    .from('service_categories')
+    .select('id')
+    .eq('id', id)
+    .eq('shop_id', shopId)
+    .maybeSingle();
+  return Boolean(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -34,6 +63,13 @@ export const createService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
+
+    if (
+      input.category_id &&
+      !(await categoryBelongsToShop(supabase, input.category_id, ctx.shopId))
+    ) {
+      return err('INVALID_INPUT');
+    }
 
     const { data, error } = await supabase
       .from('services')
@@ -51,15 +87,24 @@ export const createService = withAction({
       .single();
 
     if (error || !data) {
+      captureException(error ?? new Error('createService: no row returned'), {
+        tags: { layer: 'services' },
+      });
       return err('UNEXPECTED');
     }
 
-    // Attach taxes (M:N) — best-effort, failure here doesn't roll back the
-    // service insert (RLS already protected us from cross-shop tax IDs).
-    if (input.tax_ids.length > 0) {
-      await supabase
-        .from('service_taxes')
-        .insert(input.tax_ids.map((tax_id) => ({ service_id: data.id, tax_id })));
+    // Atomic, same-shop-validated tax linking (set_service_taxes RPC,
+    // 20260611120000). On failure, best-effort delete the orphan service so
+    // we never persist a service without the taxes the manager intended —
+    // the old delete-then-insert could silently lose them.
+    const { error: taxError } = await supabase.rpc('set_service_taxes', {
+      p_service_id: data.id,
+      p_tax_ids: input.tax_ids,
+    });
+    if (taxError) {
+      captureException(taxError, { tags: { layer: 'services' } });
+      await supabase.from('services').delete().eq('id', data.id).eq('shop_id', ctx.shopId);
+      return err('UNEXPECTED');
     }
 
     await logAuditAction({
@@ -89,20 +134,35 @@ export const updateService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { id, tax_ids: _tax_ids, ...rest } = input;
-    void _tax_ids;
+    const { id, tax_ids, ...rest } = input;
 
-    const { error } = await supabase.from('services').update(rest).eq('id', id);
-    if (error) return err('UNEXPECTED');
+    if (
+      rest.category_id &&
+      !(await categoryBelongsToShop(supabase, rest.category_id, ctx.shopId))
+    ) {
+      return err('INVALID_INPUT');
+    }
 
-    // Replace tax links: delete then re-insert. Atomic enough for V1 (audit
-    // log captures the action). A Phase 5+ improvement would wrap this in a
-    // Postgres function for transactional safety.
-    await supabase.from('service_taxes').delete().eq('service_id', id);
-    if (input.tax_ids.length > 0) {
-      await supabase
-        .from('service_taxes')
-        .insert(input.tax_ids.map((tax_id) => ({ service_id: id, tax_id })));
+    const { error } = await supabase
+      .from('services')
+      .update(rest)
+      .eq('id', id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
+
+    // Atomic, same-shop-validated tax linking (set_service_taxes RPC,
+    // 20260611120000) — replaces the old unchecked delete-then-insert that
+    // could silently lose the service's taxes mid-flight.
+    const { error: taxError } = await supabase.rpc('set_service_taxes', {
+      p_service_id: id,
+      p_tax_ids: tax_ids,
+    });
+    if (taxError) {
+      captureException(taxError, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
     }
 
     await logAuditAction({
@@ -132,8 +192,21 @@ export const deleteService = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const supabase = db();
-    const { error } = await supabase.from('services').delete().eq('id', input.id);
-    if (error) return err('UNEXPECTED');
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId);
+    if (error) {
+      // 23503 = FK violation: appointment_services.service_id is ON DELETE
+      // RESTRICT (init_schema.sql:312), so a service with booking history
+      // can't be hard-deleted. A normal user case → CONFLICT (same shape as
+      // deleteServiceCategory's referenced-guard), not UNEXPECTED/Sentry —
+      // the owner's path is to disable the service instead.
+      if (error.code === '23503') return err('CONFLICT');
+      captureException(error, { tags: { layer: 'services' } });
+      return err('UNEXPECTED');
+    }
 
     await logAuditAction({
       shopId: ctx.shopId,
