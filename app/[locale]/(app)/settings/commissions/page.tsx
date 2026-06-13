@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
 import type { BarberRow, CommissionTierRow } from '@/db/rows';
 import { CommissionsClient } from './commissions-client';
 
@@ -14,10 +14,23 @@ export default async function CommissionsPage(props: { params: Promise<{ locale:
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
+  const shopId = await getCurrentShopId();
+  if (!shopId) {
+    return <CommissionsClient barbers={[]} tiers={[]} />;
+  }
+
   const supabase = createSupabaseServerClient();
   const [barbersRes, tiersRes] = await Promise.all([
-    supabase.from('barbers').select('*').order('sort_order', { ascending: true }),
-    supabase.from('commission_tiers').select('*'),
+    supabase
+      .from('barbers')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('commission_tiers')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('barber_id', { ascending: true }),
   ]);
 
   const barbers = (barbersRes.data ?? []).filter((b) => b.status === 'confirmed');
