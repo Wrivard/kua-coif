@@ -8,6 +8,7 @@ import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import type { ClientRow } from '@/db/rows';
+import type { Json } from '@/db/types';
 import { normalizePhoneKey } from '@/lib/utils';
 import {
   anonymizeClientSchema,
@@ -96,6 +97,38 @@ export const updateClient = withAction({
         .limit(1);
       const rows = check.data ?? [];
       if (rows.length === 0) return err('FORBIDDEN', { reason: 'not_your_client' });
+    }
+
+    // Dedup-on-update (mirror createClient): refuse if this edit would collide
+    // with ANOTHER active client (same normalized phone OR email) in this shop.
+    // `.neq('id', id)` excludes the row being edited; anonymized rows excluded.
+    const dupDb = createSupabaseServiceRoleClient();
+    const phoneNorm = rest.phone ? normalizePhoneKey(rest.phone) : '';
+    if (phoneNorm.length >= 7) {
+      const dup = await dupDb
+        .from('clients')
+        .select('id')
+        .eq('shop_id', ctx.shopId)
+        .eq('phone_normalized', phoneNorm)
+        .is('anonymized_at', null)
+        .neq('id', id)
+        .limit(1);
+      if (((dup.data as Array<{ id: string }> | null) ?? []).length > 0) {
+        return err('CONFLICT', { reason: 'duplicate_phone' });
+      }
+    }
+    if (rest.email) {
+      const dup = await dupDb
+        .from('clients')
+        .select('id')
+        .eq('shop_id', ctx.shopId)
+        .eq('email', rest.email)
+        .is('anonymized_at', null)
+        .neq('id', id)
+        .limit(1);
+      if (((dup.data as Array<{ id: string }> | null) ?? []).length > 0) {
+        return err('CONFLICT', { reason: 'duplicate_email' });
+      }
     }
 
     const { error } = await createSupabaseServerClient().from('clients').update(rest).eq('id', id);
@@ -325,6 +358,33 @@ const ANON_PHONE = null;
 const ANON_EMAIL = null;
 const ANON_NOTES = null;
 
+// Loi 25 (MED-3) erasure placeholder for the audit-log history scrub. Distinct
+// from the trigger's '[redacted]' (the standing PII mask) so an auditor can
+// tell an on-request erasure from the default redaction.
+const AUDIT_ERASED = '[anonymized]';
+
+/**
+ * Return a copy of an audit_log `diff` with the given name keys neutralized to
+ * `AUDIT_ERASED` inside its before/after snapshots (present + non-null only —
+ * mirrors `_audit_redact_keys`). Loi 25: we mutate the diff in place of the
+ * erased subject's PII; the audit ENTRY itself is never deleted.
+ */
+function eraseDiffNamePii(diff: Json | null, keys: readonly string[]): Json {
+  if (!diff || typeof diff !== 'object' || Array.isArray(diff)) return diff;
+  const out: Record<string, Json> = { ...(diff as Record<string, Json>) };
+  for (const side of ['before', 'after'] as const) {
+    const snap = out[side];
+    if (snap && typeof snap === 'object' && !Array.isArray(snap)) {
+      const next = { ...(snap as Record<string, Json>) };
+      for (const k of keys) {
+        if (k in next && next[k] !== null) next[k] = AUDIT_ERASED;
+      }
+      out[side] = next;
+    }
+  }
+  return out;
+}
+
 export const anonymizeClient = withAction({
   schema: anonymizeClientSchema,
   minRole: 'manager',
@@ -339,7 +399,7 @@ export const anonymizeClient = withAction({
 
     const clientRes = await admin
       .from('clients')
-      .select('id, shop_id, anonymized_at, phone, email, quickbooks_customer_id')
+      .select('id, shop_id, anonymized_at, phone, email, quickbooks_customer_id, me_token_version')
       .eq('id', input.id)
       .single();
     const client = clientRes.data as {
@@ -349,6 +409,7 @@ export const anonymizeClient = withAction({
       phone: string | null;
       email: string | null;
       quickbooks_customer_id: string | null;
+      me_token_version: number | null;
     } | null;
     if (!client) return err('NOT_FOUND');
     if (client.shop_id !== ctx.shopId) return err('NOT_FOUND');
@@ -372,6 +433,9 @@ export const anonymizeClient = withAction({
         date_of_birth: null,
         notes: ANON_NOTES,
         anonymized_at: new Date().toISOString(),
+        // MED-3 revoke /me — bump the token version so any outstanding
+        // self-service link for this (now anonymized) client stops verifying.
+        me_token_version: (client.me_token_version ?? 0) + 1,
       })
       .eq('id', input.id);
     if (error) return err('UNEXPECTED');
@@ -404,6 +468,35 @@ export const anonymizeClient = withAction({
         .eq('shop_id', ctx.shopId)
         .eq('email', oldEmail);
     }
+
+    // MED-3 (Loi 25) — the client's NAME persists in PRIOR audit_log snapshots
+    // (the trigger records before/after). The owner chose COMPLETE erasure, so
+    // neutralize the name everywhere it appears in this client's audit trail:
+    // the clients rows (first_name/last_name) AND the appointments rows that
+    // carry client_name_snapshot for this client's visits. Migration
+    // 20260613190000 redacts these keys going FORWARD; this scrubs the history.
+    // We UPDATE (never delete) — the entry stays immutable, only the erased
+    // subject's PII is masked. Service-role: audit_log has only a SELECT policy.
+    // Best-effort: a failure here doesn't unwind the primary wipe above.
+    const scrubAuditName = async (entity: string, ids: string[], keys: string[]) => {
+      if (ids.length === 0) return;
+      const auditRows = await admin
+        .from('audit_log')
+        .select('id, diff')
+        .eq('entity', entity)
+        .eq('shop_id', ctx.shopId)
+        .in('entity_id', ids);
+      for (const r of (auditRows.data as Array<{ id: number; diff: Json | null }> | null) ?? []) {
+        await admin
+          .from('audit_log')
+          .update({ diff: eraseDiffNamePii(r.diff, keys) })
+          .eq('id', r.id);
+      }
+    };
+    await scrubAuditName('clients', [input.id], ['first_name', 'last_name']);
+    const apptRows = await admin.from('appointments').select('id').eq('client_id', input.id);
+    const apptIds = ((apptRows.data as Array<{ id: string }> | null) ?? []).map((a) => a.id);
+    await scrubAuditName('appointments', apptIds, ['client_name_snapshot']);
 
     await logDurableAudit({
       shopId: ctx.shopId,
