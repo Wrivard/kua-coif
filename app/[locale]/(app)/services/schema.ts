@@ -33,7 +33,7 @@ export const serviceSchema = z.object({
    * the modal's defaults); kept non-optional to keep react-hook-form's
    * input/output types aligned.
    */
-  deposit_amount_cents: z.number().int().min(0).max(100_000_00).multipleOf(0.01),
+  deposit_amount_cents: z.number().int().min(0).max(100_000_00),
 });
 
 export type ServiceInput = z.infer<typeof serviceSchema>;
