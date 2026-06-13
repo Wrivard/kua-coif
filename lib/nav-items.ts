@@ -2,7 +2,6 @@ import {
   BookOpen,
   Calendar,
   DollarSign,
-  LifeBuoy,
   Megaphone,
   Package,
   Scissors,
@@ -47,7 +46,6 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/services', icon: Scissors, labelKey: 'services', matchPrefix: true },
   { href: '/barbers', icon: UserCircle2, labelKey: 'barbers', matchPrefix: true },
   { href: '/products', icon: Package, labelKey: 'products', matchPrefix: true },
-  { href: '/support', icon: LifeBuoy, labelKey: 'support', matchPrefix: true },
   { href: '/documentation', icon: BookOpen, labelKey: 'documentation', matchPrefix: true },
   {
     href: '/settings/shop',
