@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   getCurrentBarberId: vi.fn(),
   captureException: vi.fn(),
   logAuditAction: vi.fn(),
+  logDurableAudit: vi.fn(),
   revalidatePath: vi.fn(),
   sbClient: { current: null as unknown },
 }));
@@ -39,7 +40,10 @@ vi.mock('@/lib/supabase/service-role', () => ({
   createSupabaseServiceRoleClient: () => h.sbClient.current,
 }));
 vi.mock('@/lib/supabase/server', () => ({ createSupabaseServerClient: () => h.sbClient.current }));
-vi.mock('@/lib/audit-log', () => ({ logAuditAction: (...a: unknown[]) => h.logAuditAction(...a) }));
+vi.mock('@/lib/audit-log', () => ({
+  logAuditAction: (...a: unknown[]) => h.logAuditAction(...a),
+  logDurableAudit: (...a: unknown[]) => h.logDurableAudit(...a),
+}));
 vi.mock('next/cache', () => ({ revalidatePath: (...a: unknown[]) => h.revalidatePath(...a) }));
 
 import { inviteUser } from './actions';
@@ -64,6 +68,7 @@ beforeEach(() => {
   h.getCurrentShopId.mockResolvedValue(SHOP_A);
   h.getCurrentBarberId.mockResolvedValue(null);
   h.logAuditAction.mockResolvedValue(undefined);
+  h.logDurableAudit.mockResolvedValue(undefined);
   h.sbClient.current = null;
 });
 

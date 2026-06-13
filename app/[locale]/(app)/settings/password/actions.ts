@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { mapSupabaseAuthError } from '@/lib/auth/errors';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { changePasswordSchema } from './schema';
 
@@ -47,10 +47,12 @@ export const changePassword = withAction({
     const { error } = await supabase.auth.updateUser({ password: input.new_password });
     if (error) return err('UNEXPECTED');
 
-    // Loop 30 (P2.104) — password change is a security-relevant event;
-    // log it so a compromised account leaves a trail. The diff carries
-    // NO password material — just the fact that a change happened.
-    await logAuditAction({
+    // Loop 30 (P2.104) — password change is a security-relevant event; log it
+    // so a compromised account leaves a trail. SOP-07: `auth.users` has no
+    // audit trigger and logAuditAction would be silently dropped by audit_log
+    // RLS, so a durable (service-role) write is the only path that actually
+    // lands. The diff carries NO password material — just the fact of change.
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',

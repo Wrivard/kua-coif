@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireKuaAdmin, getCurrentUser } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
+import { logDurableAudit } from '@/lib/audit-log';
 import { invalidatePlatformConfigCache } from '@/lib/stripe/platform-config';
 
 // Phase F — super-admin only.
@@ -97,6 +98,21 @@ export async function updatePlatformAppFee(
           tags: { layer: 'platform-config', stage: 'history-log' },
         });
       }
+
+      // AUDIT-02 — durable, attributed trail of the app-fee change, independent
+      // of the best-effort history insert above (swallowed on error). The app-
+      // fee applies to EVERY shop's every transaction, so "who changed it, from
+      // what, to what" must survive even if the history row fails. platform_config
+      // is platform-level (no shop): the nil-uuid sentinel mirrors the public-anon
+      // actorId convention already used in audit_log.
+      await logDurableAudit({
+        shopId: '00000000-0000-0000-0000-000000000000',
+        actorId: user.id,
+        action: 'update',
+        entity: 'platform_config',
+        entityId: '1',
+        diff: { old_app_fee_bps: oldBps, new_app_fee_bps: bps },
+      });
     }
 
     // Flip the in-memory cache so the next PI mint reads the new
