@@ -129,7 +129,7 @@ export function ReviewsQrClient({ shopName, initialUrl, initialQrDataUrl, labels
             @media print {
               body * { visibility: hidden !important; }
               #review-qr-print, #review-qr-print * { visibility: visible !important; }
-              #review-qr-print { position: absolute; left: 0; top: 0; width: 100%; padding: 4rem; text-align: center; background: white; color: black; }
+              #review-qr-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 4rem; text-align: center; background: white; color: black; }
               #review-qr-print img { display: inline-block; width: 60vmin; height: 60vmin; }
             }
           `,
