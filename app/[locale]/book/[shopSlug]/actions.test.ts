@@ -513,4 +513,105 @@ describe('bookPublicAppointment', () => {
     // The old read-modify-write balance write is gone.
     expect(mock.calls.some((c) => c.table === 'clients' && c.op === 'update')).toBe(false);
   });
+
+  // ── H1 — require a PaymentIntent when the shop can + wants to charge online ──
+  it('H1: prepay-capable shop (full + Connect, charge due) with NO payment_intent_id is rejected — no appointment, no refund', async () => {
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }));
+    h.srClient.current = mock.client;
+
+    // service price 30 → 'full' chargeCents 3000 > 0; Connect account present;
+    // validInput() carries NO payment_intent_id.
+    const res = await bookPublicAppointment(validInput());
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'UNEXPECTED' });
+    // The guard fires before the insert — no appointment row, and no refund
+    // (there's no PI to refund).
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+    expect(h.refundOwnedIntentBestEffort).not.toHaveBeenCalled();
+  });
+
+  it('H1: a payment_mode "none" shop still books with no payment_intent_id (pay in-shop)', async () => {
+    const mock = createSupabaseMock(baseFixtures()); // shopRow default payment_mode 'none'
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput()); // no PI
+
+    expect(res.ok).toBe(true);
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(true);
+  });
+
+  it("H1: a full-mode shop with NO Connect account books with no payment_intent_id (can't charge online)", async () => {
+    const mock = createSupabaseMock(
+      baseFixtures({ shops: [shopRow({ payment_mode: 'full', stripe_account_id: null })] }),
+    );
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput()); // no PI
+
+    expect(res.ok).toBe(true);
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(true);
+  });
+
+  // ── H2 — don't refund a PI that already backs a durable appointment ──
+  it('H2: a double-submit whose PI already backs an appointment → CONFLICT WITHOUT refunding the first booking', async () => {
+    h.verifyDepositPaymentIntent.mockResolvedValue({ valid: true, status: 'succeeded' });
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(
+      baseFixtures({
+        shops: [shopRow({ payment_mode: 'full' })],
+        appointments: [
+          // The FIRST submit already created this row carrying the same PI.
+          {
+            id: 'first-appt',
+            shop_id: 'shop-1',
+            client_id: 'client-1',
+            barber_id: BARBER_ID,
+            start_at: '2020-01-01T10:00:00.000Z',
+            end_at: '2020-01-01T10:30:00.000Z',
+            status: 'booked',
+            payment_intent_id: 'pi_abcdefgh1234',
+          },
+        ],
+      }),
+      { errors: { appointments: { insert: { code: '23505', message: 'unique_violation' } } } },
+    );
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    // The PI backs the first booking → the refund net must NOT claw it back.
+    expect(h.refundOwnedIntentBestEffort).not.toHaveBeenCalled();
+    // The H2 guard looked the PI up scoped to the shop.
+    const piLookup = mock.calls.find(
+      (c) =>
+        c.table === 'appointments' &&
+        c.op === 'select' &&
+        c.filters.some(([k]) => k === 'payment_intent_id'),
+    );
+    expect(piLookup?.filters).toContainEqual(['payment_intent_id', 'pi_abcdefgh1234']);
+    expect(piLookup?.filters).toContainEqual(['shop_id', 'shop-1']);
+  });
+
+  // H2b (the inverse — refund DOES fire when the PI backs no appointment) is
+  // covered by the existing "slot race … refunds the charged PI" test above:
+  // with no PI-backed fixture the H2 lookup is empty so the refund proceeds.
+
+  // ── L1 — overlap EXCLUDE (23P01) maps to CONFLICT ──
+  it('L1: an overlap exclusion_violation (23P01) on insert maps to CONFLICT, not UNEXPECTED', async () => {
+    h.verifyDepositPaymentIntent.mockResolvedValue({ valid: true, status: 'succeeded' });
+    h.refundOwnedIntentBestEffort.mockResolvedValue({ refunded: true });
+    const mock = createSupabaseMock(baseFixtures({ shops: [shopRow({ payment_mode: 'full' })] }), {
+      errors: { appointments: { insert: { code: '23P01', message: 'exclusion_violation' } } },
+    });
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(
+      validInput({ payment_intent_id: 'pi_abcdefgh1234', deposit_amount_cents: 3000 }),
+    );
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+  });
 });

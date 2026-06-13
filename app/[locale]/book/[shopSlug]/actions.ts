@@ -260,22 +260,48 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
         }
       }
       if (input.payment_intent_id && shop.stripe_account_id) {
+        // H2 -- never refund a PI that already backs a durable appointment. On a
+        // double-submit the unique `payment_intent_id` index rejects the 2nd
+        // insert (CONFLICT), and refunding here would claw back the money behind
+        // the FIRST, successful, paid booking. We only refund when this PI backs
+        // NO appointment -- the genuine charged-but-unbooked case (plan 001). A
+        // lookup failure must NOT block a legit refund, so it defaults to
+        // refunding (skip ONLY on a confirmed hit). (This closes the common
+        // sequential double-submit; the unique index prevents the double-booking
+        // regardless even in a sub-millisecond concurrent race.)
+        let piBacksBooking = false;
         try {
-          const r = await refundOwnedIntentBestEffort({
-            paymentIntentId: input.payment_intent_id,
-            expectedConnectedAccountId: shop.stripe_account_id,
+          const existing = await supabase
+            .from('appointments')
+            .select('id')
+            .eq('shop_id', shop.id)
+            .eq('payment_intent_id', input.payment_intent_id)
+            .limit(1);
+          piBacksBooking = ((existing.data as Array<{ id: string }> | null) ?? []).length > 0;
+        } catch (e) {
+          captureException(e, {
+            tags: { layer: 'public-booking', step: 'refund-guard-lookup' },
+            extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
           });
-          if (!r.refunded && r.reason !== 'wrong_shop' && r.reason !== 'not_charged') {
-            captureException(new Error(`[booking] refund-on-failure skipped: ${r.reason}`), {
+        }
+        if (!piBacksBooking) {
+          try {
+            const r = await refundOwnedIntentBestEffort({
+              paymentIntentId: input.payment_intent_id,
+              expectedConnectedAccountId: shop.stripe_account_id,
+            });
+            if (!r.refunded && r.reason !== 'wrong_shop' && r.reason !== 'not_charged') {
+              captureException(new Error(`[booking] refund-on-failure skipped: ${r.reason}`), {
+                tags: { layer: 'public-booking', step: 'refund-on-failure' },
+                extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
+              });
+            }
+          } catch (e) {
+            captureException(e, {
               tags: { layer: 'public-booking', step: 'refund-on-failure' },
               extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
             });
           }
-        } catch (e) {
-          captureException(e, {
-            tags: { layer: 'public-booking', step: 'refund-on-failure' },
-            extra: { shopId: shop.id, paymentIntentId: input.payment_intent_id },
-          });
         }
       }
       return err(...args);
@@ -655,6 +681,24 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     const loyaltyCreditCents = pricing.loyaltyCreditCents;
     const recomputedDepositCents = input.payment_intent_id ? pricing.chargeCents : 0;
 
+    // H1 — require a PaymentIntent when the shop CAN charge online AND a charge
+    // is actually due. Without this, a crafted POST that simply omits
+    // `payment_intent_id` would book UNPAID for a prepay shop (defeating its
+    // deposit / no-show protection). We deliberately do NOT block:
+    //   - payment_mode 'none' (the shop collects in-shop),
+    //   - a shop with no Connect account (can't charge online → pay in-shop),
+    //   - `pricing.chargeCents === 0` (a 100% promo or zero-deposit selection —
+    //     nothing to pay, so a missing PI is legitimate).
+    // `failBooking` here is a no-op refund-wise (there's no PI to refund).
+    if (
+      shop.payment_mode !== 'none' &&
+      shop.stripe_account_id &&
+      pricing.chargeCents > 0 &&
+      !input.payment_intent_id
+    ) {
+      return await failBooking('UNEXPECTED');
+    }
+
     let verifiedPaymentStatus: 'paid' | 'pending' = 'pending';
     if (input.payment_intent_id) {
       // A PI with no shop Connect account is impossible — the
@@ -751,13 +795,18 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       .select('id')
       .single();
     if (insertAppt.error || !insertAppt.data) {
-      // Phase 70 audit P2.16 — unique_violation on the partial index
-      // `appointments_active_barber_slot_idx` means another insert won
-      // the race for this barber+slot. Surface as CONFLICT so the
-      // wizard tells the customer the slot is taken, same UX as a
-      // synchronous availability fail. Postgres error code 23505 =
-      // unique_violation; Supabase exposes it via `error.code`.
-      if (insertAppt.error?.code === '23505') return await failBooking('CONFLICT');
+      // A concurrent insert lost the race for this barber+slot — surface as
+      // CONFLICT so the wizard tells the customer the slot is taken (same UX as
+      // a synchronous availability fail). Two DB guards can fire:
+      //   - 23505 unique_violation: the partial index
+      //     `appointments_active_barber_slot_idx` (Phase 70 audit P2.16) —
+      //     a collision at the SAME start_at.
+      //   - 23P01 exclusion_violation: the `appointments_no_overlap` EXCLUDE
+      //     GiST constraint — any DURATION overlap at a different start_at. L1
+      //     maps it to CONFLICT too (was falling through to UNEXPECTED).
+      // Supabase exposes the SQLSTATE via `error.code`.
+      if (insertAppt.error?.code === '23505' || insertAppt.error?.code === '23P01')
+        return await failBooking('CONFLICT');
       return await failBooking('UNEXPECTED');
     }
     const apptId = insertAppt.data.id;
