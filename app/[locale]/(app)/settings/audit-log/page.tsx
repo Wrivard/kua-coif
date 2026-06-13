@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
  * Audit log admin view — added in Phase 17 (Phase 15 review flagged the
  * `audit_log` table as having no admin surface). RLS already gates this to
  * managers + owners; we add a defensive `requireRoleInCurrentShop` check on
- * top so a barber accessing the URL gets a clean redirect instead of an
+ * top so a barber accessing the URL hits the error boundary (the check
+ * THROWS `FORBIDDEN`, caught by `(app)/error.tsx`) instead of a silently
  * empty result set.
  *
  * Read-only by design — no edit, no delete. The table is the system of
