@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrencyCAD } from '@/lib/utils';
-import { shopIsoDate } from '@/lib/business/timezone';
+import { parseShopIsoDate, shopDayEnd, shopIsoDate } from '@/lib/business/timezone';
 import { RevenueTrendChart } from '@/components/ui/revenue-trend-chart-lazy';
 import {
   computeCommission,
@@ -611,15 +611,19 @@ function resolveRange(
   const customRange = startValid && endValid;
 
   if (customRange) {
-    const offset = tzOffsetSuffix(timezone, new Date());
-    const rangeStart = new Date(`${searchParams.start}T00:00:00${offset}`);
-    // `end` is inclusive from the user's perspective — add one day so the
-    // half-open interval [start, end+1) covers the chosen last day.
-    const endDate = new Date(`${searchParams.end}T00:00:00${offset}`);
-    endDate.setDate(endDate.getDate() + 1);
+    // DST-correct: resolve each boundary in the shop's timezone FOR ITS OWN
+    // DATE (seasonal offset), mirroring today/page.tsx — NOT the offset of
+    // today. The old `tzOffsetSuffix(…, new Date())` froze on today's offset,
+    // so an off-season range (e.g. a January range viewed in June) parsed as
+    // -04:00 instead of -05:00, shifting the day boundaries by 1h.
+    const rangeStart = parseShopIsoDate(searchParams.start!, timezone);
+    // `end` is inclusive from the user's perspective; `shopDayEnd` returns the
+    // last instant of that day, so the half-open `[start, rangeEnd)` SQL filter
+    // covers the chosen last day — the exact boundary `/today` uses.
+    const rangeEnd = shopDayEnd(parseShopIsoDate(searchParams.end!, timezone), timezone);
     return {
       rangeStart,
-      rangeEnd: endDate,
+      rangeEnd,
       rangeStartIso: searchParams.start!,
       rangeEndIso: searchParams.end!,
       isDefaultRange: false,
