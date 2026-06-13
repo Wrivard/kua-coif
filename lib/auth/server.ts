@@ -26,26 +26,26 @@ export const SHOP_COOKIE = 'kua_active_shop';
 /**
  * Resolve the current user from the request cookies.
  *
- * Uses `getSession()` (not `getUser()`) â€” `getSession()` parses the JWT
- * from cookies and validates its signature locally (~5ms), only making
- * a network call when the access token is expired (auto-refresh).
- * `getUser()` always POSTs to /auth/v1/user (~150ms) which would be
- * paid on every server render.
+ * Uses `getUser()`, which revalidates the access token against the Supabase
+ * auth server on every call. We deliberately do NOT use `getSession()` here:
+ * it only DECODES the cookie and does NOT verify the JWT signature server-side
+ * (the client holds no signing secret), so a forged/tampered cookie would be
+ * trusted. Supabase's own guidance is to never trust `getSession()` in server
+ * code and use `getUser()` for authorization (AUTHZ-01). This function is the
+ * identity source for every critical gate (`requireUser`, `requireShopMember`,
+ * `requireKuaAdmin`, `requireRoleInCurrentShop`, `withAction`), so it must be
+ * the authoritative check.
  *
- * Security: the JWT is signed with Supabase's project secret which only
- * Supabase and our server know. A forged token fails signature check;
- * a valid token grants access until its `exp` claim. For our threat model
- * (salon SaaS, no remote-revoke flow) this is sufficient.
- *
- * Wrapped in React `cache()` so multiple components in the same render
- * (layout + page + nested server components) share a single read of the
- * cookie store.
+ * Wrapped in React `cache()` so the layout + page + nested gates in one render
+ * share a SINGLE `getUser()` round-trip (~150ms paid once per request, not per
+ * gate). The Edge middleware keeps `getSession()` only to refresh the cookie
+ * (it is not a security gate); this page-layer revalidation is.
  */
 export const getCurrentUser = cache(async () => {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) return null;
-  return data.session.user;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return data.user;
 });
 
 /**
