@@ -51,7 +51,7 @@ export function TwoFactorClient() {
   async function refresh() {
     const { data, error } = await supabase.auth.mfa.listFactors();
     if (error) {
-      show({ variant: 'danger', title: error.message });
+      show({ variant: 'danger', title: t('errors.generic') });
       setFactors([]);
       return;
     }
@@ -71,7 +71,7 @@ export function TwoFactorClient() {
         friendlyName: `Authenticator (${new Date().toISOString().slice(0, 10)})`,
       });
       if (error) {
-        show({ variant: 'danger', title: error.message });
+        show({ variant: 'danger', title: t('errors.generic') });
         return;
       }
       if (data) {
@@ -101,7 +101,7 @@ export function TwoFactorClient() {
     startTransition(async () => {
       const challenge = await supabase.auth.mfa.challenge({ factorId: enrollment.factorId });
       if (challenge.error || !challenge.data) {
-        show({ variant: 'danger', title: challenge.error?.message ?? 'Challenge failed' });
+        show({ variant: 'danger', title: t('errors.generic') });
         return;
       }
       const verify = await supabase.auth.mfa.verify({
@@ -110,10 +110,10 @@ export function TwoFactorClient() {
         code: code.trim(),
       });
       if (verify.error) {
-        show({ variant: 'danger', title: verify.error.message });
+        show({ variant: 'danger', title: t('errors.generic') });
         return;
       }
-      show({ variant: 'success', title: 'Two-factor enabled' });
+      show({ variant: 'success', title: t('toasts.enabled') });
       setEnrollment(null);
       setCode('');
       await refresh();
@@ -124,10 +124,10 @@ export function TwoFactorClient() {
     startTransition(async () => {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
       if (error) {
-        show({ variant: 'danger', title: error.message });
+        show({ variant: 'danger', title: t('errors.generic') });
         return;
       }
-      show({ variant: 'success', title: 'Two-factor removed' });
+      show({ variant: 'success', title: t('toasts.removed') });
       await refresh();
     });
   }
@@ -145,20 +145,17 @@ export function TwoFactorClient() {
       {/* Status card */}
       <Card>
         <CardHeader>
-          <CardTitle>Authenticator app</CardTitle>
+          <CardTitle>{t('cardTitle')}</CardTitle>
         </CardHeader>
         <CardBody className="space-y-4">
           {factors.length === 0 && !enrollment ? (
             <>
               <div className="flex items-center gap-3">
                 <ShieldOff className="h-5 w-5 shrink-0 text-text-muted" />
-                <p className="text-sm text-text-secondary">
-                  Two-factor authentication is off. Enable it to require a one-time code from your
-                  authenticator app at sign-in.
-                </p>
+                <p className="text-sm text-text-secondary">{t('offDescription')}</p>
               </div>
               <Button onClick={startEnrollment} loading={isPending}>
-                Enable two-factor
+                {t('enable')}
               </Button>
             </>
           ) : null}
@@ -168,8 +165,7 @@ export function TwoFactorClient() {
               <div className="flex items-center gap-3">
                 <ShieldCheck className="h-5 w-5 shrink-0 text-success" />
                 <p className="text-sm text-text-secondary">
-                  Two-factor is active on {factors.length} method
-                  {factors.length === 1 ? '' : 's'}.
+                  {t('activeCount', { count: factors.length })}
                 </p>
               </div>
               {factors.map((f) => (
@@ -179,7 +175,7 @@ export function TwoFactorClient() {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-text-primary">
-                      {f.friendly_name ?? 'Authenticator'}
+                      {f.friendly_name ?? t('authenticatorFallback')}
                     </p>
                     <p className="text-[11px] uppercase tracking-wide text-text-muted">
                       {f.status}
@@ -191,7 +187,7 @@ export function TwoFactorClient() {
                     onClick={() => setConfirmFactorId(f.id)}
                     disabled={isPending}
                   >
-                    Remove
+                    {t('remove')}
                   </Button>
                 </div>
               ))}
@@ -202,7 +198,7 @@ export function TwoFactorClient() {
                   onClick={startEnrollment}
                   disabled={isPending}
                 >
-                  Add another
+                  {t('addAnother')}
                 </Button>
               </div>
             </div>
@@ -210,16 +206,13 @@ export function TwoFactorClient() {
 
           {enrollment ? (
             <div className="space-y-4">
-              <p className="text-sm text-text-secondary">
-                Scan the QR with your authenticator app (Google Authenticator, 1Password, etc.),
-                then enter the 6-digit code it shows.
-              </p>
+              <p className="text-sm text-text-secondary">{t('enrollInstructions')}</p>
               <div className="flex justify-center">
                 {/* The QR is returned as an SVG data URL by Supabase. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={enrollment.qrCode}
-                  alt="2FA QR code"
+                  alt={t('qrAlt')}
                   className="h-48 w-48 rounded-lg border border-border bg-white p-2"
                 />
               </div>
@@ -227,7 +220,7 @@ export function TwoFactorClient() {
                 {enrollment.secret}
               </div>
               <div>
-                <Label htmlFor="totp_code">Verification code</Label>
+                <Label htmlFor="totp_code">{t('verificationCode')}</Label>
                 <Input
                   id="totp_code"
                   inputMode="numeric"
@@ -240,10 +233,10 @@ export function TwoFactorClient() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={cancelEnrollment} disabled={isPending}>
-                  Cancel
+                  {tCommon('actions.cancel')}
                 </Button>
                 <Button onClick={verifyEnrollment} loading={isPending} disabled={code.length !== 6}>
-                  Verify
+                  {t('verify')}
                 </Button>
               </div>
             </div>
