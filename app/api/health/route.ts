@@ -1,75 +1,46 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { stripeConfigured } from '@/lib/stripe/server';
 
 /**
- * Health check for monitoring services (UptimeRobot, Vercel, custom alerts).
+ * Public health check for uptime monitors (UptimeRobot, Vercel) and load
+ * balancers.
  *
- * Returns:
- *   200 { ok: true,  uptime, supabase: 'ok' | 'skipped', timestamp }
- *   503 { ok: false, uptime, supabase: 'error', error, timestamp }
- *
- * `supabase: 'skipped'` means env vars aren't configured (local dev without
- * a project) — the app itself is reachable but the data layer can't be
- * verified. Monitoring should alert on `503` only.
- *
- * No PII, no shop data, no sensitive details — safe to expose publicly.
+ * INT-O3 — the body is deliberately MINIMAL (`{ ok }` only). An anonymous
+ * caller must learn nothing about integration configuration (Stripe /
+ * webhook-secret presence, Supabase reachability labels, error messages) — that
+ * was free reconnaissance. Liveness is carried by the HTTP STATUS instead:
+ *   - 200 → the app + data layer are reachable
+ *   - 503 → the data layer is down (the signal monitors alert on)
+ * Nothing consumes the response body (DEPLOY.md §7: the monitor only checks for
+ * a 200). Operators verify integration config via the authenticated settings
+ * pages / Vercel env, not this public endpoint.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function health(ok: boolean): NextResponse {
+  return NextResponse.json(
+    { ok },
+    { status: ok ? 200 : 503, headers: { 'cache-control': 'no-store' } },
+  );
+}
+
 export async function GET() {
-  const startedAt = Date.now();
-  // Boolean-only Stripe config surface (never leak secret values). Lets
-  // monitoring catch a deploy where STRIPE_WEBHOOK_SECRET wasn't set — which
-  // silently drops every incoming Stripe event (the webhook fails loud now too).
-  const stripe = {
-    configured: stripeConfigured(),
-    webhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-  };
+  // No Supabase env (local / preview without a project): the app itself is
+  // reachable, so report healthy — without revealing that the env is unset.
   const hasSupabaseEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
-
-  if (!hasSupabaseEnv) {
-    return NextResponse.json(
-      {
-        ok: true,
-        supabase: 'skipped',
-        stripe,
-        uptimeMs: Math.round(process.uptime() * 1000),
-        timestamp: new Date().toISOString(),
-      },
-      { status: 200, headers: { 'cache-control': 'no-store' } },
-    );
-  }
+  if (!hasSupabaseEnv) return health(true);
 
   try {
     const supabase = createSupabaseServerClient();
-    // Cheapest possible ping — auth's getSession reads cookies but does NOT
-    // hit the database, so it's fast and doesn't depend on RLS being open.
+    // Cheapest possible ping — getSession reads cookies, doesn't hit the DB or
+    // depend on RLS — enough to prove the client constructs and responds.
     await supabase.auth.getSession();
-    return NextResponse.json(
-      {
-        ok: true,
-        supabase: 'ok',
-        stripe,
-        latencyMs: Date.now() - startedAt,
-        uptimeMs: Math.round(process.uptime() * 1000),
-        timestamp: new Date().toISOString(),
-      },
-      { status: 200, headers: { 'cache-control': 'no-store' } },
-    );
-  } catch (err) {
-    return NextResponse.json(
-      {
-        ok: false,
-        supabase: 'error',
-        error: err instanceof Error ? err.message : 'unknown',
-        latencyMs: Date.now() - startedAt,
-        timestamp: new Date().toISOString(),
-      },
-      { status: 503, headers: { 'cache-control': 'no-store' } },
-    );
+    return health(true);
+  } catch {
+    // Data layer unreachable → 503 (no error detail leaks to the caller).
+    return health(false);
   }
 }
