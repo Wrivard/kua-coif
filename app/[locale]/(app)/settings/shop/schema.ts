@@ -8,6 +8,15 @@ const optionalText = z
   .nullable()
   .or(z.literal('').transform(() => null));
 
+// SOP-10 — `email_logo_url` is rendered into transactional-email branding, so
+// it must originate from our own Supabase Storage bucket and nowhere else (an
+// arbitrary URL would be a tracking-pixel / recipient-IP-leak / phishing
+// vector). The only sanctioned writer, `uploadShopAsset`, calls `getPublicUrl`
+// which yields `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/…`.
+// Derive the prefix from env so it stays correct across local / placeholder
+// build / prod without hardcoding a domain.
+const STORAGE_PUBLIC_OBJECT_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/storage/v1/object/public/`;
+
 export const shopDetailsSchema = z.object({
   name: z.string().trim().min(1, 'NAME_REQUIRED').max(120),
   alias: optionalText,
@@ -55,7 +64,12 @@ export const shopDetailsSchema = z.object({
     .or(z.literal('').transform(() => null)),
 
   // Phase 62 — per-shop transactional email branding.
-  email_logo_url: optionalText,
+  email_logo_url: optionalText.refine(
+    // Empty/null = "no logo" (optionalText leaves a cleared field as ''); any
+    // other value must live under our Storage public-object prefix.
+    (v) => !v || v.startsWith(STORAGE_PUBLIC_OBJECT_PREFIX),
+    'INVALID_LOGO_URL',
+  ),
   email_accent_color: z
     .string()
     .trim()
