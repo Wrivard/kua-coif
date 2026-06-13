@@ -182,6 +182,54 @@ describe('stripe webhook POST', () => {
     expect(h.captureException).toHaveBeenCalled();
   });
 
+  it('charge.refunded FULL (amount_refunded >= amount) → marks the appointment refunded', async () => {
+    setup({
+      stripe_events: [],
+      appointments: [{ id: 'a1', payment_intent_id: 'pi_1', payment_status: 'paid' }],
+    });
+
+    const res = await POST(
+      signedRequest({
+        id: 'evt_refund_full',
+        type: 'charge.refunded',
+        data: {
+          object: { id: 'ch_1', payment_intent: 'pi_1', amount: 3000, amount_refunded: 3000 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    // Full refund → the shared writer flips payment_status to 'refunded'.
+    expect(h.markRefundedByIntent).toHaveBeenCalledTimes(1);
+    expect(h.markRefundedByIntent).toHaveBeenCalledWith(expect.anything(), 'pi_1');
+  });
+
+  it('charge.refunded PARTIAL (amount_refunded < amount) → leaves status, logs for reconciliation', async () => {
+    setup({
+      stripe_events: [],
+      appointments: [{ id: 'a1', payment_intent_id: 'pi_1', payment_status: 'paid' }],
+    });
+
+    const res = await POST(
+      signedRequest({
+        id: 'evt_refund_partial',
+        type: 'charge.refunded',
+        data: {
+          object: { id: 'ch_1', payment_intent: 'pi_1', amount: 3000, amount_refunded: 1000 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    // Partial refund must NOT erase the booking's revenue (binary status).
+    expect(h.markRefundedByIntent).not.toHaveBeenCalled();
+    // It is surfaced for manual reconciliation instead.
+    expect(h.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: { layer: 'stripe-webhook', stage: 'partial-refund' } }),
+    );
+  });
+
   it('invalid signature → 400 with zero database calls', async () => {
     const mock = setup({ stripe_events: [] });
 
