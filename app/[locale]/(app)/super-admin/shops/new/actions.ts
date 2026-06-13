@@ -1,9 +1,10 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidateTag } from 'next/cache';
 import { headers } from 'next/headers';
 import { z } from 'zod';
-import { requireKuaAdmin } from '@/lib/auth/server';
+import { requireKuaAdmin, MEMBERSHIPS_CACHE_TAG } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 import { logDurableAudit } from '@/lib/audit-log';
@@ -158,6 +159,10 @@ export async function createShopAction(
     if (memberRes.error) {
       return { kind: 'error', message: memberRes.error.message };
     }
+
+    // AUTHZ-R1 — a new owner membership was created; bust the 60s memberships
+    // cache so the owner's role resolves immediately on their next request.
+    revalidateTag(MEMBERSHIPS_CACHE_TAG);
 
     // AUDIT-01 — both inserts above run via the service-role client, so the
     // shops + shop_members audit triggers record actor_id = NULL. Add a

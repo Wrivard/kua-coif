@@ -1,10 +1,12 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { getClientIp } from '@/lib/security/client-ip';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { MEMBERSHIPS_CACHE_TAG } from '@/lib/auth/server';
 import { defaultLocale, locales, type Locale } from '@/i18n';
 import { checkRateLimit } from '@/lib/auth/rate-limit';
 import { mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth/errors';
@@ -86,6 +88,10 @@ export async function setupPasswordAction(
     .update({ status: 'confirmed' })
     .eq('user_id', userId)
     .eq('status', 'staff');
+
+  // AUTHZ-R1 — the invitee's memberships just flipped staff → confirmed; bust
+  // the 60s cache so their shops resolve on the first post-setup request.
+  revalidateTag(MEMBERSHIPS_CACHE_TAG);
 
   redirect(`/${parsed.data.locale}/`);
 }

@@ -1,9 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { headers } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
+import { MEMBERSHIPS_CACHE_TAG } from '@/lib/auth/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
@@ -97,6 +98,9 @@ export const inviteUser = withAction({
         diff: { invited_user_id: profile.id, role: input.role, status: 'confirmed' },
       });
       revalidatePath(PATH);
+      // AUTHZ-R1 — a new confirmed membership changes the invitee's role set;
+      // bust the 60s memberships cache so role/membership gates see it now.
+      revalidateTag(MEMBERSHIPS_CACHE_TAG);
       return ok<InviteResult>({ status: 'confirmed' });
     }
 
@@ -131,6 +135,8 @@ export const inviteUser = withAction({
       diff: { invited_user_id: newUserId, role: input.role, status: 'staff', invited: true },
     });
     revalidatePath(PATH);
+    // AUTHZ-R1 — bust the memberships cache (mirror Path A).
+    revalidateTag(MEMBERSHIPS_CACHE_TAG);
     return ok<InviteResult>({ status: 'staff' });
   },
 });
@@ -205,6 +211,8 @@ export const updateMember = withAction({
       },
     });
     revalidatePath(PATH);
+    // AUTHZ-R1 — role/status change invalidates the target's cached role.
+    revalidateTag(MEMBERSHIPS_CACHE_TAG);
     return ok({ id: input.member_id });
   },
 });
@@ -253,6 +261,9 @@ export const removeMember = withAction({
       diff: { status: 'deleted', from_role: target.role },
     });
     revalidatePath(PATH);
+    // AUTHZ-R1 — removal (status → deleted) drops the member from the
+    // confirmed set; bust so the cache stops returning them.
+    revalidateTag(MEMBERSHIPS_CACHE_TAG);
     return ok({ id: input.member_id });
   },
 });
