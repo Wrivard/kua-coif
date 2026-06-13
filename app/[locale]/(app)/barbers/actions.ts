@@ -8,7 +8,7 @@ import {
   revalidatePublicShopSurfaces,
   revalidateShopConfig,
 } from '@/lib/server-actions/revalidate';
-import { logAuditAction } from '@/lib/audit-log';
+import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
 import {
@@ -107,16 +107,49 @@ export const deleteBarber = withAction({
     if (error) return err('UNEXPECTED');
     if (!data || data.length === 0) return err('NOT_FOUND');
 
-    // B16 — a soft-deleted barber kept a LIVE Google webhook channel (Google
-    // POSTs to our webhook for ~30 days) + the connection row, so sync kept
-    // running for an archived barber. Tear the connection down best-effort:
-    // stop the webhook channel and remove the row. Best-effort by design — a
-    // Google/network failure must NOT block the archive (the status flip is
-    // what matters; a leftover channel just expires on its own).
+    // B16 + BR-2 — a soft-deleted barber kept a LIVE Google webhook channel
+    // (Google POSTs to our webhook for ~30 days) + the connection row, so sync
+    // kept running for an archived barber. Tear the connection down best-effort,
+    // in this ORDER: FIRST clean the barber's FUTURE mirrored events (while the
+    // connection row + token still exist — `deleteAppointmentMirror` needs them;
+    // deleting the row first would orphan those events on the barber's personal
+    // calendar forever), THEN stop the webhook channel + remove the row.
+    // Best-effort by design — a Google/network failure must NOT block the
+    // archive (the status flip is what matters).
     try {
+      const admin = createSupabaseServiceRoleClient();
+      // BR-2 — clean FUTURE ghost slots before severing. Bounded to future +
+      // capped concurrency (mirrors disconnectGoogleCalendar) so a long history
+      // can't blow the (uncapped, ~10s) server-action timeout.
+      const apptsRes = await admin
+        .from('appointments')
+        .select('id, google_event_id')
+        .eq('barber_id', input.id)
+        .eq('shop_id', ctx.shopId)
+        .not('google_event_id', 'is', null)
+        .gte('start_at', new Date().toISOString());
+      const mirrored =
+        (apptsRes.data as Array<{ id: string; google_event_id: string }> | null) ?? [];
+      if (mirrored.length > 0) {
+        const { deleteAppointmentMirror } = await import('@/lib/google/sync');
+        const CONCURRENCY = 8;
+        for (let i = 0; i < mirrored.length; i += CONCURRENCY) {
+          const batch = mirrored.slice(i, i + CONCURRENCY);
+          await Promise.allSettled(
+            batch.map((m) =>
+              deleteAppointmentMirror({
+                appointmentId: m.id,
+                barberId: input.id,
+                googleEventId: m.google_event_id,
+              }),
+            ),
+          );
+        }
+      }
+      // Now sever: stop the webhook channel (the helper reads the row) THEN
+      // delete the connection row.
       const { unsubscribeBarberCalendar } = await import('@/lib/google/sync');
       await unsubscribeBarberCalendar(input.id);
-      const admin = createSupabaseServiceRoleClient();
       await admin
         .from('barber_google_calendar')
         .delete()
@@ -269,7 +302,12 @@ export const disconnectGoogleCalendar = withAction({
       // Scope the mirror-id wipe to the active shop — defense in depth on the
       // service-role client even though barber_id is globally unique.
       .eq('shop_id', ctx.shopId);
-    await logAuditAction({
+    // BR-1 — use logDurableAudit (service-role, durable + attributed). This
+    // destructive action (severs a Google connection + deletes real future
+    // events) mutates `barber_google_calendar`, which has NO audit trigger, and
+    // the previous logAuditAction was a runtime no-op (user-session insert
+    // dropped by audit_log RLS) — so the action left no trail at all.
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'delete',
