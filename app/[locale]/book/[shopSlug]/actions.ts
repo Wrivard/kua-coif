@@ -868,6 +868,28 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // SQL-side, so a concurrent accrual (awardLoyaltyOnCompletion, which ADDS)
     // can't clobber it via read-modify-write.
     if (loyaltyCreditCents > 0 && !clientIsNew && clientId) {
+      // M2 — the debit stays post-commit best-effort (a failure must NOT kill a
+      // committed booking), but a SILENT failure is a money leak: the credit was
+      // already baked into the charge while the balance went un-reduced, so the
+      // client could spend the same credit again (the salon eats the discount
+      // twice). Trace every failure DURABLY so it's reconcilable (an operator
+      // can claw back the un-debited credit) instead of vanishing into Sentry.
+      const debitClientId = clientId; // narrowed by the `&& clientId` guard above
+      const reconcileDebitFailure = (reason: string) =>
+        logDurableAudit({
+          shopId: shop.id,
+          actorId: '00000000-0000-0000-0000-000000000000', // public anon
+          action: 'custom',
+          entity: 'clients',
+          entityId: debitClientId,
+          // IDs + amount only — no name/email (and logDurableAudit redacts PII).
+          diff: {
+            event: 'loyalty_debit_failed',
+            loyaltyCreditCents,
+            appointmentId: apptId,
+            reason,
+          },
+        });
       try {
         const debit = await supabase.rpc('debit_loyalty_balance', {
           p_client_id: clientId,
@@ -877,9 +899,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
           captureException(debit.error, {
             tags: { layer: 'public-booking', step: 'loyalty-debit' },
           });
+          await reconcileDebitFailure(debit.error.message ?? 'rpc_error');
         }
       } catch (e) {
         captureException(e, { tags: { layer: 'public-booking', step: 'loyalty-debit' } });
+        await reconcileDebitFailure(e instanceof Error ? e.message : 'exception');
       }
     }
 
