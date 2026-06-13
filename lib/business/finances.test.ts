@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { excludeRefunded, netRevenue } from './finances';
+import { excludeRefunded, forfeitedDeposits, netRevenue } from './finances';
 
 describe('excludeRefunded', () => {
   it('drops only refunded appointments, keeps every other status', () => {
@@ -50,5 +50,50 @@ describe('netRevenue', () => {
 
   it('treats a null total_amount as 0', () => {
     expect(netRevenue([{ payment_status: 'paid', total_amount: null }])).toBe(0);
+  });
+});
+
+describe('forfeitedDeposits', () => {
+  it('sums kept deposits on no-shows that were paid online (in dollars)', () => {
+    const appts = [
+      { status: 'no_show', payment_status: 'paid', deposit_amount_cents: 2000 },
+      { status: 'no_show', payment_status: 'paid', deposit_amount_cents: 500 },
+    ];
+    // (2000 + 500) cents = $25.
+    expect(forfeitedDeposits(appts)).toBe(25);
+  });
+
+  it('excludes a refunded no-show (the deposit went back to the client)', () => {
+    expect(
+      forfeitedDeposits([
+        { status: 'no_show', payment_status: 'refunded', deposit_amount_cents: 2000 },
+      ]),
+    ).toBe(0);
+  });
+
+  it('excludes an unpaid no-show (no money was ever captured)', () => {
+    expect(
+      forfeitedDeposits([
+        { status: 'no_show', payment_status: 'unpaid', deposit_amount_cents: 2000 },
+      ]),
+    ).toBe(0);
+  });
+
+  it('excludes a completed paid appointment (a forfeit is a no-show only)', () => {
+    expect(
+      forfeitedDeposits([
+        { status: 'completed', payment_status: 'paid', deposit_amount_cents: 2000 },
+      ]),
+    ).toBe(0);
+  });
+
+  it('excludes a no-show with no deposit charged', () => {
+    expect(
+      forfeitedDeposits([{ status: 'no_show', payment_status: 'paid', deposit_amount_cents: 0 }]),
+    ).toBe(0);
+  });
+
+  it('returns 0 for an empty list', () => {
+    expect(forfeitedDeposits([])).toBe(0);
   });
 });

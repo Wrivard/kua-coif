@@ -27,3 +27,28 @@ export function netRevenue<T extends { payment_status: string; total_amount: num
 ): number {
   return excludeRefunded(appts).reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
 }
+
+/**
+ * Sum of deposits KEPT on no-shows — the money retained when a client doesn't
+ * show for an online-paid appointment — in dollars. A forfeited no-show deposit
+ * is NOT service revenue (different nature + potentially distinct TPS/TVQ
+ * treatment), so it is tracked on its own line and never folded into revenue.
+ *
+ * A forfeited deposit = `status === 'no_show'` AND `payment_status === 'paid'`
+ * AND `(deposit_amount_cents ?? 0) > 0`. The amount is `deposit_amount_cents`
+ * (the online-charge snapshot: deposit base + online tip); summed, then /100.
+ */
+export function forfeitedDeposits<
+  T extends { status: string; payment_status: string; deposit_amount_cents: number | null },
+>(appts: T[]): number {
+  return (
+    appts
+      .filter(
+        (a) =>
+          a.status === 'no_show' &&
+          a.payment_status === 'paid' &&
+          (a.deposit_amount_cents ?? 0) > 0,
+      )
+      .reduce((s, a) => s + (a.deposit_amount_cents ?? 0), 0) / 100
+  );
+}

@@ -857,7 +857,8 @@
           "gross": "Gross revenue",
           "tips": "Tips collected",
           "completed": "Completed appts",
-          "outstanding": "Still open"
+          "outstanding": "Still open",
+          "forfeitedDeposits": "Forfeited deposits"
         },
         "drawer": {
           "title": "Cash drawer",
@@ -912,7 +913,8 @@
         "grossRevenue": "Gross revenue",
         "completedAppointments": "Completed appointments",
         "avgTicket": "Avg ticket",
-        "loyaltyOutstanding": "Loyalty outstanding"
+        "loyaltyOutstanding": "Loyalty outstanding",
+        "forfeitedDeposits": "Forfeited deposits"
       },
       "byBarber": {
         "title": "Sales by barber",
