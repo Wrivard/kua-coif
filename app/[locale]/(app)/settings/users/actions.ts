@@ -42,6 +42,14 @@ export const inviteUser = withAction({
   schema: inviteUserSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
+    // W1a — mirror updateMember's owner-guard (see `updateMember` below /
+    // migration 20260528070000): a manager must not be able to invite or
+    // link a member as `owner`. Placed at the top of `run` so it covers BOTH
+    // the existing-profile (Path A) and brand-new-invite (Path B) branches.
+    if (input.role === 'owner' && ctx.role !== 'owner') {
+      return err('FORBIDDEN', { reason: 'owner_invite_requires_owner' });
+    }
+
     const sb = createSupabaseServiceRoleClient();
 
     // 1. Look up profile by email.
