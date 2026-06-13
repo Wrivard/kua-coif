@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
 import { ReviewsClient, type ReviewRow } from './reviews-client';
 
 export const dynamic = 'force-dynamic';
@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
  *
  * Loads up to 100 most-recent reviews across all statuses. Client
  * component groups them by status and exposes per-row buttons
- * (publish / reject / delete). RLS already restricts to the active
- * shop's rows so the query needs no extra `.eq('shop_id', ...)`.
+ * (publish / reject / delete). SOP-12 — RLS scopes to the UNION of the
+ * member's shops, not the active one, so we filter on the cookie shop
+ * explicitly (matching the moderate/delete actions' ctx.shopId writes).
  */
 export default async function ReviewsPage(props: { params: Promise<{ locale: string }> }) {
   const params = await props.params;
@@ -21,12 +22,18 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
+  // SOP-12 — null guard is TS-only (requireShopMember redirected if no
+  // membership); see the docblock for why RLS isn't enough on its own.
+  const shopId = await getCurrentShopId();
+  if (!shopId) return null;
+
   const sb = createSupabaseServerClient();
   const { data } = await sb
     .from('reviews')
     .select(
       'id, rating, comment, status, client_name, barber_id, created_at, published_at, appointment_id',
     )
+    .eq('shop_id', shopId)
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -40,7 +47,12 @@ export default async function ReviewsPage(props: { params: Promise<{ locale: str
   );
   let barberNames = new Map<string, string>();
   if (barberIds.length > 0) {
-    const namesRes = await sb.from('barbers').select('id, display_name').in('id', barberIds);
+    const namesRes = await sb
+      .from('barbers')
+      .select('id, display_name')
+      .eq('shop_id', shopId)
+      .in('id', barberIds)
+      .order('sort_order', { ascending: true });
     barberNames = new Map((namesRes.data ?? []).map((b) => [b.id, b.display_name]));
   }
 
