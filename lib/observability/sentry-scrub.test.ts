@@ -122,4 +122,32 @@ describe('scrubSentryEvent', () => {
     // bottom rather than throwing; this assertion just proves no throw.
     expect(out).toBeDefined();
   });
+
+  it('redacts email + phone embedded in exception.values[].value', () => {
+    const out = scrubSentryEvent({
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value:
+              "[twilio] send failed: The 'To' number +15145551234 (jane.doe@example.com) is invalid",
+          },
+        ],
+      },
+    });
+    const value = out.exception.values[0].value as string;
+    expect(value).toContain('<scrubbed>');
+    expect(value).not.toContain('+15145551234');
+    expect(value).not.toContain('jane.doe@example.com');
+    // Surrounding operational text is preserved — only the PII is removed.
+    expect(value).toContain('[twilio] send failed');
+  });
+
+  it('leaves a PII-free exception message intact (no over-redaction)', () => {
+    const clean = '[google] freeBusy failed: 503 Service Unavailable';
+    const out = scrubSentryEvent({
+      exception: { values: [{ type: 'Error', value: clean }] },
+    });
+    expect(out.exception.values[0].value).toBe(clean);
+  });
 });
