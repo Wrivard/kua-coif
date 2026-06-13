@@ -614,4 +614,49 @@ describe('bookPublicAppointment', () => {
 
     expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
   });
+
+  // ── M2 — a failed loyalty debit is durably reconcilable (booking still ok) ──
+  it('M2: a failed loyalty debit still books AND writes a durable reconcile audit', async () => {
+    h.effectiveLoyaltyBalanceCents.mockResolvedValue(2000); // $20 banked
+    const mock = createSupabaseMock(
+      baseFixtures({
+        clients: [
+          {
+            id: 'client-1',
+            shop_id: 'shop-1',
+            phone_normalized: '5145551234',
+            loyalty_balance_cents: 2000,
+            me_token_version: 0,
+          },
+        ],
+      }),
+    );
+    // The atomic debit RPC fails; any other RPC (none here) would succeed.
+    const rpc = vi.fn((...a: unknown[]) =>
+      a[0] === 'debit_loyalty_balance'
+        ? Promise.resolve({ data: null, error: { message: 'debit boom' } })
+        : Promise.resolve({ data: true, error: null }),
+    );
+    (mock.client as { rpc: unknown }).rpc = (...a: unknown[]) => rpc(...a);
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput());
+
+    // Post-commit best-effort: the booking still succeeds despite the debit error.
+    expect(res.ok).toBe(true);
+    // The failure is now DURABLY traced (clientId + credit amount) so the
+    // un-debited credit can be reconciled instead of silently double-spent.
+    expect(h.logDurableAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'custom',
+        entity: 'clients',
+        entityId: 'client-1',
+        diff: expect.objectContaining({
+          event: 'loyalty_debit_failed',
+          loyaltyCreditCents: 2000,
+          appointmentId: expect.anything(),
+        }),
+      }),
+    );
+  });
 });
