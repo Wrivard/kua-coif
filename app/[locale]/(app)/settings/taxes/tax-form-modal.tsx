@@ -104,6 +104,7 @@ export function TaxFormModal({ mode, onClose }: { mode: Mode; onClose: () => voi
             step="0.001"
             {...register('percentage', { valueAsNumber: true })}
           />
+          {errors.percentage ? <FieldHint error>{tErr('field.INVALID_NUMBER')}</FieldHint> : null}
         </div>
 
         <Checkbox

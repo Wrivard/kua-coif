@@ -111,6 +111,7 @@ export function DiscountFormModal({ mode, onClose }: { mode: Mode; onClose: () =
           ) : (
             <MoneyInput id="value" {...register('value', { valueAsNumber: true })} />
           )}
+          {errors.value ? <FieldHint error>{tErr('field.INVALID_NUMBER')}</FieldHint> : null}
         </div>
 
         <div className="md:col-span-2">
