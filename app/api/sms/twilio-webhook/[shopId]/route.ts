@@ -99,41 +99,62 @@ export async function POST(req: NextRequest, props: { params: Promise<{ shopId: 
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  // 4. Update notification_sends.status. We scope by `channel='sms'`
-  //    so an unrelated email row with the same provider_message_id
-  //    can't be touched (shouldn't happen — emails use Resend ids
-  //    — but cheap belt-and-braces).
-  //
-  //    Loop 55 SR — `.select('id')` so we can detect the "0 rows
-  //    matched" case. There's a narrow race window where Twilio's
-  //    callback can arrive before dispatch.ts has finished
-  //    INSERTing the row (sendSms returns → Twilio fires before
-  //    our INSERT roundtrip completes). In practice this is <50ms
-  //    vs Twilio's typical 500ms+ to first callback, but if it
-  //    EVER fires in prod we want to know — the status update is
-  //    silently lost otherwise.
-  const { data: updated, error } = await admin
+  // 4. Update notification_sends.status, scoped to THIS shop (INT-S3).
+  // notification_sends has no shop_id column; a row's shop is reached via
+  // appointment_id -> appointments.shop_id (the
+  // table's own RLS uses that join). The path `shopId` was already
+  // signature-validated above, so we resolve the row and require its
+  // appointment to belong to that shop before touching status — otherwise a
+  // shop could flip ANOTHER shop's row by signing its own webhook with a
+  // foreign MessageSid. `channel='sms'` still guards against an unrelated
+  // email row sharing the same provider_message_id.
+  const lookup = await admin
     .from('notification_sends')
-    .update({ status: messageStatus.toLowerCase() })
+    .select('id, appointment_id')
     .eq('provider_message_id', messageSid)
     .eq('channel', 'sms')
-    .select('id');
-  if (error) {
-    captureException(new Error(`[twilio-webhook] update failed: ${error.message ?? 'unknown'}`), {
-      tags: { layer: 'twilio-webhook' },
-      extra: { shopId: params.shopId, messageSid },
-    });
-    // Return 204 anyway so Twilio doesn't retry — logging is
-    // enough to investigate.
-  } else if (!updated || (updated as Array<{ id: string }>).length === 0) {
-    // Race: Twilio called us back before dispatch.ts wrote the
-    // row, OR the row was hard-deleted, OR we're seeing a
-    // replay for a SID we never issued. Tag distinctly so a
-    // spike vs background noise is obvious in Sentry.
+    .maybeSingle();
+  const row = lookup.data as { id: string; appointment_id: string } | null;
+
+  let targetId: string | null = null;
+  if (row) {
+    const apptRes = await admin
+      .from('appointments')
+      .select('shop_id')
+      .eq('id', row.appointment_id)
+      .maybeSingle();
+    if ((apptRes.data as { shop_id: string } | null)?.shop_id === params.shopId) {
+      targetId = row.id;
+    }
+  }
+
+  if (lookup.error) {
+    captureException(
+      new Error(`[twilio-webhook] lookup failed: ${lookup.error.message ?? 'unknown'}`),
+      { tags: { layer: 'twilio-webhook' }, extra: { shopId: params.shopId, messageSid } },
+    );
+    // Return 204 anyway so Twilio doesn't retry — logging is enough.
+  } else if (!targetId) {
+    // No row for THIS shop's SID — a race (Twilio called back before
+    // dispatch.ts INSERTed the row), a replay for a SID we never issued, OR a
+    // SID belonging to another shop (cross-tenant attempt, now refused). Tag
+    // distinctly so a spike vs background noise is obvious in Sentry.
     captureException(new Error(`[twilio-webhook] no notification_sends row for sid`), {
       tags: { layer: 'twilio-webhook', kind: 'orphan-status' },
       extra: { shopId: params.shopId, messageSid, messageStatus },
     });
+  } else {
+    const { error: updateError } = await admin
+      .from('notification_sends')
+      .update({ status: messageStatus.toLowerCase() })
+      .eq('id', targetId);
+    if (updateError) {
+      captureException(
+        new Error(`[twilio-webhook] update failed: ${updateError.message ?? 'unknown'}`),
+        { tags: { layer: 'twilio-webhook' }, extra: { shopId: params.shopId, messageSid } },
+      );
+      // Return 204 anyway so Twilio doesn't retry — logging is enough.
+    }
   }
 
   // Twilio expects a 2xx — anything else triggers their retry

@@ -747,7 +747,7 @@
         "sending": "Envoi…",
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
-        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer un rappel à {count} client(s) ?"
       },
@@ -767,7 +767,7 @@
         "sending": "Envoi…",
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
-        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer une demande d'avis à {count} client(s) ?"
       },

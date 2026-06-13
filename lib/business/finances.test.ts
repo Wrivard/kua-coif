@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest';
+import { excludeRefunded, netRevenue } from './finances';
+
+describe('excludeRefunded', () => {
+  it('drops only refunded appointments, keeps every other status', () => {
+    const appts = [
+      { payment_status: 'paid', total_amount: 50 },
+      { payment_status: 'unpaid', total_amount: 30 },
+      { payment_status: 'pending', total_amount: 20 },
+      { payment_status: 'failed', total_amount: 10 },
+      { payment_status: 'refunded', total_amount: 40 },
+    ];
+    const kept = excludeRefunded(appts);
+    expect(kept).toHaveLength(4);
+    expect(kept.some((a) => a.payment_status === 'refunded')).toBe(false);
+  });
+
+  it('returns an empty list unchanged', () => {
+    expect(excludeRefunded([])).toEqual([]);
+  });
+});
+
+describe('netRevenue', () => {
+  it('excludes refunded appointments from the revenue total', () => {
+    const appts = [
+      { payment_status: 'paid', total_amount: 50 },
+      { payment_status: 'unpaid', total_amount: 30 },
+      { payment_status: 'refunded', total_amount: 40 }, // must NOT count
+    ];
+    // 50 + 30; the refunded 40 is netted out.
+    expect(netRevenue(appts)).toBe(80);
+  });
+
+  it('a refunded appointment contributes 0 to a barber commission base', () => {
+    // The per-barber commission base = netRevenue of that barber's appts. A
+    // barber whose only appointment was refunded nets 0 → earns no commission.
+    const barberAppts = [{ payment_status: 'refunded', total_amount: 100 }];
+    expect(netRevenue(barberAppts)).toBe(0);
+  });
+
+  it('keeps paid/unpaid/pending/failed in the base', () => {
+    const appts = [
+      { payment_status: 'paid', total_amount: 10 },
+      { payment_status: 'unpaid', total_amount: 10 },
+      { payment_status: 'pending', total_amount: 10 },
+      { payment_status: 'failed', total_amount: 10 },
+    ];
+    expect(netRevenue(appts)).toBe(40);
+  });
+
+  it('treats a null total_amount as 0', () => {
+    expect(netRevenue([{ payment_status: 'paid', total_amount: null }])).toBe(0);
+  });
+});

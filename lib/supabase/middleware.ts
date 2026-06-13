@@ -12,17 +12,16 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * If Supabase env vars are missing (e.g. local dev without a project yet) we
  * skip silently — the app stays usable for the design system / kitchen-sink.
  *
- * Uses `getSession()` rather than `getUser()` for performance. `getUser()`
- * POSTs the JWT to /auth/v1/user on every request (~150ms network round-trip
- * to validate against the auth server, including revocation check).
- * `getSession()` reads the JWT from cookies and validates the signature
- * locally (~5ms), and only makes a network call when the access token is
- * actually expired (triggers a refresh).
- *
- * Trade-off: we no longer detect server-side token revocation in middleware.
- * For our threat model (salon SaaS, no admin remote-revoke flow), this is
- * acceptable — the access token's natural 1h expiry plus signed-out cookies
- * being cleared client-side cover the realistic invalidation paths.
+ * Uses `getSession()` here on PURPOSE, and ONLY for two non-security jobs:
+ * refreshing the access token (writing the rotated cookies onto the response,
+ * which a Server Component can't do) and a coarse "no session -> /login" UX
+ * redirect. `getSession()` only DECODES the cookie; it does NOT verify the JWT
+ * signature (the client holds no signing secret), so middleware is NOT a
+ * security gate: a forged cookie passes here but is rejected at the page layer,
+ * where `getCurrentUser` revalidates via `getUser()` against the auth server
+ * before any role / super-admin decision (AUTHZ-01). Running `getUser()` here
+ * too would add ~150ms to every request and double the round-trip on pages
+ * that already revalidate.
  */
 export async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,9 +47,9 @@ export async function refreshSupabaseSession(request: NextRequest, response: Nex
     },
   });
 
-  // getSession() reads cookies, validates JWT signature locally, and only
-  // makes a network call when the access token is expired (auto-refresh).
-  // ~5ms on the hot path vs ~150ms for getUser().
+  // getSession() refreshes the access token (rotating cookies onto the
+  // response) near expiry. It does NOT verify the JWT signature; the
+  // authoritative revalidation is getUser() at the page layer (getCurrentUser).
   const {
     data: { session },
   } = await supabase.auth.getSession();
