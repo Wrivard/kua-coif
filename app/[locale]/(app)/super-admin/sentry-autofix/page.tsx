@@ -90,7 +90,9 @@ async function fetchAutofixPrs(): Promise<{ prs: GhPr[]; error?: string }> {
     return { prs };
   } catch (e) {
     captureException(e, { tags: { layer: 'admin', page: 'sentry-autofix' } });
-    return { prs: [], error: e instanceof Error ? e.message : 'unknown' };
+    // SECRET-01 — the raw API body is in the thrown Error → Sentry above; the
+    // UI gets a generic message (no internal detail leaked).
+    return { prs: [], error: 'Could not load autofix pull requests.' };
   }
 }
 

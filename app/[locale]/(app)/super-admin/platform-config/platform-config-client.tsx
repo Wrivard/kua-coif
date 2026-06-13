@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { SuperAdminNav } from '@/components/ui/super-admin-nav';
+import { captureException } from '@/lib/observability';
 import { updatePlatformAppFee, type UpdateAppFeeState } from './actions';
 
 type Props = {
@@ -40,6 +41,16 @@ export function PlatformConfigClient({
   );
 
   const fieldError = state?.kind === 'invalid' ? (state.fieldErrors?.app_fee_pct ?? null) : null;
+
+  // SECRET-01 — ship the raw error detail to Sentry but never render it; the
+  // UI shows a generic message below.
+  useEffect(() => {
+    if (state?.kind === 'error') {
+      captureException(new Error(`platform-config save: ${state.message}`), {
+        tags: { layer: 'platform-config', surface: 'super-admin-ui' },
+      });
+    }
+  }, [state]);
 
   return (
     <>
@@ -94,7 +105,9 @@ export function PlatformConfigClient({
                   </p>
                 ) : null}
                 {state?.kind === 'error' ? (
-                  <p className="mt-1 text-xs text-danger">{state.message}</p>
+                  <p className="mt-1 text-xs text-danger">
+                    Something went wrong saving the fee. The detail was logged for review.
+                  </p>
                 ) : null}
               </div>
               <div className="flex justify-end">
