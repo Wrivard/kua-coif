@@ -119,6 +119,7 @@
     "UNEXPECTED": "An unexpected error occurred.",
     "field": {
       "NAME_REQUIRED": "Name is required.",
+      "INVALID_NUMBER": "Invalid number.",
       "INVALID_PRICE_PRECISION": "Two decimals maximum.",
       "DURATION_MIN": "Duration must be at least 5 minutes.",
       "DURATION_MAX": "Duration cannot exceed 8 hours.",
@@ -1257,6 +1258,9 @@
       },
       "commissions": {
         "title": "Commission / Tip Splits",
+        "errors": {
+          "tiersNotIncreasing": "{barber}'s tier thresholds must be strictly increasing."
+        },
         "tabs": {
           "services": "Services",
           "products": "Products"
