@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
   logAuditAction: vi.fn(),
   logDurableAudit: vi.fn(),
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
   sbClient: { current: null as unknown },
 }));
 
@@ -29,6 +30,7 @@ vi.mock('@/lib/auth/server', () => ({
   getShopMemberships: () => h.getShopMemberships(),
   getCurrentShopId: () => h.getCurrentShopId(),
   getCurrentBarberId: () => h.getCurrentBarberId(),
+  MEMBERSHIPS_CACHE_TAG: 'memberships',
 }));
 vi.mock('@/lib/observability', () => ({
   captureException: (...a: unknown[]) => h.captureException(...a),
@@ -44,7 +46,10 @@ vi.mock('@/lib/audit-log', () => ({
   logAuditAction: (...a: unknown[]) => h.logAuditAction(...a),
   logDurableAudit: (...a: unknown[]) => h.logDurableAudit(...a),
 }));
-vi.mock('next/cache', () => ({ revalidatePath: (...a: unknown[]) => h.revalidatePath(...a) }));
+vi.mock('next/cache', () => ({
+  revalidatePath: (...a: unknown[]) => h.revalidatePath(...a),
+  revalidateTag: (...a: unknown[]) => h.revalidateTag(...a),
+}));
 
 import { inviteUser } from './actions';
 
@@ -85,6 +90,8 @@ describe('inviteUser — owner-guard (W1a)', () => {
     expect(res).toMatchObject({ ok: false, errorCode: 'FORBIDDEN' });
     // Guard short-circuits before any DB access.
     expect(mock.calls.some((c) => c.table === 'shop_members' && c.op === 'insert')).toBe(false);
+    // AUTHZ-R1 — no membership changed, so the cache is not busted.
+    expect(h.revalidateTag).not.toHaveBeenCalled();
   });
 
   it('owner inviting role=owner → ok (existing profile linked confirmed)', async () => {
@@ -104,6 +111,8 @@ describe('inviteUser — owner-guard (W1a)', () => {
       role: 'owner',
       status: 'confirmed',
     });
+    // AUTHZ-R1 — the new membership busts the memberships cache.
+    expect(h.revalidateTag).toHaveBeenCalledWith('memberships');
   });
 
   it('manager inviting a non-owner (barber) → ok, shop-scoped insert', async () => {
@@ -118,5 +127,7 @@ describe('inviteUser — owner-guard (W1a)', () => {
     expect(res.ok).toBe(true);
     const ins = mock.calls.find((c) => c.table === 'shop_members' && c.op === 'insert');
     expect(ins?.payload).toMatchObject({ shop_id: SHOP_A, role: 'barber', status: 'confirmed' });
+    // AUTHZ-R1 — the new membership busts the memberships cache.
+    expect(h.revalidateTag).toHaveBeenCalledWith('memberships');
   });
 });
