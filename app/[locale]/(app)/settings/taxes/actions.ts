@@ -5,15 +5,15 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction } from '@/lib/audit-log';
-import { TAXES_CACHE_TAG } from '@/lib/data/taxes';
+import { taxesCacheTag } from '@/lib/data/taxes';
 import { deleteTaxSchema, taxSchema, updateTaxSchema } from './schema';
 
 const PATH = '/settings/taxes';
 
-/** Bust both the router cache (this route) and the taxes Data Cache. */
-function revalidateTaxes() {
+/** Bust both the router cache (this route) and the shop's taxes Data Cache. */
+function revalidateTaxes(shopId: string) {
   revalidatePath(PATH);
-  revalidateTag(TAXES_CACHE_TAG);
+  revalidateTag(taxesCacheTag(shopId));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +42,7 @@ export const createTax = withAction({
       entityId: data.id,
       diff: { after: input },
     });
-    revalidateTaxes();
+    revalidateTaxes(ctx.shopId);
     return ok({ id: data.id });
   },
 });
@@ -74,7 +74,7 @@ export const updateTax = withAction({
       entityId: id,
       diff: { after: rest },
     });
-    revalidateTaxes();
+    revalidateTaxes(ctx.shopId);
     return ok({ id });
   },
 });
@@ -98,7 +98,7 @@ export const deleteTax = withAction({
       entity: 'taxes',
       entityId: input.id,
     });
-    revalidateTaxes();
+    revalidateTaxes(ctx.shopId);
     return ok({ id: input.id });
   },
 });
