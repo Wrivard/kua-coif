@@ -746,7 +746,7 @@
         "sending": "Sending…",
         "selectedSummary": "{selected} selected of {total} candidates.",
         "sentToast": "{sent} message(s) sent.",
-        "partialToast": "{sent} sent out of {attempted}, {failed} failure(s).",
+        "partialToast": "{sent} message(s) sent, {failed} failure(s).",
         "failedToast": "Send failed. Retry or check your email/SMS configuration.",
         "confirm": "Send a win-back nudge to {count} client(s)?"
       },
@@ -766,7 +766,7 @@
         "sending": "Sending…",
         "selectedSummary": "{selected} selected of {total} candidates.",
         "sentToast": "{sent} message(s) sent.",
-        "partialToast": "{sent} sent out of {attempted}, {failed} failure(s).",
+        "partialToast": "{sent} message(s) sent, {failed} failure(s).",
         "failedToast": "Send failed. Retry or check your email/SMS configuration.",
         "confirm": "Send a review request to {count} client(s)?"
       },
