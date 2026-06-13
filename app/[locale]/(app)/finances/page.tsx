@@ -12,6 +12,7 @@ import {
   tierConfigFromRow,
   type CommissionTierDbRow,
 } from '@/lib/business/commissions';
+import { excludeRefunded, netRevenue } from '@/lib/business/finances';
 import { captureException } from '@/lib/observability';
 import { DateRangeFilter } from './date-range-filter';
 
@@ -79,7 +80,7 @@ export default async function FinancesPage(props: {
   const [apptsRes, clientsRes] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, barber_id, total_amount, status, start_at')
+      .select('id, barber_id, total_amount, status, payment_status, start_at')
       .eq('status', 'completed')
       .eq('shop_id', shop.id)
       .gte('start_at', rangeStart.toISOString())
@@ -110,9 +111,15 @@ export default async function FinancesPage(props: {
   }
 
   // ── Headline metrics ──────────────────────────────────────────────
-  const grossRevenue = appts.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
+  // FIN-UX-01 — money figures are NET of refunds: a fully-refunded
+  // appointment contributes zero to revenue, the per-barber commission base,
+  // the category breakdown, and the trend. The "completed appointments" KPI
+  // stays an operational count (incl. refunded); avgTicket divides net revenue
+  // by the revenue-eligible count so a refund can't dilute it.
+  const revenueAppts = excludeRefunded(appts);
+  const grossRevenue = netRevenue(appts);
   const completedCount = appts.length;
-  const avgTicket = completedCount > 0 ? grossRevenue / completedCount : 0;
+  const avgTicket = revenueAppts.length > 0 ? grossRevenue / revenueAppts.length : 0;
   const loyaltyOutstandingCents = loyaltyClients.reduce(
     (s, c) => s + (c.loyalty_balance_cents ?? 0),
     0,
@@ -120,14 +127,14 @@ export default async function FinancesPage(props: {
 
   // ── Sales per barber ──────────────────────────────────────────────
   const byBarber = new Map<string, { count: number; revenue: number }>();
-  for (const a of appts) {
+  for (const a of revenueAppts) {
     const bucket = byBarber.get(a.barber_id) ?? { count: 0, revenue: 0 };
     bucket.count += 1;
     bucket.revenue += Number(a.total_amount ?? 0);
     byBarber.set(a.barber_id, bucket);
   }
   const barberIds = Array.from(byBarber.keys());
-  const apptIds = appts.map((a) => a.id);
+  const apptIds = revenueAppts.map((a) => a.id);
 
   // Perf: barber names, per-service line items, and commission tiers all
   // depend only on ids we already have (barberIds / apptIds) — fetch them in
@@ -275,7 +282,7 @@ export default async function FinancesPage(props: {
   // then fill every day in the range (including zero days) so the area
   // chart reads as a continuous timeline rather than skipping gaps.
   const revenueByDay = new Map<string, number>();
-  for (const a of appts) {
+  for (const a of revenueAppts) {
     const iso = shopIsoDate(new Date(a.start_at), timezone);
     revenueByDay.set(iso, (revenueByDay.get(iso) ?? 0) + Number(a.total_amount ?? 0));
   }

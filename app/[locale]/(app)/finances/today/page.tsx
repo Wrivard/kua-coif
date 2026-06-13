@@ -11,6 +11,7 @@ import {
   shopDayEnd,
   shopIsoDate,
 } from '@/lib/business/timezone';
+import { excludeRefunded, netRevenue } from '@/lib/business/finances';
 import { CloseOutClient } from './close-out-client';
 
 export const dynamic = 'force-dynamic';
@@ -113,8 +114,12 @@ export default async function CloseOutPage(props: {
   const outstanding = appts.filter(
     (a) => a.status === 'booked' || a.status === 'confirmed' || a.status === 'arrived',
   );
-  const grossRevenue = completed.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
-  const tipsCents = completed.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
+  // FIN-UX-01 — revenue + tips are NET of refunds: a fully-refunded
+  // appointment contributes zero to revenue, tips, and the per-barber tipout
+  // base. The "completed" count stays operational (incl. refunded).
+  const revenueAppts = excludeRefunded(completed);
+  const grossRevenue = netRevenue(completed);
+  const tipsCents = revenueAppts.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
   const tipsTotal = tipsCents / 100;
   const completedCount = completed.length;
   const outstandingCount = outstanding.length;
@@ -161,7 +166,7 @@ export default async function CloseOutPage(props: {
   // — that lives on `/finances` with the proper tier config. This page
   // is the cash-out story, not the payroll story.
   const byBarber = new Map<string, { count: number; revenue: number; tips: number }>();
-  for (const a of completed) {
+  for (const a of revenueAppts) {
     const bucket = byBarber.get(a.barber_id) ?? { count: 0, revenue: 0, tips: 0 };
     bucket.count += 1;
     bucket.revenue += Number(a.total_amount ?? 0);
@@ -207,10 +212,11 @@ export default async function CloseOutPage(props: {
         count: b.count,
         revenue: b.revenue,
         tips: b.tips,
-        total: b.revenue + b.tips,
       };
     })
-    .sort((a, b) => b.total - a.total);
+    // FIN-UX-01 — sort by the tipout/commission base (net service revenue);
+    // tips are a separate column, not part of the base.
+    .sort((a, b) => b.revenue - a.revenue);
   const outstandingRows = outstanding.map((o) => ({
     id: o.id,
     clientName: o.client_id ? (clientNameById.get(o.client_id) ?? '–') : '–',
@@ -267,8 +273,9 @@ export default async function CloseOutPage(props: {
           </CardBody>
         </Card>
 
-        {/* Per-barber tipout table — the night-end pay-out cheat
-            sheet. Sorted by total desc so the busiest chair leads. */}
+        {/* Per-barber tipout table — the night-end pay-out cheat sheet.
+            Sorted by net revenue desc so the busiest chair leads. Tips are a
+            separate column, not folded into the tipout base (FIN-UX-01). */}
         <Card>
           <CardHeader>
             <CardTitle>{t('byBarber.title')}</CardTitle>
@@ -293,9 +300,6 @@ export default async function CloseOutPage(props: {
                     <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.tips')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.total')}
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,9 +314,6 @@ export default async function CloseOutPage(props: {
                       </td>
                       <td className="py-2 text-right tabular-nums text-text-secondary">
                         {fmtCAD(b.tips)}
-                      </td>
-                      <td className="py-2 text-right font-semibold tabular-nums text-text-primary">
-                        {fmtCAD(b.total)}
                       </td>
                     </tr>
                   ))}
