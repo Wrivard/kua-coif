@@ -54,7 +54,9 @@ export const SETTINGS_NAV: ReadonlyArray<SettingsNavGroup> = [
     labelKey: 'pricing',
     items: [
       { href: '/settings/taxes', labelKey: 'taxes' },
-      { href: '/settings/discounts', labelKey: 'discounts' },
+      // SM-07 — the `discounts` table is never applied at pricing (only promo
+      // codes are), so the page is hidden from the nav (still reachable by URL,
+      // backend untouched) until it gets a transactional outlet.
       { href: '/settings/loyalty', labelKey: 'loyalty' },
       { href: '/settings/promo-codes', labelKey: 'promoCodes' },
     ],
