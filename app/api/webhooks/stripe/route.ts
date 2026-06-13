@@ -159,7 +159,28 @@ export async function POST(req: NextRequest): Promise<Response> {
         // intent (not legacy charges).
         const intentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
         if (intentId) {
-          await persistRefundForIntent(intentId);
+          // FIN — payment_status is binary (no partial state). Only a FULL
+          // refund flips to 'refunded': netRevenue/excludeRefunded treat
+          // 'refunded' as zero revenue, so marking a partial would erase the
+          // whole booking's revenue + the barber's commission. Guard: a falsy
+          // amount ⇒ treat as full (preserve the prior behavior).
+          const fullyRefunded = !charge.amount || charge.amount_refunded >= charge.amount;
+          if (fullyRefunded) {
+            await persistRefundForIntent(intentId);
+          } else {
+            captureException(
+              new Error('[stripe-webhook] partial refund needs manual reconciliation'),
+              {
+                tags: { layer: 'stripe-webhook', stage: 'partial-refund' },
+                extra: {
+                  intentId,
+                  chargeId: charge.id,
+                  amount: charge.amount,
+                  amountRefunded: charge.amount_refunded,
+                },
+              },
+            );
+          }
         }
         break;
       }
