@@ -66,9 +66,9 @@ export function birthdayGreetingSms(input: {
   firstName: string;
 }): string {
   if (input.locale === 'fr') {
-    return `Joyeux anniversaire ${input.firstName} ! Bonne journée de la part de ${input.shopName} 🎂`;
+    return `Joyeux anniversaire ${input.firstName} ! Bonne journée de la part de ${input.shopName} 🎂 Répondez STOP pour vous désinscrire.`;
   }
-  return `Happy birthday ${input.firstName}! Have a great day from ${input.shopName} 🎂`;
+  return `Happy birthday ${input.firstName}! Have a great day from ${input.shopName} 🎂 Reply STOP to unsubscribe.`;
 }
 
 /**
@@ -88,9 +88,9 @@ export function reviewRequestSms(input: {
   reviewUrl: string;
 }): string {
   if (input.locale === 'fr') {
-    return `${input.firstName}, comment s'est passée ta visite chez ${input.shopName} ? Laisse un avis : ${input.reviewUrl}`;
+    return `${input.firstName}, comment s'est passée ta visite chez ${input.shopName} ? Laisse un avis : ${input.reviewUrl} Répondez STOP pour vous désinscrire.`;
   }
-  return `${input.firstName}, how was your visit at ${input.shopName}? Leave a review: ${input.reviewUrl}`;
+  return `${input.firstName}, how was your visit at ${input.shopName}? Leave a review: ${input.reviewUrl} Reply STOP to unsubscribe.`;
 }
 
 /**
@@ -106,7 +106,7 @@ export function winbackSms(input: {
   bookingUrl: string;
 }): string {
   if (input.locale === 'fr') {
-    return `${input.firstName}, tu nous manques chez ${input.shopName}. Réserve quand tu veux : ${input.bookingUrl}`;
+    return `${input.firstName}, tu nous manques chez ${input.shopName}. Réserve quand tu veux : ${input.bookingUrl} Répondez STOP pour vous désinscrire.`;
   }
-  return `${input.firstName}, we miss you at ${input.shopName}. Book whenever you're ready: ${input.bookingUrl}`;
+  return `${input.firstName}, we miss you at ${input.shopName}. Book whenever you're ready: ${input.bookingUrl} Reply STOP to unsubscribe.`;
 }
