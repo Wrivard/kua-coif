@@ -131,18 +131,11 @@ export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
             </div>
           </div>
 
-          <Toggle
-            checked={watch('include_product_sales')}
-            onChange={(v) => setValue('include_product_sales', v, { shouldDirty: true })}
-            label={t('form.includeProductSales')}
-            disabled={!enabled}
-          />
-          <Toggle
-            checked={watch('include_tips')}
-            onChange={(v) => setValue('include_tips', v, { shouldDirty: true })}
-            label={t('form.includeTips')}
-            disabled={!enabled}
-          />
+          {/* SM-13 — `include_product_sales` and `include_tips` are accrual
+              flags the loyalty engine does not read yet (lib/business/loyalty.ts
+              selects but never applies them). Their toggles are hidden until
+              V1.5 wires them in. The DB columns and the form values are kept
+              (defaults flow through on save), so nothing is orphaned. */}
         </section>
 
         <div className="flex justify-end gap-2">
