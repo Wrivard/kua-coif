@@ -77,6 +77,7 @@ export function ReviewCampaignClient({
   const L = labels;
   const { show } = useToast();
   const tCommon = useTranslations('common');
+  const tMarketing = useTranslations('pages.marketing');
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
@@ -214,7 +215,7 @@ export function ReviewCampaignClient({
                         <Checkbox
                           checked={checked}
                           onChange={() => toggleOne(c.appointmentId)}
-                          aria-label={`Select ${fullName}`}
+                          aria-label={tMarketing('selectClient', { name: fullName })}
                         />
                       </td>
                       <td className="py-3">

@@ -694,6 +694,7 @@
       "title": "Marketing",
       "subtitle": "Tools to attract, retain, and ask clients for reviews.",
       "soon": "Campaigns, promos — Phase 8.",
+      "selectClient": "Select {name}",
       "cards": {
         "reviewCampaign": {
           "title": "Review campaign (bulk)",
