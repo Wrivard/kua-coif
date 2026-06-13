@@ -11,7 +11,7 @@ import {
   shopDayEnd,
   shopIsoDate,
 } from '@/lib/business/timezone';
-import { excludeRefunded, netRevenue } from '@/lib/business/finances';
+import { excludeRefunded, forfeitedDeposits, netRevenue } from '@/lib/business/finances';
 import { CloseOutClient } from './close-out-client';
 
 export const dynamic = 'force-dynamic';
@@ -141,6 +141,11 @@ export default async function CloseOutPage(props: {
   const paidTotal = paid.reduce((s, a) => s + (a.deposit_amount_cents ?? 0), 0) / 100;
   const unpaidTotal = unpaid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
   const refundedTotal = refunded.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
+
+  // FIN — forfeited no-show deposits: money KEPT when a client no-shows a paid
+  // online appointment. Tracked SEPARATELY (its own line), never folded into
+  // revenue. `appts` already holds every status for the day.
+  const forfeitedTotal = forfeitedDeposits(appts);
 
   // Expected cash drawer = start balance + unpaid (in-shop cash) + tips on
   // unpaid appointments (cash tips) + the in-shop BALANCE still collected at
@@ -342,6 +347,11 @@ export default async function CloseOutPage(props: {
               amount={fmtCAD(refundedTotal)}
               tone={refunded.length > 0 ? 'danger' : 'muted'}
             />
+            {/* FIN — forfeited no-show deposits, kept separate from the
+                completed-payment slices above (different nature + TPS/TVQ). */}
+            <div className="border-t border-border pt-2">
+              <DrawerLine label={t('kpis.forfeitedDeposits')} value={fmtCAD(forfeitedTotal)} />
+            </div>
           </CardBody>
         </Card>
 

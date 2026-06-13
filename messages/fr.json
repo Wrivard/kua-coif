@@ -857,7 +857,8 @@
           "gross": "Revenu brut",
           "tips": "Pourboires perçus",
           "completed": "RDV complétés",
-          "outstanding": "Encore ouverts"
+          "outstanding": "Encore ouverts",
+          "forfeitedDeposits": "Dépôts confisqués"
         },
         "drawer": {
           "title": "Tiroir-caisse",
@@ -912,7 +913,8 @@
         "grossRevenue": "Revenu brut",
         "completedAppointments": "RDV complétés",
         "avgTicket": "Panier moyen",
-        "loyaltyOutstanding": "Fidélité à payer"
+        "loyaltyOutstanding": "Fidélité à payer",
+        "forfeitedDeposits": "Dépôts confisqués"
       },
       "byBarber": {
         "title": "Ventes par barbier",
