@@ -179,7 +179,9 @@ async function fetchSentryOverview(): Promise<SentryOverview> {
     };
   } catch (e) {
     captureException(e, { tags: { layer: 'admin', page: 'dashboard', stage: 'sentry-fetch' } });
-    return { unresolved24h: 0, topIssues: [], error: e instanceof Error ? e.message : 'unknown' };
+    // SECRET-01 — the thrown Error carries the raw API body; it goes to Sentry
+    // above, but the UI gets a generic message (no internal detail leaked).
+    return { unresolved24h: 0, topIssues: [], error: 'Could not load the Sentry overview.' };
   }
 }
 
@@ -228,11 +230,13 @@ async function fetchAutofixOverview(): Promise<AutofixOverview> {
     return { opened30d, merged30d, open };
   } catch (e) {
     captureException(e, { tags: { layer: 'admin', page: 'dashboard', stage: 'github-fetch' } });
+    // SECRET-01 — detail (incl. the raw API body) is in Sentry above; the UI
+    // gets a generic message.
     return {
       opened30d: 0,
       merged30d: 0,
       open: 0,
-      error: e instanceof Error ? e.message : 'unknown',
+      error: 'Could not load the autofix overview.',
     };
   }
 }
