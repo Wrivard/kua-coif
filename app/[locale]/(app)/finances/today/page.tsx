@@ -11,6 +11,7 @@ import {
   shopDayEnd,
   shopIsoDate,
 } from '@/lib/business/timezone';
+import { excludeRefunded, forfeitedDeposits, netRevenue } from '@/lib/business/finances';
 import { CloseOutClient } from './close-out-client';
 
 export const dynamic = 'force-dynamic';
@@ -93,7 +94,7 @@ export default async function CloseOutPage(props: {
     supabase
       .from('appointments')
       .select(
-        'id, barber_id, client_id, total_amount, status, payment_status, tip_amount_cents, source, start_at, end_at',
+        'id, barber_id, client_id, total_amount, status, payment_status, deposit_amount_cents, tip_amount_cents, source, start_at, end_at',
       )
       .eq('shop_id', shop.id)
       .gte('start_at', dayStart.toISOString())
@@ -113,8 +114,12 @@ export default async function CloseOutPage(props: {
   const outstanding = appts.filter(
     (a) => a.status === 'booked' || a.status === 'confirmed' || a.status === 'arrived',
   );
-  const grossRevenue = completed.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
-  const tipsCents = completed.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
+  // FIN-UX-01 — revenue + tips are NET of refunds: a fully-refunded
+  // appointment contributes zero to revenue, tips, and the per-barber tipout
+  // base. The "completed" count stays operational (incl. refunded).
+  const revenueAppts = excludeRefunded(completed);
+  const grossRevenue = netRevenue(completed);
+  const tipsCents = revenueAppts.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
   const tipsTotal = tipsCents / 100;
   const completedCount = completed.length;
   const outstandingCount = outstanding.length;
@@ -128,15 +133,36 @@ export default async function CloseOutPage(props: {
   const paid = completed.filter((a) => a.payment_status === 'paid');
   const unpaid = completed.filter((a) => a.payment_status === 'unpaid');
   const refunded = completed.filter((a) => a.payment_status === 'refunded');
-  const paidTotal = paid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
+  // FIN-BIZ-02 — the `paid` slice is what Stripe collected ONLINE = the
+  // PaymentIntent charge snapshot (deposit base + online tip), NOT the full
+  // service total. In deposit mode Stripe only took the deposit; the balance
+  // is collected in shop (folded into expectedDrawer below). Mirrors the
+  // receipt's deposit line (receipt-client.tsx).
+  const paidTotal = paid.reduce((s, a) => s + (a.deposit_amount_cents ?? 0), 0) / 100;
   const unpaidTotal = unpaid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
   const refundedTotal = refunded.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
 
-  // Expected cash drawer = start balance + unpaid (in-shop cash) +
-  // tips on unpaid appointments (cash tips). Tips on paid appts went
-  // through Stripe so we don't count them in the drawer.
+  // FIN — forfeited no-show deposits: money KEPT when a client no-shows a paid
+  // online appointment. Tracked SEPARATELY (its own line), never folded into
+  // revenue. `appts` already holds every status for the day.
+  const forfeitedTotal = forfeitedDeposits(appts);
+
+  // Expected cash drawer = start balance + unpaid (in-shop cash) + tips on
+  // unpaid appointments (cash tips) + the in-shop BALANCE still collected at
+  // the counter on deposit-paid appointments. Tips on paid appts went through
+  // Stripe so we don't count them in the drawer.
   const unpaidTipsCents = unpaid.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
-  const expectedDrawer = cashDrawerStart + unpaidTotal + unpaidTipsCents / 100;
+  // FIN-BIZ-02 — in deposit mode Stripe only took the deposit; the balance
+  // (service total + tip − online charge) is paid in shop. Mirrors the
+  // receipt's balance line (receipt-client.tsx): a full-mode paid appt settles
+  // to 0, a cash-paid appt (deposit=0) settles to the full grand total.
+  // Floored at 0 so a rounding wobble can't subtract from the drawer.
+  const depositBalanceTotal = paid.reduce((s, a) => {
+    const grandTotal = Number(a.total_amount ?? 0) + (a.tip_amount_cents ?? 0) / 100;
+    return s + Math.max(0, grandTotal - (a.deposit_amount_cents ?? 0) / 100);
+  }, 0);
+  const expectedDrawer =
+    cashDrawerStart + unpaidTotal + unpaidTipsCents / 100 + depositBalanceTotal;
 
   // ── Per-barber tipout ─────────────────────────────────────────────
   // Each barber's row carries: completed visits, services revenue
@@ -145,7 +171,7 @@ export default async function CloseOutPage(props: {
   // — that lives on `/finances` with the proper tier config. This page
   // is the cash-out story, not the payroll story.
   const byBarber = new Map<string, { count: number; revenue: number; tips: number }>();
-  for (const a of completed) {
+  for (const a of revenueAppts) {
     const bucket = byBarber.get(a.barber_id) ?? { count: 0, revenue: 0, tips: 0 };
     bucket.count += 1;
     bucket.revenue += Number(a.total_amount ?? 0);
@@ -191,10 +217,11 @@ export default async function CloseOutPage(props: {
         count: b.count,
         revenue: b.revenue,
         tips: b.tips,
-        total: b.revenue + b.tips,
       };
     })
-    .sort((a, b) => b.total - a.total);
+    // FIN-UX-01 — sort by the tipout/commission base (net service revenue);
+    // tips are a separate column, not part of the base.
+    .sort((a, b) => b.revenue - a.revenue);
   const outstandingRows = outstanding.map((o) => ({
     id: o.id,
     clientName: o.client_id ? (clientNameById.get(o.client_id) ?? '–') : '–',
@@ -251,8 +278,9 @@ export default async function CloseOutPage(props: {
           </CardBody>
         </Card>
 
-        {/* Per-barber tipout table — the night-end pay-out cheat
-            sheet. Sorted by total desc so the busiest chair leads. */}
+        {/* Per-barber tipout table — the night-end pay-out cheat sheet.
+            Sorted by net revenue desc so the busiest chair leads. Tips are a
+            separate column, not folded into the tipout base (FIN-UX-01). */}
         <Card>
           <CardHeader>
             <CardTitle>{t('byBarber.title')}</CardTitle>
@@ -277,9 +305,6 @@ export default async function CloseOutPage(props: {
                     <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
                       {t('byBarber.columns.tips')}
                     </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.total')}
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,9 +319,6 @@ export default async function CloseOutPage(props: {
                       </td>
                       <td className="py-2 text-right tabular-nums text-text-secondary">
                         {fmtCAD(b.tips)}
-                      </td>
-                      <td className="py-2 text-right font-semibold tabular-nums text-text-primary">
-                        {fmtCAD(b.total)}
                       </td>
                     </tr>
                   ))}
@@ -325,6 +347,11 @@ export default async function CloseOutPage(props: {
               amount={fmtCAD(refundedTotal)}
               tone={refunded.length > 0 ? 'danger' : 'muted'}
             />
+            {/* FIN — forfeited no-show deposits, kept separate from the
+                completed-payment slices above (different nature + TPS/TVQ). */}
+            <div className="border-t border-border pt-2">
+              <DrawerLine label={t('kpis.forfeitedDeposits')} value={fmtCAD(forfeitedTotal)} />
+            </div>
           </CardBody>
         </Card>
 

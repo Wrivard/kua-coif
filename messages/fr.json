@@ -119,6 +119,7 @@
     "UNEXPECTED": "Une erreur inattendue est survenue.",
     "field": {
       "NAME_REQUIRED": "Le nom est requis.",
+      "INVALID_NUMBER": "Valeur numérique invalide.",
       "INVALID_PRICE_PRECISION": "Deux décimales maximum.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
       "DURATION_MAX": "La durée ne peut pas dépasser 8 heures.",
@@ -746,7 +747,7 @@
         "sending": "Envoi…",
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
-        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer un rappel à {count} client(s) ?"
       },
@@ -766,7 +767,7 @@
         "sending": "Envoi…",
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
-        "partialToast": "{sent} envoyés sur {attempted}, {failed} échec(s).",
+        "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer une demande d'avis à {count} client(s) ?"
       },
@@ -856,7 +857,8 @@
           "gross": "Revenu brut",
           "tips": "Pourboires perçus",
           "completed": "RDV complétés",
-          "outstanding": "Encore ouverts"
+          "outstanding": "Encore ouverts",
+          "forfeitedDeposits": "Dépôts confisqués"
         },
         "drawer": {
           "title": "Tiroir-caisse",
@@ -911,7 +913,8 @@
         "grossRevenue": "Revenu brut",
         "completedAppointments": "RDV complétés",
         "avgTicket": "Panier moyen",
-        "loyaltyOutstanding": "Fidélité à payer"
+        "loyaltyOutstanding": "Fidélité à payer",
+        "forfeitedDeposits": "Dépôts confisqués"
       },
       "byBarber": {
         "title": "Ventes par barbier",
@@ -1257,6 +1260,9 @@
       },
       "commissions": {
         "title": "Commissions / Pourboires",
+        "errors": {
+          "tiersNotIncreasing": "Les seuils des paliers de {barber} doivent être strictement croissants."
+        },
         "tabs": {
           "services": "Services",
           "products": "Produits"
@@ -1349,9 +1355,39 @@
         }
       },
       "twoFactor": {
+        "title": "Authentification à deux facteurs",
+        "cardTitle": "Application d’authentification",
+        "offDescription": "L’authentification à deux facteurs est désactivée. Activez-la pour exiger un code à usage unique de votre application d’authentification à la connexion.",
+        "enable": "Activer la double authentification",
+        "activeCount": "{count, plural, one {La double authentification est active sur # méthode.} other {La double authentification est active sur # méthodes.}}",
+        "authenticatorFallback": "Authentificateur",
+        "remove": "Retirer",
+        "addAnother": "Ajouter une autre",
+        "enrollInstructions": "Scannez le code QR avec votre application d’authentification (Google Authenticator, 1Password, etc.), puis entrez le code à 6 chiffres affiché.",
+        "qrAlt": "Code QR pour la double authentification",
+        "verificationCode": "Code de vérification",
+        "verify": "Vérifier",
+        "toasts": {
+          "enabled": "Double authentification activée",
+          "removed": "Double authentification retirée"
+        },
+        "errors": {
+          "generic": "Une erreur est survenue. Réessayez."
+        },
         "confirmDelete": {
           "title": "Désactiver cette méthode ?",
           "description": "Cette méthode de double authentification sera retirée de ton compte."
+        }
+      },
+      "activeShop": {
+        "title": "Boutique active",
+        "singleShop": "Vous avez accès à une seule boutique. Lorsqu’un propriétaire vous invite à une autre, vous pourrez changer ici.",
+        "pickTitle": "Choisissez la boutique à gérer",
+        "current": "Actuelle",
+        "switch": "Changer",
+        "toasts": {
+          "updated": "Boutique active mise à jour",
+          "error": "Impossible de changer — actualisez et réessayez."
         }
       },
       "waitingList": {

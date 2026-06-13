@@ -310,7 +310,7 @@ export default async function ShopDetailPage(props: Props) {
               <p className="text-sm text-text-secondary">Aucun membre actif.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" aria-label="Shop members">
                   <thead>
                     <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                       <th className="px-3 py-3">Email</th>
@@ -370,7 +370,7 @@ export default async function ShopDetailPage(props: Props) {
               <p className="text-sm text-text-secondary">Aucun rendez-vous pour l&apos;instant.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" aria-label="Recent appointments">
                   <thead>
                     <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                       <th className="px-3 py-3">Date</th>

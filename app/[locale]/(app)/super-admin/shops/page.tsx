@@ -64,7 +64,7 @@ export default async function AdminShopsPage(props: { params: Promise<{ locale: 
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border bg-bg-surface">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" aria-label="Platform shops">
               <thead>
                 <tr className="border-b border-border bg-bg-surface-2 text-[10px] uppercase tracking-wide text-text-muted">
                   <th className="px-4 py-3 text-left">Name</th>
@@ -77,39 +77,26 @@ export default async function AdminShopsPage(props: { params: Promise<{ locale: 
                 {shops.map((s) => (
                   <tr
                     key={s.id}
-                    className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-surface-2"
+                    className="border-b border-border transition-colors last:border-b-0 hover:bg-bg-surface-2"
                   >
+                    {/* A11Y-01 — one clickable target per row (was 4 identical
+                        links). The shop name is the row's link; the remaining
+                        cells are plain text so a screen reader announces a
+                        single link per row. */}
                     <td className="px-4 py-3 font-medium">
                       <Link
                         href={`/${params.locale}/super-admin/shops/${s.id}`}
-                        className="block w-full hover:text-accent"
+                        className="hover:text-accent"
                       >
                         {s.name}
                       </Link>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      <Link
-                        href={`/${params.locale}/super-admin/shops/${s.id}`}
-                        className="block w-full"
-                      >
-                        {s.alias ?? <EmptyCell />}
-                      </Link>
+                      {s.alias ?? <EmptyCell />}
                     </td>
-                    <td className="px-4 py-3 text-xs text-text-secondary">
-                      <Link
-                        href={`/${params.locale}/super-admin/shops/${s.id}`}
-                        className="block w-full"
-                      >
-                        {counts[s.id] ?? 0}
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-xs text-text-secondary">{counts[s.id] ?? 0}</td>
                     <td className="px-4 py-3 text-xs text-text-muted">
-                      <Link
-                        href={`/${params.locale}/super-admin/shops/${s.id}`}
-                        className="block w-full"
-                      >
-                        {new Date(s.created_at).toLocaleDateString('en-CA')}
-                      </Link>
+                      {new Date(s.created_at).toLocaleDateString('en-CA')}
                     </td>
                   </tr>
                 ))}

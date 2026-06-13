@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { INDUSTRIES, INDUSTRY_KINDS, type IndustryKind } from '@/lib/industries';
+import { captureException } from '@/lib/observability';
 import { createShopAction, type CreateShopState } from './actions';
 
 const initialState: CreateShopState = { kind: 'idle' };
@@ -13,6 +14,16 @@ const initialState: CreateShopState = { kind: 'idle' };
 export function CreateShopForm() {
   const [state, formAction] = useFormState(createShopAction, initialState);
   const [industry, setIndustry] = useState<IndustryKind>('hair_salon');
+
+  // SECRET-01 — ship the raw error detail to Sentry but never render it; the
+  // UI shows a generic message in the error block below.
+  useEffect(() => {
+    if (state.kind === 'error') {
+      captureException(new Error(`create-shop: ${state.message}`), {
+        tags: { layer: 'admin-create-shop', surface: 'super-admin-ui' },
+      });
+    }
+  }, [state]);
 
   return (
     <form action={formAction} className="max-w-xl space-y-6" noValidate>
@@ -126,7 +137,7 @@ export function CreateShopForm() {
           role="alert"
           className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
         >
-          {state.message}
+          Something went wrong creating the shop. The detail was logged for review.
         </p>
       ) : null}
 

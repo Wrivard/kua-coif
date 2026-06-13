@@ -103,6 +103,26 @@ export function CommissionsClient({
 
   function onSave() {
     startTransition(async () => {
+      // SM-19: reject ambiguous tier configs before submit. Among the tiers a
+      // barber actually uses (threshold>0 or pct>0, the ones normalizeTiers
+      // keeps), thresholds must be strictly increasing; duplicates make the
+      // "highest tier <= revenue" lookup ambiguous.
+      for (const b of barbers) {
+        const draft = drafts.get(`${b.id}:${scope}`);
+        if (!draft) continue;
+        const thresholds = draft.tiers
+          .filter((tier) => tier.threshold > 0 || tier.pct > 0)
+          .map((tier) => tier.threshold);
+        const increasing = thresholds.every((v, i) => i === 0 || v > thresholds[i - 1]!);
+        if (!increasing) {
+          show({
+            variant: 'danger',
+            title: t('errors.tiersNotIncreasing', { barber: b.display_name }),
+          });
+          return;
+        }
+      }
+
       const rows: Array<{
         barber_id: string;
         scope: CommissionScope;
