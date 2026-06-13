@@ -1,6 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireShopMember } from '@/lib/auth/server';
+import { getCurrentShopId, requireShopMember } from '@/lib/auth/server';
 import { parseWidgetConfig } from '@/lib/business/widget-config';
 import { WidgetClient, type FunnelStats } from './widget-client';
 
@@ -16,11 +16,21 @@ export default async function WidgetSettingsPage(props: { params: Promise<{ loca
   setRequestLocale(locale);
   await requireShopMember({ locale });
 
+  // SOP-12 — scope to the active shop. RLS returns the union of the member's
+  // shops, so a multi-shop user saw an arbitrary shop's config + funnel stats
+  // here while writes target ctx.shopId. The null guard is TS-only.
+  const shopId = await getCurrentShopId();
+  if (!shopId) return null;
+
   const supabase = createSupabaseServerClient();
-  // RLS limits this to the current shop. We need name+alias for the live preview
-  // iframe URL and the snippet code; widget_config to seed the form.
-  const { data } = await supabase.from('shops').select('id, name, alias, widget_config').limit(1);
-  const row = (data ?? [])[0];
+  // We need name+alias for the live preview iframe URL and the snippet code;
+  // widget_config to seed the form.
+  const { data } = await supabase
+    .from('shops')
+    .select('id, name, alias, widget_config')
+    .eq('id', shopId)
+    .maybeSingle();
+  const row = data;
 
   const initialConfig = parseWidgetConfig(row?.widget_config);
 
