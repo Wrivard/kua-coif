@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireKuaAdmin } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { captureException } from '@/lib/observability';
+import { logDurableAudit } from '@/lib/audit-log';
 import { INDUSTRY_KINDS, getCatalogFor, type IndustryKind } from '@/lib/industries';
 
 const createShopSchema = z.object({
@@ -49,7 +50,7 @@ export async function createShopAction(
   _prev: CreateShopState | undefined,
   formData: FormData,
 ): Promise<CreateShopState> {
-  await requireKuaAdmin();
+  const adminUser = await requireKuaAdmin();
 
   const parsed = createShopSchema.safeParse({
     name: formData.get('name'),
@@ -157,6 +158,25 @@ export async function createShopAction(
     if (memberRes.error) {
       return { kind: 'error', message: memberRes.error.message };
     }
+
+    // AUDIT-01 — both inserts above run via the service-role client, so the
+    // shops + shop_members audit triggers record actor_id = NULL. Add a
+    // durable, attributed record of this provisioning (the highest tenant
+    // privilege grant). No raw PII in the diff — the owner is keyed by user_id.
+    await logDurableAudit({
+      shopId,
+      actorId: adminUser.id,
+      action: 'insert',
+      entity: 'shops',
+      entityId: shopId,
+      diff: {
+        name: parsed.data.name,
+        alias: parsed.data.alias,
+        industry,
+        owner_user_id: ownerUserId,
+        owner_status: isExistingProfile ? 'confirmed' : 'staff',
+      },
+    });
 
     // 5. Seed the industry-specific catalog (Phase 23). Categories first
     //    (we need their generated ids), then services keyed back by the

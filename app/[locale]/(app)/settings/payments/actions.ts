@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { stripeConfigured } from '@/lib/stripe/server';
 import {
   createDashboardLoginLink,
@@ -96,7 +96,10 @@ export const updatePaymentMode = withAction({
       .update({ payment_mode: input.payment_mode })
       .eq('id', ctx.shopId);
     if (error) return err('UNEXPECTED');
-    await logAuditAction({
+    // FIN-BE-05 — durable, attributed trail. payment_mode is a financial column
+    // written via service-role, so the shops audit trigger logs the mutation
+    // with actor_id NULL; logDurableAudit records WHICH owner changed it.
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',
@@ -154,13 +157,17 @@ export const startStripeConnect = withAction<never, { url: string }>({
           .from('shops')
           .update({ stripe_account_id: accountId, stripe_connect_status: 'pending' })
           .eq('id', shop.id);
-        await logAuditAction({
+        // FIN-BE-05 — durable, attributed trail. NEVER log the raw
+        // stripe_account_id (it's the PaymentIntent transfer destination, a
+        // fund-routing identifier) — record only that the owner created/linked
+        // the Connect account and the resulting status.
+        await logDurableAudit({
           shopId: ctx.shopId,
           actorId: ctx.userId,
           action: 'insert',
           entity: 'shops',
           entityId: shop.id,
-          diff: { stripe_account_id: accountId },
+          diff: { stripe_account_created: true, stripe_connect_status: 'pending' },
         });
       }
 
@@ -204,7 +211,9 @@ export const refreshStripeStatus = withAction<never, { status: string }>({
       await admin.from('shops').update({ stripe_connect_status: status }).eq('id', ctx.shopId);
       // Loop 30 (P2.104) — Stripe status writes to the shop row, so it
       // belongs in the audit log alongside the other shop edits.
-      await logAuditAction({
+      // FIN-BE-05 — durable, attributed trail (service-role write → the shops
+      // audit trigger logs the mutation with actor_id NULL; this records WHO).
+      await logDurableAudit({
         shopId: ctx.shopId,
         actorId: ctx.userId,
         action: 'update',
@@ -313,7 +322,10 @@ export const disconnectQuickbooks = withAction<never, { ok: true }>({
       .eq('id', ctx.shopId);
     if (error) return err('UNEXPECTED');
 
-    await logAuditAction({
+    // FIN-BE-05 — durable, attributed trail: the owner revoked the QuickBooks
+    // token and nulled the credential columns (service-role write). Records WHO;
+    // never the token itself.
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'update',

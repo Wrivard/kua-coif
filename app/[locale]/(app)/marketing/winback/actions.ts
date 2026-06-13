@@ -6,7 +6,7 @@ import { shopLocale } from '@/lib/i18n-locale';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { Winback } from '@/lib/email/templates/winback';
 import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
@@ -171,7 +171,7 @@ export const sendWinbackCampaign = withAction<typeof sendWinbackSchema, SendResu
       }
     }
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'custom',
