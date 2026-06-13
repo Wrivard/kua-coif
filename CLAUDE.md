@@ -20,7 +20,7 @@ Bilingual **fr + en**, French default (Québec).
 
 ## 2. Stack (verify against `package.json` before relying on a version)
 
-- **Next.js 14 App Router** (14.2.35) + **TypeScript strict**.
+- **Next.js 15 App Router** (15.5.19) + **React 19** + **TypeScript strict**.
 - **Supabase**: Postgres + Auth + Storage, **Row Level Security**. Multi-tenant
   by `shop_id`; a member sees only their shops. Types in `db/types.ts`
   (regenerate with `pnpm db:types:local` / `:remote`).

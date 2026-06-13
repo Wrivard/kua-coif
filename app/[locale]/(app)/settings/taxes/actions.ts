@@ -30,6 +30,9 @@ export const createTax = withAction({
       .insert({ shop_id: ctx.shopId, ...input })
       .select('id')
       .single();
+    // 23505 = duplicate tax name in this shop (taxes_shop_name_unique, added
+    // in 20260613130000) → CONFLICT, not a generic UNEXPECTED.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error || !data) return err('UNEXPECTED');
     await logAuditAction({
       shopId: ctx.shopId,
@@ -49,8 +52,20 @@ export const updateTax = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const { id, ...rest } = input;
-    const { error } = await db().from('taxes').update(rest).eq('id', id);
+    // T6 — shop-scoped write + rows-check (Services W2 pattern): RLS spans every
+    // shop the user belongs to, so without the explicit scope a multi-shop
+    // manager could edit ANOTHER of their shops' taxes by id — and a 0-row write
+    // returned a lying ok.
+    const { data: rows, error } = await db()
+      .from('taxes')
+      .update(rest)
+      .eq('id', id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    // 23505 = rename collision with another tax in this shop → CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { name: 'duplicate' });
     if (error) return err('UNEXPECTED');
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -68,8 +83,14 @@ export const deleteTax = withAction({
   schema: deleteTaxSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db().from('taxes').delete().eq('id', input.id);
+    const { data: rows, error } = await db()
+      .from('taxes')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
     if (error) return err('CONFLICT'); // FK service_taxes/product_taxes restrict
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,

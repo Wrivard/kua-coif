@@ -30,6 +30,8 @@ export const createPromoCode = withAction({
       })
       .select('id')
       .single();
+    // 23505 = duplicate code in this shop (unique(shop_id, code)) → CONFLICT.
+    if (error?.code === '23505') return err('CONFLICT', { code: 'duplicate' });
     if (error || !data) return err('UNEXPECTED');
     await logAuditAction({
       shopId: ctx.shopId,
@@ -49,11 +51,19 @@ export const updatePromoCode = withAction({
   minRole: 'manager',
   run: async (input, ctx) => {
     const { id, code, ...rest } = input;
-    const { error } = await db()
+    // T6 — shop-scoped write + rows-check (Services W2 pattern); a 0-row write
+    // (foreign-shop id) must err, not lie with ok.
+    const { data: rows, error } = await db()
       .from('promo_codes')
       .update({ code: code.toUpperCase(), ...rest })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    // 23505 = rename collision with another code in this shop
+    // (unique(shop_id, code)) → CONFLICT, not a generic UNEXPECTED (SM-17).
+    if (error?.code === '23505') return err('CONFLICT', { code: 'duplicate' });
     if (error) return err('UNEXPECTED');
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
@@ -71,8 +81,14 @@ export const deletePromoCode = withAction({
   schema: deletePromoCodeSchema,
   minRole: 'manager',
   run: async (input, ctx) => {
-    const { error } = await db().from('promo_codes').delete().eq('id', input.id);
+    const { data: rows, error } = await db()
+      .from('promo_codes')
+      .delete()
+      .eq('id', input.id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
     if (error) return err('UNEXPECTED');
+    if ((rows?.length ?? 0) === 0) return err('NOT_FOUND');
     await logAuditAction({
       shopId: ctx.shopId,
       actorId: ctx.userId,
