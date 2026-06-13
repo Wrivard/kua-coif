@@ -10,6 +10,7 @@ import { logAuditAction } from '@/lib/audit-log';
 import { signToken } from '@/lib/security/signed-tokens';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { ReviewRequest } from '@/lib/email/templates/review-request';
+import { buildUnsubscribeUrl } from '@/lib/email/unsubscribe';
 import { dispatchSms } from '@/lib/sms/dispatch';
 import { reviewRequestSms } from '@/lib/sms/templates';
 import { twilioWebhookUrl } from '@/lib/sms/webhook';
@@ -46,7 +47,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
     const apptsRes = await admin
       .from('appointments')
       .select(
-        'id, shop_id, start_at, status, public_link_version, client:clients(id, first_name, email, phone, anonymized_at)',
+        'id, shop_id, start_at, status, public_link_version, client:clients(id, first_name, email, phone, anonymized_at, marketing_opted_out)',
       )
       .in('id', input.appointment_ids)
       .eq('shop_id', ctx.shopId);
@@ -92,10 +93,10 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
     let failed = 0;
 
     for (const appt of appts) {
-      // Defense in depth — anonymized clients should never receive
-      // marketing. The /marketing/review-campaign page filters them
-      // out, but the action verifies again.
-      if (!appt.client || appt.client.anonymized_at) {
+      // Defense in depth — anonymized or opted-out clients must never
+      // receive marketing. The /marketing/review-campaign page filters
+      // them out, but the action verifies again (mirrors winback).
+      if (!appt.client || appt.client.anonymized_at || appt.client.marketing_opted_out) {
         skipped += 1;
         continue;
       }
@@ -130,6 +131,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
             shop: { name: shop.name },
             client: { firstName: appt.client.first_name },
             reviewUrl,
+            unsubscribeUrl: buildUnsubscribeUrl(appt.client.id, locale),
           }),
           tags: [
             { name: 'kind', value: 'review_request' },
