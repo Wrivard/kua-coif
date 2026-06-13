@@ -103,18 +103,34 @@ export async function POST(req: NextRequest): Promise<Response> {
       // Already processed â€” Stripe retried an event we already saw.
       // At-most-once delivery semantics held; return 200 immediately
       // so Stripe stops retrying.
-      return NextResponse.json({ ok: true, skipped: 'already_processed' });
+      // FIN-BE-02: skip ONLY if a prior delivery actually COMPLETED. A row with
+      // processed_at null is a lock from a delivery whose handler did not finish
+      // (transient failure) -> re-process on this retry instead of losing the
+      // money event. (processed_at lands in db/types.ts on the next post-deploy
+      // `pnpm db:types` regen; cast until then.)
+      const existing = (await admin
+        .from('stripe_events')
+        .select('*')
+        .eq('id', event.id)
+        .maybeSingle()) as unknown as { data: { processed_at: string | null } | null };
+      if (existing.data?.processed_at) {
+        return NextResponse.json({ ok: true, skipped: 'already_processed' });
+      }
     }
     // Some other DB issue (timeout, connection blip, RLS mis-grant).
     // Log it for visibility but proceed to the handler â€” we'd rather
     // re-process an event than miss one.
-    captureException(
-      new Error(`[stripe-webhook] dedupe insert failed: ${dedupeError.message ?? 'unknown'}`),
-      {
-        tags: { layer: 'stripe-webhook', stage: 'dedupe' },
-        extra: { eventId: event.id, eventType: event.type, code: dedupeError.code ?? '' },
-      },
-    );
+    // Only a genuine non-23505 DB error is worth logging; a 23505 with
+    // processed_at null already fell through above (a legitimate re-process).
+    if (dedupeError.code !== '23505') {
+      captureException(
+        new Error(`[stripe-webhook] dedupe insert failed: ${dedupeError.message ?? 'unknown'}`),
+        {
+          tags: { layer: 'stripe-webhook', stage: 'dedupe' },
+          extra: { eventId: event.id, eventType: event.type, code: dedupeError.code ?? '' },
+        },
+      );
+    }
   }
 
   // 4. Route by event type. Defensive switch â€” unknown events return 200
@@ -210,6 +226,26 @@ export async function POST(req: NextRequest): Promise<Response> {
         // about (e.g., balance.available). Logging them all would be noisy.
         break;
       }
+    }
+    // FIN-BE-02: handler completed -> mark the event processed so a future
+    // Stripe retry skips it. Best-effort: the handler already succeeded, so a
+    // failed bookkeeping write must not 500 (that would needlessly re-run a
+    // successful money handler); worst case processed_at stays null and a retry
+    // re-processes (handlers are idempotent). processed_at lands in db/types.ts
+    // on the next post-deploy regen; cast until then.
+    const markRes = await admin
+      .from('stripe_events')
+      .update({ processed_at: new Date().toISOString() } as never)
+      .eq('id', event.id);
+    const markError = (markRes as { error: { message?: string } | null }).error;
+    if (markError) {
+      captureException(
+        new Error(`[stripe-webhook] mark-processed failed: ${markError.message ?? 'unknown'}`),
+        {
+          tags: { layer: 'stripe-webhook', stage: 'mark-processed' },
+          extra: { eventId: event.id, eventType: event.type },
+        },
+      );
     }
     return NextResponse.json({ ok: true });
   } catch (e) {

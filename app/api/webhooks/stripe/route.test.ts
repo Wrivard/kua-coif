@@ -99,10 +99,16 @@ describe('stripe webhook POST', () => {
     expect(mock.tables.appointments![0]!.payment_status).toBe('paid');
   });
 
-  it('duplicate event (23505 on stripe_events.insert) → handler skipped, no appointments write', async () => {
+  it('duplicate event already COMPLETED (23505 + processed_at set) → handler skipped, no appointments write', async () => {
     const mock = setup(
       {
-        stripe_events: [],
+        stripe_events: [
+          {
+            id: 'evt_dup',
+            event_type: 'payment_intent.succeeded',
+            processed_at: '2026-06-13T00:00:00.000Z',
+          },
+        ],
         appointments: [{ id: 'a1', payment_intent_id: 'pi_1', payment_status: 'pending' }],
       },
       { errors: { stripe_events: { insert: { code: '23505', message: 'dup' } } } },
@@ -120,6 +126,37 @@ describe('stripe webhook POST', () => {
     const body = (await res.json()) as { ok: boolean; skipped?: string };
     expect(body).toMatchObject({ ok: true, skipped: 'already_processed' });
     expect(mock.calls.some((c) => c.table === 'appointments')).toBe(false);
+  });
+
+  it('duplicate event NOT yet completed (23505 + processed_at null) → handler re-processes (FIN-BE-02)', async () => {
+    // A prior delivery inserted the dedupe lock but its handler failed before
+    // completion (processed_at null). Stripe retries → the event MUST be
+    // re-processed, not skipped, so the money event is never lost.
+    const mock = setup(
+      {
+        stripe_events: [
+          { id: 'evt_retry', event_type: 'payment_intent.succeeded', processed_at: null },
+        ],
+        appointments: [{ id: 'a1', payment_intent_id: 'pi_1', payment_status: 'pending' }],
+      },
+      { errors: { stripe_events: { insert: { code: '23505', message: 'dup' } } } },
+    );
+
+    const res = await POST(
+      signedRequest({
+        id: 'evt_retry',
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_1', status: 'succeeded', amount: 3000 } },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; skipped?: string };
+    expect(body).toEqual({ ok: true });
+    // Handler re-ran → appointment flipped to paid.
+    expect(mock.tables.appointments![0]!.payment_status).toBe('paid');
+    // And the event was marked processed so the next retry skips it.
+    expect(mock.calls.some((c) => c.table === 'stripe_events' && c.op === 'update')).toBe(true);
   });
 
   it('charge.refund.updated (failed) → flips status back to paid ONLY for rows we marked refunded', async () => {

@@ -406,4 +406,111 @@ describe('bookPublicAppointment', () => {
     expect(res.fieldErrors).toMatchObject({ hp: expect.any(String) });
     expect(mock.calls).toHaveLength(0);
   });
+
+  // ── SM-04 / SM-05 — money concurrency (T5) ───────────────────────────────
+  // The promo redemption is CLAIMED atomically before the appointment insert,
+  // and the loyalty credit is DEBITED via an atomic RPC. The fixture harness
+  // can't run the RPC SQL, so we stub `.rpc` and assert the call shape +
+  // success/loss/compensation behavior (same pattern as services/actions.test).
+
+  function oneTimePromo(over: Record<string, unknown> = {}) {
+    return {
+      id: 'promo-1',
+      shop_id: 'shop-1',
+      code: 'ONCE',
+      type: 'percent',
+      value: 10,
+      first_appointment_only: false,
+      one_time: true,
+      expiration_date: null,
+      redemptions: 0,
+      ...over,
+    };
+  }
+
+  it('SM-04: a one_time promo is claimed atomically before insert; a successful booking keeps it', async () => {
+    const mock = createSupabaseMock(baseFixtures({ promo_codes: [oneTimePromo()] }));
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    (mock.client as { rpc: unknown }).rpc = (...a: unknown[]) => rpc(...a);
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput({ promo_code: 'ONCE' }));
+
+    expect(res.ok).toBe(true);
+    // Authoritative one_time gate: the atomic claim, before the insert.
+    expect(rpc).toHaveBeenCalledWith(
+      'claim_promo_redemption',
+      expect.objectContaining({ p_promo_id: 'promo-1' }),
+    );
+    // A durable booking keeps the redemption — never released.
+    expect(rpc).not.toHaveBeenCalledWith('release_promo_redemption', expect.anything());
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(true);
+  });
+
+  it('SM-04: a concurrent one_time claim that LOSES returns used and creates NO appointment', async () => {
+    const mock = createSupabaseMock(baseFixtures({ promo_codes: [oneTimePromo()] }));
+    // claim_promo_redemption -> false: another booking already redeemed it.
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    (mock.client as { rpc: unknown }).rpc = (...a: unknown[]) => rpc(...a);
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput({ promo_code: 'ONCE' }));
+
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: 'INVALID_INPUT',
+      fieldErrors: { promo_code: 'used' },
+    });
+    expect(rpc).toHaveBeenCalledWith('claim_promo_redemption', expect.anything());
+    expect(mock.calls.some((c) => c.table === 'appointments' && c.op === 'insert')).toBe(false);
+  });
+
+  it('SM-04: a post-claim insert conflict RELEASES the redemption and returns CONFLICT', async () => {
+    const mock = createSupabaseMock(baseFixtures({ promo_codes: [oneTimePromo()] }), {
+      errors: { appointments: { insert: { code: '23505', message: 'unique_violation' } } },
+    });
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    (mock.client as { rpc: unknown }).rpc = (...a: unknown[]) => rpc(...a);
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput({ promo_code: 'ONCE' }));
+
+    expect(res).toMatchObject({ ok: false, errorCode: 'CONFLICT' });
+    expect(rpc).toHaveBeenCalledWith('claim_promo_redemption', expect.anything());
+    // The failed booking gives the one_time code back.
+    expect(rpc).toHaveBeenCalledWith(
+      'release_promo_redemption',
+      expect.objectContaining({ p_promo_id: 'promo-1' }),
+    );
+  });
+
+  it('SM-05: an applied loyalty credit is debited via the atomic RPC, not a read-modify-write', async () => {
+    h.effectiveLoyaltyBalanceCents.mockResolvedValue(2000); // $20 banked
+    const mock = createSupabaseMock(
+      baseFixtures({
+        clients: [
+          {
+            id: 'client-1',
+            shop_id: 'shop-1',
+            phone_normalized: '5145551234',
+            loyalty_balance_cents: 2000,
+            me_token_version: 0,
+          },
+        ],
+      }),
+    );
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    (mock.client as { rpc: unknown }).rpc = (...a: unknown[]) => rpc(...a);
+    h.srClient.current = mock.client;
+
+    const res = await bookPublicAppointment(validInput());
+
+    expect(res.ok).toBe(true);
+    const debit = rpc.mock.calls.find(([name]) => name === 'debit_loyalty_balance');
+    expect(debit).toBeDefined();
+    expect(debit?.[1]).toMatchObject({ p_client_id: 'client-1' });
+    expect((debit?.[1] as { p_amount_cents: number }).p_amount_cents).toBeGreaterThan(0);
+    // The old read-modify-write balance write is gone.
+    expect(mock.calls.some((c) => c.table === 'clients' && c.op === 'update')).toBe(false);
+  });
 });
