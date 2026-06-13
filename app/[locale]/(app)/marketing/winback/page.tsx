@@ -18,6 +18,7 @@ const LAPSED_THRESHOLD_DAYS = 90;
  *     know them — could be a one-off booking that fizzled)
  *   - has NO non-cancelled appointment in the last 90 days
  *   - is not anonymized
+ *   - has not opted out of marketing
  *   - has email OR phone
  *   - hasn't been winback-asked already this year (one ask per year
  *     per channel via client_marketing_sends.recurrence_key)
@@ -45,7 +46,8 @@ export default async function WinbackPage(props: { params: Promise<{ locale: str
     .from('clients')
     .select('id, first_name, last_name, email, phone')
     .eq('shop_id', shopId)
-    .is('anonymized_at', null);
+    .is('anonymized_at', null)
+    .eq('marketing_opted_out', false);
   const clients = (clientsRes.data ?? []).filter((c) => c.email || c.phone);
   if (clients.length === 0) return <WinbackClient locale={locale} candidates={[]} />;
 
