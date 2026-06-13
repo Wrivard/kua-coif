@@ -24,7 +24,6 @@ const PUBLIC_PATH_PREFIXES = [
   '/setup-password', // first-login flow for invitees (Phase 22)
   '/book', // public booking flow (Phase 8)
   '/embed', // embeddable widget (Phase 10) — must be unauthenticated
-  '/kitchen-sink', // design system gallery — always accessible for review
   '/privacy', // legal — Loi 25 Quebec (Phase 9)
   '/terms',
   // Token-authenticated customer self-service links — no session required; the

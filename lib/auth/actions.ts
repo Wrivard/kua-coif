@@ -26,10 +26,14 @@ const emailSchema = z.string().trim().toLowerCase().email();
 const passwordSchema = z.string().min(8, 'PASSWORD_TOO_SHORT').max(72, 'PASSWORD_TOO_LONG');
 
 function safeRedirectTarget(input: string | null | undefined, locale: Locale): string {
-  // Only allow same-origin relative paths under the locale.
+  // Only allow same-origin relative paths under the locale. AUTHN-01: the
+  // target must be a single leading slash followed by a non-slash. This rejects
+  // `//evil.com` (protocol-relative) AND `/\evil.com` — browsers normalize the
+  // backslash to `/`, turning the latter into `//evil.com` and escaping the
+  // origin. `input` is the already-decoded hidden-field value.
   if (!input) return `/${locale}/`;
-  if (!input.startsWith('/')) return `/${locale}/`;
-  if (input.startsWith('//')) return `/${locale}/`;
+  if (input.includes('\\')) return `/${locale}/`;
+  if (!/^\/(?!\/)/.test(input)) return `/${locale}/`;
   return input;
 }
 
@@ -78,7 +82,15 @@ export async function signInAction(
   });
 
   if (error) {
-    return { ok: false, errorCode: mapSupabaseAuthError(error) };
+    // AUTHN-02 — collapse EMAIL_NOT_CONFIRMED into the same generic
+    // INVALID_CREDENTIALS result so the login form can't be used to confirm
+    // that an address exists-but-unconfirmed. Invitees reach the app through
+    // the setup-password email link, not this form, so the UX cost is nil.
+    const code = mapSupabaseAuthError(error);
+    return {
+      ok: false,
+      errorCode: code === 'EMAIL_NOT_CONFIRMED' ? 'INVALID_CREDENTIALS' : code,
+    };
   }
 
   const target = safeRedirectTarget(parsed.data.redirectTo ?? null, parsed.data.locale as Locale);
