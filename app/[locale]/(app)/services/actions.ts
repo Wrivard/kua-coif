@@ -299,15 +299,19 @@ export const reorderServices = withAction({
   run: async (input, ctx) => {
     const supabase = createSupabaseServerClient();
 
-    // One UPDATE per row: write each id's index in the submitted list as
-    // its new sort_order. RLS scopes every write to the active shop, so a
-    // foreign id silently affects zero rows (no cross-shop leak). The set
-    // is tiny (services per shop), so the round-trip count is a non-issue.
+    // One UPDATE per row: write each id's index in the submitted list as its
+    // new sort_order. RLS only scopes writes to the user's MEMBER shops, NOT
+    // the active one — a multi-shop manager (member of A+B) could otherwise
+    // rewrite shop B's order while on A — so we pin the ACTIVE shop with an
+    // explicit `.eq('shop_id', ctx.shopId)`, the same guard as the W1/W2 service
+    // writes. A foreign-shop id then matches zero rows. The set is tiny
+    // (services per shop), so the round-trip count is a non-issue.
     for (let i = 0; i < input.ids.length; i++) {
       const { error } = await supabase
         .from('services')
         .update({ sort_order: i })
-        .eq('id', input.ids[i]!);
+        .eq('id', input.ids[i]!)
+        .eq('shop_id', ctx.shopId);
       if (error) return err('UNEXPECTED');
     }
 
