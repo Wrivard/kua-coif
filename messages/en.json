@@ -1353,9 +1353,39 @@
         }
       },
       "twoFactor": {
+        "title": "Two-factor authentication",
+        "cardTitle": "Authenticator app",
+        "offDescription": "Two-factor authentication is off. Enable it to require a one-time code from your authenticator app at sign-in.",
+        "enable": "Enable two-factor",
+        "activeCount": "{count, plural, one {Two-factor is active on # method.} other {Two-factor is active on # methods.}}",
+        "authenticatorFallback": "Authenticator",
+        "remove": "Remove",
+        "addAnother": "Add another",
+        "enrollInstructions": "Scan the QR with your authenticator app (Google Authenticator, 1Password, etc.), then enter the 6-digit code it shows.",
+        "qrAlt": "2FA QR code",
+        "verificationCode": "Verification code",
+        "verify": "Verify",
+        "toasts": {
+          "enabled": "Two-factor enabled",
+          "removed": "Two-factor removed"
+        },
+        "errors": {
+          "generic": "Something went wrong. Please try again."
+        },
         "confirmDelete": {
           "title": "Disable this method?",
           "description": "This two-factor method will be removed from your account."
+        }
+      },
+      "activeShop": {
+        "title": "Active shop",
+        "singleShop": "You have access to a single shop. Once an owner invites you to another, you’ll be able to switch here.",
+        "pickTitle": "Pick the shop you want to manage",
+        "current": "Current",
+        "switch": "Switch",
+        "toasts": {
+          "updated": "Active shop updated",
+          "error": "Could not switch — refresh and try again."
         }
       },
       "waitingList": {

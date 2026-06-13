@@ -1,4 +1,4 @@
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { getCurrentShopId, getShopMemberships, requireShopMember } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
@@ -41,9 +41,11 @@ export default async function ActiveShopPage(props: { params: Promise<{ locale: 
     role: m.role,
   }));
 
+  const t = await getTranslations('pages.settings.activeShop');
+
   return (
     <>
-      <PageHeader title="Active shop" />
+      <PageHeader title={t('title')} />
       <ActiveShopClient activeShopId={activeShopId} rows={rows} />
     </>
   );

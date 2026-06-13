@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2 } from 'lucide-react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ export function ActiveShopClient({
   rows: Row[];
 }) {
   const { show } = useToast();
+  const t = useTranslations('pages.settings.activeShop');
   const [picked, setPicked] = useState(activeShopId ?? rows[0]?.shop_id);
   const [isPending, startTransition] = useTransition();
 
@@ -26,9 +28,9 @@ export function ActiveShopClient({
     startTransition(async () => {
       const result = await selectShop({ shop_id: picked });
       if (result.ok) {
-        show({ variant: 'success', title: 'Active shop updated' });
+        show({ variant: 'success', title: t('toasts.updated') });
       } else {
-        show({ variant: 'danger', title: 'Could not switch — refresh and try again.' });
+        show({ variant: 'danger', title: t('toasts.error') });
       }
     });
   }
@@ -38,10 +40,7 @@ export function ActiveShopClient({
       <div className="p-6">
         <Card>
           <CardBody>
-            <p className="text-sm text-text-secondary">
-              You have access to a single shop. Once an owner invites you to another, you’ll be able
-              to switch here.
-            </p>
+            <p className="text-sm text-text-secondary">{t('singleShop')}</p>
           </CardBody>
         </Card>
       </div>
@@ -52,7 +51,7 @@ export function ActiveShopClient({
     <div className="max-w-2xl space-y-6 p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Pick the shop you want to manage</CardTitle>
+          <CardTitle>{t('pickTitle')}</CardTitle>
         </CardHeader>
         <CardBody className="space-y-2">
           {rows.map((r) => {
@@ -75,7 +74,7 @@ export function ActiveShopClient({
                   <p className="text-[11px] uppercase tracking-wide text-text-muted">{r.role}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isCurrent ? <Badge variant="accent">Current</Badge> : null}
+                  {isCurrent ? <Badge variant="accent">{t('current')}</Badge> : null}
                   {isPicked ? <CheckCircle2 className="h-5 w-5 text-accent" aria-hidden /> : null}
                 </div>
               </button>
@@ -85,7 +84,7 @@ export function ActiveShopClient({
       </Card>
       <div className="flex justify-end">
         <Button onClick={save} loading={isPending} disabled={picked === activeShopId}>
-          Switch
+          {t('switch')}
         </Button>
       </div>
     </div>

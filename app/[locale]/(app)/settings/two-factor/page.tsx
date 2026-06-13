@@ -1,4 +1,4 @@
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { requireShopMember } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { TwoFactorClient } from './two-factor-client';
@@ -21,10 +21,11 @@ export default async function TwoFactorPage(props: { params: Promise<{ locale: s
 
   setRequestLocale(locale);
   await requireShopMember({ locale });
+  const t = await getTranslations('pages.settings.twoFactor');
 
   return (
     <>
-      <PageHeader title="Two-factor authentication" />
+      <PageHeader title={t('title')} />
       <TwoFactorClient />
     </>
   );
