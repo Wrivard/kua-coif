@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
 import { defaultLocale } from '@/i18n';
 import { inviteUserSchema, removeMemberSchema, updateMemberSchema } from './schema';
 
@@ -84,12 +84,17 @@ export const inviteUser = withAction({
       });
       if (ins.error) return err('UNEXPECTED');
 
-      await logAuditAction({
+      // SOP-06 — the insert above runs through the service-role client, so the
+      // shop_members audit trigger records actor_id = NULL ("system"). Add a
+      // durable, attributed record so the trail shows WHO granted this
+      // membership. No raw PII in the diff — the invited user_id suffices
+      // (email would only be redacted by logDurableAudit anyway).
+      await logDurableAudit({
         shopId: ctx.shopId,
         actorId: ctx.userId,
         action: 'insert',
         entity: 'shop_members',
-        diff: { email: input.email, role: input.role, status: 'confirmed' },
+        diff: { invited_user_id: profile.id, role: input.role, status: 'confirmed' },
       });
       revalidatePath(PATH);
       return ok<InviteResult>({ status: 'confirmed' });
@@ -116,12 +121,14 @@ export const inviteUser = withAction({
     });
     if (ins.error) return err('UNEXPECTED');
 
-    await logAuditAction({
+    // SOP-06 — service-role insert ⇒ trigger logs actor_id = NULL; add a
+    // durable attributed record (see Path A). No raw PII in the diff.
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'insert',
       entity: 'shop_members',
-      diff: { email: input.email, role: input.role, status: 'staff', invited: true },
+      diff: { invited_user_id: newUserId, role: input.role, status: 'staff', invited: true },
     });
     revalidatePath(PATH);
     return ok<InviteResult>({ status: 'staff' });
