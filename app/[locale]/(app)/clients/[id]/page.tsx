@@ -20,6 +20,7 @@ import {
   requireShopMember,
 } from '@/lib/auth/server';
 import { effectiveLoyaltyBalanceCents } from '@/lib/business/loyalty';
+import { excludeRefunded } from '@/lib/business/finances';
 import { formatCurrencyCAD } from '@/lib/utils';
 import { formatShopTime } from '@/lib/business/timezone';
 import { PageHeader } from '@/components/ui/page-header';
@@ -64,7 +65,7 @@ export default async function ClientDetailPage(props: {
   // can run in ONE round-trip. The notFound() gates below keep their original
   // order and semantics (client absent → 404 BEFORE the ownership verdict;
   // the history result is simply discarded when a gate fires).
-  const [clientRes, ownRes, apptRes] = await Promise.all([
+  const [clientRes, ownRes, apptRes, statsRes] = await Promise.all([
     admin
       .from('clients')
       .select(
@@ -93,6 +94,15 @@ export default async function ClientDetailPage(props: {
       .eq('shop_id', shopId)
       .order('start_at', { ascending: false })
       .limit(100),
+    // MED-2 — all-time stats from a SEPARATE lightweight query (no joins, high
+    // cap) so totalSpent/visits/noShows stay exact past the 100-row history cap
+    // used for the display table above.
+    admin
+      .from('appointments')
+      .select('status, total_amount, payment_status')
+      .eq('client_id', id)
+      .eq('shop_id', shopId)
+      .limit(2000),
   ]);
   const client = clientRes.data;
   if (!client) notFound();
@@ -114,10 +124,18 @@ export default async function ClientDetailPage(props: {
       .join(' + '),
   }));
 
-  const completed = appts.filter((a) => a.status === 'completed');
-  const totalSpent = completed.reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const visits = completed.length;
-  const noShows = appts.filter((a) => a.status === 'no_show').length;
+  // MED-1 + MED-2 — stats come from the separate all-time stats query (NOT the
+  // 100-capped history above), and totalSpent NETS refunds via the shared
+  // excludeRefunded rule (FIN-UX-01): a fully-refunded completed appt counts as
+  // a visit but contributes 0 to spend.
+  const statsRows = statsRes.data ?? [];
+  const completedStats = statsRows.filter((a) => a.status === 'completed');
+  const totalSpent = excludeRefunded(completedStats).reduce(
+    (s, a) => s + Number(a.total_amount ?? 0),
+    0,
+  );
+  const visits = completedStats.length;
+  const noShows = statsRows.filter((a) => a.status === 'no_show').length;
   const loyaltyCents = await effectiveLoyaltyBalanceCents({
     clientId: id,
     balanceCents: client.loyalty_balance_cents ?? 0,
