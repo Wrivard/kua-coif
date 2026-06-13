@@ -114,6 +114,28 @@ function scrubKeys(obj: unknown, depth = 0): unknown {
 }
 
 /**
+ * Redact PII *inside* a free-form string (by content, not by key). Used for
+ * `event.exception.values[].value`, where call sites interpolate provider
+ * errors that embed a recipient's email or phone into the Error message
+ * (e.g. Twilio 21211/21610 "Invalid 'To' number +1...", nodemailer envelope
+ * address). The key-based `scrubKeys` can't reach these (the PII lives in a
+ * string, not a `{ phone: ... }` field), so we pattern-match the two shapes
+ * that actually leak and replace each with the same `<scrubbed>` token.
+ *
+ * Deliberately conservative to avoid mangling legitimate error text:
+ *   - Email: the `@...TLD` anchor makes false positives rare.
+ *   - Phone: anchored on a leading `+` (E.164). The leak vectors are always
+ *     E.164 (`+1...`) because that is how we store/send numbers, so requiring
+ *     the `+` avoids redacting bare digit runs (ports, counts, IDs, HTTP
+ *     status codes like `503`).
+ */
+function redactPiiInText(text: string): string {
+  return text
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SCRUBBED)
+    .replace(/\+\d[\d\s().-]{6,}\d/g, SCRUBBED);
+}
+
+/**
  * Sentry `beforeSend` callback — same shape for client/server/edge.
  * Typed loosely as `(event: any) => any` so the same module works
  * across SDK versions where the Event type may drift; the actual
@@ -157,6 +179,24 @@ export function scrubSentryEvent(event: any): any {
     }
     if (req.cookies) req.cookies = SCRUBBED;
     if (req.data) req.data = scrubKeys(req.data);
+  }
+
+  // Exception messages are free-form strings, not key/value objects, so the
+  // key-based scrubbers above never reach them. Call sites interpolate
+  // provider errors that can embed a recipient email / phone into the Error
+  // message — redact those by content. We touch ONLY `values[].value`; the
+  // top-level `event.message` stays intact (operational copy, asserted by the
+  // scrubber tests).
+  if (event.exception && typeof event.exception === 'object') {
+    const values = (event.exception as { values?: unknown }).values;
+    if (Array.isArray(values)) {
+      for (const entry of values) {
+        const v = entry as { value?: unknown };
+        if (v && typeof v === 'object' && typeof v.value === 'string') {
+          v.value = redactPiiInText(v.value);
+        }
+      }
+    }
   }
 
   return event;
