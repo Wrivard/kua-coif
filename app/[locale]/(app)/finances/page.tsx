@@ -12,7 +12,7 @@ import {
   tierConfigFromRow,
   type CommissionTierDbRow,
 } from '@/lib/business/commissions';
-import { excludeRefunded, netRevenue } from '@/lib/business/finances';
+import { excludeRefunded, forfeitedDeposits, netRevenue } from '@/lib/business/finances';
 import { captureException } from '@/lib/observability';
 import { DateRangeFilter } from './date-range-filter';
 
@@ -77,7 +77,7 @@ export default async function FinancesPage(props: {
   // 5000 and, if we hit it, alert (Sentry) + warn on-page rather than render a
   // wrong total silently.
   const RANGE_LIMIT = 5000;
-  const [apptsRes, clientsRes] = await Promise.all([
+  const [apptsRes, clientsRes, noShowRes] = await Promise.all([
     supabase
       .from('appointments')
       .select('id, barber_id, total_amount, status, payment_status, start_at')
@@ -91,6 +91,17 @@ export default async function FinancesPage(props: {
       .select('id, loyalty_balance_cents')
       .eq('shop_id', shop.id)
       .gt('loyalty_balance_cents', 0)
+      .limit(RANGE_LIMIT),
+    // FIN — forfeited no-show deposits, fetched SEPARATELY so the completed-only
+    // query above (revenue + commission base) stays untouched. Surfaced as its
+    // own KPI; never added to grossRevenue.
+    supabase
+      .from('appointments')
+      .select('deposit_amount_cents, payment_status, status')
+      .eq('shop_id', shop.id)
+      .eq('status', 'no_show')
+      .gte('start_at', rangeStart.toISOString())
+      .lt('start_at', rangeEnd.toISOString())
       .limit(RANGE_LIMIT),
   ]);
 
@@ -124,6 +135,10 @@ export default async function FinancesPage(props: {
     (s, c) => s + (c.loyalty_balance_cents ?? 0),
     0,
   );
+  // FIN — forfeited no-show deposits for the range (from the separate no_show
+  // query above). Its own supporting KPI; deliberately NOT part of grossRevenue.
+  const noShowAppts = noShowRes.data ?? [];
+  const forfeitedTotal = forfeitedDeposits(noShowAppts);
 
   // ── Sales per barber ──────────────────────────────────────────────
   const byBarber = new Map<string, { count: number; revenue: number }>();
@@ -370,13 +385,14 @@ export default async function FinancesPage(props: {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:col-span-2">
             <Kpi label={t('kpis.completedAppointments')} value={String(completedCount)} />
             <Kpi label={t('kpis.avgTicket')} value={fmtCAD(avgTicket)} />
             <Kpi
               label={t('kpis.loyaltyOutstanding')}
               value={fmtCAD(loyaltyOutstandingCents / 100)}
             />
+            <Kpi label={t('kpis.forfeitedDeposits')} value={fmtCAD(forfeitedTotal)} />
           </div>
         </div>
 
