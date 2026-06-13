@@ -164,50 +164,34 @@ export async function awardLoyaltyOnCompletion({
     // Below the minimum transaction amount â†’ no progress.
     if (totalAmount < config.min_transaction_amount) return;
 
-    // Pull current counter + balance.
+    // SM-05 + SM-06 - apply the accrual atomically + idempotently SQL-side.
+    // The accrue_loyalty RPC (migration 20260613160000) claims
+    // `appointments.loyalty_awarded_at` so a re-fired completion is a no-op,
+    // locks the client row so a concurrent booking debit (debit_loyalty_balance)
+    // can't be lost, and writes the counter/balance relative to the locked row.
+    // It mirrors computeLoyaltyProgress (kept above as the unit-tested
+    // reference). Returns the reward cents granted (0 = none / already awarded).
     const admin = createSupabaseServiceRoleClient();
-    const cRes = await admin
-      .from('clients')
-      .select('loyalty_counter, loyalty_balance_cents')
-      .eq('id', clientId)
-      .single();
-    const client = cRes.data as {
-      loyalty_counter: number;
-      loyalty_balance_cents: number;
-    } | null;
-    if (!client) return;
-
-    const { nextCounter, goalReached, rewardCents } = computeLoyaltyProgress({
-      type: config.type,
-      currentCounter: client.loyalty_counter,
-      goalCount: config.goal_count,
-      rewardAmount: config.reward_amount,
-      totalAmount,
+    const accrued = await admin.rpc('accrue_loyalty', {
+      p_appointment_id: appointmentId,
+      p_client_id: clientId,
+      p_type: config.type,
+      p_goal_count: config.goal_count,
+      p_reward_cents: Math.round(config.reward_amount * 100),
+      p_total_cents: Math.round(totalAmount * 100),
     });
-
-    // Loop 35 (P1.92) â€” extend the balance expiry to one year out
-    // whenever a reward is granted. A regular customer's clock keeps
-    // resetting; an inactive customer's runs out. No change to the
-    // expiry timestamp when no reward is granted on this visit.
-    const patch: {
-      loyalty_counter: number;
-      loyalty_balance_cents: number;
-      loyalty_balance_expires_at?: string;
-    } = {
-      loyalty_counter: nextCounter,
-      loyalty_balance_cents: client.loyalty_balance_cents + rewardCents,
-    };
-    if (rewardCents > 0) {
-      const oneYearOut = new Date();
-      oneYearOut.setUTCFullYear(oneYearOut.getUTCFullYear() + 1);
-      patch.loyalty_balance_expires_at = oneYearOut.toISOString();
+    if (accrued.error) {
+      captureException(accrued.error, {
+        tags: { layer: 'loyalty', stage: 'accrue-rpc' },
+        extra: { shopId, appointmentId, clientId },
+      });
+      return;
     }
-
-    await admin.from('clients').update(patch).eq('id', clientId);
+    const rewardCents = accrued.data ?? 0;
 
     // Lightweight breadcrumb so we can debug a "did the customer get
     // their reward?" question without trawling audit log.
-    if (goalReached && rewardCents > 0) {
+    if (rewardCents > 0) {
       captureException(
         new Error(`[loyalty] reward granted: client ${clientId} += ${rewardCents}c`),
         {
