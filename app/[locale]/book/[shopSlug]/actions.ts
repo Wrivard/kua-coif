@@ -196,6 +196,11 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     connectedAccountId: string;
     shopId: string;
   } | null = null;
+  // SM-04 -- a promo redemption claimed (atomically) before the appointment
+  // insert. Hoisted out of the try so failBooking + the final catch can RELEASE
+  // it if the booking fails after the claim, and so it can be cleared once the
+  // booking is durable (a real booking keeps its redemption).
+  let claimedPromo: { id: string; discount: number } | null = null;
 
   try {
     const supabase = createSupabaseServiceRoleClient();
@@ -240,6 +245,20 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     const failBooking = async (
       ...args: Parameters<typeof err>
     ): Promise<Result<{ id: string }>> => {
+      // SM-04 -- release a promo redemption claimed earlier so a failed booking
+      // never permanently consumes a one_time code (locking the customer out).
+      if (claimedPromo) {
+        const released = claimedPromo;
+        claimedPromo = null;
+        try {
+          await supabase.rpc('release_promo_redemption', {
+            p_promo_id: released.id,
+            p_discount: released.discount,
+          });
+        } catch (e) {
+          captureException(e, { tags: { layer: 'public-booking', step: 'promo-release' } });
+        }
+      }
       if (input.payment_intent_id && shop.stripe_account_id) {
         try {
           const r = await refundOwnedIntentBestEffort({
@@ -666,6 +685,31 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
       verifiedPaymentStatus = verify.status === 'succeeded' ? 'paid' : 'pending';
     }
 
+    // SM-04 -- atomically CLAIM the promo redemption BEFORE the insert. This is
+    // the AUTHORITATIVE one_time gate (the read-check above is only a fast-fail
+    // UX): claim_promo_redemption's conditional UPDATE lets just the FIRST
+    // concurrent booking redeem a one_time code. A loser is rejected as 'used'
+    // (and refunded) before any appointment exists. On a post-claim failure,
+    // failBooking / the final catch release the claim.
+    if (promoCodeRow) {
+      const claim = await supabase.rpc('claim_promo_redemption', {
+        p_promo_id: promoCodeRow.id,
+        p_discount: discountAmount,
+      });
+      if (claim.error) {
+        captureException(claim.error, {
+          tags: { layer: 'public-booking', step: 'promo-claim' },
+          extra: { shopId: shop.id, promoId: promoCodeRow.id },
+        });
+        return await failBooking('UNEXPECTED');
+      }
+      if (claim.data !== true) {
+        // one_time code already redeemed by a concurrent booking.
+        return await failBooking('INVALID_INPUT', { promo_code: 'used' });
+      }
+      claimedPromo = { id: promoCodeRow.id, discount: discountAmount };
+    }
+
     const paymentFields = input.payment_intent_id
       ? {
           payment_intent_id: input.payment_intent_id,
@@ -758,6 +802,9 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // failure in the tail (loyalty/audit/email/Slack) must NOT refund a
     // customer who holds a real appointment.
     refundOnThrow = null;
+    // SM-04 -- durable booking: the promo redemption is legitimately consumed,
+    // so it must NOT be released by the catch below.
+    claimedPromo = null;
 
     // ── Decrement loyalty balance (Phase 50) ─────────────────────────
     // Best-effort: a balance-update failure shouldn't kill the booking
@@ -766,46 +813,30 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
     // the same value to avoid race conditions with a concurrent reward
     // grant by `awardLoyaltyOnCompletion` (which only ADDS to the
     // balance, never subtracts). Sentry breadcrumb on failure.
-    if (loyaltyCreditCents > 0 && !clientIsNew) {
+    // SM-05 -- decrement the applied loyalty credit ATOMICALLY (best-effort:
+    // the user already holds their appointment). debit_loyalty_balance does
+    // `loyalty_balance_cents = greatest(0, loyalty_balance_cents - credit)`
+    // SQL-side, so a concurrent accrual (awardLoyaltyOnCompletion, which ADDS)
+    // can't clobber it via read-modify-write.
+    if (loyaltyCreditCents > 0 && !clientIsNew && clientId) {
       try {
-        const newBalance = Math.max(0, clientLoyaltyBalanceCents - loyaltyCreditCents);
-        await supabase
-          .from('clients')
-          .update({ loyalty_balance_cents: newBalance })
-          .eq('id', clientId);
+        const debit = await supabase.rpc('debit_loyalty_balance', {
+          p_client_id: clientId,
+          p_amount_cents: loyaltyCreditCents,
+        });
+        if (debit.error) {
+          captureException(debit.error, {
+            tags: { layer: 'public-booking', step: 'loyalty-debit' },
+          });
+        }
       } catch (e) {
         captureException(e, { tags: { layer: 'public-booking', step: 'loyalty-debit' } });
       }
     }
 
-    // ── Bump promo code redemption counter (Phase 41) ────────────────
-    // Best-effort — a counter update failure shouldn't kill the booking
-    // (the user got their appointment, that's what matters). We read
-    // the current total_redemption_value once at validation time
-    // (promoCodeRow above) and increment locally. Concurrent bookings
-    // could undercount under heavy load — acceptable for a promo stat.
-    if (promoCodeRow) {
-      try {
-        // Re-read the current total to avoid stomping a concurrent bump.
-        const currentRes = await supabase
-          .from('promo_codes')
-          .select('redemptions, total_redemption_value')
-          .eq('id', promoCodeRow.id)
-          .single();
-        const current = currentRes.data;
-        if (current) {
-          await supabase
-            .from('promo_codes')
-            .update({
-              redemptions: current.redemptions + 1,
-              total_redemption_value: Number(current.total_redemption_value ?? 0) + discountAmount,
-            })
-            .eq('id', promoCodeRow.id);
-        }
-      } catch {
-        // Swallow — see comment above.
-      }
-    }
+    // SM-04 -- the promo redemption was already CLAIMED atomically before the
+    // insert (see above); there is no separate counter bump here, and a failed
+    // booking releases the claim via failBooking / the catch.
 
     await logDurableAudit({
       shopId: shop.id,
@@ -977,6 +1008,21 @@ export async function bookPublicAppointment(raw: unknown): Promise<Result<{ id: 
             shopId: refundOnThrow.shopId,
             paymentIntentId: refundOnThrow.paymentIntentId,
           },
+        });
+      }
+    }
+    // SM-04 -- a throw between the promo claim and the durable booking must
+    // release the claim too (claimedPromo is cleared once the booking is
+    // durable, so a tail throw never releases a legitimately consumed code).
+    if (claimedPromo) {
+      try {
+        await createSupabaseServiceRoleClient().rpc('release_promo_redemption', {
+          p_promo_id: claimedPromo.id,
+          p_discount: claimedPromo.discount,
+        });
+      } catch (releaseErr) {
+        captureException(releaseErr, {
+          tags: { layer: 'public-booking', step: 'promo-release-throw' },
         });
       }
     }

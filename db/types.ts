@@ -2072,6 +2072,17 @@ export type Database = {
     }
     Functions: {
       _audit_redact_keys: { Args: { p: Json; p_keys: string[] }; Returns: Json }
+      accrue_loyalty: {
+        Args: {
+          p_appointment_id: string
+          p_client_id: string
+          p_goal_count: number
+          p_reward_cents: number
+          p_total_cents: number
+          p_type: string
+        }
+        Returns: number
+      }
       birthday_clients: {
         Args: { p_day: number; p_month: number; p_shop: string }
         Returns: {
@@ -2101,6 +2112,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_promo_redemption: {
+        Args: { p_discount: number; p_promo_id: string }
+        Returns: boolean
+      }
       client_activity: {
         Args: { p_shop: string }
         Returns: {
@@ -2110,6 +2125,10 @@ export type Database = {
         }[]
       }
       current_shop_ids: { Args: never; Returns: string[] }
+      debit_loyalty_balance: {
+        Args: { p_amount_cents: number; p_client_id: string }
+        Returns: undefined
+      }
       has_role_in_shop: {
         Args: {
           target_role: Database["public"]["Enums"]["user_role"]
@@ -2127,6 +2146,10 @@ export type Database = {
         Returns: undefined
       }
       purge_old_audit_log: { Args: { retain_months?: number }; Returns: number }
+      release_promo_redemption: {
+        Args: { p_discount: number; p_promo_id: string }
+        Returns: undefined
+      }
       save_barber_settings: {
         Args: { p_rows: Json; p_shop: string }
         Returns: number
