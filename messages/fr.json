@@ -694,6 +694,7 @@
       "title": "Marketing",
       "subtitle": "Outils pour attirer, retenir et inciter les clients à laisser des avis.",
       "soon": "Campagnes, promos — Phase 8.",
+      "selectClient": "Sélectionner {name}",
       "cards": {
         "reviewCampaign": {
           "title": "Campagne d'avis (par lots)",

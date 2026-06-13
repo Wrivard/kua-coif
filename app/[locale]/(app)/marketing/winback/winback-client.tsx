@@ -75,6 +75,7 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
   const L = labels;
   const { show } = useToast();
   const tCommon = useTranslations('common');
+  const tMarketing = useTranslations('pages.marketing');
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, startSend] = useTransition();
@@ -201,7 +202,7 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
                         <Checkbox
                           checked={checked}
                           onChange={() => toggleOne(c.clientId)}
-                          aria-label={`Select ${fullName}`}
+                          aria-label={tMarketing('selectClient', { name: fullName })}
                         />
                       </td>
                       <td className="py-3">
