@@ -92,14 +92,16 @@ export function UsersClient({ members }: { members: MemberView[] }) {
       align: 'right',
       cell: (m) => (
         <RowActions
-          actions={[
-            {
-              icon: Pencil,
-              label: tCommon('actions.edit'),
-              onClick: () => setMode({ kind: 'edit', member: m }),
-            },
-            ...(m.status !== 'deleted'
+          // A deleted member is read-only: keep the row (and its `deleted`
+          // badge) visible but offer no edit/remove actions.
+          actions={
+            m.status !== 'deleted'
               ? [
+                  {
+                    icon: Pencil,
+                    label: tCommon('actions.edit'),
+                    onClick: () => setMode({ kind: 'edit', member: m }),
+                  },
                   {
                     icon: Trash2,
                     label: t('remove'),
@@ -107,8 +109,8 @@ export function UsersClient({ members }: { members: MemberView[] }) {
                     onClick: () => setConfirmRemove(m),
                   },
                 ]
-              : []),
-          ]}
+              : []
+          }
         />
       ),
     },

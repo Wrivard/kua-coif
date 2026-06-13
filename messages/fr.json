@@ -119,6 +119,7 @@
     "UNEXPECTED": "Une erreur inattendue est survenue.",
     "field": {
       "NAME_REQUIRED": "Le nom est requis.",
+      "INVALID_NUMBER": "Valeur numérique invalide.",
       "INVALID_PRICE_PRECISION": "Deux décimales maximum.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
       "DURATION_MAX": "La durée ne peut pas dépasser 8 heures.",
@@ -1257,6 +1258,9 @@
       },
       "commissions": {
         "title": "Commissions / Pourboires",
+        "errors": {
+          "tiersNotIncreasing": "Les seuils des paliers de {barber} doivent être strictement croissants."
+        },
         "tabs": {
           "services": "Services",
           "products": "Produits"

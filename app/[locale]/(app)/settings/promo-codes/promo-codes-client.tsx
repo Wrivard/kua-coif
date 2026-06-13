@@ -38,6 +38,16 @@ export type PromoCodeRow = {
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; promo: PromoCodeRow };
 
+/** Format a promo's date-only `expiration_date` in the shop locale. Formats in
+ *  UTC so the picked day shows verbatim (the column is a DATE; a local-timezone
+ *  render would shift e.g. 2026-12-31 to Dec 30 in Quebec, UTC-5). */
+function formatExpiry(isoDate: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-CA' : 'en-CA', {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(new Date(isoDate));
+}
+
 export function PromoCodesClient({
   locale,
   promoCodes,
@@ -101,7 +111,7 @@ export function PromoCodesClient({
     {
       id: 'expiration',
       header: t('columns.expiration'),
-      cell: (r) => r.expiration_date ?? <EmptyCell />,
+      cell: (r) => (r.expiration_date ? formatExpiry(r.expiration_date, locale) : <EmptyCell />),
     },
     {
       id: 'redemptions',
@@ -298,6 +308,7 @@ function PromoCodeFormModal({
           ) : (
             <MoneyInput id="value" {...register('value', { valueAsNumber: true })} />
           )}
+          {errors.value ? <FieldHint error>{tErr('field.INVALID_NUMBER')}</FieldHint> : null}
         </div>
 
         <div>
