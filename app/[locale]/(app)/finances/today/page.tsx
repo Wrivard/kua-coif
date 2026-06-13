@@ -93,7 +93,7 @@ export default async function CloseOutPage(props: {
     supabase
       .from('appointments')
       .select(
-        'id, barber_id, client_id, total_amount, status, payment_status, tip_amount_cents, source, start_at, end_at',
+        'id, barber_id, client_id, total_amount, status, payment_status, deposit_amount_cents, tip_amount_cents, source, start_at, end_at',
       )
       .eq('shop_id', shop.id)
       .gte('start_at', dayStart.toISOString())
@@ -128,15 +128,31 @@ export default async function CloseOutPage(props: {
   const paid = completed.filter((a) => a.payment_status === 'paid');
   const unpaid = completed.filter((a) => a.payment_status === 'unpaid');
   const refunded = completed.filter((a) => a.payment_status === 'refunded');
-  const paidTotal = paid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
+  // FIN-BIZ-02 — the `paid` slice is what Stripe collected ONLINE = the
+  // PaymentIntent charge snapshot (deposit base + online tip), NOT the full
+  // service total. In deposit mode Stripe only took the deposit; the balance
+  // is collected in shop (folded into expectedDrawer below). Mirrors the
+  // receipt's deposit line (receipt-client.tsx).
+  const paidTotal = paid.reduce((s, a) => s + (a.deposit_amount_cents ?? 0), 0) / 100;
   const unpaidTotal = unpaid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
   const refundedTotal = refunded.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
 
-  // Expected cash drawer = start balance + unpaid (in-shop cash) +
-  // tips on unpaid appointments (cash tips). Tips on paid appts went
-  // through Stripe so we don't count them in the drawer.
+  // Expected cash drawer = start balance + unpaid (in-shop cash) + tips on
+  // unpaid appointments (cash tips) + the in-shop BALANCE still collected at
+  // the counter on deposit-paid appointments. Tips on paid appts went through
+  // Stripe so we don't count them in the drawer.
   const unpaidTipsCents = unpaid.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
-  const expectedDrawer = cashDrawerStart + unpaidTotal + unpaidTipsCents / 100;
+  // FIN-BIZ-02 — in deposit mode Stripe only took the deposit; the balance
+  // (service total + tip − online charge) is paid in shop. Mirrors the
+  // receipt's balance line (receipt-client.tsx): a full-mode paid appt settles
+  // to 0, a cash-paid appt (deposit=0) settles to the full grand total.
+  // Floored at 0 so a rounding wobble can't subtract from the drawer.
+  const depositBalanceTotal = paid.reduce((s, a) => {
+    const grandTotal = Number(a.total_amount ?? 0) + (a.tip_amount_cents ?? 0) / 100;
+    return s + Math.max(0, grandTotal - (a.deposit_amount_cents ?? 0) / 100);
+  }, 0);
+  const expectedDrawer =
+    cashDrawerStart + unpaidTotal + unpaidTipsCents / 100 + depositBalanceTotal;
 
   // ── Per-barber tipout ─────────────────────────────────────────────
   // Each barber's row carries: completed visits, services revenue
