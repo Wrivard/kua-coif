@@ -6,7 +6,7 @@ import { shopLocale } from '@/lib/i18n-locale';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
-import { logAuditAction } from '@/lib/audit-log';
+import { logDurableAudit } from '@/lib/audit-log';
 import { signToken } from '@/lib/security/signed-tokens';
 import { sendEmail, type AutomationKind } from '@/lib/email/send';
 import { ReviewRequest } from '@/lib/email/templates/review-request';
@@ -210,7 +210,7 @@ export const sendReviewCampaign = withAction<typeof sendReviewCampaignSchema, Se
       }
     }
 
-    await logAuditAction({
+    await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'custom',
