@@ -120,7 +120,7 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
     startSend(async () => {
       const result = await sendWinbackCampaign({ client_ids: selectedIds });
       if (result.ok) {
-        const { sent, failed, attempted } = result.data;
+        const { sent, failed } = result.data;
         if (failed === 0) {
           show({
             variant: 'success',
@@ -131,8 +131,7 @@ export function WinbackClient({ locale, candidates, labels }: Props) {
             variant: 'warning',
             title: (L?.partialToast ?? '')
               .replace('{sent}', String(sent))
-              .replace('{failed}', String(failed))
-              .replace('{attempted}', String(attempted)),
+              .replace('{failed}', String(failed)),
           });
         }
         setSelected(new Set());

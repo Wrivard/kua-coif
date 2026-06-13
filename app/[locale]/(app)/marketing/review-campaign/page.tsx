@@ -1,5 +1,5 @@
 import { setRequestLocale, getTranslations } from 'next-intl/server';
-import { requireRoleInCurrentShop, requireShopMember, getCurrentShopId } from '@/lib/auth/server';
+import { requireRoleInCurrentShop, requireShopMember, getCurrentShop } from '@/lib/auth/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { ReviewCampaignClient, type Candidate } from './review-campaign-client';
 
@@ -31,8 +31,10 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
   await requireShopMember({ locale });
   await requireRoleInCurrentShop('manager');
 
-  const shopId = await getCurrentShopId();
-  if (!shopId) return null;
+  const shop = await getCurrentShop();
+  if (!shop) return null;
+  const shopId = shop.id;
+  const timezone = shop.timezone ?? 'America/Toronto';
 
   const admin = createSupabaseServiceRoleClient();
 
@@ -59,7 +61,7 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
     (a) => a.client && !a.client.anonymized_at && (a.client.email || a.client.phone),
   );
   if (contactable.length === 0) {
-    return <ReviewCampaignClient locale={locale} candidates={[]} />;
+    return <ReviewCampaignClient locale={locale} candidates={[]} timezone={timezone} />;
   }
 
   // 3. Exclude appointments that already have a review OR already had a
@@ -96,6 +98,7 @@ export default async function ReviewCampaignPage(props: { params: Promise<{ loca
     <ReviewCampaignClient
       locale={locale}
       candidates={candidates}
+      timezone={timezone}
       labels={{
         title: t('title'),
         subtitle: t('subtitle', { days: LOOKBACK_DAYS }),

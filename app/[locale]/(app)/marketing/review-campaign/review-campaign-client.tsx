@@ -50,6 +50,8 @@ type Labels = {
 type Props = {
   locale: string;
   candidates: Candidate[];
+  /** Shop IANA timezone for formatting the visit date. */
+  timezone: string;
   labels?: Labels;
 };
 
@@ -67,11 +69,12 @@ type Props = {
  * exclusion filter).
  */
 export function ReviewCampaignClient({
-  // locale is reserved for future locale-aware date formatting
-  // (services formatter, etc.); currently we hardcode America/Toronto
-  // — see the formatShopTime call below for the right fix.
+  // locale is reserved for future locale-aware date formatting (e.g.
+  // localized month names); the visit date renders in the shop's
+  // timezone, passed from the page.
   locale: _locale,
   candidates,
+  timezone,
   labels,
 }: Props) {
   const L = labels;
@@ -127,7 +130,7 @@ export function ReviewCampaignClient({
     startSend(async () => {
       const result = await sendReviewCampaign({ appointment_ids: selectedIds });
       if (result.ok) {
-        const { sent, failed, attempted } = result.data;
+        const { sent, failed } = result.data;
         if (failed === 0) {
           show({
             variant: 'success',
@@ -137,10 +140,8 @@ export function ReviewCampaignClient({
           show({
             variant: 'warning',
             title:
-              L?.partialToast
-                .replace('{sent}', String(sent))
-                .replace('{failed}', String(failed))
-                .replace('{attempted}', String(attempted)) ?? 'Partial',
+              L?.partialToast.replace('{sent}', String(sent)).replace('{failed}', String(failed)) ??
+              'Partial',
           });
         }
         setSelected(new Set());
@@ -222,7 +223,7 @@ export function ReviewCampaignClient({
                         <p className="font-medium text-text-primary">{fullName}</p>
                       </td>
                       <td className="py-3 text-text-secondary">
-                        {formatShopTime(c.startAt, 'America/Toronto', 'd MMM yyyy')}
+                        {formatShopTime(c.startAt, timezone, 'd MMM yyyy')}
                       </td>
                       <td className="py-3 text-text-secondary">
                         {c.services.length > 0 ? c.services.join(', ') : <EmptyCell />}
