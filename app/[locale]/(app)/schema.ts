@@ -1,9 +1,24 @@
 import { z } from 'zod';
 import { APPOINTMENT_STATUSES } from '@/db/enums';
 
-export const appointmentSchema = z.object({
+const appointmentBaseSchema = z.object({
   barber_id: z.string().uuid(),
-  client_id: z.string().uuid(),
+  // POS-lite stage 1 — nullable so a walk-in (no client account) can be
+  // booked. The superRefine below enforces the walk_in ⇄ client_id pairing.
+  client_id: z.string().uuid().nullable(),
+  /**
+   * Walk-in toggle. When true the appointment carries no client row; the
+   * customer's name (if given) is snapshotted to client_name_snapshot.
+   */
+  walk_in: z.boolean().optional().default(false),
+  /** Free-text walk-in name → appointments.client_name_snapshot. */
+  client_name: z
+    .string()
+    .trim()
+    .max(120)
+    .nullable()
+    .or(z.literal('').transform(() => null))
+    .optional(),
   /** YYYY-MM-DD (shop-local). */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'INVALID_DATE'),
   /** HH:mm (shop-local). */
@@ -18,6 +33,29 @@ export const appointmentSchema = z.object({
     .or(z.literal('').transform(() => null)),
   status: z.enum(APPOINTMENT_STATUSES),
 });
+
+/**
+ * POS-lite stage 1 — a normal booking requires a client; a walk-in must NOT
+ * carry a client_id (its name lives in client_name → client_name_snapshot).
+ * Built as a superRefine over the base object so the two modes stay mutually
+ * exclusive; `.shape` consumers (e.g. updateAppointmentSchema) read the base.
+ */
+export const appointmentSchema = appointmentBaseSchema.superRefine((val, ctx) => {
+  if (!val.walk_in && !val.client_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['client_id'],
+      message: 'CLIENT_REQUIRED',
+    });
+  }
+  if (val.walk_in && val.client_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['client_id'],
+      message: 'WALKIN_NO_CLIENT',
+    });
+  }
+});
 export type AppointmentInput = z.infer<typeof appointmentSchema>;
 
 // Wave 1 — the detail drawer only edits status + notes, and the action's
@@ -26,7 +64,7 @@ export type AppointmentInput = z.infer<typeof appointmentSchema>;
 export const updateAppointmentSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(APPOINTMENT_STATUSES),
-  notes: appointmentSchema.shape.notes,
+  notes: appointmentBaseSchema.shape.notes,
 });
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 

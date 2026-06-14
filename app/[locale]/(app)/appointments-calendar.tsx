@@ -107,7 +107,9 @@ export type CalendarView = 'side-by-side' | 'week' | 'list';
 export type CalendarAppointment = {
   id: string;
   barber_id: string;
-  client_id: string;
+  // POS-lite stage 1 — null for walk-ins (no client row); client_name then
+  // carries the snapshotted name.
+  client_id: string | null;
   client_name: string;
   start_at: string;
   end_at: string;

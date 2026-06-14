@@ -161,13 +161,16 @@ export const createAppointment = withAction({
     // Validate the client belongs to THIS shop (mirrors the services check).
     // RLS permits an insert for any shop member but never binds client_id to
     // the shop, so a crafted request could otherwise link a foreign client.
-    const clientCheck = await rawDb()
-      .from('clients')
-      .select('id')
-      .eq('id', input.client_id)
-      .eq('shop_id', ctx.shopId)
-      .maybeSingle();
-    if (!clientCheck.data) return err('NOT_FOUND');
+    // Skipped for walk-ins (POS-lite stage 1) — they carry no client row.
+    if (input.client_id) {
+      const clientCheck = await rawDb()
+        .from('clients')
+        .select('id')
+        .eq('id', input.client_id)
+        .eq('shop_id', ctx.shopId)
+        .maybeSingle();
+      if (!clientCheck.data) return err('NOT_FOUND');
+    }
 
     const totalMinutes = services.reduce((s, x) => s + x.duration_min, 0);
     const totalAmount = services.reduce((s, x) => s + x.price, 0);
@@ -229,6 +232,9 @@ export const createAppointment = withAction({
         shop_id: ctx.shopId,
         barber_id: input.barber_id,
         client_id: input.client_id,
+        // POS-lite stage 1 — snapshot the walk-in name (null for booked
+        // clients, who resolve their name via the client_id join).
+        client_name_snapshot: input.walk_in ? (input.client_name ?? null) : null,
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         status: input.status,

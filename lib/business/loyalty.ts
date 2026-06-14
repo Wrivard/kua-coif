@@ -154,9 +154,12 @@ export async function awardLoyaltyOnCompletion({
 }: {
   shopId: string;
   appointmentId: string;
-  clientId: string;
+  clientId: string | null;
   totalAmount: number;
 }): Promise<void> {
+  // Walk-ins (POS-lite stage 1) carry no client row — nothing to accrue
+  // against, and the accrue_loyalty RPC below would otherwise get a null id.
+  if (!clientId) return;
   try {
     const config = await resolveLoyaltyConfig(shopId);
     if (!config) return;
