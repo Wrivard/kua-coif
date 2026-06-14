@@ -57,3 +57,11 @@ export const setBarberStatusSchema = z.object({
 /** Phase 34 — disconnect a barber's Google Calendar. Removes the row from
  *  barber_google_calendar; future pushes/pulls no-op. */
 export const disconnectGoogleSchema = z.object({ barber_id: z.string().uuid() });
+
+/** B8 — invite a roster barber to log in themselves: email the person (or link
+ *  an existing Küa profile) and set `barbers.user_id`. */
+export const inviteBarberSchema = z.object({
+  barber_id: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email(),
+});
+export type InviteBarberInput = z.infer<typeof inviteBarberSchema>;

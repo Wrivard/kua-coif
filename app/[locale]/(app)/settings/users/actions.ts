@@ -1,14 +1,13 @@
 'use server';
 
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { headers } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/service-role';
 import { MEMBERSHIPS_CACHE_TAG } from '@/lib/auth/server';
+import { resolveOrInviteAuthUser } from '@/lib/auth/invite';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
 import { logAuditAction, logDurableAudit } from '@/lib/audit-log';
-import { defaultLocale } from '@/i18n';
 import { inviteUserSchema, removeMemberSchema, updateMemberSchema } from './schema';
 
 const PATH = '/settings/users';
@@ -22,19 +21,19 @@ type InviteResult = { status: 'confirmed' | 'staff' };
 /**
  * Whitelist invite flow (Phase 22).
  *
- * Two paths depending on whether the email already has a Küa profile:
+ * Resolves the auth user via the shared `resolveOrInviteAuthUser` helper — two
+ * paths depending on whether the email already has a Küa profile:
  *
  *   A) **Profile exists** (multi-shop scenario — they're already a member of
  *      another shop): link them to this shop with `status='confirmed'`
  *      immediately. No email sent — they keep their existing password.
  *
- *   B) **No profile**: call Supabase's `auth.admin.inviteUserByEmail`. Supabase
- *      creates the `auth.users` row (the `tg_create_profile_on_signup`
- *      trigger then fills in `profiles`) and ships an invitation email with
- *      a PKCE link landing on `/<locale>/setup-password`. We pre-create
- *      `shop_members(role, status='staff')` so the invitee shows up as
- *      pending in `/settings/users` right away; status flips to 'confirmed'
- *      when they finish setup.
+ *   B) **No profile**: Supabase's `auth.admin.inviteUserByEmail` creates the
+ *      `auth.users` row (the `tg_create_profile_on_signup` trigger fills
+ *      `profiles`) and ships a PKCE invite landing on `/<locale>/setup-password`.
+ *      We pre-create `shop_members(role, status='staff')` so the invitee shows
+ *      up as pending in `/settings/users` right away; status flips to
+ *      'confirmed' when they finish setup.
  *
  * Self-signups are off at the Supabase Auth dashboard level since Phase 22,
  * so `inviteUserByEmail` is the only way an account gets created.
@@ -53,91 +52,53 @@ export const inviteUser = withAction({
 
     const sb = createSupabaseServiceRoleClient();
 
-    // 1. Look up profile by email.
-    const profileRes = await sb
-      .from('profiles')
-      .select('id, email')
-      .eq('email', input.email)
+    // Resolve (or invite) the auth user — shared with `inviteBarber`.
+    const resolved = await resolveOrInviteAuthUser(sb, input.email);
+    if ('error' in resolved) return err('CONFLICT');
+    const { userId, isNew } = resolved;
+
+    // Refuse if they're already a member of this shop (re-linking an existing
+    // profile or re-inviting an already-invited address).
+    const existing = await sb
+      .from('shop_members')
+      .select('id')
+      .eq('shop_id', ctx.shopId)
+      .eq('user_id', userId)
       .limit(1);
-    const profile = (profileRes.data ?? [])[0];
+    if ((existing.data ?? [])[0]) return err('CONFLICT');
 
-    // Common pre-check: refuse if they're already a member of this shop
-    // (covers both paths — re-linking an existing profile or re-inviting an
-    // already-invited address).
-    if (profile) {
-      const existing = await sb
-        .from('shop_members')
-        .select('id, status')
-        .eq('shop_id', ctx.shopId)
-        .eq('user_id', profile.id)
-        .limit(1);
-      const existingRow = (existing.data ?? [])[0];
-      if (existingRow) return err('CONFLICT');
-    }
-
-    // ── Path A: existing profile → confirm immediately ───────────────────
-    if (profile) {
-      const ins = await sb.from('shop_members').insert({
-        shop_id: ctx.shopId,
-        user_id: profile.id,
-        role: input.role,
-        status: 'confirmed',
-      });
-      if (ins.error) return err('UNEXPECTED');
-
-      // SOP-06 — the insert above runs through the service-role client, so the
-      // shop_members audit trigger records actor_id = NULL ("system"). Add a
-      // durable, attributed record so the trail shows WHO granted this
-      // membership. No raw PII in the diff — the invited user_id suffices
-      // (email would only be redacted by logDurableAudit anyway).
-      await logDurableAudit({
-        shopId: ctx.shopId,
-        actorId: ctx.userId,
-        action: 'insert',
-        entity: 'shop_members',
-        diff: { invited_user_id: profile.id, role: input.role, status: 'confirmed' },
-      });
-      revalidatePath(PATH);
-      // AUTHZ-R1 — a new confirmed membership changes the invitee's role set;
-      // bust the 60s memberships cache so role/membership gates see it now.
-      revalidateTag(MEMBERSHIPS_CACHE_TAG);
-      return ok<InviteResult>({ status: 'confirmed' });
-    }
-
-    // ── Path B: invite a brand-new user ──────────────────────────────────
-    const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? '';
-    const inviteRes = await sb.auth.admin.inviteUserByEmail(input.email, {
-      redirectTo: `${origin}/${defaultLocale}/setup-password`,
-    });
-    if (inviteRes.error || !inviteRes.data?.user) {
-      // Most common case: Supabase rejects because the email is already in
-      // `auth.users` but had no matching `profiles` row (rare race). We
-      // surface a clean CONFLICT instead of leaking the raw Supabase error.
-      return err('CONFLICT');
-    }
-    const newUserId = inviteRes.data.user.id as string;
-
+    // Existing profile → confirmed now; brand-new → pending ('staff') until
+    // they finish /setup-password.
+    const status: InviteResult['status'] = isNew ? 'staff' : 'confirmed';
     const ins = await sb.from('shop_members').insert({
       shop_id: ctx.shopId,
-      user_id: newUserId,
+      user_id: userId,
       role: input.role,
-      status: 'staff', // pending — flips to 'confirmed' on /setup-password completion
+      status,
     });
     if (ins.error) return err('UNEXPECTED');
 
-    // SOP-06 — service-role insert ⇒ trigger logs actor_id = NULL; add a
-    // durable attributed record (see Path A). No raw PII in the diff.
+    // SOP-06 — the insert above runs through the service-role client, so the
+    // shop_members audit trigger records actor_id = NULL ("system"). Add a
+    // durable, attributed record so the trail shows WHO granted this
+    // membership. No raw PII in the diff — the invited user_id suffices.
     await logDurableAudit({
       shopId: ctx.shopId,
       actorId: ctx.userId,
       action: 'insert',
       entity: 'shop_members',
-      diff: { invited_user_id: newUserId, role: input.role, status: 'staff', invited: true },
+      diff: {
+        invited_user_id: userId,
+        role: input.role,
+        status,
+        ...(isNew ? { invited: true } : {}),
+      },
     });
     revalidatePath(PATH);
-    // AUTHZ-R1 — bust the memberships cache (mirror Path A).
+    // AUTHZ-R1 — a new membership changes the invitee's role set; bust the
+    // 60s memberships cache so role/membership gates see it now.
     revalidateTag(MEMBERSHIPS_CACHE_TAG);
-    return ok<InviteResult>({ status: 'staff' });
+    return ok<InviteResult>({ status });
   },
 });
 
