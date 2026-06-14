@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { ArchiveRestore, Check, Download, Pencil, Plus, Trash2, Unlink } from 'lucide-react';
+import { ArchiveRestore, Check, Download, Mail, Pencil, Plus, Trash2, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyCell } from '@/components/ui/empty-cell';
+import { Input, Label } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -18,7 +20,7 @@ import { useToast } from '@/components/ui/toast';
 import type { BarberRow } from '@/db/rows';
 import type { ShopMemberStatus } from '@/db/enums';
 import { BarberFormModal } from './barber-form-modal';
-import { deleteBarber, disconnectGoogleCalendar, setBarberStatus } from './actions';
+import { deleteBarber, disconnectGoogleCalendar, inviteBarber, setBarberStatus } from './actions';
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; barber: BarberRow };
 
@@ -53,6 +55,9 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
   // B18 — the Google disconnect deletes real events off the barber's external
   // calendar, so it must be confirmed (not fire on a stray icon click).
   const [confirmDisconnect, setConfirmDisconnect] = useState<BarberRow | null>(null);
+  // B8 — the "invite to log in" modal target (a roster chair to link to an
+  // auth account so the barber can self-serve their own calendar).
+  const [invite, setInvite] = useState<BarberRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Phase 34 — surface a toast after the OAuth round-trip. The callback
@@ -187,6 +192,33 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
       id: 'personnel',
       header: t('columns.personnelId'),
       cell: (r) => r.personnel_id ?? <EmptyCell />,
+    },
+    // B8 — login access: a linked chair (barbers.user_id set) shows a badge;
+    // an unlinked confirmed/staff chair gets an "invite to log in" button that
+    // links it to an auth account so the barber can self-serve their own
+    // calendar. Deleted chairs show nothing.
+    {
+      id: 'login',
+      header: t('columns.login'),
+      cell: (r) =>
+        r.user_id ? (
+          <Badge variant="success">
+            <Check className="h-3 w-3" /> {t('loginStatus.linked')}
+          </Badge>
+        ) : r.status === 'deleted' ? (
+          <EmptyCell />
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setInvite(r);
+            }}
+          >
+            <Mail className="h-4 w-4" /> {t('actions.inviteToLogin')}
+          </Button>
+        ),
     },
     // Phase 34 — Google Calendar connection column. Hidden when the
     // feature isn't configured server-side (env vars missing).
@@ -342,6 +374,8 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
         <BarberFormModal mode={mode} onClose={() => setMode({ kind: 'closed' })} />
       )}
 
+      {invite && <InviteBarberModal barber={invite} onClose={() => setInvite(null)} />}
+
       <ConfirmDialog
         open={confirmDelete !== null}
         title={t('confirmDelete.title')}
@@ -377,6 +411,72 @@ export function BarbersClient({ locale, barbers, googleConfigured, googleByBarbe
         onCancel={() => setConfirmDisconnect(null)}
       />
     </>
+  );
+}
+
+/**
+ * B8 — "Invite to log in" modal. Prefilled with the chair's roster email
+ * (overridable: the work address on the roster may differ from the personal
+ * one the barber wants to sign in with). On submit, `inviteBarber` links an
+ * existing Küa profile immediately or emails a brand-new invite, then writes
+ * `barbers.user_id` so the barber can self-serve their own calendar.
+ */
+function InviteBarberModal({ barber, onClose }: { barber: BarberRow; onClose: () => void }) {
+  const t = useTranslations('pages.barbers');
+  const tCommon = useTranslations('common');
+  const tErr = useTranslations('actionErrors');
+  const { show } = useToast();
+  const [email, setEmail] = useState(barber.email ?? '');
+  const [isPending, startTransition] = useTransition();
+
+  function onSubmit() {
+    startTransition(async () => {
+      const result = await inviteBarber({ barber_id: barber.id, email });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.invited', { name: barber.display_name }) });
+        onClose();
+      } else if (result.errorCode === 'CONFLICT') {
+        show({ variant: 'warning', title: t('toasts.inviteConflict') });
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('inviteModal.title')}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={isPending}>
+            {tCommon('actions.cancel')}
+          </Button>
+          <Button onClick={onSubmit} loading={isPending} disabled={!email.trim()}>
+            <Mail className="h-4 w-4" /> {t('inviteModal.send')}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-text-muted">
+          {t('inviteModal.description', { name: barber.display_name })}
+        </p>
+        <div>
+          <Label htmlFor="invite-email" required>
+            {t('inviteModal.email')}
+          </Label>
+          <Input
+            id="invite-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <p className="text-xs text-text-muted">{t('inviteModal.hint')}</p>
+      </div>
+    </Modal>
   );
 }
 

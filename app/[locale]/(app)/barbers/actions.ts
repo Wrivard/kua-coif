@@ -1,9 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { withAction } from '@/lib/server-actions/with-action';
 import { err, ok } from '@/lib/server-actions/result';
+import { MEMBERSHIPS_CACHE_TAG } from '@/lib/auth/server';
+import { resolveOrInviteAuthUser } from '@/lib/auth/invite';
 import {
   revalidatePublicShopSurfaces,
   revalidateShopConfig,
@@ -15,6 +17,7 @@ import {
   barberSchema,
   deleteBarberSchema,
   disconnectGoogleSchema,
+  inviteBarberSchema,
   setBarberStatusSchema,
   updateBarberSchema,
 } from './schema';
@@ -200,6 +203,96 @@ export const setBarberStatus = withAction({
     // Plan 017 — status flips (confirmed↔staff/deleted) change bookability.
     revalidateShopConfig(ctx.shopId);
     return ok({ id: input.id, status: input.status });
+  },
+});
+
+/**
+ * B8 — invite a roster barber to log in themselves.
+ *
+ * The barber persona (own calendar / own clients / self-view commissions) is
+ * gated on `barbers.user_id = auth.uid()` via `getCurrentBarberId`, but nothing
+ * ever wrote that column — so an invited barber got a broken, fail-closed
+ * account. This closes the loop: for an EXISTING roster chair it invites the
+ * person by email (reusing the settings/users two-path resolver), ensures a
+ * `shop_members` row with role='barber', and writes `barbers.user_id` — the link
+ * that activates the persona. The account can't sign in until they complete
+ * /setup-password (which flips the membership staff→confirmed); the link is
+ * already in place by then, so the accept flow needs no change.
+ *
+ * Design: plans/027-OUTPUT-barber-invite-design.md (Model C, invite-time link).
+ */
+export const inviteBarber = withAction({
+  schema: inviteBarberSchema,
+  minRole: 'manager',
+  run: async (input, ctx) => {
+    const admin = createSupabaseServiceRoleClient();
+
+    // SECURITY — bind the chair to the caller's ACTIVE shop BEFORE any
+    // privileged write (mirrors disconnectGoogleCalendar's B2 gate). Load by id
+    // alone (service-role bypasses RLS) THEN compare shop_id, so a chair from a
+    // foreign shop returns NOT_FOUND instead of being linkable cross-tenant.
+    const barberRes = await admin
+      .from('barbers')
+      .select('shop_id, status, user_id')
+      .eq('id', input.barber_id)
+      .maybeSingle();
+    const barber = barberRes.data;
+    if (!barber || barber.shop_id !== ctx.shopId || barber.status === 'deleted') {
+      return err('NOT_FOUND');
+    }
+    // One auth user per (shop, chair): refuse a chair that's already linked.
+    if (barber.user_id) return err('CONFLICT', { reason: 'already_linked' });
+
+    // Resolve (or invite) the auth user for this email — shared with inviteUser.
+    const resolved = await resolveOrInviteAuthUser(admin, input.email);
+    if ('error' in resolved) return err('CONFLICT');
+    const { userId, isNew } = resolved;
+
+    // Ensure a barber-role membership in this shop. Idempotent: if a membership
+    // already exists (invited via settings/users first, or holds a higher
+    // role), leave it untouched — never downgrade an owner/manager.
+    const existing = await admin
+      .from('shop_members')
+      .select('id')
+      .eq('shop_id', ctx.shopId)
+      .eq('user_id', userId)
+      .limit(1);
+    if (!(existing.data ?? [])[0]) {
+      const ins = await admin.from('shop_members').insert({
+        shop_id: ctx.shopId,
+        user_id: userId,
+        role: 'barber',
+        status: isNew ? 'staff' : 'confirmed',
+      });
+      if (ins.error) return err('UNEXPECTED');
+    }
+
+    // The link — activates getCurrentBarberId for this user in this shop.
+    const upd = await admin
+      .from('barbers')
+      .update({ user_id: userId })
+      .eq('id', input.barber_id)
+      .eq('shop_id', ctx.shopId)
+      .select('id');
+    if (upd.error) return err('UNEXPECTED');
+    if (!upd.data || upd.data.length === 0) return err('NOT_FOUND');
+
+    // §3 — the link write goes through service-role, so the barbers audit
+    // trigger records a NULL actor; pair it with a durable attributed record so
+    // the link has a named actor. No raw PII — the user_id suffices.
+    await logDurableAudit({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'update',
+      entity: 'barbers',
+      entityId: input.barber_id,
+      diff: { barber_user_link: userId, invited: isNew },
+    });
+    revalidatePath(BARBERS_PATH);
+    // AUTHZ-R1 — a membership may have been created/confirmed; bust the 60s
+    // memberships cache so the barber's role/shop resolves immediately.
+    revalidateTag(MEMBERSHIPS_CACHE_TAG);
+    return ok({ status: isNew ? ('staff' as const) : ('confirmed' as const) });
   },
 });
 

@@ -532,16 +532,28 @@
         "email": "Email",
         "phone": "Phone",
         "personnelId": "Personnel ID",
-        "google": "Google Calendar"
+        "google": "Google Calendar",
+        "login": "Access"
       },
       "actions": {
         "restore": "Restore",
         "connectGoogle": "Connect Google",
-        "disconnectGoogle": "Disconnect Google Calendar"
+        "disconnectGoogle": "Disconnect Google Calendar",
+        "inviteToLogin": "Invite to log in"
       },
       "googleStatus": {
         "error": "Error — reconnect",
         "paused": "Paused"
+      },
+      "loginStatus": {
+        "linked": "Linked"
+      },
+      "inviteModal": {
+        "title": "Invite barber to log in",
+        "description": "{name} will be able to sign in to Küa and manage their own calendar and commissions.",
+        "email": "Email",
+        "send": "Send invitation",
+        "hint": "If they already have a Küa account they'll be linked immediately. Otherwise an invitation email is sent."
       },
       "confirmDelete": {
         "title": "Archive this barber?",
@@ -576,7 +588,9 @@
         "restored": "\"{name}\" restored",
         "googleConnected": "Google Calendar connected",
         "googleDisconnected": "Google Calendar disconnected for {name}",
-        "googleError": "Google Calendar connection failed"
+        "googleError": "Google Calendar connection failed",
+        "invited": "Invitation sent to {name}",
+        "inviteConflict": "This chair is already linked to an account"
       }
     },
     "products": {

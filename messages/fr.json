@@ -532,16 +532,28 @@
         "email": "Courriel",
         "phone": "Téléphone",
         "personnelId": "ID employé",
-        "google": "Google Calendar"
+        "google": "Google Calendar",
+        "login": "Accès"
       },
       "actions": {
         "restore": "Restaurer",
         "connectGoogle": "Connecter Google",
-        "disconnectGoogle": "Déconnecter Google Calendar"
+        "disconnectGoogle": "Déconnecter Google Calendar",
+        "inviteToLogin": "Inviter à se connecter"
       },
       "googleStatus": {
         "error": "Erreur — reconnecte",
         "paused": "En pause"
+      },
+      "loginStatus": {
+        "linked": "Lié"
+      },
+      "inviteModal": {
+        "title": "Inviter le barbier à se connecter",
+        "description": "{name} pourra se connecter à Küa et gérer son propre calendrier et ses commissions.",
+        "email": "Courriel",
+        "send": "Envoyer l'invitation",
+        "hint": "S'il a déjà un compte Küa, il sera lié immédiatement. Sinon, un courriel d'invitation lui sera envoyé."
       },
       "confirmDelete": {
         "title": "Désactiver ce barbier ?",
@@ -576,7 +588,9 @@
         "restored": "« {name} » restauré",
         "googleConnected": "Google Calendar connecté",
         "googleDisconnected": "Google Calendar déconnecté pour {name}",
-        "googleError": "Échec de la connexion Google Calendar"
+        "googleError": "Échec de la connexion Google Calendar",
+        "invited": "Invitation envoyée à {name}",
+        "inviteConflict": "Cette chaise est déjà liée à un compte"
       }
     },
     "products": {
