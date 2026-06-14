@@ -478,6 +478,7 @@
         "noTaxes": "Aucune taxe configurée. Crée-en d'abord dans Réglages → Taxes.",
         "deposit": "Acompte requis",
         "depositHint": "Montant prélevé au booking (0 = pas d'acompte). V1.1 affichera le formulaire de paiement Stripe.",
+        "depositHintInactive": "Actif seulement quand le mode de paiement de la boutique est « Dépôt » (Réglages → Paiements).",
         "errors": {
           "nameTooLong": "Le nom est trop long (120 caractères max).",
           "nameDuplicate": "Ce nom est déjà utilisé dans cette boutique.",
@@ -1267,6 +1268,7 @@
           "services": "Services",
           "products": "Produits"
         },
+        "productsTabDisabledHint": "Commissions produits — à venir avec le module de vente (POS).",
         "cumulative": "Commission cumulative",
         "tier": "Palier {n}",
         "thresholdPct": "Seuil · %",
