@@ -478,6 +478,7 @@
         "noTaxes": "No taxes configured. Add some in Settings → Taxes first.",
         "deposit": "Deposit required",
         "depositHint": "Amount charged at booking time (0 = no deposit). V1.1 will render Stripe Elements payment form.",
+        "depositHintInactive": "Only active when the shop's payment mode is set to Deposit (Settings → Payments).",
         "errors": {
           "nameTooLong": "Name is too long (120 characters max).",
           "nameDuplicate": "This name is already used in this shop.",
@@ -1267,6 +1268,7 @@
           "services": "Services",
           "products": "Products"
         },
+        "productsTabDisabledHint": "Product commissions — coming with the point-of-sale (POS) module.",
         "cumulative": "Cumulative commission",
         "tier": "Tier {n}",
         "thresholdPct": "Threshold · %",

@@ -193,9 +193,14 @@ export function CommissionsClient({
             onChange={setScope}
             items={[
               { value: 'services', label: t('tabs.services') },
-              { value: 'products', label: t('tabs.products') },
+              // Product commissions are configurable in the schema but never
+              // paid out: the shop has no product-sale / POS surface yet, so a
+              // saved products tier would silently do nothing. Greyed out until
+              // the POS lands (same spirit as the hide-dead-features decision).
+              { value: 'products', label: t('tabs.products'), disabled: true },
             ]}
           />
+          <p className="text-xs text-text-muted">{t('productsTabDisabledHint')}</p>
         </div>
 
         <div className="overflow-x-auto rounded-lg bg-bg-surface shadow-warm-md">

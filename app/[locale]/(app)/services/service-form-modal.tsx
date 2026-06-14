@@ -39,10 +39,20 @@ type Props = {
   categories: ServiceCategoryRow[];
   taxes: TaxRow[];
   existingTaxIds: string[];
+  // Shop payment mode: the per-service deposit only charges when 'deposit'.
+  // Drives whether the deposit hint says "active" or "inactive".
+  paymentMode: 'full' | 'deposit' | 'none';
   onClose: () => void;
 };
 
-export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onClose }: Props) {
+export function ServiceFormModal({
+  mode,
+  categories,
+  taxes,
+  existingTaxIds,
+  paymentMode,
+  onClose,
+}: Props) {
   const t = useTranslations('pages.services');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
@@ -244,7 +254,9 @@ export function ServiceFormModal({ mode, categories, taxes, existingTaxIds, onCl
           {errors.deposit_amount_cents ? (
             <FieldHint error>{fieldError(errors.deposit_amount_cents, 'amount')}</FieldHint>
           ) : (
-            <FieldHint>{t('form.depositHint')}</FieldHint>
+            <FieldHint>
+              {paymentMode === 'deposit' ? t('form.depositHint') : t('form.depositHintInactive')}
+            </FieldHint>
           )}
         </div>
 

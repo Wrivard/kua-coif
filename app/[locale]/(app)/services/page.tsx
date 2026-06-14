@@ -33,7 +33,7 @@ export default async function ServicesPage(props: Props) {
   // without the filter a multi-shop owner saw BOTH shops' services merged in
   // one list — and the drag-reorder then rewrote interleaved cross-shop
   // sort_orders.
-  const [servicesResult, categoriesResult, taxes, linksResult] = await Promise.all([
+  const [servicesResult, categoriesResult, taxes, linksResult, shopResult] = await Promise.all([
     supabase
       .from('services')
       .select('*')
@@ -50,6 +50,10 @@ export default async function ServicesPage(props: Props) {
       .select('service_id, tax_id, services!inner(shop_id)')
       .eq('services.shop_id', shopId)
       .order('service_id', { ascending: true }),
+    // The per-service deposit field only charges when payment_mode is
+    // 'deposit' (settings/payments); read it so the form can tell the user
+    // whether the field is currently active. Non-critical — see default below.
+    supabase.from('shops').select('payment_mode').eq('id', shopId).maybeSingle(),
   ]);
 
   // Services W3 — a failed read is NOT an empty catalog. Throwing routes to
@@ -64,6 +68,10 @@ export default async function ServicesPage(props: Props) {
   const links = (
     (linksResult.data as Array<{ service_id: string; tax_id: string }> | null) ?? []
   ).map(({ service_id, tax_id }) => ({ service_id, tax_id }));
+  // A shop read hiccup must not blank the catalog — payment_mode only drives an
+  // informational hint, so fall back to 'none' (shows the "inactive" copy).
+  const paymentMode =
+    (shopResult.data?.payment_mode as 'full' | 'deposit' | 'none' | undefined) ?? 'none';
 
   return (
     <ServicesClient
@@ -72,6 +80,7 @@ export default async function ServicesPage(props: Props) {
       categories={categories}
       taxes={taxes}
       links={links}
+      paymentMode={paymentMode}
     />
   );
 }

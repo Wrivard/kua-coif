@@ -48,6 +48,7 @@ export type ServicesClientProps = {
   categories: ServiceCategoryRow[];
   taxes: TaxRow[];
   links: Array<{ service_id: string; tax_id: string }>;
+  paymentMode: 'full' | 'deposit' | 'none';
 };
 
 type Mode = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; service: ServiceRow };
@@ -58,6 +59,7 @@ export function ServicesClient({
   categories,
   taxes,
   links,
+  paymentMode,
 }: ServicesClientProps) {
   const t = useTranslations('pages.services');
   const tCommon = useTranslations('common');
@@ -511,6 +513,7 @@ export function ServicesClient({
           mode={mode}
           categories={categories}
           taxes={taxes}
+          paymentMode={paymentMode}
           existingTaxIds={mode.kind === 'edit' ? (taxIdsByService.get(mode.service.id) ?? []) : []}
           onClose={() => setMode({ kind: 'closed' })}
         />
