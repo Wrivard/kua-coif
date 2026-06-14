@@ -119,6 +119,7 @@
     "UNEXPECTED": "Une erreur inattendue est survenue.",
     "field": {
       "NAME_REQUIRED": "Le nom est requis.",
+      "CLIENT_REQUIRED": "Un client est requis.",
       "INVALID_NUMBER": "Valeur numérique invalide.",
       "INVALID_PRICE_PRECISION": "Deux décimales maximum.",
       "DURATION_MIN": "La durée doit être d'au moins 5 minutes.",
@@ -296,7 +297,10 @@
         "startTime": "Heure de début",
         "services": "Services",
         "notes": "Notes",
-        "uncategorized": "Sans catégorie"
+        "uncategorized": "Sans catégorie",
+        "walkIn": "Sans rendez-vous (walk-in)",
+        "walkInName": "Nom (optionnel)",
+        "walkInNamePlaceholder": "Nom du client"
       },
       "toasts": {
         "created": "Rendez-vous créé",

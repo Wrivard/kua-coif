@@ -12,9 +12,15 @@ import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { combineShopDateTime } from '@/lib/business/timezone';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
+import type { z } from 'zod';
 import { createAppointment, searchClients } from './actions';
 import type { CalendarAppointment } from './appointments-calendar';
-import { appointmentSchema, type AppointmentInput } from './schema';
+import { appointmentSchema } from './schema';
+
+// React Hook Form needs the schema's INPUT shape (walk_in / client_name are
+// still optional, before the Zod defaults run), not the post-parse OUTPUT
+// shape — using z.infer/output gives TS errors at the resolver call.
+type AppointmentFormValues = z.input<typeof appointmentSchema>;
 
 type Mode = { kind: 'create'; barberId: string; minutes: number };
 
@@ -65,9 +71,11 @@ export function AppointmentFormModal({
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState('');
 
-  const defaults: AppointmentInput = {
+  const defaults: AppointmentFormValues = {
     barber_id: mode.barberId,
-    client_id: clients[0]?.id ?? '',
+    client_id: clients[0]?.id ?? null,
+    walk_in: false,
+    client_name: null,
     date: isoDate,
     start_time: minutesToHHmm(mode.minutes),
     service_ids: [],
@@ -81,12 +89,13 @@ export function AppointmentFormModal({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<AppointmentInput>({
+  } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: defaults,
   });
 
   const selectedServiceIds = watch('service_ids');
+  const walkIn = watch('walk_in');
   const totalMinutes = useMemo(() => {
     return services
       .filter((s) => selectedServiceIds.includes(s.id))
@@ -155,7 +164,7 @@ export function AppointmentFormModal({
     return map;
   }, [services]);
 
-  function onSubmit(values: AppointmentInput) {
+  function onSubmit(values: AppointmentFormValues) {
     startTransition(async () => {
       const result = await createAppointment(values);
       if (result.ok) {
@@ -174,9 +183,11 @@ export function AppointmentFormModal({
             id: result.data.id,
             barber_id: values.barber_id,
             client_id: values.client_id,
-            client_name: picked
-              ? `${picked.first_name}${picked.last_name ? ` ${picked.last_name}` : ''}`
-              : '',
+            client_name: values.walk_in
+              ? (values.client_name ?? '')
+              : picked
+                ? `${picked.first_name}${picked.last_name ? ` ${picked.last_name}` : ''}`
+                : '',
             start_at: startAt.toISOString(),
             end_at: new Date(startAt.getTime() + durationMin * 60_000).toISOString(),
             status: values.status,
@@ -220,37 +231,77 @@ export function AppointmentFormModal({
         noValidate
       >
         <div>
-          <Label htmlFor="client_id" required>
-            {t('form.client')}
-          </Label>
-          <Input
-            placeholder={t('form.searchClient')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Select
-            id="client_id"
-            className="mt-2"
-            value={picked?.id ?? ''}
-            onChange={(e) => {
-              const c = displayedClients.find((x) => x.id === e.target.value) ?? null;
-              setPicked(c);
-              setValue('client_id', e.target.value, { shouldValidate: true });
-            }}
-          >
-            {displayedClients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.first_name}
-                {c.last_name ? ` ${c.last_name}` : ''}
-                {c.phone ? ` — ${c.phone}` : ''}
-              </option>
-            ))}
-          </Select>
-          {searching ? (
-            <p className="mt-1 text-[10px] text-text-muted">{t('form.searching')}</p>
-          ) : search.trim().length >= 2 && serverResults.length === 0 ? (
-            <p className="mt-1 text-[10px] text-text-muted">{t('form.noClients')}</p>
-          ) : null}
+          <div className="mb-2">
+            <Checkbox
+              checked={walkIn ?? false}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setValue('walk_in', on, { shouldValidate: true });
+                if (on) {
+                  // Walk-in: detach any picked client; the name field takes over.
+                  setPicked(null);
+                  setValue('client_id', null, { shouldValidate: true });
+                } else {
+                  // Back to a booked client: drop the walk-in name, restore picker.
+                  setValue('client_name', null);
+                  const first = clients[0] ?? null;
+                  setPicked(first);
+                  setValue('client_id', first?.id ?? null, { shouldValidate: true });
+                }
+              }}
+              label={t('form.walkIn')}
+            />
+          </div>
+
+          {walkIn ? (
+            <div>
+              <Label htmlFor="client_name">{t('form.walkInName')}</Label>
+              <Input
+                id="client_name"
+                placeholder={t('form.walkInNamePlaceholder')}
+                {...register('client_name')}
+              />
+            </div>
+          ) : (
+            <>
+              <Label htmlFor="client_id" required>
+                {t('form.client')}
+              </Label>
+              <Input
+                placeholder={t('form.searchClient')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <Select
+                id="client_id"
+                className="mt-2"
+                value={picked?.id ?? ''}
+                onChange={(e) => {
+                  const c = displayedClients.find((x) => x.id === e.target.value) ?? null;
+                  setPicked(c);
+                  setValue('client_id', e.target.value, { shouldValidate: true });
+                }}
+              >
+                {displayedClients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.first_name}
+                    {c.last_name ? ` ${c.last_name}` : ''}
+                    {c.phone ? ` — ${c.phone}` : ''}
+                  </option>
+                ))}
+              </Select>
+              {searching ? (
+                <p className="mt-1 text-[10px] text-text-muted">{t('form.searching')}</p>
+              ) : search.trim().length >= 2 && serverResults.length === 0 ? (
+                <p className="mt-1 text-[10px] text-text-muted">{t('form.noClients')}</p>
+              ) : null}
+              {errors.client_id ? (
+                <FieldHint error>
+                  {tErr('field.CLIENT_REQUIRED' as 'field.NAME_REQUIRED')}
+                </FieldHint>
+              ) : null}
+            </>
+          )}
         </div>
 
         <div>

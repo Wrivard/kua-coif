@@ -119,6 +119,7 @@
     "UNEXPECTED": "An unexpected error occurred.",
     "field": {
       "NAME_REQUIRED": "Name is required.",
+      "CLIENT_REQUIRED": "A client is required.",
       "INVALID_NUMBER": "Invalid number.",
       "INVALID_PRICE_PRECISION": "Two decimals maximum.",
       "DURATION_MIN": "Duration must be at least 5 minutes.",
@@ -296,7 +297,10 @@
         "startTime": "Start time",
         "services": "Services",
         "notes": "Notes",
-        "uncategorized": "Uncategorized"
+        "uncategorized": "Uncategorized",
+        "walkIn": "Walk-in",
+        "walkInName": "Name (optional)",
+        "walkInNamePlaceholder": "Customer name"
       },
       "toasts": {
         "created": "Appointment created",

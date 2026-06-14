@@ -162,13 +162,13 @@ export default async function AppointmentsPage(props: Props) {
       ? sb
           .from('appointments')
           .select(
-            'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+            'id, barber_id, client_id, client_name_snapshot, start_at, end_at, status, notes, source, total_amount, payment_status',
           )
           .eq('barber_id', viewerBarberId!)
       : sb
           .from('appointments')
           .select(
-            'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+            'id, barber_id, client_id, client_name_snapshot, start_at, end_at, status, notes, source, total_amount, payment_status',
           )
   )
     .eq('shop_id', shopId)
@@ -254,7 +254,8 @@ export default async function AppointmentsPage(props: Props) {
     (apptsRes.data as Array<{
       id: string;
       barber_id: string;
-      client_id: string;
+      client_id: string | null;
+      client_name_snapshot: string | null;
       start_at: string;
       end_at: string;
       status: CalendarAppointment['status'];
@@ -294,9 +295,10 @@ export default async function AppointmentsPage(props: Props) {
     barber_id: a.barber_id,
     client_id: a.client_id,
     client_name: (() => {
-      const c = clientById.get(a.client_id);
-      if (!c) return '·';
-      return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+      const c = a.client_id ? clientById.get(a.client_id) : null;
+      if (c) return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+      // Walk-in (no client row) → the snapshotted name; '·' if neither.
+      return a.client_name_snapshot ?? '·';
     })(),
     start_at: a.start_at,
     end_at: a.end_at,
@@ -321,13 +323,13 @@ export default async function AppointmentsPage(props: Props) {
         ? sb
             .from('appointments')
             .select(
-              'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+              'id, barber_id, client_id, client_name_snapshot, start_at, end_at, status, notes, source, total_amount, payment_status',
             )
             .eq('barber_id', viewerBarberId!)
         : sb
             .from('appointments')
             .select(
-              'id, barber_id, client_id, start_at, end_at, status, notes, source, total_amount, payment_status',
+              'id, barber_id, client_id, client_name_snapshot, start_at, end_at, status, notes, source, total_amount, payment_status',
             )
     )
       .eq('shop_id', shopId)
@@ -348,7 +350,8 @@ export default async function AppointmentsPage(props: Props) {
       (weekApptsRes.data as Array<{
         id: string;
         barber_id: string;
-        client_id: string;
+        client_id: string | null;
+        client_name_snapshot: string | null;
         start_at: string;
         end_at: string;
         status: CalendarAppointment['status'];
@@ -388,9 +391,10 @@ export default async function AppointmentsPage(props: Props) {
       barber_id: a.barber_id,
       client_id: a.client_id,
       client_name: (() => {
-        const c = clientById.get(a.client_id);
-        if (!c) return '·';
-        return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+        const c = a.client_id ? clientById.get(a.client_id) : null;
+        if (c) return `${c.first_name}${c.last_name ? ` ${c.last_name}` : ''}`;
+        // Walk-in (no client row) → the snapshotted name; '·' if neither.
+        return a.client_name_snapshot ?? '·';
       })(),
       start_at: a.start_at,
       end_at: a.end_at,
