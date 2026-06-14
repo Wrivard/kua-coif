@@ -277,6 +277,13 @@
         "hours": "{hours, plural, =1 {1 heure} other {# heures}}",
         "minutes": "{mins, plural, =1 {1 minute} other {# minutes}}"
       },
+      "markPaidCash": {
+        "heading": "Encaissement",
+        "action": "Payé comptant",
+        "confirmTitle": "Confirmer l'encaissement comptant",
+        "confirmBody": "Confirmer l'encaissement comptant de {amount} ?",
+        "confirmLabel": "Encaisser"
+      },
       "statuses": {
         "booked": "Réservé",
         "confirmed": "Confirmé",
@@ -308,7 +315,8 @@
         "cancelled": "Rendez-vous annulé",
         "cancelledAndRefunded": "Rendez-vous annulé et remboursé",
         "refunded": "Remboursement effectué",
-        "linksRevoked": "Liens publics révoqués"
+        "linksRevoked": "Liens publics révoqués",
+        "markedPaidCash": "Encaissement comptant enregistré"
       },
       "walkInNoClient": "Sans rendez-vous (aucune fiche client)",
       "customerLinks": {
@@ -882,7 +890,7 @@
         "drawer": {
           "title": "Tiroir-caisse",
           "startBalance": "Solde d'ouverture",
-          "unpaidCash": "Non payé (au salon)",
+          "cashCollected": "Comptant encaissé",
           "cashTips": "Pourboires comptant",
           "expectedTotal": "Total attendu en caisse",
           "helper": "Comptez le tiroir à la fermeture. L'écart avec le total attendu va dans votre propre registre."
@@ -899,9 +907,10 @@
           }
         },
         "payment": {
-          "title": "Statut de paiement",
-          "paid": "Payé (en ligne)",
-          "unpaid": "Non payé (au salon)",
+          "title": "Mode de paiement",
+          "card": "Carte (en ligne)",
+          "cash": "Comptant",
+          "unpaid": "Impayé (au salon)",
           "refunded": "Remboursé"
         },
         "outstanding": {

@@ -277,6 +277,13 @@
         "hours": "{hours, plural, =1 {1 hour} other {# hours}}",
         "minutes": "{mins, plural, =1 {1 minute} other {# minutes}}"
       },
+      "markPaidCash": {
+        "heading": "Take payment",
+        "action": "Mark paid (cash)",
+        "confirmTitle": "Confirm cash payment",
+        "confirmBody": "Record a cash payment of {amount}?",
+        "confirmLabel": "Take payment"
+      },
       "statuses": {
         "booked": "Booked",
         "confirmed": "Confirmed",
@@ -308,7 +315,8 @@
         "cancelled": "Appointment cancelled",
         "cancelledAndRefunded": "Cancelled and refunded",
         "refunded": "Refund issued",
-        "linksRevoked": "Public links revoked"
+        "linksRevoked": "Public links revoked",
+        "markedPaidCash": "Cash payment recorded"
       },
       "walkInNoClient": "Walk-in (no client record)",
       "customerLinks": {
@@ -882,7 +890,7 @@
         "drawer": {
           "title": "Cash drawer",
           "startBalance": "Start balance",
-          "unpaidCash": "Unpaid (in-shop)",
+          "cashCollected": "Cash collected",
           "cashTips": "Cash tips",
           "expectedTotal": "Expected drawer total",
           "helper": "Count the drawer at close. Difference from the expected total goes in your own ledger."
@@ -899,8 +907,9 @@
           }
         },
         "payment": {
-          "title": "Payment status",
-          "paid": "Paid (online)",
+          "title": "Payment method",
+          "card": "Card (online)",
+          "cash": "Cash",
           "unpaid": "Unpaid (in-shop)",
           "refunded": "Refunded"
         },

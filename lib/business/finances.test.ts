@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { excludeRefunded, forfeitedDeposits, netRevenue } from './finances';
+import { cashDrawerSet, excludeRefunded, forfeitedDeposits, netRevenue } from './finances';
 
 describe('excludeRefunded', () => {
   it('drops only refunded appointments, keeps every other status', () => {
@@ -50,6 +50,40 @@ describe('netRevenue', () => {
 
   it('treats a null total_amount as 0', () => {
     expect(netRevenue([{ payment_status: 'paid', total_amount: null }])).toBe(0);
+  });
+});
+
+describe('cashDrawerSet', () => {
+  it('counts an explicit cash sale (POS-lite stage 2)', () => {
+    const set = cashDrawerSet([{ payment_status: 'paid', payment_method: 'cash' }]);
+    expect(set).toHaveLength(1);
+  });
+
+  it('counts a legacy null+unpaid row (pre-migration cash, no backfill)', () => {
+    const set = cashDrawerSet([{ payment_status: 'unpaid', payment_method: null }]);
+    expect(set).toHaveLength(1);
+  });
+
+  it('EXCLUDES a card-paid row (never in the drawer)', () => {
+    const set = cashDrawerSet([{ payment_status: 'paid', payment_method: 'card_online' }]);
+    expect(set).toHaveLength(0);
+  });
+
+  it('EXCLUDES a paid row whose method is null (online card, not cash)', () => {
+    // A normal online card payment is paid + method null — it is NOT drawer cash
+    // (only null+UNPAID is the legacy-cash cohort).
+    const set = cashDrawerSet([{ payment_status: 'paid', payment_method: null }]);
+    expect(set).toHaveLength(0);
+  });
+
+  it('partitions a mixed day to exactly the cash + legacy-unpaid rows', () => {
+    const completed = [
+      { payment_status: 'paid', payment_method: 'cash' }, // ✓ cash sale
+      { payment_status: 'unpaid', payment_method: null }, // ✓ legacy cash
+      { payment_status: 'paid', payment_method: 'card_online' }, // ✗ card
+      { payment_status: 'paid', payment_method: null }, // ✗ online card (paid)
+    ];
+    expect(cashDrawerSet(completed)).toHaveLength(2);
   });
 });
 

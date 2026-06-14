@@ -11,7 +11,12 @@ import {
   shopDayEnd,
   shopIsoDate,
 } from '@/lib/business/timezone';
-import { excludeRefunded, forfeitedDeposits, netRevenue } from '@/lib/business/finances';
+import {
+  cashDrawerSet,
+  excludeRefunded,
+  forfeitedDeposits,
+  netRevenue,
+} from '@/lib/business/finances';
 import { CloseOutClient } from './close-out-client';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +30,9 @@ export const dynamic = 'force-dynamic';
  * Scope (server-rendered, manager+):
  *  - KPI strip: gross revenue, tips, completed count, outstanding count
  *  - Per-barber tipout table (revenue + tips + commission base = total)
- *  - Payment-method breakdown (paid online / unpaid in-shop / refunded)
+ *  - Payment-method breakdown (card online / cash / unpaid in-shop / refunded)
  *  - Outstanding bookings still in non-terminal status
- *  - Cash drawer expected total = default_cash_drawer_balance + unpaid cash
+ *  - Cash drawer expected total = default_cash_drawer_balance + cash collected
  *  - Print-friendly stylesheet via `<CloseOutClient>` (auto-fires on
  *    `?print=1`)
  *
@@ -94,7 +99,7 @@ export default async function CloseOutPage(props: {
     supabase
       .from('appointments')
       .select(
-        'id, barber_id, client_id, total_amount, status, payment_status, deposit_amount_cents, tip_amount_cents, source, start_at, end_at',
+        'id, barber_id, client_id, total_amount, status, payment_status, payment_method, deposit_amount_cents, tip_amount_cents, source, start_at, end_at',
       )
       .eq('shop_id', shop.id)
       .gte('start_at', dayStart.toISOString())
@@ -124,21 +129,26 @@ export default async function CloseOutPage(props: {
   const completedCount = completed.length;
   const outstandingCount = outstanding.length;
 
-  // ── Payment-status breakdown ──────────────────────────────────────
-  // The owner expects to count physical cash for the `unpaid` slice —
-  // that's the money still in the drawer. `paid` is Stripe (already
-  // landed in the connected account, the owner gets a payout
-  // separately). `refunded` we surface in red so a problem day is
-  // visible at a glance.
-  const paid = completed.filter((a) => a.payment_status === 'paid');
+  // ── Payment-method breakdown ──────────────────────────────────────
+  // POS-lite stage 2 — three live slices for the close-out:
+  //   • CARD  (`paid`, method ≠ cash): Stripe collected it online — already in
+  //     the connected account; the owner gets a payout separately.
+  //   • CASH  (`method = 'cash'`): a counter cash sale — physical drawer money.
+  //   • UNPAID (`payment_status = 'unpaid'`): not yet collected. Pre-migration
+  //     this WAS the cash slice; legacy null+unpaid rows still count in the
+  //     drawer via cashDrawerSet (plan 028 §4 compat) but are shown here as
+  //     unpaid. `refunded` we surface in red so a problem day is visible.
+  const paid = completed.filter((a) => a.payment_status === 'paid' && a.payment_method !== 'cash');
+  const cashSales = completed.filter((a) => a.payment_method === 'cash');
   const unpaid = completed.filter((a) => a.payment_status === 'unpaid');
   const refunded = completed.filter((a) => a.payment_status === 'refunded');
-  // FIN-BIZ-02 — the `paid` slice is what Stripe collected ONLINE = the
+  // FIN-BIZ-02 — the `paid` (card) slice is what Stripe collected ONLINE = the
   // PaymentIntent charge snapshot (deposit base + online tip), NOT the full
   // service total. In deposit mode Stripe only took the deposit; the balance
   // is collected in shop (folded into expectedDrawer below). Mirrors the
   // receipt's deposit line (receipt-client.tsx).
   const paidTotal = paid.reduce((s, a) => s + (a.deposit_amount_cents ?? 0), 0) / 100;
+  const cashTotal = cashSales.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
   const unpaidTotal = unpaid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
   const refundedTotal = refunded.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
 
@@ -147,22 +157,24 @@ export default async function CloseOutPage(props: {
   // revenue. `appts` already holds every status for the day.
   const forfeitedTotal = forfeitedDeposits(appts);
 
-  // Expected cash drawer = start balance + unpaid (in-shop cash) + tips on
-  // unpaid appointments (cash tips) + the in-shop BALANCE still collected at
-  // the counter on deposit-paid appointments. Tips on paid appts went through
-  // Stripe so we don't count them in the drawer.
-  const unpaidTipsCents = unpaid.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0);
+  // Expected cash drawer = start balance + cash collected at the counter
+  // (cashDrawerSet: explicit cash sales ∪ legacy null-unpaid, plan 028 §4) +
+  // cash tips on those + the in-shop BALANCE still collected on deposit-paid
+  // CARD appointments. Tips on card-paid appts went through Stripe so we don't
+  // count them in the drawer.
+  const cashPaid = cashDrawerSet(completed);
+  const drawerCash = cashPaid.reduce((s, a) => s + Number(a.total_amount ?? 0), 0);
+  const drawerCashTips = cashPaid.reduce((s, a) => s + (a.tip_amount_cents ?? 0), 0) / 100;
   // FIN-BIZ-02 — in deposit mode Stripe only took the deposit; the balance
-  // (service total + tip − online charge) is paid in shop. Mirrors the
-  // receipt's balance line (receipt-client.tsx): a full-mode paid appt settles
-  // to 0, a cash-paid appt (deposit=0) settles to the full grand total.
-  // Floored at 0 so a rounding wobble can't subtract from the drawer.
+  // (service total + tip − online charge) is paid in shop. Computed over the
+  // CARD slice only — a cash sale is already in drawerCash, so excluding it
+  // here prevents a double-count. Mirrors the receipt's balance line; floored
+  // at 0 so a rounding wobble can't subtract from the drawer.
   const depositBalanceTotal = paid.reduce((s, a) => {
     const grandTotal = Number(a.total_amount ?? 0) + (a.tip_amount_cents ?? 0) / 100;
     return s + Math.max(0, grandTotal - (a.deposit_amount_cents ?? 0) / 100);
   }, 0);
-  const expectedDrawer =
-    cashDrawerStart + unpaidTotal + unpaidTipsCents / 100 + depositBalanceTotal;
+  const expectedDrawer = cashDrawerStart + drawerCash + drawerCashTips + depositBalanceTotal;
 
   // ── Per-barber tipout ─────────────────────────────────────────────
   // Each barber's row carries: completed visits, services revenue
@@ -265,8 +277,8 @@ export default async function CloseOutPage(props: {
           </CardHeader>
           <CardBody className="space-y-2 text-sm">
             <DrawerLine label={t('drawer.startBalance')} value={fmtCAD(cashDrawerStart)} />
-            <DrawerLine label={t('drawer.unpaidCash')} value={fmtCAD(unpaidTotal)} />
-            <DrawerLine label={t('drawer.cashTips')} value={fmtCAD(unpaidTipsCents / 100)} />
+            <DrawerLine label={t('drawer.cashCollected')} value={fmtCAD(drawerCash)} />
+            <DrawerLine label={t('drawer.cashTips')} value={fmtCAD(drawerCashTips)} />
             <div className="border-t border-border pt-2">
               <DrawerLine
                 label={t('drawer.expectedTotal')}
@@ -335,7 +347,12 @@ export default async function CloseOutPage(props: {
             <CardTitle>{t('payment.title')}</CardTitle>
           </CardHeader>
           <CardBody className="space-y-2 text-sm">
-            <PaymentRow label={t('payment.paid')} count={paid.length} amount={fmtCAD(paidTotal)} />
+            <PaymentRow label={t('payment.card')} count={paid.length} amount={fmtCAD(paidTotal)} />
+            <PaymentRow
+              label={t('payment.cash')}
+              count={cashSales.length}
+              amount={fmtCAD(cashTotal)}
+            />
             <PaymentRow
               label={t('payment.unpaid')}
               count={unpaid.length}

@@ -147,6 +147,12 @@ type Props = {
   locale: string;
   /** owner/manager may move money (issue refunds); strict barbers may not. */
   canManageMoney: boolean;
+  /**
+   * POS-lite stage 2 — the viewer's `barbers.id` for the active shop (null for
+   * owner/manager). Lets the detail drawer show "Payé comptant" to a barber on
+   * their OWN appointments (manager+ see it on all).
+   */
+  viewerBarberId: string | null;
   timezone: string;
   isoDate: string;
   /**
@@ -249,6 +255,7 @@ type ModalState = { kind: 'closed' } | { kind: 'create'; barberId: string; minut
 export function AppointmentsCalendar({
   locale,
   canManageMoney,
+  viewerBarberId,
   timezone,
   isoDate,
   initialView = 'side-by-side',
@@ -1251,6 +1258,7 @@ export function AppointmentsCalendar({
         appointment={drawer}
         timezone={timezone}
         canManageMoney={canManageMoney}
+        viewerBarberId={viewerBarberId}
         onClose={() => setDrawer(null)}
         onCancelled={(id) => setHiddenIds((prev) => new Set(prev).add(id))}
         formatAmount={(n) => formatCurrencyCAD(n, locale === 'fr' ? 'fr' : 'en')}
