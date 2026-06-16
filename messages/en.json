@@ -776,6 +776,7 @@
         "selectedSummary": "{selected} selected of {total} candidates.",
         "sentToast": "{sent} message(s) sent.",
         "partialToast": "{sent} message(s) sent, {failed} failure(s).",
+        "skippedToast": "{skipped} message(s) skipped — already contacted, missing contact info, or channel disabled.",
         "failedToast": "Send failed. Retry or check your email/SMS configuration.",
         "confirm": "Send a win-back nudge to {count} client(s)?"
       },
@@ -796,6 +797,7 @@
         "selectedSummary": "{selected} selected of {total} candidates.",
         "sentToast": "{sent} message(s) sent.",
         "partialToast": "{sent} message(s) sent, {failed} failure(s).",
+        "skippedToast": "{skipped} message(s) skipped — already contacted, missing contact info, or channel disabled.",
         "failedToast": "Send failed. Retry or check your email/SMS configuration.",
         "confirm": "Send a review request to {count} client(s)?"
       },

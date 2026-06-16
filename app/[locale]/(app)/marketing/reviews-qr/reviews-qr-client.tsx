@@ -115,6 +115,13 @@ export function ReviewsQrClient({ shopName, initialUrl, initialQrDataUrl, labels
     window.print();
   }
 
+  // Distinguish "nothing typed yet" from "typed something that isn't a
+  // valid https URL". Both produce no QR, but the empty-state copy
+  // ("paste your URL") is wrong for the second case — there the operator
+  // needs to know the URL must be https. Mirror the preview-effect guard.
+  const hasUrlInput = previewUrl.trim().length > 0;
+  const showInvalidHint = hasUrlInput && !/^https:\/\/.+/i.test(previewUrl);
+
   return (
     <>
       <PageHeader title={labels.title} subtitle={labels.subtitle} />
@@ -184,6 +191,11 @@ export function ReviewsQrClient({ shopName, initialUrl, initialQrDataUrl, labels
               {qrDataUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={qrDataUrl} alt={labels.title} className="h-full w-full object-contain" />
+              ) : showInvalidHint ? (
+                <div className="flex flex-col items-center justify-center gap-2 text-center text-warning">
+                  <QrCodeIcon className="h-12 w-12" />
+                  <p className="max-w-xs text-sm font-medium">{labels.invalidUrl}</p>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 text-center text-text-muted">
                   <QrCodeIcon className="h-12 w-12" />

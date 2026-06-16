@@ -776,6 +776,7 @@
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
         "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
+        "skippedToast": "{skipped} message(s) ignoré(s) — déjà sollicité, sans coordonnées ou canal désactivé.",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer un rappel à {count} client(s) ?"
       },
@@ -796,6 +797,7 @@
         "selectedSummary": "{selected} sélectionné(s) sur {total} candidat(s).",
         "sentToast": "{sent} message(s) envoyé(s).",
         "partialToast": "{sent} message(s) envoyé(s), {failed} échec(s).",
+        "skippedToast": "{skipped} message(s) ignoré(s) — déjà sollicité, sans coordonnées ou canal désactivé.",
         "failedToast": "Envoi échoué. Réessaie ou vérifie ta configuration courriel/SMS.",
         "confirm": "Envoyer une demande d'avis à {count} client(s) ?"
       },
