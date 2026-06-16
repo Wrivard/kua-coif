@@ -183,12 +183,12 @@ export function ReceiptClient({
                 ) : null}
               </div>
               <div className="text-right">
-                <p
+                <h1
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: accent }}
                 >
                   {t('receipt')}
-                </p>
+                </h1>
                 <p className="font-mono text-[10px] text-text-muted print:text-gray-700">
                   #{appointment.id.slice(0, 8).toUpperCase()}
                 </p>

@@ -210,12 +210,28 @@ export function RescheduleClient({
               {t('newDate')}
             </p>
             <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-2">
-              {days.map((d) => {
+              {days.map((d, i) => {
                 const active = d === date;
+                const monthAbbr = new Date(`${d}T12:00:00Z`).toLocaleDateString(dateLocale, {
+                  month: 'short',
+                  timeZone: shop.timezone,
+                });
+                const prevMonthAbbr =
+                  i > 0
+                    ? new Date(`${days[i - 1]}T12:00:00Z`).toLocaleDateString(dateLocale, {
+                        month: 'short',
+                        timeZone: shop.timezone,
+                      })
+                    : null;
+                // Show the month only on the first day + each rollover, so a
+                // 14-day strip straddling two months isn't ambiguous. The
+                // blank line on other days keeps every day-number aligned.
+                const showMonth = i === 0 || monthAbbr !== prevMonthAbbr;
                 return (
                   <button
                     key={d}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setDate(d)}
                     className={cn(
                       'flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
@@ -224,6 +240,14 @@ export function RescheduleClient({
                         : 'border-border bg-bg-base text-text-primary hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md',
                     )}
                   >
+                    <span
+                      className={cn(
+                        'text-[9px] font-semibold uppercase leading-none tracking-wide',
+                        !showMonth && 'invisible',
+                      )}
+                    >
+                      {monthAbbr}
+                    </span>
                     <span className="text-[10px] font-medium uppercase tracking-wide">
                       {new Date(`${d}T12:00:00Z`).toLocaleDateString(dateLocale, {
                         weekday: 'short',
@@ -278,6 +302,7 @@ export function RescheduleClient({
                     <button
                       key={time}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => setStartTime(time)}
                       className={cn(
                         'h-10 rounded-lg border text-sm font-medium shadow-sm transition-all duration-150 ease-out-quint focus:outline-none focus-visible:ring-2 focus-visible:ring-focus',
