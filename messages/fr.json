@@ -224,6 +224,7 @@
       "nextDay": "Jour suivant",
       "jumpToDate": "Aller à une date",
       "filterBarbers": "Barbiers :",
+      "filterAll": "Tous",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",
       "staleData": "Reconnexion — données possiblement périmées",
@@ -1387,6 +1388,26 @@
         }
       },
       "reviews": {
+        "title": "Avis",
+        "sections": {
+          "pending": "En attente de modération",
+          "published": "Publiés",
+          "rejected": "Rejetés"
+        },
+        "actions": {
+          "publish": "Publier",
+          "reject": "Rejeter"
+        },
+        "empty": "Rien ici pour l’instant.",
+        "noComment": "Aucun commentaire.",
+        "ratingAria": "{rating} sur 5",
+        "toasts": {
+          "published": "Publié",
+          "rejected": "Rejeté",
+          "moderationFailed": "Échec de la modération",
+          "deleted": "Supprimé",
+          "deleteFailed": "Échec de la suppression"
+        },
         "confirmDelete": {
           "title": "Supprimer cet avis ?",
           "description": "Cet avis sera supprimé définitivement. Cette action est irréversible."

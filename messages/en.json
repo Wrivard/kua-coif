@@ -224,6 +224,7 @@
       "nextDay": "Next day",
       "jumpToDate": "Jump to a date",
       "filterBarbers": "Barbers:",
+      "filterAll": "All",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
       "staleData": "Reconnecting — may be out of date",
@@ -1387,6 +1388,26 @@
         }
       },
       "reviews": {
+        "title": "Reviews",
+        "sections": {
+          "pending": "Pending moderation",
+          "published": "Published",
+          "rejected": "Rejected"
+        },
+        "actions": {
+          "publish": "Publish",
+          "reject": "Reject"
+        },
+        "empty": "Nothing here yet.",
+        "noComment": "No comment.",
+        "ratingAria": "{rating} out of 5",
+        "toasts": {
+          "published": "Published",
+          "rejected": "Rejected",
+          "moderationFailed": "Moderation failed",
+          "deleted": "Deleted",
+          "deleteFailed": "Delete failed"
+        },
         "confirmDelete": {
           "title": "Delete this review?",
           "description": "This review will be permanently deleted. This action cannot be undone."

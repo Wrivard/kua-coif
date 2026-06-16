@@ -104,14 +104,23 @@ export function LoyaltyClient({ row }: { row: LoyaltyProgramRow | null }) {
               <Label htmlFor="goal_count">
                 {type === 'value' ? t('form.goalValueAmount') : t('form.goalCount')}
               </Label>
-              <Input
-                id="goal_count"
-                type="number"
-                min={0}
-                disabled={!enabled}
-                className="tabular-nums"
-                {...register('goal_count', { valueAsNumber: true })}
-              />
+              {type === 'value' ? (
+                <MoneyInput
+                  id="goal_count"
+                  disabled={!enabled}
+                  className="tabular-nums"
+                  {...register('goal_count', { valueAsNumber: true })}
+                />
+              ) : (
+                <Input
+                  id="goal_count"
+                  type="number"
+                  min={0}
+                  disabled={!enabled}
+                  className="tabular-nums"
+                  {...register('goal_count', { valueAsNumber: true })}
+                />
+              )}
             </div>
             <div>
               <Label htmlFor="min_transaction_amount">{t('form.minTransactionAmount')}</Label>
