@@ -912,6 +912,27 @@ export function AppointmentsCalendar({
     [router],
   );
 
+  // Week view — a day header click opens that day in the Side-by-Side (day)
+  // view. ONE navigation: set ?date, drop ?view (→ side-by-side, the no-param
+  // default) and ?appt, and flip local `view` immediately so the grid swaps
+  // without waiting on the round-trip. Combines jumpToDate with the
+  // side-by-side leg of changeView so the URL never retains ?view=week.
+  const jumpToDayView = useCallback(
+    (nextIso: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nextIso)) return;
+      setView('side-by-side');
+      setNavTargetIso(nextIso);
+      const url = new URL(window.location.href);
+      url.searchParams.set('date', nextIso);
+      url.searchParams.delete('view');
+      url.searchParams.delete('appt');
+      startNavTransition(() => {
+        router.push(url.pathname + '?' + url.searchParams.toString());
+      });
+    },
+    [router],
+  );
+
   // View toggle. Side-by-Side ⇄ List is instant local state (both share the
   // day-scoped dataset). Switching to/from Week also (re)fetches the
   // week-range dataset through the server — the week grid has no data
@@ -1283,6 +1304,7 @@ export function AppointmentsCalendar({
                 timezone={timezone}
                 daysOff={daysOff}
                 onApptClick={handleApptClick}
+                onDayClick={jumpToDayView}
               />
             ))}
 

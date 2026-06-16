@@ -243,7 +243,8 @@
       },
       "week": {
         "empty": "Aucun rendez-vous",
-        "dayOff": "Fermé"
+        "dayOff": "Fermé",
+        "jumpToDay": "Ouvrir cette journée"
       },
       "reschedule": {
         "heading": "Reprogrammer",
@@ -944,7 +945,15 @@
         "start": "Du",
         "end": "Au",
         "apply": "Appliquer",
-        "thisMonth": "Ce mois-ci"
+        "thisMonth": "Ce mois-ci",
+        "presetsLabel": "Raccourcis",
+        "presets": {
+          "today": "Aujourd'hui",
+          "last7": "7 jours",
+          "thisMonth": "Ce mois",
+          "lastMonth": "Mois dernier",
+          "ytd": "Année à ce jour"
+        }
       },
       "trend": {
         "title": "Évolution du chiffre d'affaires"
