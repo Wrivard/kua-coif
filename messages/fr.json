@@ -1814,6 +1814,7 @@
       "rescheduleButton": "Déplacer",
       "receiptButton": "Reçu",
       "cancelButton": "Annuler",
+      "confirmCancelButton": "Confirmer l’annulation",
       "cancelTitle": "Annuler le rendez-vous ?",
       "keepButton": "Garder",
       "loyaltyTitle": "Ton crédit fidélité",

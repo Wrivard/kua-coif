@@ -1814,6 +1814,7 @@
       "rescheduleButton": "Reschedule",
       "receiptButton": "Receipt",
       "cancelButton": "Cancel",
+      "confirmCancelButton": "Confirm cancellation",
       "cancelTitle": "Cancel appointment?",
       "keepButton": "Keep",
       "loyaltyTitle": "Your loyalty credit",
