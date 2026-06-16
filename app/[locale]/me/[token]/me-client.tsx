@@ -31,6 +31,10 @@ export type UpcomingAppointment = {
   refundCutoffAt: string | null;
   /** Deposit actually charged (cents) — the amount at stake in the dialog. */
   depositCents: number;
+  // W13 — resolved `customer_cancellations` policy for THIS appointment's
+  // barber. False ⇒ self-cancel is off; hide the Cancel action instead of
+  // walking the client through the red dialog only to reject them with a toast.
+  canSelfCancel: boolean;
 };
 
 export function MeClient({
@@ -51,7 +55,10 @@ export function MeClient({
   const t = useTranslations('pages.me');
   const lang: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
   const { show } = useToast();
-  const [isPending, startTransition] = useTransition();
+  // W13 — one transition per action: exporting must not spin/disable the
+  // cancel control (and vice versa) — they're unrelated flows.
+  const [isExporting, startExport] = useTransition();
+  const [isCancelling, startCancel] = useTransition();
   // Optimistically hide cancelled appointments so the UI stays in sync
   // before the revalidatePath round-trip lands. The server keeps the
   // source of truth — a refresh re-fetches the list.
@@ -60,7 +67,7 @@ export function MeClient({
   const [pendingCancel, setPendingCancel] = useState<UpcomingAppointment | null>(null);
 
   function downloadExport() {
-    startTransition(async () => {
+    startExport(async () => {
       const result = await exportMyData({ token });
       if (!result.ok) {
         show({ variant: 'danger', title: t('toasts.exportExpired') });
@@ -95,7 +102,7 @@ export function MeClient({
   }
 
   function doCancel(appointment: UpcomingAppointment) {
-    startTransition(async () => {
+    startCancel(async () => {
       // Phase H — forward the URL locale so the cancellation email
       // lands in the right language. The action defaults to FR when
       // the field is missing (older clients).
@@ -225,24 +232,29 @@ export function MeClient({
                           <button> inside an anchor is invalid HTML. */}
                       <Link
                         href={`/${locale}/reschedule/${appt.rescheduleToken}`}
-                        className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-accent px-3 text-xs font-medium text-accent-fg shadow-sm transition-all duration-150 ease-out-quint hover:bg-accent-hover hover:shadow-accent-glow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-accent px-3 text-xs font-medium text-accent-fg shadow-sm transition-all duration-150 ease-out-quint hover:bg-accent-hover hover:shadow-accent-glow focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                       >
                         <CalendarClock className="h-4 w-4" aria-hidden /> {t('rescheduleButton')}
                       </Link>
                       <Link
                         href={`/${locale}/receipt/${appt.receiptToken}`}
-                        className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-bg-surface px-3 text-xs font-medium text-text-primary shadow-sm transition-all duration-150 ease-out-quint hover:bg-bg-surface-2 hover:shadow-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-bg-surface px-3 text-xs font-medium text-text-primary shadow-sm transition-all duration-150 ease-out-quint hover:bg-bg-surface-2 hover:shadow-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                       >
                         <Receipt className="h-4 w-4" aria-hidden /> {t('receiptButton')}
                       </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cancelAppointment(appt)}
-                        disabled={isPending}
-                      >
-                        <CalendarX className="h-4 w-4" /> {t('cancelButton')}
-                      </Button>
+                      {/* W13 — only offer self-cancel when the shop's resolved
+                          policy allows it; otherwise the dialog would lead to a
+                          server rejection. */}
+                      {appt.canSelfCancel ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cancelAppointment(appt)}
+                          disabled={isCancelling}
+                        >
+                          <CalendarX className="h-4 w-4" /> {t('cancelButton')}
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -274,7 +286,7 @@ export function MeClient({
         </CardHeader>
         <CardBody className="space-y-4">
           <p className="text-sm leading-relaxed text-text-secondary">{t('loi25Body')}</p>
-          <Button onClick={downloadExport} loading={isPending} variant="secondary" size="sm">
+          <Button onClick={downloadExport} loading={isExporting} variant="secondary" size="sm">
             <Download className="h-4 w-4" /> {t('download')}
           </Button>
         </CardBody>
@@ -312,10 +324,10 @@ export function MeClient({
       <ConfirmDialog
         open={pendingCancel !== null}
         destructive
-        loading={isPending}
+        loading={isCancelling}
         title={t('cancelTitle')}
         description={cancelDescription}
-        confirmLabel={t('cancelButton')}
+        confirmLabel={t('confirmCancelButton')}
         cancelLabel={t('keepButton')}
         onConfirm={() => {
           const appt = pendingCancel;

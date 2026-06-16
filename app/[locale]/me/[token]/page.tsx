@@ -143,6 +143,10 @@ export default async function MePage(props: {
       }),
       refundCutoffAt,
       depositCents: r.deposit_amount_cents ?? 0,
+      // W13 — the resolved self-cancel policy for this appointment's barber, so
+      // the client can hide the Cancel action when the shop disabled it instead
+      // of surfacing a dialog the cancel action will reject.
+      canSelfCancel: resolved.customer_cancellations,
     };
   });
 
