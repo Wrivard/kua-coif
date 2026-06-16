@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,8 @@ export function Modal({
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [closing, setClosing] = useState(false);
+  const titleId = useId();
+  const descId = useId();
   const tA11y = useTranslations('a11y');
 
   // Sync the controlled `open` prop to the native dialog. Opening is immediate;
@@ -95,6 +97,8 @@ export function Modal({
     <dialog
       ref={dialogRef}
       data-closing={closing ? '' : undefined}
+      aria-labelledby={title ? titleId : undefined}
+      aria-describedby={description ? descId : undefined}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
@@ -123,7 +127,7 @@ export function Modal({
         //     in globals.css. No CSS border, shadow-as-border handles it.
         className={cn(
           'flex w-full flex-col bg-bg-elevated text-text-primary shadow-modal',
-          'max-h-[92vh] rounded-b-none rounded-t-xl md:max-h-[88vh] md:rounded-lg',
+          'max-h-[92vh] rounded-b-none rounded-t-2xl md:max-h-[88vh] md:rounded-lg',
           'animate-modal-content',
           className,
         )}
@@ -138,10 +142,14 @@ export function Modal({
           <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-6 md:px-6">
             <div className="min-w-0 flex-1">
               {title ? (
-                <h2 className="text-xl font-semibold tracking-tight text-text-primary">{title}</h2>
+                <h2 id={titleId} className="text-xl font-semibold tracking-tight text-text-primary">
+                  {title}
+                </h2>
               ) : null}
               {description ? (
-                <p className="mt-1.5 text-sm text-text-secondary">{description}</p>
+                <p id={descId} className="mt-1.5 text-sm text-text-secondary">
+                  {description}
+                </p>
               ) : null}
             </div>
             {/* Larger touch target (h-8 w-8) so it works for thumbs on
