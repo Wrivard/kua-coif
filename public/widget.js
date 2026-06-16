@@ -122,7 +122,7 @@
   function createIframe(host, alias, locale, theme, source) {
     var iframe = document.createElement('iframe');
     iframe.src = buildEmbedUrl(host, alias, locale, theme, source);
-    iframe.title = 'Küa booking widget';
+    iframe.title = locale === 'en' ? 'Küa booking widget' : 'Widget de réservation Küa';
     iframe.loading = 'lazy';
     iframe.style.cssText = [
       'border:0',
@@ -307,7 +307,10 @@
     modalContainer.className = 'kua-modal-overlay';
     modalContainer.setAttribute('role', 'dialog');
     modalContainer.setAttribute('aria-modal', 'true');
-    modalContainer.setAttribute('aria-label', 'Booking widget');
+    modalContainer.setAttribute(
+      'aria-label',
+      locale === 'en' ? 'Booking widget' : 'Widget de réservation',
+    );
 
     var inner = document.createElement('div');
     inner.className = 'kua-modal-inner';
