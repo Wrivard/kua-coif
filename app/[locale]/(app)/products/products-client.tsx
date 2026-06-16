@@ -416,7 +416,15 @@ export function ProductsClient({
             data={filteredProducts}
             getRowKey={(r) => r.id}
             virtualize
-            emptyState={{ title: t('emptyTitle'), description: t('emptyHint') }}
+            emptyState={{
+              title: t('emptyTitle'),
+              description: t('emptyHint'),
+              action: (
+                <Button onClick={() => setProductMode({ kind: 'add' })} size="sm">
+                  <Plus className="h-4 w-4" /> {t('addProduct')}
+                </Button>
+              ),
+            }}
           />
         )}
         {view === 'brands' && (

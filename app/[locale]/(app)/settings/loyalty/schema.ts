@@ -18,8 +18,8 @@ export const loyaltySchema = z.object({
   enabled: z.boolean(),
   type: z.enum(LOYALTY_TYPES),
   goal_count: z.number().int().min(0).max(99999),
-  min_transaction_amount: z.number().min(0).max(99999.99),
-  reward_amount: z.number().min(0).max(99999.99),
+  min_transaction_amount: z.number().min(0).max(99999.99).multipleOf(0.01),
+  reward_amount: z.number().min(0).max(99999.99).multipleOf(0.01),
   include_product_sales: z.boolean(),
   include_tips: z.boolean(),
 });
