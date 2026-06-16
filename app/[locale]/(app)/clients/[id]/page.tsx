@@ -45,8 +45,10 @@ export default async function ClientDetailPage(props: {
   await requireShopMember({ locale });
 
   // Active-shop scope (cookie-aware) + strict-barber gate, mirroring the list.
-  const memberships = await getShopMemberships();
-  const activeShopId = await getCurrentShopId();
+  // getCurrentShopId() re-resolves memberships internally via the React
+  // cache(), so it does not consume the local `memberships`; the two are
+  // independent and run in one round-trip.
+  const [memberships, activeShopId] = await Promise.all([getShopMemberships(), getCurrentShopId()]);
   const activeMembership = memberships.find((m) => m.shop_id === activeShopId) ?? memberships[0];
   const shopId = activeMembership?.shop_id ?? activeShopId;
   if (!shopId) notFound();

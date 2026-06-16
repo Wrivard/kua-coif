@@ -22,7 +22,16 @@ export default async function ShopDetailsPage(props: { params: Promise<{ locale:
 
   const supabase = createSupabaseServerClient();
   const [shopRes, hoursRes] = await Promise.all([
-    supabase.from('shops').select('*').eq('id', shopId).maybeSingle(),
+    supabase
+      .from('shops')
+      // Explicit projection of exactly the columns ShopFullRow
+      // (= ShopDetailsInput + id) feeds to the form — no `select('*')`
+      // shipping unused/sensitive columns (smtp/twilio/stripe secrets, etc.).
+      .select(
+        'id, name, alias, website, phone, email, instagram, yelp_id, timezone, date_format, default_language, default_cash_drawer_balance, description, country, street, street2, municipality, province, postal_code, age_21_only, allow_booking_any_barber, gross_up_fees, use_prod_price_in_tips, use_taxes_in_tips, client_reviews, payout_discount_mode, marketing_banner_enabled, marketing_banner_text, email_logo_url, email_accent_color',
+      )
+      .eq('id', shopId)
+      .maybeSingle(),
     supabase
       .from('shop_hours')
       .select('*')
