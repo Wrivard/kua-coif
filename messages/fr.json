@@ -823,6 +823,9 @@
       "todayLink": "Bilan quotidien →",
       "disputesLink": "Contestations →",
       "truncated": "Plage trop large — résultats tronqués à 5000 rendez-vous ; réduisez la plage de dates.",
+      "export": {
+        "button": "Exporter CSV"
+      },
       "disputes": {
         "title": "Contestations",
         "subtitle": "Contestations (chargebacks) reçues sur les transactions de ce salon.",
@@ -894,6 +897,12 @@
           "cashCollected": "Comptant encaissé",
           "cashTips": "Pourboires comptant",
           "expectedTotal": "Total attendu en caisse",
+          "countedLabel": "Encaisse comptée",
+          "countedPlaceholder": "0,00",
+          "delta": "Écart",
+          "over": "Excédent",
+          "short": "Manque",
+          "balanced": "Équilibré",
           "helper": "Comptez le tiroir à la fermeture. L'écart avec le total attendu va dans votre propre registre."
         },
         "byBarber": {
