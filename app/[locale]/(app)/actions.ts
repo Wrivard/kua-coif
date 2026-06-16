@@ -22,6 +22,7 @@ import {
   cancelAppointmentSchema,
   chargeAppointmentSchema,
   deleteBlockedTimeSchema,
+  markPaidCashSchema,
   refundAppointmentSchema,
   rescheduleAppointmentSchema,
   resizeAppointmentSchema,
@@ -1510,6 +1511,80 @@ export const chargeAppointment = withAction<
       }
       return err('UNEXPECTED');
     }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// markPaidCash — POS-lite stage 2 (record a counter CASH sale).
+//
+// Cash model A (plan 028 §1/§3b): a cash sale sets payment_status='paid' +
+// payment_method='cash' so "paid" finally means COLLECTED. It writes NO
+// payment_intent_id and never passes through 'pending', so the Stripe
+// reconcile cron and the webhook (both match on PI / 'pending') can never
+// flip or clobber it — the §1.1 invariant the drawer math relies on.
+//
+// Permission = manager+ OR own-barber: `minRole: 'barber'` lets any member
+// past the role gate, then an explicit check restricts a barber to closing
+// only THEIR OWN appointments (plan 028 §9 Q2 — owner decision: barber-own).
+//
+// Idempotent: the `payment_status <> 'paid'` WHERE clause means a double-click
+// can't double-record; a second call returns CONFLICT { already_paid }.
+// ---------------------------------------------------------------------------
+export const markPaidCash = withAction<typeof markPaidCashSchema, { id: string }>({
+  schema: markPaidCashSchema,
+  minRole: 'barber',
+  run: async (input, ctx) => {
+    const sb = rawDb();
+    const apptRes = await sb
+      .from('appointments')
+      .select('id, shop_id, barber_id, payment_status, total_amount')
+      .eq('id', input.id)
+      .single();
+    const appt = apptRes.data as {
+      id: string;
+      shop_id: string;
+      barber_id: string;
+      payment_status: 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
+      total_amount: number;
+    } | null;
+    if (!appt) return err('NOT_FOUND');
+    // Cross-shop guard: rawDb() is RLS-scoped, but a multi-shop member could
+    // resolve a row from a co-membered shop — pin it to the ACTIVE shop.
+    if (appt.shop_id !== ctx.shopId) return err('NOT_FOUND');
+
+    // manager+ OR own-barber. `ctx.barberId` is the user's `barbers.id` row for
+    // the active shop (resolved by withAction for role='barber'); a barber may
+    // close ONLY appointments on their own chair.
+    const isManagerPlus = ctx.role !== 'barber';
+    if (!isManagerPlus && appt.barber_id !== ctx.barberId) return err('FORBIDDEN');
+
+    if (appt.payment_status === 'paid') return err('CONFLICT', { payment: 'already_paid' });
+
+    // Idempotent write — the `payment_status <> 'paid'` clause makes a
+    // double-click a no-op (matches zero rows → already_paid below). Writes no
+    // payment_intent_id, never 'pending' → invisible to reconcile/webhook (§1.1).
+    const upd = await sb
+      .from('appointments')
+      .update({ payment_status: 'paid', payment_method: 'cash' })
+      .eq('id', appt.id)
+      .eq('shop_id', ctx.shopId)
+      .neq('payment_status', 'paid')
+      .select('id');
+    if (upd.error) return err('UNEXPECTED');
+    if (!(upd.data ?? []).length) return err('CONFLICT', { payment: 'already_paid' });
+
+    // Cash has no trigger-captured Stripe leg, so this durable row is the only
+    // record that the money was collected.
+    await logDurableAudit({
+      shopId: ctx.shopId,
+      actorId: ctx.userId,
+      action: 'custom',
+      entity: 'appointments',
+      entityId: appt.id,
+      diff: { marked_paid_cash: true, amount: appt.total_amount },
+    });
+    revalidatePath(APPOINTMENTS_PATH);
+    return ok({ id: appt.id });
   },
 });
 

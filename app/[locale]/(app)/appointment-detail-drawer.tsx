@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import {
+  Banknote,
   CalendarSync,
   Check,
   Link2,
@@ -21,6 +22,7 @@ import { combineShopDateTime, formatShopTime, shopIsoDate } from '@/lib/business
 import { APPOINTMENT_STATUSES, type AppointmentStatus } from '@/db/enums';
 import {
   cancelAppointment,
+  markPaidCash,
   refundAppointment,
   rescheduleAppointment,
   updateAppointment,
@@ -33,6 +35,12 @@ type Props = {
   timezone: string;
   /** owner/manager may issue refunds; strict barbers cannot (buttons hidden). */
   canManageMoney: boolean;
+  /**
+   * POS-lite stage 2 — the viewer's `barbers.id` (null for owner/manager). A
+   * barber may record cash on their OWN appointments; manager+ on any. The
+   * server (`markPaidCash`) re-checks — this only gates the button's visibility.
+   */
+  viewerBarberId: string | null;
   onClose: () => void;
   /**
    * Plan 033 — fired on a SUCCESSFUL cancel (never on failure), right before
@@ -47,6 +55,7 @@ export function AppointmentDetailDrawer({
   appointment,
   timezone,
   canManageMoney,
+  viewerBarberId,
   onClose,
   onCancelled,
   formatAmount,
@@ -69,6 +78,7 @@ export function AppointmentDetailDrawer({
     | { kind: 'refund' }
     | { kind: 'forceRefund'; alsoRefund: boolean; threshold: string }
     | { kind: 'revokeLinks' }
+    | { kind: 'markPaidCash' }
     | null
   >(null);
   // Re-sync local edits when a different appointment is opened in the drawer.
@@ -245,12 +255,40 @@ export function AppointmentDetailDrawer({
     });
   }
 
+  // POS-lite stage 2 — record a counter CASH sale. Confirms once (it flips the
+  // appointment to paid+cash); the server re-checks the manager+/own-barber gate.
+  function onMarkPaidCash() {
+    if (!appointment) return;
+    setPendingConfirm({ kind: 'markPaidCash' });
+  }
+
+  function doMarkPaidCash() {
+    if (!appointment) return;
+    startTransition(async () => {
+      const result = await markPaidCash({ id: appointment.id });
+      if (result.ok) {
+        show({ variant: 'success', title: t('toasts.markedPaidCash') });
+        onClose();
+      } else {
+        show({ variant: 'danger', title: tErr(result.errorCode) });
+      }
+    });
+  }
+
   // Whether the appointment is in a payment state where a refund is
   // actually possible. "paid" is the only happy path; refunded/failed/
   // pending all skip the refund button.
   // Refunds are a manager+ capability — a barber sees no refund affordance
   // at all (the server also rejects a barber's also_refund / standalone refund).
   const canRefund = appointment?.payment_status === 'paid' && canManageMoney;
+
+  // POS-lite stage 2 — who sees "Payé comptant": the appointment isn't paid yet
+  // AND the viewer is manager+ OR the appointment's own barber. The server
+  // (`markPaidCash`) is authoritative; this only governs button visibility.
+  const canRecordCash =
+    appointment != null &&
+    appointment.payment_status !== 'paid' &&
+    (canManageMoney || appointment.barber_id === viewerBarberId);
 
   // Phase 12 (post-loop-11) — generate a signed public link, prefix
   // with the live origin if the env-set base is empty (dev), then copy
@@ -306,23 +344,31 @@ export function AppointmentDetailDrawer({
   }
 
   const confirmDialog = pendingConfirm
-    ? pendingConfirm.kind === 'forceRefund'
+    ? pendingConfirm.kind === 'markPaidCash'
       ? {
-          title: t('forceRefundTitle'),
-          description: t('confirmForceRefund', { threshold: pendingConfirm.threshold }),
-          confirmLabel: t('forceRefundConfirm'),
+          title: t('markPaidCash.confirmTitle'),
+          description: t('markPaidCash.confirmBody', {
+            amount: formatAmount(appointment?.total_amount ?? 0),
+          }),
+          confirmLabel: t('markPaidCash.confirmLabel'),
         }
-      : pendingConfirm.kind === 'revokeLinks'
+      : pendingConfirm.kind === 'forceRefund'
         ? {
-            title: t('revokeLinks.title'),
-            description: t('revokeLinks.confirm'),
-            confirmLabel: t('revokeLinks.confirmLabel'),
+            title: t('forceRefundTitle'),
+            description: t('confirmForceRefund', { threshold: pendingConfirm.threshold }),
+            confirmLabel: t('forceRefundConfirm'),
           }
-        : {
-            title: t('refundTitle'),
-            description: t('confirmRefund'),
-            confirmLabel: t('refundOnly'),
-          }
+        : pendingConfirm.kind === 'revokeLinks'
+          ? {
+              title: t('revokeLinks.title'),
+              description: t('revokeLinks.confirm'),
+              confirmLabel: t('revokeLinks.confirmLabel'),
+            }
+          : {
+              title: t('refundTitle'),
+              description: t('confirmRefund'),
+              confirmLabel: t('refundOnly'),
+            }
     : null;
 
   return (
@@ -488,6 +534,25 @@ export function AppointmentDetailDrawer({
                 {formatAmount(appointment.total_amount)}
               </span>
             </div>
+            {/* POS-lite stage 2 — record a counter CASH sale. Manager+ sees it
+                on any unpaid appointment; a barber on their own. The card
+                "Encaisser" (Stripe Elements) flow is stage 3. */}
+            {canRecordCash ? (
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  {t('markPaidCash.heading')}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onMarkPaidCash}
+                  disabled={isPending}
+                >
+                  <Banknote className="h-4 w-4" /> {t('markPaidCash.action')}
+                </Button>
+              </div>
+            ) : null}
             {/* Phase 12 — public link generators. The owner copies a
               signed URL and pastes it into their preferred channel
               (SMS, email, Slack). Auto-send via Resend ships V1.1. */}
@@ -567,7 +632,7 @@ export function AppointmentDetailDrawer({
       </Drawer>
       <ConfirmDialog
         open={pendingConfirm !== null}
-        destructive
+        destructive={pendingConfirm?.kind !== 'markPaidCash'}
         loading={isPending}
         title={confirmDialog?.title ?? ''}
         description={confirmDialog?.description}
@@ -579,6 +644,7 @@ export function AppointmentDetailDrawer({
           if (!p) return;
           if (p.kind === 'refund') doRefund();
           else if (p.kind === 'revokeLinks') doRevokeLinks();
+          else if (p.kind === 'markPaidCash') doMarkPaidCash();
           else onCancel(p.alsoRefund, true);
         }}
         onCancel={() => setPendingConfirm(null)}

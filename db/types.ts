@@ -84,6 +84,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_intent_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
           public_link_version: number
           quickbooks_sales_receipt_id: string | null
@@ -106,6 +107,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_intent_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           public_link_version?: number
           quickbooks_sales_receipt_id?: string | null
@@ -128,6 +130,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_intent_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           public_link_version?: number
           quickbooks_sales_receipt_id?: string | null
@@ -2208,6 +2211,7 @@ export type Database = {
         | "reminder"
         | "client_reminder_1"
         | "client_reminder_2"
+      payment_method: "card_online" | "card_counter" | "cash"
       payout_discount_mode: "split" | "shop" | "barber"
       quickbooks_connect_status:
         | "not_started"
@@ -2388,6 +2392,7 @@ export const Constants = {
         "client_reminder_1",
         "client_reminder_2",
       ],
+      payment_method: ["card_online", "card_counter", "cash"],
       payout_discount_mode: ["split", "shop", "barber"],
       quickbooks_connect_status: [
         "not_started",

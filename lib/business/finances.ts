@@ -17,6 +17,28 @@ export function excludeRefunded<T extends { payment_status: string }>(appts: T[]
 }
 
 /**
+ * Cash-drawer cohort for the daily close-out (POS-lite stage 2). A completed
+ * appointment is physical cash in the drawer when EITHER it was recorded as a
+ * cash sale (`payment_method === 'cash'`) OR it's a legacy row predating the
+ * `payment_method` column (method null) still sitting at `unpaid` — the
+ * pre-migration "cash = unpaid forever" convention, kept counting with NO
+ * backfill (plan 028 §4). A card-paid row is NEVER in the drawer.
+ *
+ * NOTE — overlap by design: a legacy `null + unpaid` row counts here AND shows
+ * under "Impayé" in the payment breakdown. That's the §4 compat: pre-migration
+ * cash was physically in the drawer but recorded as unpaid. It self-resolves —
+ * new cash sales write `method='cash'`, so the legacy cohort only shrinks.
+ */
+export function cashDrawerSet<T extends { payment_status: string; payment_method?: string | null }>(
+  completed: T[],
+): T[] {
+  return completed.filter(
+    (a) =>
+      a.payment_method === 'cash' || (a.payment_method == null && a.payment_status === 'unpaid'),
+  );
+}
+
+/**
  * Sum `total_amount` (dollars) over the non-refunded appointments. This is the
  * net revenue figure AND the per-barber commission/tipout base — pass a single
  * barber's appointments to get their net base (a barber whose only appointment

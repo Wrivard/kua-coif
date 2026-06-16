@@ -464,6 +464,7 @@ export default async function AppointmentsPage(props: Props) {
     <AppointmentsCalendar
       locale={locale}
       canManageMoney={viewerRole !== 'barber'}
+      viewerBarberId={viewerBarberId}
       timezone={timezone}
       isoDate={isoDate}
       initialView={initialView}

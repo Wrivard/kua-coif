@@ -79,6 +79,10 @@ async function fetchPlatformOverview(): Promise<PlatformOverview> {
       .from('appointments')
       .select('shop_id, total_amount, tip_amount_cents')
       .eq('payment_status', 'paid')
+      // POS-lite stage 2 — the platform app-fee only accrues on Stripe charges.
+      // Cash sales are also payment_status='paid' now (cash model A) but have no
+      // PaymentIntent, so exclude them or they'd inflate platform revenue.
+      .not('payment_intent_id', 'is', null)
       .gte('start_at', since),
   ]);
 

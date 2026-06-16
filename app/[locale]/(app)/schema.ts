@@ -110,6 +110,14 @@ export const chargeAppointmentSchema = z.object({
 export const refundAppointmentSchema = z.object({ id: z.string().uuid() });
 
 /**
+ * POS-lite stage 2 — record a counter CASH sale. The amount is NOT editable
+ * at the counter (it's the appointment's `total_amount`); price changes happen
+ * by editing the appointment's services (plan 028 §3c), so the input is just
+ * the appointment id.
+ */
+export const markPaidCashSchema = z.object({ id: z.string().uuid() });
+
+/**
  * Server-side client lookup for the appointment picker — substring match on
  * name / email / phone. Replaces the in-memory filter over the 500-capped
  * payload (clients beyond 500 were unfindable → duplicate-client problem).
