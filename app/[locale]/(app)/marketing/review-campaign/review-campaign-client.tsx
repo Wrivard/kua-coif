@@ -130,18 +130,30 @@ export function ReviewCampaignClient({
     startSend(async () => {
       const result = await sendReviewCampaign({ appointment_ids: selectedIds });
       if (result.ok) {
-        const { sent, failed } = result.data;
-        if (failed === 0) {
+        const { sent, skipped, failed } = result.data;
+        // W10 — surface the skipped channels (no contact info, already
+        // asked, or channel disabled) so a bulk send that reached few or
+        // none no longer reads as a clean success.
+        const skippedNote =
+          skipped > 0 ? tMarketing('reviewCampaign.skippedToast', { skipped }) : undefined;
+        if (sent === 0 && failed === 0) {
+          show({
+            variant: 'warning',
+            title: skippedNote ?? (L?.sentToast ?? 'Sent').replace('{sent}', '0'),
+          });
+        } else if (failed === 0) {
           show({
             variant: 'success',
-            title: L?.sentToast.replace('{sent}', String(sent)) ?? 'Sent',
+            title: (L?.sentToast ?? 'Sent').replace('{sent}', String(sent)),
+            description: skippedNote,
           });
         } else {
           show({
             variant: 'warning',
-            title:
-              L?.partialToast.replace('{sent}', String(sent)).replace('{failed}', String(failed)) ??
-              'Partial',
+            title: (L?.partialToast ?? 'Partial')
+              .replace('{sent}', String(sent))
+              .replace('{failed}', String(failed)),
+            description: skippedNote,
           });
         }
         setSelected(new Set());
