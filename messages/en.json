@@ -243,7 +243,8 @@
       },
       "week": {
         "empty": "No appointments",
-        "dayOff": "Closed"
+        "dayOff": "Closed",
+        "jumpToDay": "Open this day"
       },
       "reschedule": {
         "heading": "Reschedule",
@@ -944,7 +945,15 @@
         "start": "From",
         "end": "To",
         "apply": "Apply",
-        "thisMonth": "This month"
+        "thisMonth": "This month",
+        "presetsLabel": "Quick ranges",
+        "presets": {
+          "today": "Today",
+          "last7": "7 days",
+          "thisMonth": "This month",
+          "lastMonth": "Last month",
+          "ytd": "Year to date"
+        }
       },
       "trend": {
         "title": "Revenue trend"

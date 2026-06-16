@@ -22,6 +22,8 @@ type Props = {
   /** Shop-local ISO dates that are days off — rendered muted. */
   daysOff: string[];
   onApptClick: (a: CalendarAppointment) => void;
+  /** Click a day header → open that day in the day (Side-by-Side) view. */
+  onDayClick: (iso: string) => void;
 };
 
 /**
@@ -40,6 +42,7 @@ export function AppointmentsWeekView({
   timezone,
   daysOff,
   onApptClick,
+  onDayClick,
 }: Props) {
   const t = useTranslations('pages.appointments');
 
@@ -76,13 +79,20 @@ export function AppointmentsWeekView({
           const dayNumber = formatShopTime(dayRef, timezone, 'd');
           return (
             <div key={iso} className="flex min-w-[120px] flex-col bg-bg-base">
-              {/* Column header — Mon 18 etc. The current day reads "lit up"
-                  with an accent dot, matching the active-marker convention
-                  used elsewhere (never just a text-color change). */}
-              <div
+              {/* Column header — Mon 18 etc. A button: clicking it opens that
+                  day in the day (Side-by-Side) view via `onDayClick`, so the
+                  week is one tap from the detailed day (and the only day-switch
+                  affordance the week grid offers on mobile). The current day
+                  still reads "lit up" with an accent dot, matching the
+                  active-marker convention used elsewhere. */}
+              <button
+                type="button"
+                onClick={() => onDayClick(iso)}
+                title={t('week.jumpToDay')}
                 className={cn(
-                  'flex h-12 items-center gap-2 border-b border-border-soft px-3',
-                  isCurrent ? 'bg-bg-surface-2' : 'bg-bg-surface',
+                  'flex h-12 w-full items-center gap-2 border-b border-border-soft px-3 text-left transition-colors duration-150 ease-out-quint',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
+                  isCurrent ? 'bg-bg-surface-2' : 'bg-bg-surface hover:bg-bg-surface-2',
                 )}
               >
                 {isCurrent ? (
@@ -107,7 +117,7 @@ export function AppointmentsWeekView({
                 >
                   {dayNumber}
                 </span>
-              </div>
+              </button>
 
               {/* Day column body — compact list of appointment cards. */}
               <div
