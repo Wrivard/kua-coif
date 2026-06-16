@@ -674,6 +674,22 @@ export function BookingWizard({
     return false;
   })();
 
+  // W11 — surface WHY the Confirm button is disabled on the contact step.
+  // `canAdvance` (unchanged above) gates the button, but only phone/email had
+  // inline hints — a missing first name, an incomplete Turnstile challenge, or
+  // an unticked Loi 25 consent left the conversion-step button dead with no
+  // visible reason. List what's still required so the customer can act.
+  const contactBlockers: string[] = [];
+  if (kindForStep(state.step) === 'contact' && !canAdvance) {
+    if (state.firstName.trim().length === 0)
+      contactBlockers.push(t('steps.contact.blockers.firstName'));
+    if (!phoneFormatValid) contactBlockers.push(t('steps.contact.blockers.phone'));
+    if (!emailFormatValid) contactBlockers.push(t('steps.contact.blockers.email'));
+    if (turnstileEnforced && state.turnstileToken.length === 0)
+      contactBlockers.push(t('steps.contact.blockers.turnstile'));
+    if (!state.consentLoi25) contactBlockers.push(t('steps.contact.blockers.consent'));
+  }
+
   // Phase 56 — ref to the payment section so submit can confirm the
   // PaymentIntent before invoking the booking action. The section
   // resolves to `{ kind: 'no_deposit' }` when no deposit applies, so
@@ -1276,6 +1292,31 @@ export function BookingWizard({
               // intent can never be charged at the wrong amount.
               onReadyChange={setPaymentReady}
             />
+
+            {/* W11 — "why is Confirm disabled" checklist. Renders only when
+                the contact step still has unmet requirements, so the
+                conversion-step button is never a dead end without a reason.
+                Styled as a soft to-do list (not a red error) since most items
+                are simply "not done yet" rather than invalid input. */}
+            {contactBlockers.length > 0 ? (
+              <div
+                role="status"
+                className="rounded-lg border border-border bg-bg-base p-3 text-xs text-text-secondary shadow-warm-sm"
+              >
+                <p className="font-medium text-text-primary">{t('steps.contact.blockers.intro')}</p>
+                <ul className="mt-1.5 space-y-1">
+                  {contactBlockers.map((b) => (
+                    <li key={b} className="flex items-start gap-1.5">
+                      <span
+                        aria-hidden
+                        className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-text-muted"
+                      />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         )}
 
@@ -1965,7 +2006,11 @@ function DateStrip({
       const weekday = new Date(`${iso}T00:00:00`).getDay();
       const h = hours.find((hh) => hh.weekday === weekday);
       const closed = !h?.enabled || daysOff.includes(iso);
-      return { iso, weekday, closed };
+      // W11 — label the month on the first cell and on each month's 1st so a
+      // 14-day window straddling two months (…30, 1, 2) isn't ambiguous about
+      // which month a given day belongs to.
+      const showMonth = i === 0 || iso.slice(-2) === '01';
+      return { iso, weekday, closed, showMonth };
     });
   }, [today, timezone, hours, daysOff]);
 
@@ -1989,6 +2034,23 @@ function DateStrip({
             )}
             aria-pressed={active}
           >
+            <span
+              className={cn(
+                'text-[9px] font-semibold uppercase leading-none tracking-wide opacity-70',
+                // Always render the month so every cell reserves the line's
+                // height (day numbers stay aligned across the strip); hide it
+                // on non-boundary cells via `invisible`.
+                !d.showMonth && 'invisible',
+              )}
+            >
+              {new Date(`${d.iso}T12:00:00Z`).toLocaleDateString(
+                locale === 'fr' ? 'fr-CA' : 'en-CA',
+                {
+                  month: 'short',
+                  timeZone: timezone,
+                },
+              )}
+            </span>
             <span className="text-[10px] font-medium uppercase tracking-wide">
               {new Date(`${d.iso}T12:00:00Z`).toLocaleDateString(
                 locale === 'fr' ? 'fr-CA' : 'en-CA',
