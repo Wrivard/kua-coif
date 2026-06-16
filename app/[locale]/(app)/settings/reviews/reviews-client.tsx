@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Check, Star, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,25 +50,25 @@ export function ReviewsClient({
       if (result.ok)
         show({
           variant: 'success',
-          title: status === 'published' ? 'Published' : 'Rejected',
+          title: status === 'published' ? t('toasts.published') : t('toasts.rejected'),
         });
-      else show({ variant: 'danger', title: 'Moderation failed' });
+      else show({ variant: 'danger', title: t('toasts.moderationFailed') });
     });
   }
 
   function doRemove(id: string) {
     startTransition(async () => {
       const result = await deleteReview({ review_id: id });
-      if (result.ok) show({ variant: 'success', title: 'Deleted' });
-      else show({ variant: 'danger', title: 'Delete failed' });
+      if (result.ok) show({ variant: 'success', title: t('toasts.deleted') });
+      else show({ variant: 'danger', title: t('toasts.deleteFailed') });
     });
   }
 
   return (
     <>
-      <PageHeader title="Reviews" />
+      <PageHeader title={t('title')} />
       <div className="space-y-6 p-6">
-        <Section title="Pending moderation" rows={grouped.pending} kind="pending">
+        <Section title={t('sections.pending')} rows={grouped.pending} kind="pending">
           {(r) => (
             <Row
               key={r.id}
@@ -81,7 +81,7 @@ export function ReviewsClient({
                     onClick={() => moderate(r.id, 'published')}
                     disabled={isPending}
                     className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-success focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Publish"
+                    aria-label={t('actions.publish')}
                   >
                     <Check className="h-4 w-4" />
                   </button>
@@ -90,7 +90,7 @@ export function ReviewsClient({
                     onClick={() => moderate(r.id, 'rejected')}
                     disabled={isPending}
                     className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Reject"
+                    aria-label={t('actions.reject')}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -99,7 +99,7 @@ export function ReviewsClient({
                     onClick={() => setConfirmId(r.id)}
                     disabled={isPending}
                     className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Delete"
+                    aria-label={tCommon('actions.delete')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -109,7 +109,7 @@ export function ReviewsClient({
           )}
         </Section>
 
-        <Section title="Published" rows={grouped.published} kind="published">
+        <Section title={t('sections.published')} rows={grouped.published} kind="published">
           {(r) => (
             <Row
               key={r.id}
@@ -121,7 +121,7 @@ export function ReviewsClient({
                   onClick={() => setConfirmId(r.id)}
                   disabled={isPending}
                   className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Delete"
+                  aria-label={tCommon('actions.delete')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -130,7 +130,7 @@ export function ReviewsClient({
           )}
         </Section>
 
-        <Section title="Rejected" rows={grouped.rejected} kind="rejected">
+        <Section title={t('sections.rejected')} rows={grouped.rejected} kind="rejected">
           {(r) => (
             <Row
               key={r.id}
@@ -142,7 +142,7 @@ export function ReviewsClient({
                   onClick={() => setConfirmId(r.id)}
                   disabled={isPending}
                   className="rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Delete"
+                  aria-label={tCommon('actions.delete')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -181,6 +181,7 @@ function Section({
   kind: 'pending' | 'published' | 'rejected';
   children: (r: ReviewRow) => React.ReactNode;
 }) {
+  const t = useTranslations('pages.settings.reviews');
   const variant: Record<typeof kind, 'accent' | 'success' | 'default'> = {
     pending: 'accent',
     published: 'success',
@@ -194,7 +195,7 @@ function Section({
       </CardHeader>
       <CardBody className="space-y-2">
         {rows.length === 0 ? (
-          <p className="text-sm text-text-muted">Nothing here yet.</p>
+          <p className="text-sm text-text-muted">{t('empty')}</p>
         ) : (
           rows.map((r) => children(r))
         )}
@@ -212,6 +213,8 @@ function Row({
   barberNames: Record<string, string>;
   actions: React.ReactNode;
 }) {
+  const t = useTranslations('pages.settings.reviews');
+  const locale = useLocale();
   const stars = '★'.repeat(row.rating) + '☆'.repeat(5 - row.rating);
   const barberName = row.barber_id ? barberNames[row.barber_id] : null;
   return (
@@ -220,7 +223,7 @@ function Row({
         <div className="flex items-center gap-2">
           <span
             className="font-mono tracking-widest text-warning"
-            aria-label={`${row.rating} out of 5`}
+            aria-label={t('ratingAria', { rating: row.rating })}
           >
             {stars}
           </span>
@@ -234,10 +237,10 @@ function Row({
             {row.comment}
           </p>
         ) : (
-          <p className="mt-1 text-xs italic text-text-muted">No comment.</p>
+          <p className="mt-1 text-xs italic text-text-muted">{t('noComment')}</p>
         )}
         <p className="mt-1 text-[11px] text-text-muted">
-          {new Date(row.created_at).toLocaleDateString()}
+          {new Date(row.created_at).toLocaleDateString(locale === 'fr' ? 'fr-CA' : 'en-CA')}
         </p>
       </div>
       <div className="inline-flex shrink-0 items-center gap-1">{actions}</div>
