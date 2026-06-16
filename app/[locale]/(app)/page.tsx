@@ -146,16 +146,26 @@ export default async function AppointmentsPage(props: Props) {
   // Phase H+5 — build the barber + appointment queries conditionally
   // based on viewer role. For a strict barber, narrow to their row
   // only; for managers + owners, keep the original "all" queries.
+  // Project the exact BarberRow columns the calendar tree consumes. `barbers`
+  // is handed to a client component, so select('*') would serialize the FULL
+  // barbers row (incl. any sensitive columns) into the RSC payload; this list
+  // also keeps the `as BarberRow[]` cast below honest.
+  const BARBER_COLUMNS =
+    'id, shop_id, user_id, display_name, email, phone, avatar_url, personnel_id, sort_order, status, bookable';
   const barbersQuery = isStrictBarber
     ? sb
         .from('barbers')
-        .select('*')
+        .select(BARBER_COLUMNS)
         .eq('shop_id', shopId)
         // isStrictBarber guarantees viewerBarberId is non-null (see its
         // definition); TS can't narrow across the two variables.
         .eq('id', viewerBarberId!)
         .order('sort_order', { ascending: true })
-    : sb.from('barbers').select('*').eq('shop_id', shopId).order('sort_order', { ascending: true });
+    : sb
+        .from('barbers')
+        .select(BARBER_COLUMNS)
+        .eq('shop_id', shopId)
+        .order('sort_order', { ascending: true });
 
   const apptsQuery = (
     isStrictBarber
