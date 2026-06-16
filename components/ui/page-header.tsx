@@ -45,9 +45,7 @@ export function PageHeader({
         {eyebrow ? <p className="type-eyebrow mb-1 truncate">{eyebrow}</p> : null}
         <h1 className="truncate text-display-md text-text-primary">{title}</h1>
         {subtitle ? (
-          <p className="mt-1 truncate text-[11px] tabular-nums text-text-muted sm:text-xs">
-            {subtitle}
-          </p>
+          <p className="mt-1 truncate text-xs tabular-nums text-text-muted">{subtitle}</p>
         ) : null}
       </div>
       {/* Center slot hides under `sm` — there's no horizontal room for it

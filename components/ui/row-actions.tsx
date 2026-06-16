@@ -54,7 +54,7 @@ export function RowActionButton({
         onClick();
       }}
       className={cn(
-        'rounded-md p-1 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50',
+        'rounded-md p-1.5 text-text-muted transition-all duration-150 ease-out-quint hover:bg-bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-50',
         tone === 'danger'
           ? 'hover:text-danger'
           : tone === 'warning'

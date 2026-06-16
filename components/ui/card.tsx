@@ -26,7 +26,7 @@ export function CardHeader({ className, ...rest }: DivProps) {
         // Phase H+8 — py-5 → py-6 to match the Card breathing-room
         // uplift. Pairs with CardBody's py-6 so header + body share
         // the same vertical rhythm.
-        'flex items-center justify-between gap-4 border-b border-border-soft px-6 py-5',
+        'flex items-center justify-between gap-4 border-b border-border-soft px-6 py-6',
         className,
       )}
       {...rest}
