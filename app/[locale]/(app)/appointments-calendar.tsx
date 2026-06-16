@@ -1009,6 +1009,74 @@ export function AppointmentsCalendar({
   const headerDateRef =
     isNavPending && navTargetIso ? new Date(`${navTargetIso}T12:00:00Z`) : dayRef;
 
+  // Whether every current barber is selected — drives the "All" filter chip's
+  // active state + toggle direction. `.every` (not a size compare) stays correct
+  // if `selectedBarbers` retains a stale id after a barber is removed.
+  const allBarbersSelected = barbers.every((b) => selectedBarbers.has(b.id));
+
+  // Day-navigation cluster (prev / today / next / date jump + live & stale
+  // pills). Rendered in TWO places: the PageHeader `center` slot (desktop) and
+  // the body toolbar below (mobile). The primitive's center slot is
+  // `hidden sm:flex`, so on a phone this is the ONLY way to reach day nav.
+  const dayNavControls = (
+    <>
+      <button
+        type="button"
+        onClick={() => shiftDate(-1)}
+        aria-label={t('prevDay')}
+        className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <Button variant="secondary" size="sm" onClick={jumpToday}>
+        <CalendarIcon className="h-4 w-4" /> {t('today')}
+      </Button>
+      <button
+        type="button"
+        onClick={() => shiftDate(1)}
+        aria-label={t('nextDay')}
+        className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+      {/* Plan 040 (CAL-04) — direct date jump. Controlled by the
+          optimistic nav target so the picker matches the header date
+          mid-transition. */}
+      <input
+        type="date"
+        value={isNavPending && navTargetIso ? navTargetIso : isoDate}
+        onChange={(e) => jumpToDate(e.target.value)}
+        aria-label={t('jumpToDate')}
+        className="h-8 rounded-md bg-bg-surface-2 px-2 text-xs text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
+      />
+      {/* Phase 26 — Realtime refresh indicator. CSS-only fade keeps it
+          from stealing focus; aria-live='polite' announces to screen
+          readers without interrupting. */}
+      <span
+        aria-live="polite"
+        className={cn(
+          'inline-flex h-6 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
+          justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+        {t('liveUpdate')}
+      </span>
+      {/* Realtime socket down — the grid may be missing recent changes.
+          Persistent (not auto-hiding) until the channel re-subscribes. */}
+      <span
+        aria-live="polite"
+        className={cn(
+          'inline-flex h-6 items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
+          realtimeStale ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+        {t('staleData')}
+      </span>
+    </>
+  );
+
   return (
     <>
       <PageHeader
@@ -1018,64 +1086,7 @@ export function AppointmentsCalendar({
             {formatHeaderDate(headerDateRef, locale === 'fr' ? 'fr' : 'en', timezone)}
           </span>
         }
-        center={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => shiftDate(-1)}
-              aria-label={t('prevDay')}
-              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <Button variant="secondary" size="sm" onClick={jumpToday}>
-              <CalendarIcon className="h-4 w-4" /> {t('today')}
-            </Button>
-            <button
-              type="button"
-              onClick={() => shiftDate(1)}
-              aria-label={t('nextDay')}
-              className="rounded-md p-1.5 text-text-muted transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            {/* Plan 040 (CAL-04) — direct date jump. Controlled by the
-                optimistic nav target so the picker matches the header date
-                mid-transition. */}
-            <input
-              type="date"
-              value={isNavPending && navTargetIso ? navTargetIso : isoDate}
-              onChange={(e) => jumpToDate(e.target.value)}
-              aria-label={t('jumpToDate')}
-              className="h-8 rounded-md bg-bg-surface-2 px-2 text-xs text-text-primary shadow-sm transition-colors duration-150 ease-out-quint focus:outline-none focus:ring-2 focus:ring-focus"
-            />
-            {/* Phase 26 — Realtime refresh indicator. CSS-only fade keeps it
-                from stealing focus; aria-live='polite' announces to screen
-                readers without interrupting. */}
-            <span
-              aria-live="polite"
-              className={cn(
-                'inline-flex h-6 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 text-[11px] font-medium text-success shadow-sm transition-opacity duration-300',
-                justRefreshed ? 'opacity-100' : 'pointer-events-none opacity-0',
-              )}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-success" />
-              {t('liveUpdate')}
-            </span>
-            {/* Realtime socket down — the grid may be missing recent changes.
-                Persistent (not auto-hiding) until the channel re-subscribes. */}
-            <span
-              aria-live="polite"
-              className={cn(
-                'inline-flex h-6 items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 text-[11px] font-medium text-warning shadow-sm transition-opacity duration-300',
-                realtimeStale ? 'opacity-100' : 'pointer-events-none opacity-0',
-              )}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-warning" />
-              {t('staleData')}
-            </span>
-          </div>
-        }
+        center={<div className="flex items-center gap-2">{dayNavControls}</div>}
         actions={
           <div className="flex items-center gap-2">
             {/* Loop 28 — "Cancel day" — emergency / sick-day bulk
@@ -1101,7 +1112,11 @@ export function AppointmentsCalendar({
               onClick={() =>
                 setModal({
                   kind: 'create',
-                  barberId: visibleBarbers[0]?.id ?? '',
+                  // Fall back to the first barber overall when the visible set
+                  // is empty (all chips deselected) — otherwise the form opens
+                  // with barber_id='', which matches no <option>, so RHF keeps
+                  // '' and zod silently blocks the submit ("Réserver" dead).
+                  barberId: visibleBarbers[0]?.id ?? barbers[0]?.id ?? '',
                   minutes: startMin,
                 })
               }
@@ -1114,6 +1129,13 @@ export function AppointmentsCalendar({
       />
 
       <div className="space-y-6 p-6">
+        {/* Item 1 — day-nav cluster for mobile. The PageHeader `center` slot
+            that carries it on desktop is `hidden sm:flex` in the primitive, so
+            without this the whole prev/today/next/date-jump cluster is
+            unreachable on a phone. `sm:hidden` keeps the desktop layout intact;
+            `flex-wrap` lets it stack on narrow screens. */}
+        <div className="flex flex-wrap items-center gap-2 sm:hidden">{dayNavControls}</div>
+
         {/* Phase 5 — view toggle. Side-by-Side is the default; List is the
             chronological table; Week is the 7-day grid. Side-by-Side and
             List share the day-scoped dataset (switching is instant); Week
@@ -1124,7 +1146,10 @@ export function AppointmentsCalendar({
           value={view}
           onChange={changeView}
           items={[
-            { value: 'side-by-side', label: t('views.sideBySide') },
+            // Side-by-Side renders the same day-scoped, barber-filtered set the
+            // List view counts (`listAppointments`), so it carries the same
+            // badge — Week alone counts its 7-day range.
+            { value: 'side-by-side', label: t('views.sideBySide'), count: listAppointments.length },
             { value: 'week', label: t('views.week'), count: weekListAppointments.length },
             { value: 'list', label: t('views.list'), count: listAppointments.length },
           ]}
@@ -1146,6 +1171,25 @@ export function AppointmentsCalendar({
           <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             {t('filterBarbers')}
           </span>
+          {/* "All" affordance — toggles every chip on/off. Isolating one chair
+              is now 2 clicks (All → that barber) instead of deselecting the
+              rest one by one. Styled identically to the barber chips. */}
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedBarbers(allBarbersSelected ? new Set() : new Set(barbers.map((b) => b.id)))
+            }
+            aria-pressed={allBarbersSelected}
+            className={cn(
+              'inline-flex h-7 items-center gap-1 rounded-full px-3 text-xs font-medium transition-all duration-150 ease-out-quint',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
+              allBarbersSelected
+                ? 'bg-accent text-accent-fg shadow-accent-glow'
+                : 'border border-border bg-bg-surface text-text-secondary shadow-sm hover:bg-bg-surface-2 hover:text-text-primary',
+            )}
+          >
+            {t('filterAll')}
+          </button>
           {barbers.map((b) => {
             const isActive = selectedBarbers.has(b.id);
             return (

@@ -224,6 +224,7 @@
       "nextDay": "Next day",
       "jumpToDate": "Jump to a date",
       "filterBarbers": "Barbers:",
+      "filterAll": "All",
       "noBarbersSelected": "No barber selected.",
       "liveUpdate": "Updated",
       "staleData": "Reconnecting — may be out of date",
