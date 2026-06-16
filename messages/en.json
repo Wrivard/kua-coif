@@ -2003,7 +2003,15 @@
           "tipLine": "Tip:",
           "consent": "I agree that my information may be used to manage this appointment, in accordance with the",
           "consentLink": "privacy policy",
-          "consentSuffix": " (Quebec Bill 25)."
+          "consentSuffix": " (Quebec Bill 25).",
+          "blockers": {
+            "intro": "Before confirming, please:",
+            "firstName": "enter your first name",
+            "phone": "enter a valid phone number",
+            "email": "fix the email address",
+            "turnstile": "complete the security check",
+            "consent": "accept the privacy policy"
+          }
         }
       },
       "summary": {
