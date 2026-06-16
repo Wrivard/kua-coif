@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FieldHint, Input, Label, Textarea } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { combineShopDateTime } from '@/lib/business/timezone';
+import { formatCurrencyCAD } from '@/lib/utils';
 import type { BarberRow, ClientRow, ServiceCategoryRow, ServiceRow } from '@/db/rows';
 import type { z } from 'zod';
 import { createAppointment, searchClients } from './actions';
@@ -67,6 +68,7 @@ export function AppointmentFormModal({
   const t = useTranslations('pages.appointments');
   const tCommon = useTranslations('common');
   const tErr = useTranslations('actionErrors');
+  const lang = useLocale() === 'fr' ? 'fr' : 'en';
   const { show } = useToast();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState('');
@@ -100,6 +102,14 @@ export function AppointmentFormModal({
     return services
       .filter((s) => selectedServiceIds.includes(s.id))
       .reduce((sum, s) => sum + s.duration_min, 0);
+  }, [services, selectedServiceIds]);
+  // Running price total of the selected services (Σ price) — mirrors the
+  // server's total_amount composition so the operator sees the charge before
+  // booking, not just the duration.
+  const totalPrice = useMemo(() => {
+    return services
+      .filter((s) => selectedServiceIds.includes(s.id))
+      .reduce((sum, s) => sum + s.price, 0);
   }, [services, selectedServiceIds]);
 
   // Server-side client search. The pre-loaded `clients` list is capped at 500,
@@ -333,7 +343,10 @@ export function AppointmentFormModal({
 
         <div className="md:col-span-2">
           <Label required>
-            {t('form.services')} {totalMinutes > 0 ? `(${totalMinutes} min)` : ''}
+            {t('form.services')}{' '}
+            {totalMinutes > 0
+              ? `(${totalMinutes} min · ${formatCurrencyCAD(totalPrice, lang)})`
+              : ''}
           </Label>
           <div className="max-h-64 overflow-y-auto rounded-lg bg-bg-surface p-3 shadow-sm">
             {[...servicesByCategory.entries()].map(([categoryId, list]) => {

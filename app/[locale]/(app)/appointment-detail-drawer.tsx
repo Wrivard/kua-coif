@@ -141,6 +141,11 @@ export function AppointmentDetailDrawer({
     (rDate !== shopIsoDate(new Date(appointment.start_at), timezone) ||
       rTime !== formatShopTime(appointment.start_at, timezone, 'HH:mm'));
 
+  // Reschedule can't target a past day — mirror the Block-time modal's native
+  // min guard. Shop-local "today" so a late-night operator isn't blocked (or
+  // wrongly allowed) by a UTC date rollover.
+  const todayIso = shopIsoDate(new Date(), timezone);
+
   // Terminal rows can't be cancelled — the server rejects it (cancelAppointment's
   // `terminal_status_locked` guard). 'completed' is terminal too: it already fired
   // loyalty/QuickBooks/review and feeds /finances, so the Cancel affordance must not
@@ -385,7 +390,7 @@ export function AppointmentDetailDrawer({
           //   - terminal + already refunded/unpaid: no footer
           appointment && !isTerminal ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button variant="ghost" onClick={() => onCancel(false)} disabled={isPending}>
+              <Button variant="ghost" onClick={() => onCancel(false)} loading={isPending}>
                 {t('cancelAppointment')}
               </Button>
               {canRefund ? (
@@ -468,6 +473,7 @@ export function AppointmentDetailDrawer({
                     id="reschedule-date"
                     type="date"
                     value={rDate}
+                    min={todayIso}
                     onChange={(e) => setRDate(e.target.value)}
                     disabled={isPending}
                     className="rounded-lg bg-bg-surface-2 px-2 py-1.5 text-sm text-text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-focus disabled:opacity-50"

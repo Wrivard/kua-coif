@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { CreditCard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { APPOINTMENT_STATUS_VARIANT } from '@/components/ui/appointment-status';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
@@ -91,7 +92,20 @@ export function AppointmentsListView({
     {
       id: 'amount',
       header: t('list.amount'),
-      cell: (a) => formatCurrencyCAD(a.total_amount, lang),
+      // Mirror the day-grid / week-view glyph: a CreditCard marks a collected
+      // (paid) appointment so the List view carries the same "money is in"
+      // signal. aria-hidden glyph + sr-only label for screen readers.
+      cell: (a) => (
+        <span className="inline-flex items-center gap-1.5">
+          {a.payment_status === 'paid' ? (
+            <>
+              <CreditCard aria-hidden className="h-3.5 w-3.5 text-success" />
+              <span className="sr-only">{t('paid')}</span>
+            </>
+          ) : null}
+          {formatCurrencyCAD(a.total_amount, lang)}
+        </span>
+      ),
       align: 'right',
       sortable: true,
       sortValue: (a) => a.total_amount,
