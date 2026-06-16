@@ -1893,7 +1893,7 @@
       "pending": "Pending",
       "refunded": "Refunded",
       "failed": "Failed",
-      "method": "Method",
+      "method": "Booking",
       "online": "Online",
       "inShop": "In-shop",
       "thanks": "Thank you for your visit!",
