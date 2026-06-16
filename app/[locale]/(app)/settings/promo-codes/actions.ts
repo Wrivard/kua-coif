@@ -8,8 +8,7 @@ import { logAuditAction } from '@/lib/audit-log';
 import { deletePromoCodeSchema, promoCodeSchema, updatePromoCodeSchema } from './schema';
 
 const PATH = '/settings/promo-codes';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function db(): any {
+function db(): ReturnType<typeof createSupabaseServerClient> {
   return createSupabaseServerClient();
 }
 

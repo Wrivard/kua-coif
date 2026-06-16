@@ -16,8 +16,7 @@ function revalidateTaxes(shopId: string) {
   revalidateTag(taxesCacheTag(shopId));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function db(): any {
+function db(): ReturnType<typeof createSupabaseServerClient> {
   return createSupabaseServerClient();
 }
 
