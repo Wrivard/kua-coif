@@ -823,6 +823,9 @@
       "todayLink": "Daily close-out →",
       "disputesLink": "Disputes →",
       "truncated": "Range too large — results truncated at 5000 appointments; narrow the date range.",
+      "export": {
+        "button": "Export CSV"
+      },
       "disputes": {
         "title": "Disputes",
         "subtitle": "Chargebacks received against this shop's transactions.",
@@ -894,6 +897,12 @@
           "cashCollected": "Cash collected",
           "cashTips": "Cash tips",
           "expectedTotal": "Expected drawer total",
+          "countedLabel": "Counted cash",
+          "countedPlaceholder": "0.00",
+          "delta": "Difference",
+          "over": "Over",
+          "short": "Short",
+          "balanced": "Balanced",
           "helper": "Count the drawer at close. Difference from the expected total goes in your own ledger."
         },
         "byBarber": {

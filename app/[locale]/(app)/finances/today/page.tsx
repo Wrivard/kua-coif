@@ -18,6 +18,7 @@ import {
   netRevenue,
 } from '@/lib/business/finances';
 import { CloseOutClient } from './close-out-client';
+import { CashCountField } from './cash-count-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,10 @@ export const dynamic = 'force-dynamic';
  *  - Cron-based email digest (needs notification_automations 'daily_closeout'
  *    schedule). The print + PDF flow covers the daily ritual; an automated
  *    digest is a nice-to-have, not a blocker.
- *  - Editable "actual cash counted" field — would need a new table
- *    (`shop_daily_closes`) to persist owner-entered values. Today the
- *    owner subtracts in their head and writes it in their own ledger.
+ *  - PERSISTING the "actual cash counted" value — a client-only
+ *    counted-cash field with a live over/short delta now ships (no schema
+ *    change); durably storing the owner-entered figure for an audit trail
+ *    would need a new table (`shop_daily_closes`) and stays deferred.
  *
  * URL contract: `?date=YYYY-MM-DD` overrides today, otherwise the page
  * resolves "today" in the shop's local timezone. Useful when the owner
@@ -268,9 +270,9 @@ export default async function CloseOutPage(props: {
 
         {/* Cash drawer expected total — Phase 86. The math is: start
             balance + cash from unpaid completed appts + cash tips on
-            those. The owner manually counts the drawer and writes the
-            delta in their own ledger. We don't persist an "actual"
-            value here (no schema change). */}
+            those. The owner counts the drawer; the client-only cash-count
+            field below shows the live over/short delta. We don't persist an
+            "actual" value here (no schema change). */}
         <Card>
           <CardHeader>
             <CardTitle>{t('drawer.title')}</CardTitle>
@@ -286,6 +288,13 @@ export default async function CloseOutPage(props: {
                 emphasis
               />
             </div>
+            {/* Client-only cash reconciliation — the owner types the counted
+                drawer cash and sees the live over/short delta vs the expected
+                total. Display-only: nothing is persisted (no schema change). */}
+            <CashCountField
+              expectedDrawer={expectedDrawer}
+              locale={locale === 'fr' ? 'fr' : 'en'}
+            />
             <p className="text-[11px] text-text-muted">{t('drawer.helper')}</p>
           </CardBody>
         </Card>
@@ -302,40 +311,42 @@ export default async function CloseOutPage(props: {
             {barberRows.length === 0 ? (
               <p className="text-sm text-text-muted">{t('byBarber.empty')}</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('byBarber.columns.barber')}
-                    </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.visits')}
-                    </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.revenue')}
-                    </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.tips')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {barberRows.map((b) => (
-                    <tr key={b.id} className="border-b border-border last:border-b-0">
-                      <td className="py-2 font-medium text-text-primary">{b.display_name}</td>
-                      <td className="py-2 text-right tabular-nums text-text-secondary">
-                        {b.count}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-text-secondary">
-                        {fmtCAD(b.revenue)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-text-secondary">
-                        {fmtCAD(b.tips)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('byBarber.columns.barber')}
+                      </th>
+                      <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byBarber.columns.visits')}
+                      </th>
+                      <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byBarber.columns.revenue')}
+                      </th>
+                      <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byBarber.columns.tips')}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {barberRows.map((b) => (
+                      <tr key={b.id} className="border-b border-border last:border-b-0">
+                        <td className="py-2 font-medium text-text-primary">{b.display_name}</td>
+                        <td className="py-2 text-right tabular-nums text-text-secondary">
+                          {b.count}
+                        </td>
+                        <td className="py-2 text-right tabular-nums text-text-secondary">
+                          {fmtCAD(b.revenue)}
+                        </td>
+                        <td className="py-2 text-right tabular-nums text-text-secondary">
+                          {fmtCAD(b.tips)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardBody>
         </Card>
@@ -383,40 +394,42 @@ export default async function CloseOutPage(props: {
               <Badge variant="warning">{outstandingRows.length}</Badge>
             </CardHeader>
             <CardBody>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('outstanding.columns.client')}
-                    </th>
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('outstanding.columns.barber')}
-                    </th>
-                    <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('outstanding.columns.time')}
-                    </th>
-                    <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('outstanding.columns.status')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {outstandingRows.map((o) => (
-                    <tr key={o.id} className="border-b border-border last:border-b-0">
-                      <td className="py-2 font-medium text-text-primary">{o.clientName}</td>
-                      <td className="py-2 text-text-secondary">{o.barberName}</td>
-                      {/* Loop 37 (P114) — time range column in mono
-                          so the HH:mm – HH:mm values line up. */}
-                      <td className="py-2 font-mono tabular-nums text-text-secondary">
-                        {formatTimeRange(o.start_at, o.end_at, timezone)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        <Badge variant="warning">{t(`outstanding.statuses.${o.status}`)}</Badge>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('outstanding.columns.client')}
+                      </th>
+                      <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('outstanding.columns.barber')}
+                      </th>
+                      <th className="py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('outstanding.columns.time')}
+                      </th>
+                      <th className="py-2 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('outstanding.columns.status')}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {outstandingRows.map((o) => (
+                      <tr key={o.id} className="border-b border-border last:border-b-0">
+                        <td className="py-2 font-medium text-text-primary">{o.clientName}</td>
+                        <td className="py-2 text-text-secondary">{o.barberName}</td>
+                        {/* Loop 37 (P114) — time range column in mono
+                          so the HH:mm – HH:mm values line up. */}
+                        <td className="py-2 font-mono tabular-nums text-text-secondary">
+                          {formatTimeRange(o.start_at, o.end_at, timezone)}
+                        </td>
+                        <td className="py-2 text-right tabular-nums">
+                          <Badge variant="warning">{t(`outstanding.statuses.${o.status}`)}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardBody>
           </Card>
         ) : null}

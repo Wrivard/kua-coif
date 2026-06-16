@@ -15,6 +15,7 @@ import {
 import { excludeRefunded, forfeitedDeposits, netRevenue } from '@/lib/business/finances';
 import { captureException } from '@/lib/observability';
 import { DateRangeFilter } from './date-range-filter';
+import { CsvExportButton } from './csv-export-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -330,7 +331,17 @@ export default async function FinancesPage(props: {
              against `/en/finances` (no trailing slash) and land on
              `/en/today` — the codebase's convention is `/${locale}/…`
              on every internal anchor. */
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Client-side CSV export of the three read-only reporting
+                tables (by-barber, commissions, by-category), built from the
+                data already rendered — no new API route. */}
+            <CsvExportButton
+              rangeStartIso={rangeStartIso}
+              rangeEndIso={rangeEndIso}
+              byBarber={barberRows}
+              commissions={commissionRows}
+              byCategory={categoryRows}
+            />
             <a
               href={`/${locale}/finances/today`}
               className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-150 ease-out-quint hover:bg-bg-surface-2 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -423,44 +434,46 @@ export default async function FinancesPage(props: {
             {barberRows.length === 0 ? (
               <p className="text-sm text-text-muted">{t('byBarber.empty')}</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('byBarber.columns.barber')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.appointments')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byBarber.columns.revenue')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {barberRows.map((b) => (
-                    <tr key={b.id} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-3">
-                        <div className="font-medium text-text-primary">{b.display_name}</div>
-                        <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
-                          <div
-                            className="h-full rounded-full bg-accent"
-                            style={{
-                              width: `${maxBarberRevenue > 0 ? (b.revenue / maxBarberRevenue) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
-                        {b.count}
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
-                        {fmtCAD(b.revenue)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('byBarber.columns.barber')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byBarber.columns.appointments')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byBarber.columns.revenue')}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {barberRows.map((b) => (
+                      <tr key={b.id} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-text-primary">{b.display_name}</div>
+                          <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{
+                                width: `${maxBarberRevenue > 0 ? (b.revenue / maxBarberRevenue) * 100 : 0}%`,
+                              }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                          {b.count}
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
+                          {fmtCAD(b.revenue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardBody>
         </Card>
@@ -480,50 +493,52 @@ export default async function FinancesPage(props: {
             {commissionRows.length === 0 ? (
               <p className="text-sm text-text-muted">{t('commissions.empty')}</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('commissions.columns.barber')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('commissions.columns.revenue')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('commissions.columns.rate')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('commissions.columns.mode')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('commissions.columns.commission')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {commissionRows.map((c) => (
-                    <tr key={c.barberId} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-3 font-medium text-text-primary">{c.barberName}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
-                        {fmtCAD(c.revenue)}
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
-                        {c.effectivePct > 0 ? `${c.effectivePct.toFixed(1)}%` : '–'}
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums">
-                        <Badge variant={c.cumulative ? 'info' : 'default'}>
-                          {c.cumulative
-                            ? t('commissions.modeCumulative')
-                            : t('commissions.modeSingle')}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
-                        {fmtCAD(c.commission)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('commissions.columns.barber')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('commissions.columns.revenue')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('commissions.columns.rate')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('commissions.columns.mode')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('commissions.columns.commission')}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {commissionRows.map((c) => (
+                      <tr key={c.barberId} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-3 font-medium text-text-primary">{c.barberName}</td>
+                        <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                          {fmtCAD(c.revenue)}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                          {c.effectivePct > 0 ? `${c.effectivePct.toFixed(1)}%` : '–'}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          <Badge variant={c.cumulative ? 'info' : 'default'}>
+                            {c.cumulative
+                              ? t('commissions.modeCumulative')
+                              : t('commissions.modeSingle')}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
+                          {fmtCAD(c.commission)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardBody>
         </Card>
@@ -539,44 +554,46 @@ export default async function FinancesPage(props: {
             {categoryRows.length === 0 ? (
               <p className="text-sm text-text-muted">{t('byCategory.empty')}</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      {t('byCategory.columns.category')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byCategory.columns.appointments')}
-                    </th>
-                    <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
-                      {t('byCategory.columns.revenue')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categoryRows.map((c) => (
-                    <tr key={c.id ?? 'none'} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-3">
-                        <div className="font-medium text-text-primary">{c.name}</div>
-                        <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
-                          <div
-                            className="h-full rounded-full bg-accent"
-                            style={{
-                              width: `${maxCategoryRevenue > 0 ? (c.revenue / maxCategoryRevenue) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
-                        {c.apptCount}
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
-                        {fmtCAD(c.revenue)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {t('byCategory.columns.category')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byCategory.columns.appointments')}
+                      </th>
+                      <th className="px-3 py-3 text-right text-[11px] font-semibold uppercase tabular-nums tracking-wide text-text-muted">
+                        {t('byCategory.columns.revenue')}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {categoryRows.map((c) => (
+                      <tr key={c.id ?? 'none'} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-text-primary">{c.name}</div>
+                          <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-bg-surface-2">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{
+                                width: `${maxCategoryRevenue > 0 ? (c.revenue / maxCategoryRevenue) * 100 : 0}%`,
+                              }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums text-text-secondary">
+                          {c.apptCount}
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-text-primary">
+                          {fmtCAD(c.revenue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardBody>
         </Card>
