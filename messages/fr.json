@@ -224,6 +224,7 @@
       "nextDay": "Jour suivant",
       "jumpToDate": "Aller à une date",
       "filterBarbers": "Barbiers :",
+      "filterAll": "Tous",
       "noBarbersSelected": "Aucun barbier sélectionné.",
       "liveUpdate": "Mis à jour",
       "staleData": "Reconnexion — données possiblement périmées",
